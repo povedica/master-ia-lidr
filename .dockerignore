@@ -1,0 +1,8 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+second-brain-master-ia
+master-ia.code-workspace
+.cursor

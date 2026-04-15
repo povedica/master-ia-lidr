@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - master_ia_venv:/app/.venv
+    environment:
+      UV_LINK_MODE: copy
+
+volumes:
+  master_ia_venv:
