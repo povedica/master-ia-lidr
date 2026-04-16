@@ -29,3 +29,6 @@ htmlcov/
 
 # Docker (optional local overrides)
 docker-compose.override.yml
+
+# Cursor (local debug dumps)
+.cursor/debug*.log
