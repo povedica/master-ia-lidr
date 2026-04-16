@@ -84,6 +84,15 @@ uv run fastapi --version
 | `Dockerfile` / `docker-compose.yml` | Imagen y servicio de desarrollo |
 | `docker/entrypoint.sh` | `uv sync --frozen` antes del comando del servicio |
 
+## Automatizaciones Cursor
+
+El proyecto incluye comandos y una skill específicos para el seguimiento del máster en `.cursor/commands/` y `.cursor/skills/master-ia-tutor/`.
+
+- `commit-pending`: commits pequeños, ligados a una sesión y documentados en el Second Brain.
+- `update-docs`: sincroniza repo y `second-brain-master-ia` por sesión o temática.
+- `session-review`: retrospectiva de cierre de cada sesión.
+- `master-tutor`: apoyo pedagógico para entender conceptos del máster y convertirlos en aprendizaje accionable.
+
 ## Licencia
 
 Por definir (uso académico personal).
