@@ -9,6 +9,7 @@ services:
       - master_ia_venv:/app/.venv
     environment:
       UV_LINK_MODE: copy
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
 volumes:
   master_ia_venv:
