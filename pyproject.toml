@@ -5,7 +5,9 @@ description = "Proyecto y entorno del Máster en IA"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "anthropic>=0.45.0",
     "fastapi[standard]>=0.115.0",
+    "openai>=1.60.0",
     "uvicorn[standard]>=0.30",
 ]
 
