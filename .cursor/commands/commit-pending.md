@@ -143,6 +143,16 @@ Comprueba:
 - commits claros y pequeños
 - tabla de la sesión actualizada con todos los hashes generados
 
+### Fase 7. Push al remoto
+
+Publica la rama de trabajo en `origin` (ajusta el nombre de rama si no usas `main`):
+
+```bash
+git push -u origin HEAD
+```
+
+Si el remoto rechaza el push (por ejemplo, la rama remota avanzó), sincroniza con `git pull --rebase origin main` (o la rama que corresponda), resuelve conflictos si los hay, y vuelve a ejecutar `git push`.
+
 ---
 
 ## Plantilla de tabla para la sesión
@@ -164,6 +174,7 @@ Pega o actualiza esto en la nota de sesión si aún no existe:
 - [ ] Cada commit tiene un solo foco razonable.
 - [ ] Se han corrido las validaciones que aplican de verdad.
 - [ ] Cada commit ha quedado documentado en la nota de sesión.
+- [ ] Se ha hecho `git push` al remoto y la rama queda publicada.
 
 ## Relacionado
 
@@ -171,4 +182,4 @@ Pega o actualiza esto en la nota de sesión si aún no existe:
 - [`session-review`](session-review.md)
 - [`master-tutor`](master-tutor.md)
 
-**Última actualización:** 2026-04-15
+**Última actualización:** 2026-04-20
