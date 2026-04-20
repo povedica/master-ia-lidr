@@ -28,6 +28,13 @@ docker compose up
 
 La API queda en `http://localhost:8000`. Documentación interactiva: `http://localhost:8000/docs`.
 
+Para probar la demo de **OpenAI** (`POST /llm/demo`) desde Docker, exporta la clave en el host antes de `docker compose up` (Compose la inyecta en el contenedor):
+
+```bash
+export OPENAI_API_KEY="sk-..."
+docker compose up
+```
+
 Para una shell interactiva dentro del contenedor (útil para pruebas y el checklist de uv):
 
 ```bash
@@ -80,6 +87,8 @@ uv run fastapi --version
 | Ruta | Descripción |
 |------|-------------|
 | `app/main.py` | Aplicación FastAPI mínima |
+| `app/llm_demo.py`, `app/schemas_llm.py` | Demo OpenAI **Responses API** (`POST /llm/demo`) |
+| `notebooks/plantilla_ejercicios.ipynb` | Sesión 1: OpenAI 2a (Responses), 2b (Chat Completions), 3 (Anthropic) |
 | `pyproject.toml` / `uv.lock` | Proyecto uv y dependencias fijadas |
 | `Dockerfile` / `docker-compose.yml` | Imagen y servicio de desarrollo |
 | `docker/entrypoint.sh` | `uv sync --frozen` antes del comando del servicio |
