@@ -88,7 +88,7 @@ uv run fastapi --version
 |------|-------------|
 | `app/main.py` | Aplicación FastAPI mínima |
 | `app/llm_demo.py`, `app/schemas_llm.py` | Demo OpenAI **Responses API** (`POST /llm/demo`) |
-| `notebooks/plantilla_ejercicios.ipynb` | Sesión 1: OpenAI 2a/2b, 3 Anthropic, 4 Gemini (`google-genai`) |
+| `notebooks/plantilla_ejercicios.ipynb` | Sesión 1: OpenAI 2a/2b, 3 Anthropic, 4 Gemini (`google-genai`), 5 tokens (`tiktoken` + `count_tokens`) |
 | `pyproject.toml` / `uv.lock` | Proyecto uv y dependencias fijadas |
 | `Dockerfile` / `docker-compose.yml` | Imagen y servicio de desarrollo |
 | `docker/entrypoint.sh` | `uv sync --frozen` antes del comando del servicio |
