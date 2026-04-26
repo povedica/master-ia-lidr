@@ -23,8 +23,11 @@ cd proyectos/estimador-cag
 uv run uvicorn app.main:app --reload
 ```
 
+- Root: `GET http://127.0.0.1:8000/` (JSON pointers to docs and routes)
 - Health: `GET http://127.0.0.1:8000/health`
 - OpenAPI: `http://127.0.0.1:8000/docs`
+
+Browsers may request `/favicon.ico`; there is no favicon asset, so that request may return 404 and can be ignored.
 
 ## Example request
 

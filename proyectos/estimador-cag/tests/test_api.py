@@ -17,6 +17,17 @@ class _FailingEstimationService:
         raise EstimationError("OpenAI API key is not configured.")
 
 
+def test_root_returns_service_index() -> None:
+    with TestClient(app) as client:
+        response = client.get("/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["service"] == "Estimador CAG"
+    assert body["docs"] == "/docs"
+    assert body["health"] == "/health"
+    assert "estimate" in body
+
+
 def test_health_returns_ok() -> None:
     with TestClient(app) as client:
         response = client.get("/health")

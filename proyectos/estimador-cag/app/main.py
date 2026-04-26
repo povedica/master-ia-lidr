@@ -41,6 +41,18 @@ app = FastAPI(
 app.include_router(estimations.router, prefix="/api/v1")
 
 
+@app.get("/")
+def read_root() -> dict[str, str]:
+    """Human-friendly entry when opening the base URL in a browser."""
+
+    return {
+        "service": "Estimador CAG",
+        "docs": "/docs",
+        "health": "/health",
+        "estimate": "POST /api/v1/estimate",
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness probe for orchestrators and local checks."""
