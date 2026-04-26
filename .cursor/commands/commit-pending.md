@@ -1,48 +1,48 @@
 # commit-pending
 
-## Propósito
+## Purpose
 
-Crear commits pequeños, claros y trazables para `master-ia`, vinculados a la **sesión del máster** y a la **feature activa**, y documentar cada commit en el sitio acordado (prioridad: documento de la feature).
+Create small, clear, traceable commits for `master-ia`, tied to the **master session** and the **active feature**, and record each commit where agreed (priority: the feature document).
 
-## Cuándo usar
+## When to use
 
-- Cuando hay cambios pendientes y quieres cerrarlos con commits ordenados.
-- Después de actualizar notas, arquitectura o documentación con `/update-docs`.
-- Cuando quieres dejar trazabilidad académica de lo que hiciste en una sesión o en una feature concreta.
+- When there are pending changes and you want to close them with ordered commits.
+- After updating notes, architecture, or documentation with `/update-docs`.
+- When you want academic traceability for a session or a specific feature.
 
-## Reglas del proyecto
+## Project rules
 
-- **Documento de feature (prioritario):** el reporte de commits debe añadirse al documento de la feature que esté en curso, cuando exista y esté claro (por convención: `second-brain-master-ia/proyectos/<proyecto>/decisiones/feature-*.md` o ruta explícita que indiques).
-- **Sesión del máster:** sigue siendo obligatoria la vinculación a una sesión (`second-brain-master-ia/sesiones/sesion-NN-*.md` o enlace) para contexto y tabla duplicada o resumen, **si** aplica; si el trabajo es solo de una feature, la tabla principal puede vivir **solo** en el doc de la feature.
-- **Si no está claro dónde anotar:** **no hagas `git commit` sin antes preguntar** al usuario en qué documento(s) quiere el reporte. Siempre ofrece una **sugestión explícita por defecto**, por ejemplo:
-  - *"Sugiero anotar la tabla de commits en `second-brain-master-ia/proyectos/<proyecto>/decisiones/<feature-activa>.md` y, si quieres trazabilidad de clase, un resumen en `sesiones/sesion-NN-*.md`."*
-- **Tamaño:** objetivo de hasta **5 archivos** y **~200 líneas** por commit, salvo que el cambio sea un bloque lógico indivisible (p. ej. scaffold inicial) y se documente en el propio reporte.
-- **Mensajes:** en **inglés**, con prefijo convencional: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
-- **Tabla de commits:** se escribe en **español** (columna de descripción), aunque el mensaje del commit vaya en inglés.
+- **Feature document (priority):** append the commit log to the active feature document when it exists and is clear (by convention: `second-brain-master-ia/proyectos/<project>/decisiones/feature-*.md` or an explicit path you give).
+- **Master session:** keep a link to the session (`second-brain-master-ia/sesiones/sesion-NN-*.md` or equivalent) for context and a duplicate table or summary **when** it applies; if work is feature-only, the main table may live **only** in the feature doc.
+- **If the log destination is unclear:** **do not run `git commit` until you ask** where to record the report. Always give an **explicit default suggestion**, for example:
+  - *"I suggest logging commits in `second-brain-master-ia/proyectos/<project>/decisiones/<active-feature>.md` and, if you want class traceability, a short summary in `sesiones/sesion-NN-*.md`."*
+- **Size:** aim for up to **5 files** and **~200 lines** per commit, unless the change is one indivisible logical block (e.g. initial scaffold) and is explained in the report itself.
+- **Messages:** **English**, conventional prefix: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
+- **Commit log table:** write **English** prose in the description column (and English section headings when you create them), per `.cursor/rules/00-base-standards.mdc`. Commit subjects stay as in Git (English).
 
-## Tabla estándar (pegar en el documento de destino)
+## Standard table (paste into the destination document)
 
 ```markdown
-## Commits del repositorio (master-ia)
+## Repository commits (master-ia)
 
-| Hash (corto) | Mensaje | Qué aporta / alcance funcional |
-|--------------|---------|--------------------------------|
-| `abc1234` | `docs(cursor): example message` | Breve descripción en español. |
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `abc1234` | `docs(cursor): example message` | Brief English description of what changed. |
 ```
 
-**Destino prioritario:** el archivo de la feature en curso (p. ej. `decisiones/feature-configuracion-inicial-cag.md`). **Secundario opcional:** la nota de sesión activa, con enlace a la feature si no quieres duplicar filas.
+**Preferred destination:** the active feature file (e.g. `decisiones/feature-configuracion-inicial-cag.md`). **Optional secondary:** the active session note, with a link to the feature if you want to avoid duplicating rows.
 
 ---
 
-## Flujo obligatorio
+## Mandatory flow
 
-### Fase 0. Identificar documentación del reporte (feature + sesión)
+### Phase 0. Identify where to log (feature + session)
 
-1. **Feature activa:** identifica el documento canónico de la feature (p. ej. bajo `second-brain-master-ia/proyectos/estimador-cag/decisiones/`). Ese es el sitio **por defecto** para la sección `## Commits del repositorio (master-ia)`.
-2. **Sesión:** localiza `second-brain-master-ia/sesiones/sesion-NN-*.md` si aplica a este trabajo.
-3. **Si falta el doc de la feature o hay ambigüedad:** detente, **pregunta** al usuario dónde anotar el reporte e incluye **siempre** una sugerencia concreta (rutas de ejemplo anteriores). No ejecutes `git commit` hasta tener respuesta o confirmación explícita del destino.
+1. **Active feature:** find the canonical feature document (e.g. under `second-brain-master-ia/proyectos/estimador-cag/decisiones/`). That is the default place for `## Repository commits (master-ia)` (or the existing Spanish heading `## Commits del repositorio (master-ia)`—normalize to English when you next edit that section).
+2. **Session:** locate `second-brain-master-ia/sesiones/sesion-NN-*.md` if it applies.
+3. **If the feature doc is missing or ambiguous:** stop, **ask** where to log the report, and always include a **concrete suggestion**. Do not run `git commit` until the destination is confirmed.
 
-### Fase 1. Revisar el estado pendiente
+### Phase 1. Review pending state
 
 ```bash
 git status
@@ -50,134 +50,134 @@ git status --short
 git diff --stat
 ```
 
-Anota:
+Note:
 
-- archivos modificados, nuevos y borrados
-- si hay mezcla de código, docs y configuración
-- si conviene dividir en más de un commit
+- modified, new, and deleted files
+- mix of code, docs, and configuration
+- whether to split into more than one commit
 
-### Fase 2. Detectar archivos que no deben entrar
+### Phase 2. Catch files that must not be committed
 
-Revisa si hay ficheros que deberían ir a `.gitignore` en lugar de a Git:
+Check for items that belong in `.gitignore` instead of Git:
 
-- secretos: `.env`, `.env.local`, credenciales, tokens
-- caches o runtime: `.venv/`, `__pycache__/`, `*.pyc`, logs
-- artefactos locales: `.DS_Store`, `.idea/`, `Thumbs.db`
-- ficheros de usuario si no se quieren versionar
+- secrets: `.env`, `.env.local`, credentials, tokens
+- caches or runtime: `.venv/`, `__pycache__/`, `*.pyc`, logs
+- local artifacts: `.DS_Store`, `.idea/`, `Thumbs.db`
+- user-specific files you should not version
 
-Si detectas alguno:
+If you find any:
 
-1. Informa al usuario antes de seguir.
-2. Propón añadirlo a `.gitignore`.
-3. No lo incluyas en ningún commit hasta resolverlo.
+1. Tell the user before continuing.
+2. Propose adding them to `.gitignore`.
+3. Do not include them in any commit until resolved.
 
-### Fase 3. Agrupar commits
+### Phase 3. Group commits
 
-Agrupa cambios por foco:
+Group by focus:
 
-- `feat`: funcionalidad nueva
-- `fix`: corrección
-- `docs`: README, comandos Cursor, notas técnicas
-- `test`: nuevas pruebas o ampliaciones
+- `feat`: new functionality
+- `fix`: correction
+- `docs`: README, Cursor commands, technical notes
+- `test`: new or expanded tests
 - `chore`: tooling, Docker, config, housekeeping
-- `refactor`: mejora interna sin cambio funcional esperado
+- `refactor`: internal improvement without expected behavior change
 
-Escribe primero el plan de commits: mensaje tentativo + archivos por commit.
+Write the commit plan first: tentative message + files per commit.
 
-### Fase 4. Quality gates
+### Phase 4. Quality gates
 
-No inventes validaciones que el repo no tiene. Usa solo las que apliquen a `master-ia`.
+Do not invent checks the repo does not have. Use only what truly applies to `master-ia`.
 
-#### Si tocaste Python o dependencias
+#### If you touched Python or dependencies
 
 ```bash
 uv sync
 ```
 
-Si existe un comando de tests, ejecútalo también.
+If a test command exists, run it too.
 
-#### Si tocaste Docker
+#### If you touched Docker
 
 ```bash
 docker compose config
 ```
 
-Y si el cambio afecta a build o runtime:
+If the change affects build or runtime:
 
 ```bash
 docker compose build
 ```
 
-#### Si no hay suite automatizada
+#### If there is no automated suite
 
-Decláralo explícitamente y haz una verificación manual mínima si aplica.
+Say so explicitly and do a minimal manual check if it applies.
 
-### Fase 5. Commit
+### Phase 5. Commit
 
-Para cada grupo:
+For each group:
 
-1. `git add` solo de los archivos de ese commit.
-2. Crear el commit con mensaje semántico en inglés.
-3. Obtener el hash corto:
+1. `git add` only the files for that commit.
+2. Create the commit with an English semantic message.
+3. Get the short hash:
 
 ```bash
 git rev-parse --short HEAD
 ```
 
-4. **Añade una fila a la tabla** en el **documento de la feature** acordado en Fase 0 (obligatorio cuando la feature esté identificada).
-5. Si aplica, actualiza la sesión con un resumen o enlace a la feature para no duplicar tablas.
+4. **Append one row** to the table in the **feature document** agreed in Phase 0 (mandatory when the feature is identified).
+5. If it applies, update the session with a summary or link to the feature to avoid duplicating tables.
 
-Ejemplos de mensajes:
+Example messages:
 
 - `feat(api): add study endpoint scaffold`
 - `fix(docker): copy readme before uv sync`
 - `docs(cursor): add estimador-cag rules and commands`
 - `chore(repo): add cursor plans directory`
 
-### Fase 6. Verificación final
+### Phase 6. Final verification
 
 ```bash
 git status
 git log --oneline -n 10
 ```
 
-Comprueba:
+Confirm:
 
-- árbol limpio o con restos intencionados
-- commits claros y pequeños
-- tabla de la feature (y, si aplica, sesión) actualizada con todos los hashes
+- clean tree or intentional leftovers
+- commits are clear and small
+- feature table (and session, if used) lists every new hash
 
-### Fase 7. Push al remoto
+### Phase 7. Push to remote
 
 ```bash
 git push -u origin HEAD
 ```
 
-Si el remoto rechaza el push, sincroniza con `git pull --rebase` y vuelve a `git push`.
+If the remote rejects the push, sync with `git pull --rebase` and push again.
 
 ---
 
-## Regla de oro (reporte de commits)
+## Golden rules (commit report)
 
-| Situación | Acción |
+| Situation | Action |
 |-----------|--------|
-| Feature conocida | Actualiza **siempre** `## Commits del repositorio (master-ia)` en el `.md` de esa feature. |
-| Feature desconocida | **Pregunta** dónde anotar; **sugiere** `decisiones/feature-<nombre>.md` bajo el proyecto en Second Brain, o `sesiones/sesion-NN-*.md` como secundario. |
-| Trabajo mezclado (master-ia + notas fuera del repo) | Commitea solo lo que vive en el repo; el reporte de tabs puede vivir en Second Brain aunque esos archivos no estén en `git` (sigue siendo el destino del reporte). |
+| Known feature | Always update `## Repository commits (master-ia)` (or normalize an existing Spanish-titled section) in that feature `.md`. |
+| Unknown feature | **Ask** where to log; **suggest** `decisiones/feature-<name>.md` under the project in Second Brain, or `sesiones/sesion-NN-*.md` as secondary. |
+| Mixed work (master-ia + notes outside the repo) | Commit only what lives in the repo; the log table may live in Second Brain even when those files are not in `git`. |
 
 ## Checklist
 
-- [ ] Destino del reporte de commits acordado (feature doc por defecto, o pregunta + sugerencia hecha).
-- [ ] No hay secretos ni artefactos locales en staging.
-- [ ] Cada commit tiene un solo foco razonable.
-- [ ] Se han corrido las validaciones que aplican.
-- [ ] Cada commit quedó en la **tabla del documento de la feature** (o en el acordado).
-- [ ] `git push` a `origin` realizado o error explicado.
+- [ ] Commit log destination agreed (feature doc by default, or ask + suggest).
+- [ ] No secrets or local artifacts in staging.
+- [ ] Each commit has a single reasonable focus.
+- [ ] Applicable validations were run.
+- [ ] Every commit appears in the **feature document table** (or agreed location).
+- [ ] `git push` to `origin` completed or error explained.
 
-## Relacionado
+## Related
 
 - [`update-docs`](update-docs.md)
 - [`session-review`](session-review.md)
 - [`master-tutor`](master-tutor.md)
 
-**Última actualización:** 2026-04-26
+**Last updated:** 2026-04-26
