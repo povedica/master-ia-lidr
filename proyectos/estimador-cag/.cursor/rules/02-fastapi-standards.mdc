@@ -1,0 +1,51 @@
+---
+title: FastAPI Standards
+alwaysApply: true
+category: architecture
+globs:
+  - "**/*.py"
+---
+
+# FastAPI Standards
+
+## Purpose
+Define minimal FastAPI conventions for this project.
+
+## Rules
+- Keep `app/main.py` small: app creation, router registration, metadata, and health endpoint.
+- Put API routes in `app/routers/`.
+- Use Pydantic models for request and response schemas.
+- Use dependency injection for settings and services when it improves testability.
+- Do not instantiate provider clients directly inside route handlers.
+- Route handlers should orchestrate, not contain business logic.
+- Use clear HTTP status codes and safe user-facing error messages.
+- Keep API versioning explicit with `/api/v1`.
+
+## Initial Layout
+```text
+app/
+├── main.py
+├── config.py
+├── routers/
+│   └── estimations.py
+├── services/
+│   └── llm_service.py
+└── context/
+    └── examples.py
+```
+
+## Runtime Commands
+- Run locally with `uv run uvicorn app.main:app --reload`.
+- Keep runtime commands documented in `README.md`.
+
+## Checklist
+- [ ] Routes call services, not provider SDKs directly.
+- [ ] Request and response schemas are explicit.
+- [ ] Settings are loaded through `pydantic-settings`.
+- [ ] API errors do not expose secrets or internal stack traces.
+- [ ] Swagger remains available at `/docs`.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

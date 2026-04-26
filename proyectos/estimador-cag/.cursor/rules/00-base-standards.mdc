@@ -1,0 +1,47 @@
+---
+title: Base Standards
+alwaysApply: true
+category: workflow
+---
+
+# Base Standards
+
+## Purpose
+Define the minimum engineering standards for this Python AI Engineering project.
+
+## Core Principles
+- Prefer simple, working, tested code over broad abstractions.
+- Work in baby steps: one small change, verify, then continue.
+- Read existing code and docs before editing.
+- Keep reusable logic out of notebooks and one-off scripts.
+- Use English for code, comments, commit messages, technical rules, and internal specs.
+- Use Spanish for learning notes in the Second Brain when appropriate.
+- Do not add tools, folders, or layers before they are needed.
+
+## Project Defaults
+- Python 3.11+
+- Package and environment manager: `uv`
+- Web framework: FastAPI
+- Settings: `pydantic-settings`
+- LLM provider: OpenAI by default
+- Default low-cost model: `gpt-4o-mini`, configurable through `OPENAI_MODEL`
+
+## Definition of Done
+- The code runs through documented `uv` commands.
+- Relevant tests or manual checks pass.
+- No secrets are committed.
+- External provider calls are isolated behind a service/client layer.
+- Documentation is updated when setup, behavior, or architecture changes.
+
+## Checklist
+- [ ] Scope is clear.
+- [ ] Existing patterns were reviewed.
+- [ ] Environment variables are documented in `.env.example`.
+- [ ] No API key or secret is hardcoded.
+- [ ] Tests target project logic, not real provider APIs.
+- [ ] Second Brain documentation is updated when the session or learning changes.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

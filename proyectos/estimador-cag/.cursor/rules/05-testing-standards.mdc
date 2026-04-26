@@ -1,0 +1,54 @@
+---
+title: Testing Standards
+alwaysApply: true
+category: testing
+globs:
+  - "tests/**/*.py"
+  - "**/*.py"
+---
+
+# Testing Standards
+
+## Purpose
+Define focused testing rules for a learning-oriented Python AI Engineering project.
+
+## Rules
+- Test project logic, not real external APIs.
+- Mock OpenAI and Anthropic clients in tests.
+- Add tests for prompt construction, context injection, parsing, validation, and business decisions.
+- Use Arrange-Act-Assert.
+- Prefer small unit tests first.
+- Add integration tests only when multiple internal layers interact.
+- Do not require real API keys for the default test suite.
+- Keep tests deterministic and fast.
+- When fixing a bug, reproduce it with a failing test when practical.
+
+## Recommended Tooling
+- Use `pytest` when tests are added.
+- Run tests with `uv run pytest`.
+- Add test dependencies through `uv add --dev pytest` when needed.
+
+## What to Test
+- Pure functions.
+- Settings parsing.
+- Services that transform input into model requests.
+- Static context formatting.
+- Output validation.
+- Error handling paths.
+
+## What Not to Test by Default
+- Real OpenAI network calls.
+- Provider SDK internals.
+- FastAPI internals.
+
+## Checklist
+- [ ] Tests pass without real API keys.
+- [ ] External clients are mocked.
+- [ ] Edge cases are covered.
+- [ ] Tests have clear names.
+- [ ] Important verification is documented in the relevant task/session note.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

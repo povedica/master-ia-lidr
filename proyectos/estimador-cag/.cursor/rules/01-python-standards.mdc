@@ -1,0 +1,53 @@
+---
+title: Python Standards
+alwaysApply: true
+category: architecture
+globs:
+  - "**/*.py"
+---
+
+# Python Standards
+
+## Purpose
+Define Python 3.11+ coding standards for maintainable, testable AI Engineering code.
+
+## Rules
+- Use Python 3.11+ features when they improve clarity.
+- Prefer small, typed, testable functions.
+- Use explicit function return types.
+- Avoid hidden global state.
+- Keep modules focused on one responsibility.
+- Prefer standard library solutions before adding dependencies.
+- Use `pathlib.Path` for filesystem paths.
+- Use Pydantic models for API and configuration data.
+- Use dataclasses only for simple internal value objects.
+- Avoid broad `except Exception` unless adding context and re-raising or converting to a domain error.
+
+## Structure Guidance
+- Put reusable application code under `app/` for this exercise.
+- Put HTTP endpoints under `app/routers/`.
+- Put business and provider logic under `app/services/`.
+- Put static prompt/context examples under `app/context/`.
+- Put experiments under `notebooks/` or `experiments/` only when needed.
+- Do not leave business logic only in notebooks.
+
+## Example
+```python
+from pathlib import Path
+
+
+def load_prompt(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+```
+
+## Checklist
+- [ ] Functions have clear names and return types.
+- [ ] Business logic is reusable outside notebooks.
+- [ ] Dependencies are justified.
+- [ ] No hardcoded local paths.
+- [ ] Modules have one clear reason to change.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

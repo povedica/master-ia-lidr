@@ -1,0 +1,48 @@
+---
+title: AI Engineering Standards
+alwaysApply: true
+category: architecture
+globs:
+  - "**/*.py"
+---
+
+# AI Engineering Standards
+
+## Purpose
+Define safe, maintainable patterns for LLM integration and Context-Augmented Generation.
+
+## Rules
+- Centralize model provider access in `app/services/` or a dedicated client module if the project grows.
+- Do not call OpenAI or Anthropic directly from route handlers.
+- Keep provider, model, timeout, and API keys configurable through settings.
+- Default to low-cost models for exercises unless stronger reasoning is explicitly required.
+- Store reusable prompt context in clear modules such as `app/context/examples.py`.
+- Treat LLM responses as untrusted external input.
+- Validate or normalize model outputs before returning them from the API when structure matters.
+- Add deterministic tests around prompt construction, context injection, parsing, and fallback logic.
+- Mock provider clients in tests.
+
+## Provider Defaults
+- Use `OPENAI_API_KEY` from the environment.
+- Use `OPENAI_MODEL`, initially `gpt-4o-mini`.
+- If Anthropic is added, use `ANTHROPIC_API_KEY` and a low-cost Haiku model.
+- Use `LLM_PROVIDER` only when more than one provider is implemented.
+
+## CAG Guidance
+- Inject static examples deliberately, not as hidden global magic.
+- Keep examples representative of the task.
+- Make the system prompt explain how examples should influence the answer.
+- Keep context small enough to understand and maintain manually.
+
+## Checklist
+- [ ] Provider access is centralized.
+- [ ] Model calls have timeout and error handling.
+- [ ] Static context is explicit and reviewable.
+- [ ] LLM output is validated or safely returned as text.
+- [ ] Tests mock external provider calls.
+- [ ] Prompt-critical logic does not live only in a notebook.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

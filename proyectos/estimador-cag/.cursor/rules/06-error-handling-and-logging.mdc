@@ -1,0 +1,55 @@
+---
+title: Error Handling and Logging
+alwaysApply: true
+category: workflow
+globs:
+  - "**/*.py"
+---
+
+# Error Handling and Logging
+
+## Purpose
+Handle API errors, invalid model responses, and runtime failures safely.
+
+## Rules
+- Use structured logging with stable keys.
+- Never log API keys, tokens, full prompts containing secrets, or sensitive user data.
+- Handle provider errors at the provider boundary.
+- Distinguish timeouts, rate limits, authentication/configuration errors, invalid responses, and unexpected failures.
+- Return safe API errors from FastAPI routes.
+- Include enough context to debug without leaking secrets.
+- Do not swallow exceptions silently.
+- Prefer domain-specific exceptions when they clarify boundaries.
+
+## Provider Error Cases
+Handle at least:
+- timeout
+- rate limit
+- authentication or configuration error
+- invalid or empty model response
+- malformed JSON or schema mismatch
+- provider unavailable
+
+## Logging Example
+```python
+logger.warning(
+    "llm_request_failed",
+    extra={
+        "provider": "openai",
+        "model": settings.openai_model,
+        "error_type": type(error).__name__,
+    },
+)
+```
+
+## Checklist
+- [ ] Exceptions are not ignored.
+- [ ] Logs contain context but no secrets.
+- [ ] API responses are safe for users.
+- [ ] Provider failures are tested with mocks.
+- [ ] Log level is configured through environment variables.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

@@ -1,0 +1,40 @@
+---
+title: Refactoring Standards
+alwaysApply: false
+category: refactoring
+globs:
+  - "**/*.py"
+---
+
+# Refactoring Standards
+
+## Purpose
+Refactor safely without changing behavior unexpectedly.
+
+## Rules
+- Establish a baseline before refactoring.
+- Prefer small refactors with tests passing between steps.
+- Do not mix refactoring with new behavior unless explicitly planned.
+- Keep public interfaces stable unless the task is to change them.
+- Replace duplicated logic only when duplication is real and meaningful.
+- Avoid abstractions that hide simple code.
+- Do not move experimental notebook code into reusable modules until there is a real reuse case.
+
+## Refactoring Flow
+1. Identify current behavior.
+2. Run related tests or define a manual baseline.
+3. Make one structural change.
+4. Run related tests or repeat the manual check.
+5. Repeat only after the system is green again.
+
+## Checklist
+- [ ] Baseline behavior is known.
+- [ ] Refactor does not add new features.
+- [ ] Tests or manual checks verify unchanged behavior.
+- [ ] Naming and module boundaries are clearer after the change.
+- [ ] Documentation is updated if architecture changed.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active

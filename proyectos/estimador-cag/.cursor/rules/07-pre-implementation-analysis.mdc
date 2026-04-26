@@ -1,0 +1,40 @@
+---
+title: Pre-Implementation Analysis
+alwaysApply: true
+category: workflow
+---
+
+# Pre-Implementation Analysis
+
+## Purpose
+Ensure implementation starts with enough context and a small plan.
+
+## Rules
+- Read existing code before editing.
+- Identify whether the change is a feature, bug, refactor, docs update, or experiment.
+- Define the smallest useful increment.
+- Look for similar patterns in the project.
+- Decide where code belongs before creating files.
+- For experiments, decide what stays experimental and what becomes reusable.
+- Do not implement broad architecture for hypothetical future needs.
+- Do not continue if requirements imply committing secrets or real `.env` values.
+
+## Baby Steps
+- One small behavior at a time.
+- Verify after each meaningful change.
+- Keep commits focused when committing.
+- Stop and re-plan if scope grows.
+- Prefer a short written plan for anything touching multiple files.
+
+## Analysis Checklist
+- [ ] Similar code was reviewed.
+- [ ] Target files and folders are clear.
+- [ ] Test strategy is clear.
+- [ ] Secret/config impact is clear.
+- [ ] Documentation impact is clear.
+- [ ] The next step is small enough to verify.
+
+---
+
+**Last updated:** 2026-04-26
+**Status:** Active
