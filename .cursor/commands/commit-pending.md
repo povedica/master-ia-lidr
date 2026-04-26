@@ -2,38 +2,45 @@
 
 ## Propósito
 
-Crear commits pequeños, claros y trazables para `master-ia`, siempre vinculados a una sesión del máster y documentados en `second-brain-master-ia`.
+Crear commits pequeños, claros y trazables para `master-ia`, vinculados a la **sesión del máster** y a la **feature activa**, y documentar cada commit en el sitio acordado (prioridad: documento de la feature).
 
 ## Cuándo usar
 
 - Cuando hay cambios pendientes y quieres cerrarlos con commits ordenados.
 - Después de actualizar notas, arquitectura o documentación con `/update-docs`.
-- Cuando quieres dejar trazabilidad académica de lo que se hizo en una sesión concreta.
+- Cuando quieres dejar trazabilidad académica de lo que hiciste en una sesión o en una feature concreta.
 
 ## Reglas del proyecto
 
-- **Sesión obligatoria:** no se hace ningún commit sin saber a qué sesión pertenece (`sesion-01-llms-setup`, `[[sesiones/...]]` o equivalente).
-- **Tamaño:** objetivo de hasta **5 archivos** y **~200 líneas** por commit, salvo que el cambio pida otra cosa.
+- **Documento de feature (prioritario):** el reporte de commits debe añadirse al documento de la feature que esté en curso, cuando exista y esté claro (por convención: `second-brain-master-ia/proyectos/<proyecto>/decisiones/feature-*.md` o ruta explícita que indiques).
+- **Sesión del máster:** sigue siendo obligatoria la vinculación a una sesión (`second-brain-master-ia/sesiones/sesion-NN-*.md` o enlace) para contexto y tabla duplicada o resumen, **si** aplica; si el trabajo es solo de una feature, la tabla principal puede vivir **solo** en el doc de la feature.
+- **Si no está claro dónde anotar:** **no hagas `git commit` sin antes preguntar** al usuario en qué documento(s) quiere el reporte. Siempre ofrece una **sugestión explícita por defecto**, por ejemplo:
+  - *"Sugiero anotar la tabla de commits en `second-brain-master-ia/proyectos/<proyecto>/decisiones/<feature-activa>.md` y, si quieres trazabilidad de clase, un resumen en `sesiones/sesion-NN-*.md`."*
+- **Tamaño:** objetivo de hasta **5 archivos** y **~200 líneas** por commit, salvo que el cambio sea un bloque lógico indivisible (p. ej. scaffold inicial) y se documente en el propio reporte.
 - **Mensajes:** en **inglés**, con prefijo convencional: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
-- **Documentación del commit:** cada commit debe quedar registrado en la nota de sesión con una tabla:
+- **Tabla de commits:** se escribe en **español** (columna de descripción), aunque el mensaje del commit vaya en inglés.
+
+## Tabla estándar (pegar en el documento de destino)
+
+```markdown
+## Commits del repositorio (master-ia)
 
 | Hash (corto) | Mensaje | Qué aporta / alcance funcional |
 |--------------|---------|--------------------------------|
+| `abc1234` | `docs(cursor): example message` | Breve descripción en español. |
+```
 
-La **tabla se escribe en español**, aunque el commit vaya en inglés.
+**Destino prioritario:** el archivo de la feature en curso (p. ej. `decisiones/feature-configuracion-inicial-cag.md`). **Secundario opcional:** la nota de sesión activa, con enlace a la feature si no quieres duplicar filas.
 
 ---
 
 ## Flujo obligatorio
 
-### Fase 0. Identificar la sesión
+### Fase 0. Identificar documentación del reporte (feature + sesión)
 
-Antes de hacer nada, identifica la sesión de trabajo:
-
-- `second-brain-master-ia/sesiones/sesion-NN-*.md`
-- o un enlace tipo `[[sesiones/sesion-01-llms-setup]]`
-
-Si no está clara, **para y pregunta**.
+1. **Feature activa:** identifica el documento canónico de la feature (p. ej. bajo `second-brain-master-ia/proyectos/estimador-cag/decisiones/`). Ese es el sitio **por defecto** para la sección `## Commits del repositorio (master-ia)`.
+2. **Sesión:** localiza `second-brain-master-ia/sesiones/sesion-NN-*.md` si aplica a este trabajo.
+3. **Si falta el doc de la feature o hay ambigüedad:** detente, **pregunta** al usuario dónde anotar el reporte e incluye **siempre** una sugerencia concreta (rutas de ejemplo anteriores). No ejecutes `git commit` hasta tener respuesta o confirmación explícita del destino.
 
 ### Fase 1. Revisar el estado pendiente
 
@@ -87,7 +94,7 @@ No inventes validaciones que el repo no tiene. Usa solo las que apliquen a `mast
 uv sync
 ```
 
-Si existe un comando de tests en el futuro, ejecútalo también.
+Si existe un comando de tests, ejecútalo también.
 
 #### Si tocaste Docker
 
@@ -103,11 +110,7 @@ docker compose build
 
 #### Si no hay suite automatizada
 
-Decláralo explícitamente en tu razonamiento y haz una verificación manual mínima si aplica:
-
-- revisar `app/`
-- comprobar arranque de FastAPI
-- validar que el README o la documentación no contradicen el comportamiento real
+Decláralo explícitamente y haz una verificación manual mínima si aplica.
 
 ### Fase 5. Commit
 
@@ -121,13 +124,14 @@ Para cada grupo:
 git rev-parse --short HEAD
 ```
 
-4. Actualizar la sesión correspondiente en `second-brain-master-ia/sesiones/` con una fila en `## Commits del repositorio (master-ia)` o una sección equivalente.
+4. **Añade una fila a la tabla** en el **documento de la feature** acordado en Fase 0 (obligatorio cuando la feature esté identificada).
+5. Si aplica, actualiza la sesión con un resumen o enlace a la feature para no duplicar tablas.
 
 Ejemplos de mensajes:
 
 - `feat(api): add study endpoint scaffold`
 - `fix(docker): copy readme before uv sync`
-- `docs(cursor): align cursor commands with master ia workflow`
+- `docs(cursor): add estimador-cag rules and commands`
 - `chore(repo): add cursor plans directory`
 
 ### Fase 6. Verificación final
@@ -141,40 +145,34 @@ Comprueba:
 
 - árbol limpio o con restos intencionados
 - commits claros y pequeños
-- tabla de la sesión actualizada con todos los hashes generados
+- tabla de la feature (y, si aplica, sesión) actualizada con todos los hashes
 
 ### Fase 7. Push al remoto
-
-Publica la rama de trabajo en `origin` (ajusta el nombre de rama si no usas `main`):
 
 ```bash
 git push -u origin HEAD
 ```
 
-Si el remoto rechaza el push (por ejemplo, la rama remota avanzó), sincroniza con `git pull --rebase origin main` (o la rama que corresponda), resuelve conflictos si los hay, y vuelve a ejecutar `git push`.
+Si el remoto rechaza el push, sincroniza con `git pull --rebase` y vuelve a `git push`.
 
 ---
 
-## Plantilla de tabla para la sesión
+## Regla de oro (reporte de commits)
 
-Pega o actualiza esto en la nota de sesión si aún no existe:
-
-```markdown
-## Commits del repositorio (master-ia)
-
-| Hash (corto) | Mensaje | Qué aporta / alcance funcional |
-|--------------|---------|--------------------------------|
-| `abc1234` | `docs(cursor): align cursor commands with master ia workflow` | Unifica comandos en `.cursor/commands/` y enlaces internos. |
-```
+| Situación | Acción |
+|-----------|--------|
+| Feature conocida | Actualiza **siempre** `## Commits del repositorio (master-ia)` en el `.md` de esa feature. |
+| Feature desconocida | **Pregunta** dónde anotar; **sugiere** `decisiones/feature-<nombre>.md` bajo el proyecto en Second Brain, o `sesiones/sesion-NN-*.md` como secundario. |
+| Trabajo mezclado (master-ia + notas fuera del repo) | Commitea solo lo que vive en el repo; el reporte de tabs puede vivir en Second Brain aunque esos archivos no estén en `git` (sigue siendo el destino del reporte). |
 
 ## Checklist
 
-- [ ] La sesión está identificada.
+- [ ] Destino del reporte de commits acordado (feature doc por defecto, o pregunta + sugerencia hecha).
 - [ ] No hay secretos ni artefactos locales en staging.
 - [ ] Cada commit tiene un solo foco razonable.
-- [ ] Se han corrido las validaciones que aplican de verdad.
-- [ ] Cada commit ha quedado documentado en la nota de sesión.
-- [ ] Se ha hecho `git push` al remoto y la rama queda publicada.
+- [ ] Se han corrido las validaciones que aplican.
+- [ ] Cada commit quedó en la **tabla del documento de la feature** (o en el acordado).
+- [ ] `git push` a `origin` realizado o error explicado.
 
 ## Relacionado
 
@@ -182,4 +180,4 @@ Pega o actualiza esto en la nota de sesión si aún no existe:
 - [`session-review`](session-review.md)
 - [`master-tutor`](master-tutor.md)
 
-**Última actualización:** 2026-04-20
+**Última actualización:** 2026-04-26
