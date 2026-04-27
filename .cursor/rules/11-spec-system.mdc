@@ -14,6 +14,7 @@ Provide a small, growable Spec-Driven Development baseline for `master-ia`: expl
 - Each work item is described in one canonical Markdown file.
 - Default location for project work:
   - `second-brain-master-ia/proyectos/<project>/work-items/`
+- For **estimador-cag**, a versioned mirror of `second-brain-master-ia/proyectos/estimador-cag/` lives at `proyectos/estimador-cag/docs/`; refresh it with `bash scripts/sync-estimador-cag-docs.sh` from the repo root after vault edits.
 - Session-bound work may live alongside the active session note instead.
 
 ## Document Types (file prefix)

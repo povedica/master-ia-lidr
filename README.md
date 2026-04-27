@@ -92,6 +92,8 @@ uv run fastapi --version
 | `pyproject.toml` / `uv.lock` | Proyecto uv y dependencias fijadas |
 | `Dockerfile` / `docker-compose.yml` | Imagen y servicio de desarrollo |
 | `docker/entrypoint.sh` | `uv sync --frozen` antes del comando del servicio |
+| `scripts/sync-estimador-cag-docs.sh` | Réplica en git de las notas del estimador-cag del Second Brain → `proyectos/estimador-cag/docs/` |
+| `proyectos/estimador-cag/docs/` | Copia versionada de `second-brain-master-ia/proyectos/estimador-cag/` (ejecutar el script tras editar el vault) |
 
 ## Automatizaciones Cursor
 

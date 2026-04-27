@@ -11,6 +11,7 @@ Use after setup changes, architecture decisions, FastAPI changes, LLM integratio
 - Work items: `second-brain-master-ia/proyectos/estimador-cag/work-items/`
 - Reusable learnings: `second-brain-master-ia/proyectos/estimador-cag/aprendizajes/`
 - Retrospectives: `second-brain-master-ia/proyectos/estimador-cag/retrospectivas/`
+- **Versioned replica (git):** `proyectos/estimador-cag/docs/` — mirror of the paths above; after you add or change notes under `second-brain-master-ia/proyectos/estimador-cag/`, run `bash scripts/sync-estimador-cag-docs.sh` from the repo root before committing.
 - Runtime/setup docs: project `README.md`
 
 ## Rules

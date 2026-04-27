@@ -2,6 +2,18 @@
 
 FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: static few-shot examples live in `app/context/examples.py` and are injected into the system prompt; the live meeting text is sent as the user message.
 
+## Documentation mirror
+
+Project notes (sessions, work items, learnings, retrospectives) are authored in **Obsidian** under `second-brain-master-ia/proyectos/estimador-cag/` (see repo root `README.md` for the symlink). A **read-only replica** of that folder is kept in git at `docs/` so clones have the latest exported documentation without the vault.
+
+From the **repository root**:
+
+```bash
+bash scripts/sync-estimador-cag-docs.sh
+```
+
+Requirements: valid `second-brain-master-ia` symlink and `rsync` on your machine. The script uses `rsync --delete`: files removed in the vault are removed from `docs/`. Never put real API keys or secrets in vault notes that will be mirrored here.
+
 ## Requirements
 
 - Python 3.11

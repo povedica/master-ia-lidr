@@ -60,6 +60,7 @@ Actualiza solo lo que corresponda:
 | Aprendizaje transversal | `second-brain-master-ia/aprendizajes/` | conceptos, glosario, herramientas, patrones reutilizables |
 | Arquitectura / ADR cortos | Sección en la sesión activa; si es transversal, `second-brain-master-ia/aprendizajes/` o nota dedicada bajo `aprendizajes/` | decisiones con contexto, alternativas descartadas y consecuencias |
 | Documentación técnica del repo | `README.md` | setup, uso del proyecto, comandos, estructura del repo |
+| Notas del proyecto **estimador-cag** en Second Brain | `second-brain-master-ia/proyectos/estimador-cag/` (canónico) y réplica en git `proyectos/estimador-cag/docs/` | tras editar el vault, ejecutar `bash scripts/sync-estimador-cag-docs.sh` desde la raíz del repo para actualizar la copia versionada |
 | Planes del trabajo | `.cursor/plans/` | planes de ejecución que convenga conservar dentro del repo |
 | Comandos, skills y subagentes de Cursor | `.cursor/commands/`, `.cursor/skills/`, `.cursor/agents/` | automatizaciones y flujos internos del proyecto |
 
@@ -103,6 +104,7 @@ Tras editar:
 - revisa que no se haya documentado en dos sitios lo mismo sin necesidad
 - confirma que las rutas citadas existen
 - si tocaste README o comandos, verifica que no contradicen el comportamiento real del repo
+- si tocaste `second-brain-master-ia/proyectos/estimador-cag/`, ejecuta `bash scripts/sync-estimador-cag-docs.sh` y revisa el diff bajo `proyectos/estimador-cag/docs/`
 
 ---
 
@@ -127,6 +129,10 @@ Tras editar:
 
 - [ ] nota de sesión con el ejemplo o contexto.
 - [ ] archivo en `second-brain-master-ia/aprendizajes/` si merece consolidación.
+
+**Cambios en notas del estimador-cag (`second-brain-master-ia/proyectos/estimador-cag/`)**
+
+- [ ] `bash scripts/sync-estimador-cag-docs.sh` desde la raíz del repo y revisar el diff en `proyectos/estimador-cag/docs/`.
 
 ---
 
