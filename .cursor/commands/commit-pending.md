@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Create small, clear, traceable commits for `master-ia`, tied to the **master session** and the **active feature**, and record each commit where agreed (priority: the feature document).
+Create small, clear, traceable commits for `master-ia`, tied to the **master session** and the **active feature**, and record each commit where agreed (priority: the feature document). When an agent runs this command end-to-end, **always finish with `git push`** to `origin` (see Phase 7); if push is impossible, state why and what is left for the user.
 
 ## When to use
 
@@ -147,13 +147,15 @@ Confirm:
 - commits are clear and small
 - feature table (and session, if used) lists every new hash
 
-### Phase 7. Push to remote
+### Phase 7. Push to remote (mandatory)
+
+**Agents executing this command must always run a push at the end** once commits are created and the working tree is in the intended state. Do not stop after Phase 6 without attempting push unless there is no `origin`, no network, or the user has explicitly asked not to push.
 
 ```bash
 git push -u origin HEAD
 ```
 
-If the remote rejects the push, sync with `git pull --rebase` and push again.
+If the remote rejects the push, sync with `git pull --rebase` and push again. If push still fails, document the error and leave the branch ready for a manual push.
 
 ---
 
@@ -172,7 +174,7 @@ If the remote rejects the push, sync with `git pull --rebase` and push again.
 - [ ] Each commit has a single reasonable focus.
 - [ ] Applicable validations were run.
 - [ ] Every commit appears in the **feature document table** (or agreed location).
-- [ ] `git push` to `origin` completed or error explained.
+- [ ] **`git push` to `origin` attempted and completed**, or failure explained with next step (mandatory for agent runs of this command).
 
 ## Related
 
@@ -180,4 +182,4 @@ If the remote rejects the push, sync with `git pull --rebase` and push again.
 - [`session-review`](session-review.md)
 - [`master-tutor`](master-tutor.md)
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-04-27
