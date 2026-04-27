@@ -1,0 +1,26 @@
+---
+title: Requirement Validation Workflow
+alwaysApply: true
+category: workflow
+---
+
+# Requirement Validation Workflow
+
+## Purpose
+Keep work in `master-ia` grounded in a clear requirement without adding unnecessary ceremony.
+
+## Rules
+- Before multi-file or non-trivial work, confirm there is one canonical requirement/design source.
+- If the task is underspecified, prefer `requirement-write` or `requirement-validate` before coding.
+- Use analysis to surface risks and defaults; do not block small tasks with bureaucracy.
+- For tiny changes, a short in-chat requirement summary is enough.
+- For larger changes, break the work into baby steps with verification and documentation impact.
+
+## Escalation
+- **Light mode**: small fixes, docs, small API tweaks.
+- **Strict mode**: architecture changes, cross-module work, frontend/API contracts, or long-running tasks.
+
+---
+
+**Last updated:** 2026-04-27
+**Status:** Active

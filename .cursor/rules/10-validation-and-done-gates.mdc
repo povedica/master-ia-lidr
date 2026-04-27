@@ -1,0 +1,29 @@
+---
+title: Validation And Done Gates
+alwaysApply: true
+category: workflow
+---
+
+# Validation And Done Gates
+
+## Purpose
+Make "done" mean verified, documented, and safe to commit.
+
+## Rules
+- Before closing a task, run the smallest meaningful validation for the scope.
+- State explicitly what was verified, what was not verified, and what risk remains.
+- If settings changed, update `.env.example` and docs before calling the task done.
+- If behavior or architecture changed, update repo docs and the relevant Second Brain note.
+- If no automated suite exists, define a concrete manual check instead of pretending coverage exists.
+- For frontend/API integration, prefer explicit contract checks; for API-only tasks, keep them optional.
+
+## Pre-Commit Gate
+- No real secrets in staged files.
+- Tests or manual checks completed.
+- Docs synchronized.
+- Follow-ups explicit.
+
+---
+
+**Last updated:** 2026-04-27
+**Status:** Active

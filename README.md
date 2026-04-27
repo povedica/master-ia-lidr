@@ -95,12 +95,48 @@ uv run fastapi --version
 
 ## Automatizaciones Cursor
 
-El proyecto incluye comandos y una skill específicos para el seguimiento del máster en `.cursor/commands/` y `.cursor/skills/master-ia-tutor/`.
+El proyecto incluye una capa de trabajo para Cursor en:
 
+- `.cursor/commands/`
+- `.cursor/rules/`
+- `.cursor/skills/`
+- `.cursor/agents/`
+
+### Pipeline recomendado
+
+1. `start-task`
+2. `requirement-write` o `write-feature` cuando falte especificación
+3. `requirement-validate`
+4. `requirement-design`
+5. `requirement-tasks`
+6. implementación
+7. `check-quality` / `check-architecture` / `testing` / `check-dod`
+8. `update-docs`
+9. `commit-pending`
+10. `finish-task`
+
+### Comandos principales
+
+- `start-task`: arranca trabajo desde un documento canónico del Second Brain.
+- `requirement-write`: crea o refina una especificación ejecutable.
+- `requirement-validate`: revisa si una tarea está lista para implementarse sin bloquear por burocracia.
+- `requirement-design`: transforma el requirement en diseño técnico pequeño y verificable.
+- `requirement-tasks`: divide el diseño en baby steps con verificación y commits sugeridos.
+- `check-quality`: revisión de calidad y mantenibilidad.
+- `check-architecture`: revisión ligera de límites y responsabilidades.
+- `testing`: validación automática o manual proporcional al cambio.
+- `check-dod`: cierre contra definition of done real.
 - `commit-pending`: commits pequeños, ligados a una sesión y documentados en el Second Brain.
 - `update-docs`: sincroniza repo y `second-brain-master-ia` por sesión o temática.
+- `finish-task`: cierre operativo de la tarea.
 - `session-review`: retrospectiva de cierre de cada sesión.
-- `master-tutor`: apoyo pedagógico para entender conceptos del máster y convertirlos en aprendizaje accionable.
+
+### Skills y subagentes
+
+- `master-ia-tutor`: apoyo pedagógico para entender conceptos del máster.
+- `requirement-validator-light`: skill reutilizable para validar requirements y riesgos.
+- `validation-pass-fastapi`: skill para pases finales de validación en proyectos Python/FastAPI.
+- `.cursor/agents/`: subagentes técnicos ligeros para requirements, diseño, calidad, testing y definition of done.
 
 ## Licencia
 

@@ -39,7 +39,7 @@ Antes de editar, revisa:
 
 - diffs y commits recientes del repo
 - cambios en `README.md`, `Dockerfile`, `docker-compose.yml`, `pyproject.toml`, `app/`
-- cambios en `.cursor/commands/`, `.cursor/skills/`, `.cursor/plans/`
+- cambios en `.cursor/commands/`, `.cursor/skills/`, `.cursor/agents/`, `.cursor/plans/`
 - cualquier nota de sesión ya modificada durante la conversación
 
 Lista mental o explícitamente:
@@ -61,7 +61,7 @@ Actualiza solo lo que corresponda:
 | Arquitectura / ADR cortos | Sección en la sesión activa; si es transversal, `second-brain-master-ia/aprendizajes/` o nota dedicada bajo `aprendizajes/` | decisiones con contexto, alternativas descartadas y consecuencias |
 | Documentación técnica del repo | `README.md` | setup, uso del proyecto, comandos, estructura del repo |
 | Planes del trabajo | `.cursor/plans/` | planes de ejecución que convenga conservar dentro del repo |
-| Comandos y skills de Cursor | `.cursor/commands/`, `.cursor/skills/` | automatizaciones y flujos internos del proyecto |
+| Comandos, skills y subagentes de Cursor | `.cursor/commands/`, `.cursor/skills/`, `.cursor/agents/` | automatizaciones y flujos internos del proyecto |
 
 ### 4. Regla de prioridad documental
 
@@ -118,9 +118,9 @@ Tras editar:
 - [ ] nota de sesión con contexto, decisión y motivo.
 - [ ] promoción a `aprendizajes/` si la idea es transversal.
 
-**Cambio en comandos o skills de Cursor**
+**Cambio en comandos, skills o subagentes de Cursor**
 
-- [ ] archivo del comando o skill actualizado.
+- [ ] archivo del comando, skill o subagente actualizado.
 - [ ] nota de sesión con el impacto práctico en el flujo de trabajo.
 
 **Nuevos aprendizajes del curso**

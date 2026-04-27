@@ -350,7 +350,10 @@ Before adding a dependency:
 
 ## Integration with other commands
 
-- Before: `/write-feature` to create the document if it does not exist.
+- Before: `/write-feature` or `/requirement-write` to create the document if it does not exist.
+- Before implementation: `/requirement-validate` if the note is still vague.
+- For non-trivial changes: `/requirement-design` and `/requirement-tasks`.
+- During validation: `/check-quality`, `/check-architecture`, `/testing`, and `/check-dod`.
 - During: `/docs` to sync README, decisions, and sessions.
 - After: `/commit-pending` for traceable commits in the feature document.
 - Learning-focused work: `/master-tutor` when the main goal is understanding a master-class concept.
@@ -366,4 +369,4 @@ Before adding a dependency:
 - Documentation and commit logging destinations are clear.
 - Coding did not start without enough context.
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-04-27
