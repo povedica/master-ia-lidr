@@ -1,0 +1,80 @@
+---
+title: Minimal Spec System
+alwaysApply: true
+category: workflow
+---
+
+# Minimal Spec System
+
+## Purpose
+Provide a small, growable Spec-Driven Development baseline for `master-ia`: explicit work types, light-by-default pipeline, and clear escalation to a stricter flow only when needed.
+
+## Single Canonical Document
+
+- Each work item is described in one canonical Markdown file.
+- Default location for project work:
+  - `second-brain-master-ia/proyectos/<project>/work-items/`
+- Session-bound work may live alongside the active session note instead.
+
+## Document Types (file prefix)
+
+| Prefix | Use it for |
+|--------|------------|
+| `feature-` | New user-facing capability, endpoint, or service behavior. |
+| `bugfix-` | Fixing a defect; must include reproduction and root cause. |
+| `spec-` | Cross-cutting contract, convention, or process (e.g. response shape). |
+| `exp-` | Hypothesis-driven experiment with a defined success metric. |
+| `adr-` | Architectural decision with context, alternatives, and consequences. |
+
+If unsure, default to `feature-`.
+
+## Light Mode (default)
+
+Use light mode for almost everything in the master:
+
+1. Create or reuse one canonical document.
+2. Capture objective, scope, acceptance, verification.
+3. Implement in baby steps.
+4. Run the smallest meaningful validation.
+5. Update docs, then `commit-pending` and `finish-task`.
+
+## Strict Mode (only when triggered)
+
+Switch to strict mode only when at least one applies:
+
+- API contract change.
+- Multiple modules or layers touched.
+- New settings or environment variables.
+- Frontend ↔ backend integration.
+- Work spans multiple sessions.
+
+Strict mode adds:
+
+- `requirement-design`
+- `requirement-tasks`
+- `check-quality`
+- `check-architecture`
+- optionally `check-performance`
+
+## Required Sections per Type
+
+All canonical documents include `## Repository commits (master-ia)`.
+
+- `feature-*`: objective, scope, acceptance, verification, docs impact, commits.
+- `bugfix-*`: problem, expected, reproduction, root cause, fix, regression, commits.
+- `spec-*`: objective, contract, scope, rules, implications, commits.
+- `exp-*`: hypothesis, method, metric, effort cap, result, commits.
+- `adr-*`: context, options, decision, consequences, commits.
+
+## Operating Rules
+
+- One canonical document per work item.
+- Type is set by the file prefix.
+- Light mode is the default; strict mode requires a real trigger.
+- Analysis informs, never blocks.
+- Never introduce new templates that do not solve a real problem.
+
+---
+
+**Last updated:** 2026-04-27
+**Status:** Active

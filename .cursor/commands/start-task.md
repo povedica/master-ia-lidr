@@ -23,13 +23,13 @@ To create the document from scratch, use `/write-feature` or `/docs` first. To c
 The user passes the document to start from:
 
 ```text
-/start-task second-brain-master-ia/proyectos/estimador-cag/decisiones/feature-configuracion-inicial-cag.md
+/start-task second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
 ```
 
 They may also use a Cursor reference:
 
 ```text
-/start-task @second-brain-master-ia/proyectos/estimador-cag/decisiones/feature-configuracion-inicial-cag.md
+/start-task @second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
 ```
 
 ## Critical rule: single source of truth
@@ -37,7 +37,7 @@ They may also use a Cursor reference:
 - The input document is the **canonical** document for the task.
 - Do not create another document for the same feature unless the user asks.
 - Decisions discovered during analysis go back into the same document or into an explicitly linked note.
-- If the document is missing, empty, or unclear on goals, stop and ask. Always suggest a likely path under `second-brain-master-ia/proyectos/<project>/decisiones/`.
+- If the document is missing, empty, or unclear on goals, stop and ask. Always suggest a likely path under `second-brain-master-ia/proyectos/<project>/work-items/`.
 - If session or project is unclear, infer from the path, suggest a default, and confirm before implementing.
 
 ## Workflow overview

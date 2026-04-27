@@ -9,25 +9,28 @@ Create or refine one canonical requirement document before implementation.
 - A bug, experiment, or case needs a documented source of truth.
 
 ## Default Destinations
-- Project feature/decision: `second-brain-master-ia/proyectos/<project>/decisiones/`
+- Project work item: `second-brain-master-ia/proyectos/<project>/work-items/`
 - Session-scoped work: `second-brain-master-ia/proyectos/<project>/sesiones/`
 
+## Document Types (filename prefix)
+- `feature-` user-facing capability, endpoint, or service behavior.
+- `bugfix-` defect fix with reproduction and root cause.
+- `spec-` cross-cutting contract, convention, or process.
+- `exp-` hypothesis-driven experiment with success metric.
+- `adr-` architectural decision (context, alternatives, decision, consequences).
+
+If unsure, default to `feature-`.
+
 ## Workflow
-1. Read the relevant repo rules for the task.
+1. Read the relevant repo rules for the task (see `.cursor/rules/11-spec-system.mdc`).
 2. Gather context from code, docs, and Second Brain.
-3. Detect the work type:
-   - `feature`
-   - `bug`
-   - `hotfix`
-   - `experiment`
-   - `case`
-4. Write one canonical document with:
-   - objective
-   - context
-   - bounded scope
-   - acceptance criteria
-   - verification plan
-   - documentation impact
+3. Pick the document type and prefix.
+4. Write one canonical document with the sections required for that type:
+   - feature: objective, scope, acceptance, verification, docs impact
+   - bugfix: problem, expected, reproduction, root cause, fix, regression
+   - spec: objective, contract, scope, rules, implications
+   - exp: hypothesis, method, metric, effort cap, result
+   - adr: context, options, decision, consequences
 5. Keep the document implementation-oriented and small enough to execute.
 
 ## Rules

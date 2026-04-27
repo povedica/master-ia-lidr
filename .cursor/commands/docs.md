@@ -8,7 +8,7 @@ Use after setup changes, architecture decisions, FastAPI changes, LLM integratio
 
 ## Documentation Targets
 - Session work: `second-brain-master-ia/proyectos/estimador-cag/sesiones/`
-- Decisions: `second-brain-master-ia/proyectos/estimador-cag/decisiones/`
+- Work items: `second-brain-master-ia/proyectos/estimador-cag/work-items/`
 - Reusable learnings: `second-brain-master-ia/proyectos/estimador-cag/aprendizajes/`
 - Retrospectives: `second-brain-master-ia/proyectos/estimador-cag/retrospectivas/`
 - Runtime/setup docs: project `README.md`

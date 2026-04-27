@@ -8,7 +8,7 @@ Use for a new API endpoint, service, LLM workflow, script, project setup, or reu
 
 ## Destination
 Prefer one of:
-- `second-brain-master-ia/proyectos/estimador-cag/decisiones/`
+- `second-brain-master-ia/proyectos/estimador-cag/work-items/`
 - `second-brain-master-ia/proyectos/estimador-cag/sesiones/`
 
 Use the active session when the feature belongs to a class or practice session.

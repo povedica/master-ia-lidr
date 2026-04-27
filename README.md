@@ -102,18 +102,32 @@ El proyecto incluye una capa de trabajo para Cursor en:
 - `.cursor/skills/`
 - `.cursor/agents/`
 
+### Tipos de documento (Spec System)
+
+Cada trabajo se describe en un único documento canónico bajo:
+
+- `second-brain-master-ia/proyectos/<project>/work-items/`
+
+Prefijo por tipo:
+
+- `feature-`, `bugfix-`, `spec-`, `exp-`, `adr-`
+
+Si dudas, por defecto `feature-`.
+
 ### Pipeline recomendado
 
-1. `start-task`
-2. `requirement-write` o `write-feature` cuando falte especificación
+#### Modo ligero (default)
+
+1. `start-task` o documento canónico ya existente
+2. `requirement-write`
 3. `requirement-validate`
-4. `requirement-design`
-5. `requirement-tasks`
-6. implementación
-7. `check-quality` / `check-architecture` / `testing` / `check-dod`
-8. `update-docs`
-9. `commit-pending`
-10. `finish-task`
+4. implementación
+5. `testing` + `check-dod`
+6. `update-docs` + `commit-pending` + `finish-task`
+
+#### Modo estricto (solo si aplica)
+
+Activar si cambia contrato API, hay multi-módulo, settings nuevas, integración frontend/API o trabajo en varias sesiones. Añade `requirement-design`, `requirement-tasks`, `check-quality`, `check-architecture` (y `check-performance` cuando aporte).
 
 ### Comandos principales
 
