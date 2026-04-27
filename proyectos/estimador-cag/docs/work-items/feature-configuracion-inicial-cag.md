@@ -403,6 +403,7 @@ Run the server, call health, call estimate endpoint, and check Swagger.
 | `3e6e4b6` | `feat(estimador-cag): add root URL with API pointers` | Adds `GET /` JSON index for browser visits; README note on optional `/favicon.ico` 404; test coverage. |
 | `b17ad30` | `feat(estimador-cag): add DEV_MODE-gated usage telemetry and cost estimate` | Extends `/api/v1/estimate` metadata, gates `usage` in `DEV_MODE`, adds token-based `estimated_cost_usd` inside `usage`, and updates tests/docs. |
 | `ad7084a` | `feat(cursor): add lightweight workflow commands, skills, and subagents` | Adds DSM-inspired Cursor workflow pieces adapted to `master-ia`: requirement commands, validation rules, reusable skills, and lightweight technical subagents. |
+| `c313d27` | `docs(estimador-cag): add Second Brain mirror and sync script` | Adds `scripts/sync-estimador-cag-docs.sh`, versioned `proyectos/estimador-cag/docs/` mirror (excludes `.obsidian`/`.trash`), and updates Cursor commands, spec rule 11, and READMEs. |
 
 ## Notes
 
