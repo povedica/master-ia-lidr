@@ -407,6 +407,7 @@ Run the server, call health, call estimate endpoint, and check Swagger.
 | `e87f524` | `docs(cursor): require push at end of commit-pending workflow` | Makes Phase 7 push mandatory for agent runs; clarifies Purpose and checklist when push cannot complete. |
 | `8c57a87` | `docs(estimador-cag): add technical docs base and sync mirror` | Adds `docs/technical/README.md` (TOC, architecture, API, logging), links from project README, session note, and docs index; syncs work item commit log. |
 | `9fb7dba` | `docs(estimador-cag): log docs commit in feature work item` | Appends `8c57a87` to the repository commits table in the canonical work item and synced mirror. |
+| `680cbab` | `docs(estimador-cag): append work-item log for meta commit` | Appends `9fb7dba` to the repository commits table in the canonical work item and synced mirror. |
 
 ## Notes
 
