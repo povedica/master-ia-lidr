@@ -6,7 +6,7 @@ FastAPI service that turns a meeting transcription into a structured software es
 
 Project notes (sessions, work items, learnings, retrospectives) are authored in **Obsidian** under `second-brain-master-ia/proyectos/estimador-cag/` (see repo root `README.md` for the symlink). A **read-only replica** of that folder is kept in git at `docs/` so clones have the latest exported documentation without the vault.
 
-For deeper technical documentation, see `docs/technical/README.md`.
+For deeper technical documentation, see `docs/technical/README.md`. All prose under `docs/technical/` is **English** only.
 
 From the **repository root**:
 
