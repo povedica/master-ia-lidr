@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0
     app_env: str = "local"
+    dev_mode: bool = False
     log_level: str = "INFO"
     anthropic_api_key: str = ""
     anthropic_model: str = ""

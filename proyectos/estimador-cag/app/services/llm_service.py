@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from openai import APIError, APITimeoutError, AsyncOpenAI, AuthenticationError, RateLimitError
 
@@ -10,10 +11,29 @@ from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
 
 logger = logging.getLogger(__name__)
+PROMPT_VERSION = "v1"
+EXAMPLES_VERSION = "static-v1"
 
 
 class EstimationError(Exception):
     """Raised when an estimate cannot be produced; message is safe for clients."""
+
+
+@dataclass(frozen=True)
+class UsageInfo:
+    """Token usage returned by the provider."""
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+@dataclass(frozen=True)
+class EstimationResult:
+    """Estimation text plus provider metadata used by the API layer."""
+
+    estimation: str
+    usage: UsageInfo | None
 
 
 def build_system_prompt(examples: list[EstimationExample]) -> str:
@@ -39,8 +59,8 @@ class EstimationService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def estimate(self, transcription: str) -> str:
-        """Return model-generated estimation text for the given meeting transcription."""
+    async def estimate(self, transcription: str) -> EstimationResult:
+        """Return generated estimation plus provider usage metadata."""
 
         text = transcription.strip()
         if not text:
@@ -130,4 +150,13 @@ class EstimationService:
             )
             raise EstimationError("The model returned an empty response.")
 
-        return content
+        usage = response.usage
+        usage_info = None
+        if usage:
+            usage_info = UsageInfo(
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                total_tokens=usage.total_tokens,
+            )
+
+        return EstimationResult(estimation=content, usage=usage_info)

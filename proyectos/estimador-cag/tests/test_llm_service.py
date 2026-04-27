@@ -58,13 +58,15 @@ async def test_estimate_returns_model_content() -> None:
     mock_choice.message = mock_message
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
+    mock_response.usage = None
 
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with patch("app.services.llm_service.AsyncOpenAI", return_value=mock_client):
         result = await service.estimate("Client needs a portal.")
-    assert result.startswith("## Estimation")
+    assert result.estimation.startswith("## Estimation")
+    assert result.usage is None
 
 
 @pytest.mark.asyncio
