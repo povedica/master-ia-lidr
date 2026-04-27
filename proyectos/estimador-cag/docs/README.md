@@ -10,6 +10,7 @@ Documentar el proyecto `estimador-cag`, un ejercicio de AI Engineering para cons
 - `decisiones/`: decisiones técnicas y features canónicas.
 - `aprendizajes/`: conceptos reutilizables aprendidos durante el proyecto.
 - `retrospectivas/`: cierres de hitos o sesiones largas.
+- `technical/`: documentación técnica base del proyecto, como extensión del `README.md`.
 
 ## Convenciones
 

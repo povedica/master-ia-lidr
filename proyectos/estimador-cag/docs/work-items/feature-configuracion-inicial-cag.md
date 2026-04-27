@@ -404,6 +404,7 @@ Run the server, call health, call estimate endpoint, and check Swagger.
 | `b17ad30` | `feat(estimador-cag): add DEV_MODE-gated usage telemetry and cost estimate` | Extends `/api/v1/estimate` metadata, gates `usage` in `DEV_MODE`, adds token-based `estimated_cost_usd` inside `usage`, and updates tests/docs. |
 | `ad7084a` | `feat(cursor): add lightweight workflow commands, skills, and subagents` | Adds DSM-inspired Cursor workflow pieces adapted to `master-ia`: requirement commands, validation rules, reusable skills, and lightweight technical subagents. |
 | `c313d27` | `docs(estimador-cag): add Second Brain mirror and sync script` | Adds `scripts/sync-estimador-cag-docs.sh`, versioned `proyectos/estimador-cag/docs/` mirror (excludes `.obsidian`/`.trash`), and updates Cursor commands, spec rule 11, and READMEs. |
+| `e87f524` | `docs(cursor): require push at end of commit-pending workflow` | Makes Phase 7 push mandatory for agent runs; clarifies Purpose and checklist when push cannot complete. |
 
 ## Notes
 
