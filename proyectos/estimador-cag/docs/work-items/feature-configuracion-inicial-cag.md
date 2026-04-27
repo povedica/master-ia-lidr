@@ -409,6 +409,7 @@ Run the server, call health, call estimate endpoint, and check Swagger.
 | `9fb7dba` | `docs(estimador-cag): log docs commit in feature work item` | Appends `8c57a87` to the repository commits table in the canonical work item and synced mirror. |
 | `680cbab` | `docs(estimador-cag): append work-item log for meta commit` | Appends `9fb7dba` to the repository commits table in the canonical work item and synced mirror. |
 | `cab0389` | `docs(estimador-cag): translate technical docs to English` | Rewrites `docs/technical/README.md` in English; documents English-only rule for `technical/` in docs index, session note, and subproject README. |
+| `ee0f4e6` | `docs(estimador-cag): log English technical docs commit in work item` | Appends `cab0389` to the repository commits table in the canonical work item and synced mirror. |
 
 ## Notes
 
