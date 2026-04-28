@@ -8,6 +8,7 @@ from time import perf_counter
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
+from app.services.domain_guardrails import check_estimation_domain
 from app.services.providers.base import (
     LLMProvider,
     ProviderConfigError,
@@ -22,6 +23,12 @@ EXAMPLES_VERSION = "static-v1"
 
 class EstimationError(Exception):
     """Raised when an estimate cannot be produced; message is safe for clients."""
+
+
+class DomainGuardrailError(Exception):
+    """Raised when input falls outside the estimation domain."""
+
+    code = "out_of_domain"
 
 
 @dataclass(frozen=True)
@@ -43,7 +50,9 @@ def build_system_prompt(examples: list[EstimationExample]) -> str:
         "The following sections are reference patterns: mirror their structure, "
         "level of detail, and pragmatism. Adapt hours and scope to the new meeting.\n"
         "Respond with a structured estimate: assumptions, task table with hours, "
-        "and brief delivery notes."
+        "and brief delivery notes.\n"
+        "You must only produce estimates for software or project work. "
+        "If the user message is not such a request, refuse politely and do not produce an estimate."
     )
     parts: list[str] = [intro, "\n## Reference estimation examples\n"]
     for index, example in enumerate(examples, start=1):
@@ -65,6 +74,11 @@ class EstimationService:
         text = transcription.strip()
         if not text:
             raise EstimationError("Transcription must not be empty.")
+
+        domain_decision = check_estimation_domain(text)
+        if not domain_decision.accepted:
+            logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
+            raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
         system_prompt = build_system_prompt(load_examples())
         provider_names = [provider.name for provider in self._providers]

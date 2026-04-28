@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.schemas.estimations import EstimateRequest, EstimateResponse, UsageView
 from app.services.providers import build_provider_chain
 from app.services.llm_service import (
+    DomainGuardrailError,
     EXAMPLES_VERSION,
     PROMPT_VERSION,
     EstimationError,
@@ -65,6 +66,14 @@ async def create_estimate(
     request_id = f"est_{uuid4().hex[:12]}"
     try:
         result = await service.estimate(body.transcription)
+    except DomainGuardrailError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": exc.code,
+                "message": str(exc),
+            },
+        ) from exc
     except EstimationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
