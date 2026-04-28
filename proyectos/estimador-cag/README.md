@@ -56,6 +56,7 @@ Response fields include:
 - `estimation`, `model`, `provider`
 - `request_id`, `timestamp`, `latency_ms`
 - `prompt_version`, `examples_version`
+- `degraded` (only present when static fallback is used)
 - `usage` (`prompt_tokens`, `completion_tokens`, `total_tokens`, `estimated_cost_usd`) only when `DEV_MODE=true`
 
 ### Response metadata (detailed)
@@ -117,11 +118,20 @@ No real OpenAI calls: the suite mocks the provider client.
 
 ## Configuration
 
-See `.env.example` for variable names. Required for live estimates:
+See `.env.example` for variable names.
 
-- `OPENAI_API_KEY`
+Provider chain behavior:
 
-Optional overrides include `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_TIMEOUT_SECONDS`, and `DEV_MODE` (set `true` to include usage/cost metadata in API responses).
+- `LLM_PROVIDERS` defines the ordered fallback chain (default `openai,anthropic`).
+- Providers without credentials are skipped with structured logs.
+- `STATIC_FALLBACK_ENABLED=true` appends a deterministic local fallback response (`provider="static_fallback"` and `degraded=true`).
+- `LLM_AUTH_FALLBACK=false` keeps auth/config failures explicit by default (returns `503` instead of silently falling back).
+
+Required for at least one live provider:
+
+- `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`
+
+Optional overrides include `OPENAI_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT_SECONDS`, `ANTHROPIC_MAX_TOKENS`, and `DEV_MODE` (set `true` to include usage/cost metadata when usage is available).
 
 ### Response examples by environment mode
 

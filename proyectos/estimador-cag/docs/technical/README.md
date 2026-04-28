@@ -38,7 +38,7 @@ The project uses **Context-Augmented Generation (CAG)** in a deliberately small 
 - Static context lives in `app/context/examples.py`.
 - The app builds a `system prompt` with instructions and prior examples.
 - The live transcription is sent as the `user` message.
-- OpenAI returns an estimate with assumptions, a task/hours table, and delivery notes.
+- A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
 The first version does not include persistence, authentication, a frontend, or production deployment. It is an AI Engineering baseline meant for learning and safe iteration.
 
@@ -51,7 +51,7 @@ The first version does not include persistence, authentication, a frontend, or p
 | HTTP framework | FastAPI | Typed API, automatic OpenAPI, Pydantic integration. |
 | ASGI server | `uvicorn[standard]` | Local runtime for FastAPI. |
 | Configuration | `pydantic-settings` | Typed settings from environment and `.env`. |
-| LLM provider | OpenAI | First implemented provider. |
+| LLM providers | OpenAI + Anthropic + static fallback | Ordered chain with graceful fallback and explicit degraded mode. |
 | Default model | `gpt-4o-mini` | Low cost for exercises and manual checks. |
 | Tests | `pytest`, `pytest-asyncio`, `httpx` | Fast, deterministic suite without real provider calls. |
 | Manual API client | OpenCollection/Bruno collection under `api-collection/` | Versioned manual checks alongside the code. |
@@ -64,6 +64,7 @@ Runtime dependencies declared in `pyproject.toml`:
 - `uvicorn[standard]`: local ASGI server.
 - `pydantic-settings`: typed configuration from the environment.
 - `openai`: official SDK for OpenAI.
+- `anthropic`: official SDK for Anthropic.
 - `python-dotenv`: load `.env` in local development.
 
 Development dependencies:
@@ -72,7 +73,7 @@ Development dependencies:
 - `pytest-asyncio`: async test support.
 - `httpx`: HTTP client used by FastAPI `TestClient` and tests.
 
-Important rule: tests mock OpenAI. The default suite must not depend on a real `OPENAI_API_KEY`.
+Important rule: tests mock provider SDK clients. The default suite must not depend on real provider API keys.
 
 ## 4. Local setup
 
@@ -80,7 +81,7 @@ Requirements:
 
 - Python 3.11.
 - `uv` on the host.
-- An OpenAI key only if you want to run a real estimate.
+- At least one provider key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) if you want live model estimates.
 
 From the repository root:
 
@@ -94,6 +95,8 @@ Then edit `.env` locally:
 
 ```text
 OPENAI_API_KEY=...
+# and/or
+ANTHROPIC_API_KEY=...
 ```
 
 Never commit `.env`.
@@ -117,15 +120,19 @@ Variables documented in `.env.example`:
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `LLM_PROVIDER` | Yes | `openai` | Provider selection. Only `openai` is supported in this version. |
-| `OPENAI_API_KEY` | Yes for live calls | empty | OpenAI credential. Must not appear in logs, tests, or documentation. |
+| `LLM_PROVIDERS` | Yes | `openai,anthropic` | Ordered provider chain used for fallback. |
+| `STATIC_FALLBACK_ENABLED` | No | `true` | Appends deterministic local fallback provider at chain end. |
+| `LLM_AUTH_FALLBACK` | No | `false` | If `true`, provider auth/config errors may continue to the next provider. |
+| `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Must not appear in logs, tests, or documentation. |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | Model used by the service. |
 | `OPENAI_TIMEOUT_SECONDS` | No | `30` | OpenAI client timeout. |
+| `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
+| `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
+| `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
+| `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens per Anthropic response. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
 | `DEV_MODE` | No | `false` | When `true`, responses include `usage` and estimated cost. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
-| `ANTHROPIC_API_KEY` | No | empty | Reserved for a future provider. Not used yet. |
-| `ANTHROPIC_MODEL` | No | empty | Reserved for a future provider. Not used yet. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
 
@@ -207,7 +214,8 @@ Responsibilities:
 | `app/main.py` | FastAPI composition root: logging setup, lifespan, routers, base endpoints. |
 | `app/config.py` | Typed settings from the environment. |
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
-| `app/services/llm_service.py` | CAG logic, prompt construction, OpenAI client, provider error mapping. |
+| `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
+| `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Static few-shot examples. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
@@ -224,7 +232,10 @@ flowchart TD
     Router --> Settings[app.config.Settings]
     Router --> Service[app.services.EstimationService]
     Service --> Examples[app.context.examples]
-    Service --> OpenAI[OpenAI Chat Completions API]
+    Service --> Chain[Provider chain]
+    Chain --> OpenAI[OpenAI API]
+    Chain --> Anthropic[Anthropic API]
+    Chain --> StaticFallback[Static fallback]
     Router --> Response[EstimateResponse]
 ```
 
@@ -232,7 +243,7 @@ Current principles:
 
 - `app/main.py` does not contain business logic.
 - The router orchestrates HTTP, validation, and metadata.
-- The service is the only layer that depends on the OpenAI SDK.
+- SDK-specific behavior is isolated in `app/services/providers/`.
 - CAG examples live outside the router and service so they can be versioned and tested.
 - Configuration is injected with `Depends(get_settings)` at the HTTP boundary.
 
@@ -244,7 +255,10 @@ sequenceDiagram
     participant Router as estimations.py
     participant Service as llm_service.py
     participant Context as examples.py
+    participant Chain as provider_chain
     participant OpenAI
+    participant Anthropic
+    participant Static as static_fallback
 
     Client->>Router: POST /api/v1/estimate { transcription }
     Router->>Router: Validate EstimateRequest
@@ -252,8 +266,18 @@ sequenceDiagram
     Service->>Context: load_examples()
     Context-->>Service: list[EstimationExample]
     Service->>Service: build_system_prompt(examples)
-    Service->>OpenAI: chat.completions.create(...)
-    OpenAI-->>Service: model content + usage
+    Service->>Chain: iterate providers by priority
+    alt OpenAI succeeds
+        Chain->>OpenAI: completion request
+        OpenAI-->>Chain: content + usage
+    else OpenAI fails transiently
+        Chain->>Anthropic: messages request
+        Anthropic-->>Chain: content + usage
+    else All live providers fail
+        Chain->>Static: deterministic fallback
+        Static-->>Chain: degraded content
+    end
+    Chain-->>Service: normalized provider result
     Service-->>Router: EstimationResult
     Router->>Router: request_id, timestamp, latency_ms, versions
     Router-->>Client: EstimateResponse
@@ -349,6 +373,22 @@ Response with `DEV_MODE=false`:
 }
 ```
 
+Degraded response (when static fallback is used):
+
+```json
+{
+  "estimation": "## Estimation: Temporary degraded mode ...",
+  "model": "static-v1",
+  "provider": "static_fallback",
+  "request_id": "est_abc123def456",
+  "timestamp": "2026-04-27T10:00:00Z",
+  "latency_ms": 1800,
+  "prompt_version": "v1",
+  "examples_version": "static-v1",
+  "degraded": true
+}
+```
+
 Response with `DEV_MODE=true`:
 
 ```json
@@ -379,6 +419,9 @@ Operational metadata (always present):
 - `latency_ms`: end-to-end request duration from the router.
 - `prompt_version`: prompt instruction version.
 - `examples_version`: few-shot context version.
+- `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
+- `model`: model identifier reported by the provider implementation.
+- `degraded`: only present when static fallback is used.
 
 Development metadata (only when `DEV_MODE=true`):
 
@@ -403,9 +446,15 @@ Current events:
 
 | Event | Level | Source | Safe context |
 |-------|-------|--------|----------------|
-| `app_startup` | `INFO` | `app.main` | `app_env`, `provider` |
-| `llm_request_failed` | `WARNING` or `ERROR` | `app.services.llm_service` | `provider`, `model`, `error_type` |
-| `llm_empty_response` | `WARNING` | `app.services.llm_service` | `provider`, `model` |
+| `chain_built` | `INFO` | `app.main` | `providers`, `static_fallback_enabled` |
+| `app_startup` | `INFO` | `app.main` | `app_env`, `providers` |
+| `provider_attempted` | `INFO` | `app.services.llm_service` | `provider`, `model`, `attempt_index` |
+| `provider_failed` | `WARNING` / `ERROR` | `app.services.llm_service` | `provider`, `model`, `error_type`, `attempt_index` |
+| `provider_succeeded` | `INFO` | `app.services.llm_service` | `provider`, `model` |
+| `chain_degraded` | `WARNING` | `app.services.llm_service` | `static_fallback_used` |
+| `chain_exhausted` | `WARNING` | `app.services.llm_service` | `providers_tried` |
+| `provider_skipped` | `INFO` | `app.services.providers` | `provider`, `reason` |
+| `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
 
 Rules:
 
@@ -425,14 +474,12 @@ Service errors:
 
 | Case | Outcome |
 |------|---------|
-| `LLM_PROVIDER` not `openai` | `EstimationError("Only the OpenAI provider is supported in this version.")` |
-| Missing `OPENAI_API_KEY` | `EstimationError("OpenAI API key is not configured.")` |
-| OpenAI timeout | Safe timeout message to the client. |
-| OpenAI rate limit | Safe message to retry later. |
-| Authentication error | Safe message to check credentials. |
-| Generic `APIError` | Safe provider error message. |
-| Empty model response | `EstimationError("The model returned an empty response.")` |
-| Unexpected error | `logger.exception` with context; safe message to the client. |
+| Provider timeout / rate limit / unavailable | Next provider in chain is attempted. |
+| Provider empty/invalid response | Next provider in chain is attempted. |
+| Provider auth/config error | Returns `503` by default (unless `LLM_AUTH_FALLBACK=true`). |
+| All providers fail and static fallback enabled | `200` with `provider="static_fallback"` and `degraded=true`. |
+| All providers fail and static fallback disabled | `503 Service Unavailable`. |
+| Unknown provider name in `LLM_PROVIDERS` | Skipped with `provider_unknown` warning. |
 
 The router maps `EstimationError` to:
 
@@ -460,7 +507,7 @@ Current coverage:
 Testing rules:
 
 - Do not use real API keys in tests.
-- Mock the OpenAI client.
+- Mock provider SDK clients.
 - Test project-owned logic: prompts, minimal parsing, metadata, errors, settings.
 - Keep tests fast and deterministic.
 
@@ -536,15 +583,15 @@ Possible next technical steps:
 
 - Add a structured schema for estimates if programmatic consumption is needed.
 - Persist estimates and metadata if auditability is required.
-- Add Anthropic behind the same service boundary.
+- Add retries/backoff once the current fallback baseline is stable.
 - Add tracing or request logging if local observability is insufficient.
 - Add CI when the project has a stable remote or PR workflow.
 
 ## 20. Troubleshooting
 
-### `OpenAI API key is not configured.`
+### `No provider could be configured from LLM_PROVIDERS...`
 
-`OPENAI_API_KEY` is missing from `.env` or the process environment.
+The app fails fast at startup when no provider can be built and static fallback is disabled.
 
 Check:
 
@@ -553,11 +600,11 @@ cd proyectos/estimador-cag
 cp .env.example .env
 ```
 
-Then add the real key only in `.env`.
+Then add at least one real provider key only in `.env`.
 
-### `Only the OpenAI provider is supported in this version.`
+### `503 Service Unavailable` with authentication/configuration message
 
-`LLM_PROVIDER` is not `openai`. No other provider is implemented in this version.
+By default, auth/configuration errors do not fallback silently. Check API keys and model names, or set `LLM_AUTH_FALLBACK=true` if you explicitly want auth fallback behavior.
 
 ### `422 Unprocessable Entity`
 
