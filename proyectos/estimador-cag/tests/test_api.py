@@ -12,7 +12,20 @@ class _FakeEstimationService:
     async def estimate(self, transcription: str) -> EstimationResult:
         return EstimationResult(
             estimation="## Estimation: mocked output",
+            provider="openai",
+            model="gpt-4o-mini",
             usage=UsageInfo(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+        )
+
+
+class _FakeStaticFallbackEstimationService:
+    async def estimate(self, transcription: str) -> EstimationResult:
+        return EstimationResult(
+            estimation="## Estimation: fallback output",
+            provider="static_fallback",
+            model="static-v1",
+            usage=None,
+            degraded=True,
         )
 
 
@@ -61,7 +74,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     body = response.json()
     assert body["estimation"].startswith("## Estimation")
     assert body["provider"] == "openai"
-    assert body["model"]
+    assert body["model"] == "gpt-4o-mini"
     assert body["request_id"].startswith("est_")
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
@@ -92,6 +105,28 @@ def test_estimate_hides_usage_and_cost_when_dev_mode_disabled() -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert "usage" not in body
+
+
+def test_estimate_includes_degraded_only_for_static_fallback() -> None:
+    app.dependency_overrides[get_estimation_service] = lambda: _FakeStaticFallbackEstimationService()  # type: ignore[return-value]
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        openai_api_key="sk-test",
+        dev_mode=True,
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/estimate",
+                json={"transcription": "Client wants a landing page with a contact form."},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "static_fallback"
+    assert body["degraded"] is True
     assert "usage" not in body
 
 

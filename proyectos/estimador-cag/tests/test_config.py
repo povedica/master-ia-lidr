@@ -21,8 +21,23 @@ def test_get_settings_cached_instance(monkeypatch: pytest.MonkeyPatch) -> None:
     assert first.app_env == "test-env"
 
 
-def test_optional_anthropic_fields_default_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_optional_anthropic_fields_have_safe_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MAX_TOKENS", raising=False)
     get_settings.cache_clear()
-    settings = Settings()
+    settings = Settings(_env_file=None)
     assert settings.anthropic_api_key == ""
+    assert settings.anthropic_model == "claude-3-5-haiku-latest"
+    assert settings.anthropic_timeout_seconds == 30.0
+    assert settings.anthropic_max_tokens == 2048
+
+
+def test_provider_chain_defaults() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.llm_providers == "openai,anthropic"
+    assert settings.static_fallback_enabled is True
+    assert settings.llm_auth_fallback is False
