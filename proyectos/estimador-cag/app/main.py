@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.routers import estimations
+from app.services.providers import build_provider_chain
 
 _log_level = os.environ.get("LOG_LEVEL", "INFO")
 logging.basicConfig(
@@ -21,9 +22,18 @@ async def lifespan(app: FastAPI):
     """Log safe startup context (no secrets)."""
 
     settings = get_settings()
+    providers = build_provider_chain(settings)
+    provider_names = [provider.name for provider in providers]
+    logging.getLogger(__name__).info(
+        "chain_built",
+        extra={
+            "providers": provider_names,
+            "static_fallback_enabled": settings.static_fallback_enabled,
+        },
+    )
     logging.getLogger(__name__).info(
         "app_startup",
-        extra={"app_env": settings.app_env, "provider": settings.llm_provider},
+        extra={"app_env": settings.app_env, "providers": provider_names},
     )
     yield
 
