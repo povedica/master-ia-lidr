@@ -15,7 +15,9 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    llm_provider: str = "openai"
+    llm_providers: str = "openai,anthropic"
+    static_fallback_enabled: bool = True
+    llm_auth_fallback: bool = False
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0
@@ -23,7 +25,9 @@ class Settings(BaseSettings):
     dev_mode: bool = False
     log_level: str = "INFO"
     anthropic_api_key: str = ""
-    anthropic_model: str = ""
+    anthropic_model: str = "claude-3-5-haiku-latest"
+    anthropic_timeout_seconds: float = 30.0
+    anthropic_max_tokens: int = 2048
 
 
 @lru_cache

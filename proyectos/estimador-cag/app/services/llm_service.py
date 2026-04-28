@@ -1,14 +1,19 @@
-"""OpenAI client and CAG-style estimation logic."""
+"""CAG-style estimation service orchestrating a provider chain."""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-
-from openai import APIError, APITimeoutError, AsyncOpenAI, AuthenticationError, RateLimitError
+from time import perf_counter
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
+from app.services.providers.base import (
+    LLMProvider,
+    ProviderConfigError,
+    ProviderError,
+    UsageInfo,
+)
 
 logger = logging.getLogger(__name__)
 PROMPT_VERSION = "v1"
@@ -20,20 +25,14 @@ class EstimationError(Exception):
 
 
 @dataclass(frozen=True)
-class UsageInfo:
-    """Token usage returned by the provider."""
-
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
-
-
-@dataclass(frozen=True)
 class EstimationResult:
     """Estimation text plus provider metadata used by the API layer."""
 
     estimation: str
+    provider: str
+    model: str
     usage: UsageInfo | None
+    degraded: bool = False
 
 
 def build_system_prompt(examples: list[EstimationExample]) -> str:
@@ -54,10 +53,11 @@ def build_system_prompt(examples: list[EstimationExample]) -> str:
 
 
 class EstimationService:
-    """Coordinates prompt construction and the OpenAI chat completion call."""
+    """Coordinates prompt construction and provider-chain completion calls."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, providers: list[LLMProvider]) -> None:
         self._settings = settings
+        self._providers = providers
 
     async def estimate(self, transcription: str) -> EstimationResult:
         """Return generated estimation plus provider usage metadata."""
@@ -66,97 +66,84 @@ class EstimationService:
         if not text:
             raise EstimationError("Transcription must not be empty.")
 
-        if self._settings.llm_provider.lower() != "openai":
-            raise EstimationError("Only the OpenAI provider is supported in this version.")
-
-        if not self._settings.openai_api_key:
-            raise EstimationError("OpenAI API key is not configured.")
-
         system_prompt = build_system_prompt(load_examples())
-        client = AsyncOpenAI(
-            api_key=self._settings.openai_api_key,
-            timeout=self._settings.openai_timeout_seconds,
-        )
+        provider_names = [provider.name for provider in self._providers]
+        last_error: ProviderError | None = None
 
-        try:
-            response = await client.chat.completions.create(
-                model=self._settings.openai_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": text},
-                ],
-            )
-        except APITimeoutError as exc:
-            logger.warning(
-                "llm_request_failed",
+        for attempt_index, provider in enumerate(self._providers, start=1):
+            started = perf_counter()
+            logger.info(
+                "provider_attempted",
                 extra={
-                    "provider": "openai",
-                    "model": self._settings.openai_model,
-                    "error_type": type(exc).__name__,
+                    "provider": provider.name,
+                    "model": provider.model,
+                    "attempt_index": attempt_index,
                 },
             )
-            raise EstimationError("The language model request timed out.") from exc
-        except RateLimitError as exc:
-            logger.warning(
-                "llm_request_failed",
-                extra={
-                    "provider": "openai",
-                    "model": self._settings.openai_model,
-                    "error_type": type(exc).__name__,
-                },
-            )
-            raise EstimationError("Rate limit reached. Retry later.") from exc
-        except AuthenticationError as exc:
-            logger.warning(
-                "llm_request_failed",
-                extra={
-                    "provider": "openai",
-                    "model": self._settings.openai_model,
-                    "error_type": type(exc).__name__,
-                },
-            )
-            raise EstimationError(
-                "OpenAI authentication failed. Check API credentials.",
-            ) from exc
-        except APIError as exc:
-            logger.warning(
-                "llm_request_failed",
-                extra={
-                    "provider": "openai",
-                    "model": self._settings.openai_model,
-                    "error_type": type(exc).__name__,
-                },
-            )
-            raise EstimationError("The language model provider returned an error.") from exc
-        except Exception as exc:
-            logger.exception(
-                "llm_request_failed",
-                extra={
-                    "provider": "openai",
-                    "model": self._settings.openai_model,
-                    "error_type": type(exc).__name__,
-                },
-            )
-            raise EstimationError(
-                "An unexpected error occurred while calling the model.",
-            ) from exc
+            try:
+                result = await provider.complete(system_prompt=system_prompt, user_prompt=text)
+            except ProviderConfigError as exc:
+                logger.warning(
+                    "provider_failed",
+                    extra={
+                        "provider": provider.name,
+                        "model": provider.model,
+                        "error_type": type(exc).__name__,
+                        "attempt_index": attempt_index,
+                    },
+                )
+                last_error = exc
+                if self._settings.llm_auth_fallback:
+                    continue
+                raise EstimationError(str(exc)) from exc
+            except ProviderError as exc:
+                logger.warning(
+                    "provider_failed",
+                    extra={
+                        "provider": provider.name,
+                        "model": provider.model,
+                        "error_type": type(exc).__name__,
+                        "attempt_index": attempt_index,
+                    },
+                )
+                last_error = exc
+                continue
+            except Exception as exc:
+                logger.exception(
+                    "provider_failed",
+                    extra={
+                        "provider": provider.name,
+                        "model": provider.model,
+                        "error_type": type(exc).__name__,
+                        "attempt_index": attempt_index,
+                    },
+                )
+                raise EstimationError("Unexpected provider failure.") from exc
 
-        choice = response.choices[0].message if response.choices else None
-        content = (choice.content or "").strip() if choice else ""
-        if not content:
-            logger.warning(
-                "llm_empty_response",
-                extra={"provider": "openai", "model": self._settings.openai_model},
+            logger.info(
+                "provider_succeeded",
+                extra={
+                    "provider": result.provider,
+                    "model": result.model,
+                    "latency_ms": int((perf_counter() - started) * 1000),
+                },
             )
-            raise EstimationError("The model returned an empty response.")
+            degraded = result.provider == "static_fallback"
+            if degraded:
+                logger.warning(
+                    "chain_degraded",
+                    extra={"static_fallback_used": True},
+                )
 
-        usage = response.usage
-        usage_info = None
-        if usage:
-            usage_info = UsageInfo(
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-                total_tokens=usage.total_tokens,
+            return EstimationResult(
+                estimation=result.text,
+                provider=result.provider,
+                model=result.model,
+                usage=result.usage,
+                degraded=degraded,
             )
 
-        return EstimationResult(estimation=content, usage=usage_info)
+        logger.warning("chain_exhausted", extra={"providers_tried": provider_names})
+        if isinstance(last_error, ProviderConfigError):
+            raise EstimationError(str(last_error)) from last_error
+        raise EstimationError("All providers failed.")
