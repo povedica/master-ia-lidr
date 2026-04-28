@@ -7,7 +7,12 @@ import pytest
 
 from app.config import Settings
 from app.context.examples import load_examples
-from app.services.llm_service import EstimationError, EstimationService, build_system_prompt
+from app.services.llm_service import (
+    DomainGuardrailError,
+    EstimationError,
+    EstimationService,
+    build_system_prompt,
+)
 from app.services.providers.base import (
     ProviderConfigError,
     ProviderInvalidResponseError,
@@ -22,6 +27,7 @@ def test_build_system_prompt_includes_both_example_summaries() -> None:
     assert "Sales KPI dashboard" in prompt
     assert "Service marketplace MVP" in prompt
     assert "Reference estimation examples" in prompt
+    assert "only produce estimates for software or project work" in prompt
 
 
 @dataclass
@@ -56,6 +62,24 @@ async def test_estimate_rejects_empty_transcription() -> None:
     service = EstimationService(_settings(), providers=[])
     with pytest.raises(EstimationError, match="empty"):
         await service.estimate("   ")
+
+
+@pytest.mark.asyncio
+async def test_estimate_rejects_out_of_domain_without_calling_provider() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text="## Estimation: should never be used",
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    service = EstimationService(_settings(), providers=[provider])
+    with pytest.raises(DomainGuardrailError, match="Only software/project estimation"):
+        await service.estimate("Que distancia hay desde la tierra al sol?")
+    assert provider.calls == 0
 
 
 @pytest.mark.asyncio

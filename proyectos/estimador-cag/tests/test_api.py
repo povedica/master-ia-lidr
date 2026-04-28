@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from app.config import Settings, get_settings
 from app.main import app
 from app.routers.estimations import get_estimation_service
-from app.services.llm_service import EstimationError, EstimationResult, UsageInfo
+from app.services.llm_service import (
+    DomainGuardrailError,
+    EstimationError,
+    EstimationResult,
+    UsageInfo,
+)
 
 
 class _FakeEstimationService:
@@ -32,6 +37,11 @@ class _FakeStaticFallbackEstimationService:
 class _FailingEstimationService:
     async def estimate(self, transcription: str) -> str:
         raise EstimationError("OpenAI API key is not configured.")
+
+
+class _OutOfDomainEstimationService:
+    async def estimate(self, transcription: str) -> str:
+        raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
 
 def test_root_returns_service_index() -> None:
@@ -155,3 +165,20 @@ def test_estimate_returns_503_when_service_raises_estimation_error() -> None:
 
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
+
+
+def test_estimate_returns_422_for_out_of_domain() -> None:
+    app.dependency_overrides[get_estimation_service] = lambda: _OutOfDomainEstimationService()  # type: ignore[return-value]
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/estimate",
+                json={"transcription": "Que distancia hay desde la tierra al sol?"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["detail"]["code"] == "out_of_domain"
+    assert "Only software/project estimation requests are supported." in body["detail"]["message"]
