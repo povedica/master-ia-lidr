@@ -129,7 +129,6 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
 | `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
-| `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens per Anthropic response. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
 | `DEV_MODE` | No | `false` | When `true`, responses include `usage` and estimated cost. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
@@ -187,6 +186,7 @@ proyectos/estimador-cag/
 │   │   └── estimations.py
 │   └── services/
 │       ├── __init__.py
+│       ├── domain_guardrails.py
 │       └── llm_service.py
 ├── api-collection/
 │   └── Estimador CAG/
@@ -214,6 +214,7 @@ Responsibilities:
 | `app/main.py` | FastAPI composition root: logging setup, lifespan, routers, base endpoints. |
 | `app/config.py` | Typed settings from the environment. |
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
+| `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Static few-shot examples. |
@@ -357,6 +358,7 @@ Validation:
 - `transcription` is required.
 - It must contain at least one character.
 - After `strip()`, it must not be empty.
+- It must be in the software/project estimation domain.
 
 Response with `DEV_MODE=false`:
 
@@ -370,6 +372,17 @@ Response with `DEV_MODE=false`:
   "latency_ms": 1800,
   "prompt_version": "v1",
   "examples_version": "static-v1"
+}
+```
+
+Out-of-domain rejection response:
+
+```json
+{
+  "detail": {
+    "code": "out_of_domain",
+    "message": "Only software/project estimation requests are supported."
+  }
 }
 ```
 
@@ -474,6 +487,7 @@ Service errors:
 
 | Case | Outcome |
 |------|---------|
+| Out-of-domain request (non software/project estimation) | `422 Unprocessable Entity` with `detail.code = "out_of_domain"`; provider chain is not called. |
 | Provider timeout / rate limit / unavailable | Next provider in chain is attempted. |
 | Provider empty/invalid response | Next provider in chain is attempted. |
 | Provider auth/config error | Returns `503` by default (unless `LLM_AUTH_FALLBACK=true`). |
@@ -481,11 +495,10 @@ Service errors:
 | All providers fail and static fallback disabled | `503 Service Unavailable`. |
 | Unknown provider name in `LLM_PROVIDERS` | Skipped with `provider_unknown` warning. |
 
-The router maps `EstimationError` to:
+The router maps:
 
-```text
-503 Service Unavailable
-```
+- `DomainGuardrailError` to `422 Unprocessable Entity`
+- `EstimationError` to `503 Service Unavailable`
 
 This avoids leaking stack traces or internal details to API clients.
 

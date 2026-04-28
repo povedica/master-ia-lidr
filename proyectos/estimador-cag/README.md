@@ -59,6 +59,23 @@ Response fields include:
 - `degraded` (only present when static fallback is used)
 - `usage` (`prompt_tokens`, `completion_tokens`, `total_tokens`, `estimated_cost_usd`) only when `DEV_MODE=true`
 
+## Estimation domain guardrail
+
+The API is restricted to software/project estimation requests.
+
+- In-domain requests continue through the provider chain as usual.
+- Out-of-domain prompts are rejected before provider calls.
+- Out-of-domain responses return `422` with:
+
+```json
+{
+  "detail": {
+    "code": "out_of_domain",
+    "message": "Only software/project estimation requests are supported."
+  }
+}
+```
+
 ### Response metadata (detailed)
 
 The endpoint returns two kinds of metadata:
