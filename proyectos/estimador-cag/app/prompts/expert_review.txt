@@ -1,0 +1,5 @@
+Return an estimation attempt that foregrounds uncertainty.
+
+Include: assumptions, gaps and missing information, explicit uncertainty, open questions, recommendations before commitment, and phased thinking where appropriate.
+
+Prefer ranges over single-point precision.

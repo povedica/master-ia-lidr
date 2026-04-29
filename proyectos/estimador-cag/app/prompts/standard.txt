@@ -1,0 +1,3 @@
+Return a practical estimate suitable for normal planning.
+
+Include: MVP scope, assumptions, breakdown by areas or themes, task table with hours, effort summary, buffer, sprint-oriented delivery outline where helpful, and risks.

@@ -22,6 +22,8 @@ class _FakeEstimationService:
             model="gpt-4o-mini",
             usage=UsageInfo(prompt_tokens=100, completion_tokens=50, total_tokens=150),
             mode=EstimationMode.BASIC,
+            assessment=None,
+            mode_eligibility=None,
         )
 
 
@@ -33,6 +35,8 @@ class _FakeStaticFallbackEstimationService:
             model="static-v1",
             usage=None,
             mode=EstimationMode.BASIC,
+            assessment=None,
+            mode_eligibility=None,
             degraded=True,
         )
 
@@ -93,7 +97,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
     assert body["latency_ms"] >= 0
-    assert body["prompt_version"] == "v1"
+    assert body["prompt_version"] == "v2"
     assert body["examples_version"] == "static-v1"
     assert body["usage"]["total_tokens"] == 150
     assert body["usage"]["estimated_cost_usd"] > 0

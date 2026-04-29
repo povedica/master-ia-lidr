@@ -34,6 +34,22 @@ class UsageView(BaseModel):
     estimated_cost_usd: float | None = None
 
 
+class AssessmentView(BaseModel):
+    """Input assessment summary returned by the adaptive engine."""
+
+    detail_level: str
+    recommended_mode: EstimationMode
+    reason: str
+
+
+class ModeEligibilityView(BaseModel):
+    """Business guardrail decision for mode eligibility."""
+
+    allowed_modes: list[EstimationMode]
+    blocked_modes: list[EstimationMode]
+    reason: str | None = None
+
+
 class EstimateResponse(BaseModel):
     """Structured API response including provider metadata."""
 
@@ -46,6 +62,8 @@ class EstimateResponse(BaseModel):
     latency_ms: int
     prompt_version: str
     examples_version: str
+    assessment: AssessmentView | None = None
+    mode_eligibility: ModeEligibilityView | None = None
     degraded: bool | None = None
     usage: UsageView | None = None
 

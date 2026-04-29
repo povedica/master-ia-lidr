@@ -134,6 +134,10 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
     assert result.provider == "openai"
     assert result.model == "gpt-4o-mini"
     assert result.mode == EstimationMode.BASIC
+    assert result.assessment is not None
+    assert result.assessment.recommended_mode == EstimationMode.BASIC
+    assert result.mode_eligibility is not None
+    assert EstimationMode.BASIC in result.mode_eligibility.allowed_modes
     assert primary.calls == 1
     assert secondary.calls == 0
 
@@ -238,6 +242,31 @@ async def test_estimate_returns_static_degraded_when_real_providers_fail() -> No
 
 
 @pytest.mark.asyncio
+async def test_estimate_downgrades_expert_review_when_input_quality_is_low() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text="## Assumptions\n- a\n\n## Tasks\n- b\n\n## Effort summary\n- c",
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    service = EstimationService(_settings(), providers=[provider])
+
+    result = await service.estimate(
+        "Maybe we need something like a platform, not sure yet, whatever works."
+    )
+    assert result.assessment is not None
+    assert result.assessment.recommended_mode == EstimationMode.EXPERT_REVIEW
+    assert result.mode == EstimationMode.STANDARD
+    assert result.mode_eligibility is not None
+    assert EstimationMode.EXPERT_REVIEW in result.mode_eligibility.blocked_modes
+    assert result.mode_eligibility.reason == "Input detail is insufficient."
+
+
+@pytest.mark.asyncio
 async def test_estimate_raises_when_all_providers_fail() -> None:
     providers = [
         _StubProvider(name="openai", model="gpt-4o-mini", _error=ProviderTimeoutError("timeout")),
@@ -281,16 +310,6 @@ async def test_estimate_falls_back_when_primary_output_is_structurally_invalid()
 async def test_estimate_raises_on_unexpected_provider_exception() -> None:
     providers = [
         _StubProvider(name="openai", model="gpt-4o-mini", _error=RuntimeError("boom")),
-        _StubProvider(
-            name="static_fallback",
-            model="static-v1",
-            _result=ProviderResult(
-                text="## Estimation: degraded",
-                provider="static_fallback",
-                model="static-v1",
-                usage=None,
-            ),
-        ),
     ]
     service = EstimationService(_settings(), providers=providers)
     with pytest.raises(EstimationError, match="Unexpected provider failure"):

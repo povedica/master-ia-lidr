@@ -8,7 +8,13 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import Settings, get_settings
-from app.schemas.estimations import EstimateRequest, EstimateResponse, UsageView
+from app.schemas.estimations import (
+    AssessmentView,
+    EstimateRequest,
+    EstimateResponse,
+    ModeEligibilityView,
+    UsageView,
+)
 from app.services.providers import build_provider_chain
 from app.services.llm_service import (
     DomainGuardrailError,
@@ -99,6 +105,24 @@ async def create_estimate(
         latency_ms=int((perf_counter() - start) * 1000),
         prompt_version=PROMPT_VERSION,
         examples_version=EXAMPLES_VERSION,
+        assessment=(
+            AssessmentView(
+                detail_level=result.assessment.detail_level,
+                recommended_mode=result.assessment.recommended_mode,
+                reason=result.assessment.reason,
+            )
+            if result.assessment
+            else None
+        ),
+        mode_eligibility=(
+            ModeEligibilityView(
+                allowed_modes=list(result.mode_eligibility.allowed_modes),
+                blocked_modes=list(result.mode_eligibility.blocked_modes),
+                reason=result.mode_eligibility.reason,
+            )
+            if result.mode_eligibility
+            else None
+        ),
         degraded=True if result.degraded else None,
         usage=usage,
     )

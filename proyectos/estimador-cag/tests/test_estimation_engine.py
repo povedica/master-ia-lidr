@@ -1,6 +1,11 @@
 """Adaptive estimation engine tests."""
 
-from app.services.estimation_engine import EstimationMode, assess_and_select_mode
+from app.services.estimation_engine import (
+    EstimationMode,
+    assess_and_select_mode,
+    evaluate_mode_eligibility,
+    summarize_assessment,
+)
 
 
 def test_routes_short_request_to_basic() -> None:
@@ -27,7 +32,12 @@ def test_routes_detailed_request_to_professional() -> None:
 
 
 def test_routes_ambiguous_request_to_expert_review() -> None:
-    _, mode = assess_and_select_mode(
+    assessment, mode = assess_and_select_mode(
         "We need something like a platform, not sure yet, maybe with dashboards etc."
     )
     assert mode == EstimationMode.EXPERT_REVIEW
+    summary = summarize_assessment(assessment, mode)
+    eligibility = evaluate_mode_eligibility(summary)
+    assert summary.detail_level == "low"
+    assert EstimationMode.EXPERT_REVIEW in eligibility.blocked_modes
+    assert EstimationMode.STANDARD in eligibility.allowed_modes

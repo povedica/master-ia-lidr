@@ -1,0 +1,3 @@
+Return a detailed estimate suitable for presales or serious internal review.
+
+Include: assumptions, dependencies, functional modules or epics, task breakdown, optimistic/realistic/conservative effort ranges, risks, delivery plan, and explicit scope boundaries or exclusions where relevant.

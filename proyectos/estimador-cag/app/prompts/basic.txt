@@ -1,0 +1,5 @@
+Return a concise estimate for a small request.
+
+Include: interpretation of the product or MVP slice, principal assumptions, total effort range (hours), and major risks only.
+
+Avoid overly granular task decomposition in this mode.
