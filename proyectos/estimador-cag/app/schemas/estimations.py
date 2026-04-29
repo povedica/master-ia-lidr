@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.services.estimation_engine import EstimationMode
+
 
 class EstimateRequest(BaseModel):
     """Inbound meeting transcription to estimate."""
@@ -36,6 +38,7 @@ class EstimateResponse(BaseModel):
     """Structured API response including provider metadata."""
 
     estimation: str
+    mode: EstimationMode
     model: str
     provider: str
     request_id: str

@@ -8,11 +8,18 @@ from time import perf_counter
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
+from app.services.estimation_engine import (
+    EstimationMode,
+    assess_and_select_mode,
+    get_mode_profile,
+    validate_mode_output,
+)
 from app.services.domain_guardrails import check_estimation_domain
 from app.services.providers.base import (
     LLMProvider,
     ProviderConfigError,
     ProviderError,
+    ProviderInvalidResponseError,
     UsageInfo,
 )
 
@@ -39,12 +46,14 @@ class EstimationResult:
     provider: str
     model: str
     usage: UsageInfo | None
+    mode: EstimationMode = EstimationMode.STANDARD
     degraded: bool = False
 
 
-def build_system_prompt(examples: list[EstimationExample]) -> str:
+def build_system_prompt(examples: list[EstimationExample], mode: EstimationMode) -> str:
     """Compose the system message including static few-shot examples."""
 
+    mode_profile = get_mode_profile(mode)
     intro = (
         "You are an expert software project estimator. "
         "The following sections are reference patterns: mirror their structure, "
@@ -54,7 +63,8 @@ def build_system_prompt(examples: list[EstimationExample]) -> str:
         "You must only produce estimates for software or project work. "
         "Treat requests mentioning software features/components (e.g., login, form, API, dashboard, backend, frontend, database) "
         "as in-domain and estimate them normally. "
-        "Refuse only when the request is clearly unrelated to software/project estimation."
+        "Refuse only when the request is clearly unrelated to software/project estimation.\n"
+        f"Adaptive mode: {mode.value}. {mode_profile.instruction}"
     )
     parts: list[str] = [intro, "\n## Reference estimation examples\n"]
     for index, example in enumerate(examples, start=1):
@@ -83,7 +93,8 @@ class EstimationService:
                 logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
                 raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
-        system_prompt = build_system_prompt(load_examples())
+        _, mode = assess_and_select_mode(text)
+        system_prompt = build_system_prompt(load_examples(), mode)
         provider_names = [provider.name for provider in self._providers]
         last_error: ProviderError | None = None
 
@@ -137,6 +148,21 @@ class EstimationService:
                 )
                 raise EstimationError("Unexpected provider failure.") from exc
 
+            if not validate_mode_output(result.text, mode):
+                logger.warning(
+                    "provider_invalid_structure",
+                    extra={
+                        "provider": result.provider,
+                        "model": result.model,
+                        "mode": mode.value,
+                        "attempt_index": attempt_index,
+                    },
+                )
+                last_error = ProviderInvalidResponseError(
+                    f"Invalid markdown structure for mode '{mode.value}'."
+                )
+                continue
+
             logger.info(
                 "provider_succeeded",
                 extra={
@@ -157,6 +183,7 @@ class EstimationService:
                 provider=result.provider,
                 model=result.model,
                 usage=result.usage,
+                mode=mode,
                 degraded=degraded,
             )
 

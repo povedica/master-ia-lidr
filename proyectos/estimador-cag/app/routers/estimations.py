@@ -91,6 +91,7 @@ async def create_estimate(
 
     return EstimateResponse(
         estimation=result.estimation,
+        mode=result.mode,
         model=result.model,
         provider=result.provider,
         request_id=request_id,
