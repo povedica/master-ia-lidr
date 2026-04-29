@@ -386,4 +386,7 @@ Result: `41 passed`, `0 failed`.
 |------------|---------|-----------------|
 | `2304a75` | `feat(estimador-cag): enforce estimation-domain guardrails in service and API` | Added deterministic domain checks in the service layer and mapped out-of-domain rejections to a stable `422` API contract. |
 | `dac9898` | `test(estimador-cag): cover domain rejection behavior across layers` | Added unit, service, and API tests for acceptance/rejection cases and verified providers are not called when requests are out-of-domain. |
+| `8d1dd0f` | `feat(estimador-cag): add env toggle for domain guardrail behavior` | Added `LLM_DOMAIN_GUARDRAIL_ENABLED` support in settings/service and refined prompt instructions to avoid false refusals for in-domain software requests. |
+| `b0e494d` | `test(estimador-cag): cover guardrail toggle and intent heuristics` | Added tests for the new environment toggle plus short Spanish estimation-intent acceptance and deterministic settings loading behavior. |
+| `8578e33` | `docs(estimador-cag): document configurable domain-guardrail setting` | Updated runtime and technical docs, and aligned the canonical work item text with the configurable guardrail boundary. |
 
