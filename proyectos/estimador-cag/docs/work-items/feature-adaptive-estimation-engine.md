@@ -438,3 +438,5 @@ Before considering the exercise complete, verify:
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
+| `16b8b99` | `feat(estimador-cag): add adaptive estimation mode engine` | Added deterministic assessment/routing module, integrated mode-aware prompt and lightweight output validation into the service flow, and exposed `mode` in API response schemas. |
+| `da2c890` | `test(estimador-cag): cover adaptive mode routing and fallback validation` | Added unit tests for mode routing and extended service/API tests to cover mode propagation and structural-invalid-output fallback behavior. |

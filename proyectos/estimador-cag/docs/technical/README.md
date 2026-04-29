@@ -38,6 +38,7 @@ The project uses **Context-Augmented Generation (CAG)** in a deliberately small 
 - Static context lives in `app/context/examples.py`.
 - The app builds a `system prompt` with instructions and prior examples.
 - The live transcription is sent as the `user` message.
+- A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
 - A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
 The first version does not include persistence, authentication, a frontend, or production deployment. It is an AI Engineering baseline meant for learning and safe iteration.
@@ -366,6 +367,7 @@ Response with `DEV_MODE=false`:
 ```json
 {
   "estimation": "## Estimation: ...",
+  "mode": "standard",
   "model": "gpt-4o-mini",
   "provider": "openai",
   "request_id": "est_abc123def456",
@@ -408,6 +410,7 @@ Response with `DEV_MODE=true`:
 ```json
 {
   "estimation": "## Estimation: ...",
+  "mode": "standard",
   "model": "gpt-4o-mini",
   "provider": "openai",
   "request_id": "est_abc123def456",
@@ -435,6 +438,7 @@ Operational metadata (always present):
 - `examples_version`: few-shot context version.
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
 - `model`: model identifier reported by the provider implementation.
+- `mode`: adaptive estimation mode selected by service-level deterministic routing.
 - `degraded`: only present when static fallback is used.
 
 Development metadata (only when `DEV_MODE=true`):

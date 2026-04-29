@@ -53,7 +53,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
 
 Response fields include:
 
-- `estimation`, `model`, `provider`
+- `estimation`, `mode`, `model`, `provider`
 - `request_id`, `timestamp`, `latency_ms`
 - `prompt_version`, `examples_version`
 - `degraded` (only present when static fallback is used)
@@ -80,6 +80,17 @@ Guardrail toggle:
 
 - `LLM_DOMAIN_GUARDRAIL_ENABLED=true` (default): enforce out-of-domain rejection.
 - `LLM_DOMAIN_GUARDRAIL_ENABLED=false`: bypass guardrail checks (the request still goes through prompt instructions and providers).
+
+## Adaptive estimation mode
+
+The service now classifies each request and routes it to one output depth mode:
+
+- `basic`
+- `standard`
+- `professional`
+- `expert_review`
+
+The selected mode is returned in the `mode` response field. Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
 
 ### Response metadata (detailed)
 
@@ -163,6 +174,7 @@ With `DEV_MODE=false`:
 ```json
 {
   "estimation": "## Estimation: ...",
+  "mode": "standard",
   "model": "gpt-4o-mini",
   "provider": "openai",
   "request_id": "est_abc123def456",
@@ -178,6 +190,7 @@ With `DEV_MODE=true`:
 ```json
 {
   "estimation": "## Estimation: ...",
+  "mode": "standard",
   "model": "gpt-4o-mini",
   "provider": "openai",
   "request_id": "est_abc123def456",
