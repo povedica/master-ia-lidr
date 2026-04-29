@@ -17,6 +17,11 @@ def test_accepts_spanish_software_request() -> None:
     assert result.accepted is True
 
 
+def test_accepts_short_spanish_estimation_request() -> None:
+    result = check_estimation_domain("Quiero hacer un formulario de login. Estimalo.")
+    assert result.accepted is True
+
+
 def test_rejects_general_knowledge_question() -> None:
     result = check_estimation_domain("Que distancia hay desde la tierra al sol?")
     assert result.accepted is False

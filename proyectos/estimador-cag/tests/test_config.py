@@ -41,3 +41,11 @@ def test_provider_chain_defaults() -> None:
     assert settings.llm_providers == "openai,anthropic"
     assert settings.static_fallback_enabled is True
     assert settings.llm_auth_fallback is False
+    assert settings.llm_domain_guardrail_enabled is True
+
+
+def test_domain_guardrail_can_be_disabled_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_DOMAIN_GUARDRAIL_ENABLED", "false")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.llm_domain_guardrail_enabled is False

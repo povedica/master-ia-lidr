@@ -28,6 +28,7 @@ def test_build_system_prompt_includes_both_example_summaries() -> None:
     assert "Service marketplace MVP" in prompt
     assert "Reference estimation examples" in prompt
     assert "only produce estimates for software or project work" in prompt
+    assert "Treat requests mentioning software features/components" in prompt
 
 
 @dataclass
@@ -54,7 +55,7 @@ def _settings(**overrides: Any) -> Settings:
         "anthropic_api_key": "ak-test",
     }
     defaults.update(overrides)
-    return Settings(**defaults)
+    return Settings(_env_file=None, **defaults)
 
 
 @pytest.mark.asyncio
@@ -80,6 +81,27 @@ async def test_estimate_rejects_out_of_domain_without_calling_provider() -> None
     with pytest.raises(DomainGuardrailError, match="Only software/project estimation"):
         await service.estimate("Que distancia hay desde la tierra al sol?")
     assert provider.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_estimate_allows_out_of_domain_when_guardrail_disabled() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text="## Estimation: returned because guardrail is disabled",
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    service = EstimationService(
+        _settings(llm_domain_guardrail_enabled=False),
+        providers=[provider],
+    )
+    result = await service.estimate("Que distancia hay desde la tierra al sol?")
+    assert result.provider == "openai"
+    assert provider.calls == 1
 
 
 @pytest.mark.asyncio
