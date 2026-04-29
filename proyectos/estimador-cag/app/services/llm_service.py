@@ -29,7 +29,7 @@ from app.services.providers.base import (
 )
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v4"
 EXAMPLES_VERSION = "static-v1"
 
 

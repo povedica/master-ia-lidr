@@ -154,7 +154,7 @@ Update metadata versions whenever behavior-affecting inputs change:
 
 Suggested convention:
 
-- `v1`, `v2`, `v3`, … for major behavioral changes
+- `v1`, `v2`, `v3`, `v4`, … for major behavioral changes
 - `v1.1`, `v1.2` for incremental tuning
 
 ## Tests
@@ -197,7 +197,7 @@ With `DEV_MODE=false`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1"
 }
 ```
@@ -213,7 +213,7 @@ With `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,

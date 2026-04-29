@@ -363,7 +363,7 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION = "v3"` in `app/services/llm_service.py`.
+- `PROMPT_VERSION = "v4"` in `app/services/llm_service.py`.
 - `EXAMPLES_VERSION = "static-v1"` in `app/services/llm_service.py`.
 - Bump `PROMPT_VERSION` when prompt composition changes or default prompt-file wording materially changes estimation behavior.
 - Bump `EXAMPLES_VERSION` when example content changes behavior in a meaningful way.
@@ -421,7 +421,7 @@ Response with `DEV_MODE=false`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1"
 }
 ```
@@ -447,7 +447,7 @@ Degraded response (when static fallback is used):
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1",
   "degraded": true
 }
@@ -464,7 +464,7 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,

@@ -250,7 +250,7 @@ Response in v1:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-29T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1"
 }
 ```
@@ -270,7 +270,7 @@ Potential response contract extension (v2-compatible):
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-29T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v3",
+  "prompt_version": "v4",
   "examples_version": "static-v1"
 }
 ```
