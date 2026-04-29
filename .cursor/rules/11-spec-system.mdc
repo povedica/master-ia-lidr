@@ -12,6 +12,9 @@ Provide a small, growable Spec-Driven Development baseline for `master-ia`: expl
 ## Single Canonical Document
 
 - Each work item is described in one canonical Markdown file.
+- Work item filenames must include an order prefix right after the type, using `NNN` format:
+  - `<type>-<NNN>-<slug>.md`
+  - Example: `feature-007-adaptive-estimation-engine.md`
 - Default location for project work:
   - `second-brain-master-ia/proyectos/<project>/work-items/`
 - For **estimador-cag**, a versioned mirror of `second-brain-master-ia/proyectos/estimador-cag/` lives at `proyectos/estimador-cag/docs/`; refresh it with `bash scripts/sync-estimador-cag-docs.sh` from the repo root after vault edits.
@@ -71,6 +74,7 @@ All canonical documents include `## Repository commits (master-ia)`.
 
 - One canonical document per work item.
 - Type is set by the file prefix.
+- The numeric `NNN` prefix defines arrival order and must increase monotonically within each project.
 - Light mode is the default; strict mode requires a real trigger.
 - Analysis informs, never blocks.
 - Never introduce new templates that do not solve a real problem.

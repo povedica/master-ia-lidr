@@ -40,6 +40,10 @@ Define the minimum engineering standards for this Python AI Engineering project.
 - [ ] Tests target project logic, not real provider APIs.
 - [ ] Second Brain documentation is updated when the session or learning changes.
 
+## Related Rules
+- `12-core-principles.mdc` for cross-cutting implementation principles.
+- `13-babysteps-principle.mdc` for strict micro-step workflow and verification cadence.
+
 ---
 
 **Last updated:** 2026-04-26

@@ -12,10 +12,10 @@ Create small, clear, traceable commits for `master-ia`, tied to the **master ses
 
 ## Project rules
 
-- **Work item document (priority):** append the commit log to the active work item document when it exists and is clear (by convention: `second-brain-master-ia/proyectos/<project>/work-items/<type>-*.md` or an explicit path you give).
+- **Work item document (priority):** append the commit log to the active work item document when it exists and is clear (by convention: `second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-*.md` or an explicit path you give).
 - **Master session:** keep a link to the session (`second-brain-master-ia/sesiones/sesion-NN-*.md` or equivalent) for context and a duplicate table or summary **when** it applies; if work is feature-only, the main table may live **only** in the feature doc.
 - **If the log destination is unclear:** **do not run `git commit` until you ask** where to record the report. Always give an **explicit default suggestion**, for example:
-  - *"I suggest logging commits in `second-brain-master-ia/proyectos/<project>/work-items/<active-work-item>.md` and, if you want class traceability, a short summary in `sesiones/sesion-NN-*.md`."*
+  - *"I suggest logging commits in `second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-<active-work-item>.md` and, if you want class traceability, a short summary in `sesiones/sesion-NN-*.md`."*
 - **Size:** aim for up to **5 files** and **~200 lines** per commit, unless the change is one indivisible logical block (e.g. initial scaffold) and is explained in the report itself.
 - **Messages:** **English**, conventional prefix: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
 - **Commit log table:** write **English** prose in the description column (and English section headings when you create them), per `.cursor/rules/00-base-standards.mdc`. Commit subjects stay as in Git (English).
@@ -30,7 +30,7 @@ Create small, clear, traceable commits for `master-ia`, tied to the **master ses
 | `abc1234` | `docs(cursor): example message` | Brief English description of what changed. |
 ```
 
-**Preferred destination:** the active work item file (e.g. `work-items/feature-configuracion-inicial-cag.md`). **Optional secondary:** the active session note, with a link to the work item if you want to avoid duplicating rows.
+**Preferred destination:** the active work item file (e.g. `work-items/feature-012-configuracion-inicial-cag.md`). **Optional secondary:** the active session note, with a link to the work item if you want to avoid duplicating rows.
 
 ---
 
@@ -164,7 +164,7 @@ If the remote rejects the push, sync with `git pull --rebase` and push again. If
 | Situation | Action |
 |-----------|--------|
 | Known work item | Always update `## Repository commits (master-ia)` (or normalize an existing Spanish-titled section) in that work item `.md`. |
-| Unknown work item | **Ask** where to log; **suggest** `work-items/<type>-<name>.md` under the project in Second Brain, or `sesiones/sesion-NN-*.md` as secondary. |
+| Unknown work item | **Ask** where to log; **suggest** `work-items/<type>-<NNN>-<name>.md` under the project in Second Brain, or `sesiones/sesion-NN-*.md` as secondary. |
 | Mixed work (master-ia + notes outside the repo) | Commit only what lives in the repo; the log table may live in Second Brain even when those files are not in `git`. |
 
 ## Checklist

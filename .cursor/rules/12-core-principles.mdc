@@ -1,0 +1,32 @@
+---
+title: Core Principles
+alwaysApply: true
+category: workflow
+---
+
+# Core Principles
+
+## Purpose
+Capture cross-cutting engineering principles that guide daily implementation decisions in `master-ia`.
+
+## Principles
+- **First plan**: Start with a short plan before implementing any non-trivial request.
+- **Pre-implementation analysis**: Review existing patterns, current repo state, and target boundaries before editing.
+- **Small tasks, one at a time**: Work in baby steps and avoid multi-step jumps.
+- **Verification-first mindset**: Validate each meaningful step with the smallest relevant check (tests, lint, or manual check).
+- **Type safety**: Keep Python code typed and explicit where it improves reliability and readability.
+- **Clear naming**: Use descriptive names for modules, functions, variables, and tests.
+- **Incremental changes**: Prefer focused diffs over broad rewrites.
+- **Question assumptions**: Validate inferred requirements and edge cases before coding deeper.
+- **Pattern detection**: Detect repeated patterns and decide whether to extract shared logic.
+- **Pattern consistency**: Follow established project conventions unless there is a clear reason to improve them.
+- **Refactoring verification**: Establish a baseline, refactor in small slices, and re-verify after each slice.
+
+## Working Agreements
+- Use this rule together with `00-base-standards.mdc`, `05-testing-standards.mdc`, and `07-pre-implementation-analysis.mdc`.
+- If rules overlap, prefer the stricter safety requirement and the smaller implementation step.
+
+---
+
+**Last updated:** 2026-04-29
+**Status:** Active

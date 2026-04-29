@@ -1,0 +1,69 @@
+---
+title: Baby Steps Principle
+alwaysApply: true
+category: workflow
+---
+
+# Baby Steps Principle
+
+## Purpose
+Define a strict small-step workflow so every change in `master-ia` stays verifiable, reviewable, and safe.
+
+## 1) Break work into micro-steps
+A step should be small enough to finish quickly, explain in one sentence, and verify immediately.
+
+Example:
+- Instead of: "Implement full adaptive estimation engine"
+- Use: "Add config model for adaptive thresholds"
+- Then: "Add unit test for threshold validation"
+- Then: "Wire threshold into estimator selection"
+
+## 2) Keep the repo in a working state after each step
+After each meaningful step:
+- Run the smallest relevant test command (usually `uv run pytest` with scope).
+- Run additional checks only when applicable.
+- Ensure no intentional broken intermediate state is left behind.
+
+## 3) Commit small, focused increments
+- One behavior, one fix, one refactor, or one documentation slice per commit.
+- Target up to **5 files** and around **200 changed lines** when practical.
+- If the change is larger, split it into independent verifiable commits.
+
+## 4) Avoid "while I am here" scope creep
+Do not mix unrelated fixes into the same step.
+If new findings appear, capture them as follow-ups and keep the current step focused.
+
+## 5) Test-first when practical
+For behavior changes and bug fixes, prefer:
+1. Write/adjust a failing test (RED).
+2. Implement the minimum code to pass (GREEN).
+3. Refactor while keeping tests passing (REFACTOR).
+
+If test-first is not practical for the exact change, document the reason and run an equivalent verification path.
+
+## 6) Verify before moving to the next step
+Before continuing:
+- Confirm relevant tests pass.
+- Confirm no new lints were introduced in edited files.
+- Confirm docs/config updates are included when behavior/settings changed.
+
+## 7) Exception for mechanical repetitive refactors
+When the same mechanical change is required across many files:
+- First confirm the pattern is truly identical.
+- Apply it consistently in one focused pass.
+- Run broad verification immediately after.
+- Use a commit message that explains the pattern and impacted scope.
+
+Use this exception only for syntactic/mechanical changes, not for new behavior.
+
+## Quick Checklist
+- [ ] Step is small and clearly scoped.
+- [ ] Verification for this step has been executed.
+- [ ] Diff remains focused and reviewable.
+- [ ] No secrets or local-only artifacts are included.
+- [ ] Documentation/config is aligned when needed.
+
+---
+
+**Last updated:** 2026-04-29
+**Status:** Active
