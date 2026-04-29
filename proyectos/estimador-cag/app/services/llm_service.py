@@ -29,7 +29,7 @@ from app.services.providers.base import (
 )
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 EXAMPLES_VERSION = "static-v1"
 
 
@@ -58,22 +58,10 @@ class EstimationResult:
 
 
 def build_system_prompt(examples: list[EstimationExample], mode: EstimationMode) -> str:
-    """Compose the system message including static few-shot examples."""
+    """Compose the system message: full mode-specific instructions plus static few-shot examples."""
 
-    mode_instruction = load_mode_prompt(mode)
-    intro = (
-        "You are an expert software project estimator. "
-        "The following sections are reference patterns: mirror their structure, "
-        "level of detail, and pragmatism. Adapt hours and scope to the new meeting.\n"
-        "Respond with a structured estimate: assumptions, task table with hours, "
-        "and brief delivery notes.\n"
-        "You must only produce estimates for software or project work. "
-        "Treat requests mentioning software features/components (e.g., login, form, API, dashboard, backend, frontend, database) "
-        "as in-domain and estimate them normally. "
-        "Refuse only when the request is clearly unrelated to software/project estimation.\n"
-        f"Adaptive mode: {mode.value}.\n\n{mode_instruction}\n"
-    )
-    parts: list[str] = [intro, "\n## Reference estimation examples\n"]
+    system_preamble = load_mode_prompt(mode).strip()
+    parts: list[str] = [system_preamble, "\n\n## Reference estimation examples\n"]
     for index, example in enumerate(examples, start=1):
         parts.append(f"\n### Example {index} — meeting summary\n{example.meeting_summary}\n")
         parts.append(f"\n### Example {index} — estimate\n{example.estimation}\n")

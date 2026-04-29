@@ -358,15 +358,12 @@ Message pattern:
 
 `build_system_prompt()` includes:
 
-- Role: expert software estimator.
-- Mode-specific instructions loaded from `app/context/prompts/<mode>.txt` (editable without changing Python code).
-- Instruction to mirror structure, detail level, and pragmatism of the examples.
-- Expected format: assumptions, task/hours table, delivery notes.
-- Examples from `EXAMPLES`.
+- Full system instructions for the active mode, loaded from `app/context/prompts/<mode>.txt` (editable without changing Python code).
+- A trailing section `## Reference estimation examples` with static few-shot examples from `EXAMPLES`.
 
 Versioning:
 
-- `PROMPT_VERSION = "v2"` in `app/services/llm_service.py`.
+- `PROMPT_VERSION = "v3"` in `app/services/llm_service.py`.
 - `EXAMPLES_VERSION = "static-v1"` in `app/services/llm_service.py`.
 - Bump `PROMPT_VERSION` when prompt composition changes or default prompt-file wording materially changes estimation behavior.
 - Bump `EXAMPLES_VERSION` when example content changes behavior in a meaningful way.
@@ -424,7 +421,7 @@ Response with `DEV_MODE=false`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v2",
+  "prompt_version": "v3",
   "examples_version": "static-v1"
 }
 ```
@@ -450,7 +447,7 @@ Degraded response (when static fallback is used):
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v2",
+  "prompt_version": "v3",
   "examples_version": "static-v1",
   "degraded": true
 }
@@ -467,7 +464,7 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v2",
+  "prompt_version": "v3",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,

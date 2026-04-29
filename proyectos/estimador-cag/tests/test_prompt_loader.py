@@ -13,3 +13,12 @@ def test_each_mode_has_prompt_file() -> None:
     for mode in EstimationMode:
         body = load_mode_prompt(mode)
         assert len(body) >= 40
+        assert f"Adaptive mode: {mode.value}" in body
+
+
+def test_mode_prompts_are_not_identical() -> None:
+    basic = load_mode_prompt(EstimationMode.BASIC)
+    standard = load_mode_prompt(EstimationMode.STANDARD)
+    assert basic != standard
+    assert "**basic** mode" in basic
+    assert "**standard** mode" in standard

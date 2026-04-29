@@ -29,7 +29,8 @@ def test_build_system_prompt_includes_both_example_summaries() -> None:
     assert "Service marketplace MVP" in prompt
     assert "Reference estimation examples" in prompt
     assert "only produce estimates for software or project work" in prompt
-    assert "Treat requests mentioning software features/components" in prompt
+    assert "Treat requests mentioning software features or components" in prompt
+    assert "standard** mode" in prompt
     assert "Adaptive mode: standard" in prompt
 
 
