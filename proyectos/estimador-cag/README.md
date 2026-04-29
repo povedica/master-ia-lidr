@@ -83,25 +83,27 @@ Guardrail toggle:
 
 ## Adaptive estimation mode
 
-The service now classifies each request and routes it to one output depth mode:
+**Main idea:** choose the mode by **decision context**, not only by transcript length.
 
-- `basic`
-- `standard`
-- `professional`
-- `expert_review`
+| Mode | Primary purpose |
+|------|------------------|
+| `basic` | Quick sizing, initial discovery |
+| `standard` | Internal planning (default when the engine does not downgrade) |
+| `professional` | Presales and client-facing proposals |
+| `expert_review` | Validation, risk surfacing, and high-stakes decisions (same idea as an **EXPERT** review pass) |
 
-The selected mode is returned in the `mode` response field. Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
+The service classifies each request and routes it to one output depth mode (`basic`, `standard`, `professional`, or `expert_review`). The selected mode is returned in the `mode` response field. Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
 
-Mode-specific system prompt fragments live as plain text files under `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording without changing Python code.
+Mode-specific system instructions live as plain text files under `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording and output contracts without changing Python code.
 
-Mode intent and expected output:
+Mode intent and expected output (reference):
 
 | Mode | Use case | Input quality | Typical output |
 |------|----------|---------------|----------------|
-| `basic` | very early idea | low | quick MVP scope, assumptions, effort range, key risks |
+| `basic` | very early idea | low | MVP scope, assumptions, effort range, key risks |
 | `standard` | default product estimation | medium | scope by areas, task table, risks, sprint-oriented plan |
-| `professional` | presales / client proposal | high | defendable scope, out-of-scope, dependencies, effort scenarios |
-| `expert_review` | high-stakes decision | expert | gap analysis, phased plan, roles, uncertainty and recommendations |
+| `professional` | presales / client proposal | high | in/out of scope, modules, dependencies, effort scenarios |
+| `expert_review` | high-stakes decision | expert | gaps, scenarios, cost drivers, recommendations, confidence |
 
 Business rule: mode escalation is based on context quality, not only on input length.
 
