@@ -123,6 +123,7 @@ Variables documented in `.env.example`:
 | `LLM_PROVIDERS` | Yes | `openai,anthropic` | Ordered provider chain used for fallback. |
 | `STATIC_FALLBACK_ENABLED` | No | `true` | Appends deterministic local fallback provider at chain end. |
 | `LLM_AUTH_FALLBACK` | No | `false` | If `true`, provider auth/config errors may continue to the next provider. |
+| `LLM_DOMAIN_GUARDRAIL_ENABLED` | No | `true` | Enables service-level rejection for out-of-domain prompts before provider calls. |
 | `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Must not appear in logs, tests, or documentation. |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | Model used by the service. |
 | `OPENAI_TIMEOUT_SECONDS` | No | `30` | OpenAI client timeout. |

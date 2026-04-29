@@ -38,7 +38,7 @@ This currently returns a normal factual answer from the model instead of rejecti
 ### Excludes
 
 - No general classifier service or separate moderation model.
-- No user-configurable domain rules in settings for the first pass.
+- No advanced user-configurable domain rule sets (threshold tuning, keyword lists) in settings.
 - No multilingual intent detection beyond simple heuristics.
 - No semantic retrieval, embeddings, or heavy NLP pipeline.
 - No attempt to support other assistant use cases beyond estimations.
@@ -274,7 +274,7 @@ Each step must keep `uv run pytest` green before moving on.
 - **Validate in `EstimateRequest` field validator (Pydantic)**: rejected because it mixes HTTP/schema concerns with domain logic, and makes service-level testing harder.
 - **Pre-classify with another LLM call**: rejected for cost, latency, complexity, and added test fragility. Not justified for the current scope.
 - **Return `200` with a refusal text in `estimation`**: rejected because it conflates business rejection with a successful response.
-- **Add settings to enable/disable the guardrail (`GUARDRAIL_ENABLED` etc.)**: rejected as premature configuration. No real use case yet.
+- **Add complex settings to tune guardrail internals (thresholds/keyword lists)**: rejected as premature configuration for now.
 
 ## Acceptance Criteria
 
@@ -358,6 +358,7 @@ Implemented end-to-end in the service and API layers:
 
 - Added deterministic helper: `app/services/domain_guardrails.py`.
 - Added service-level rejection path with `DomainGuardrailError` in `app/services/llm_service.py`.
+- Added environment toggle `LLM_DOMAIN_GUARDRAIL_ENABLED` to enable/disable service-level guardrail checks.
 - Added prompt backup instruction in `build_system_prompt()`.
 - Added API mapping to `422` + `detail.code = "out_of_domain"` in `app/routers/estimations.py`.
 - Added/updated tests:

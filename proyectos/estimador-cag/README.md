@@ -76,6 +76,11 @@ The API is restricted to software/project estimation requests.
 }
 ```
 
+Guardrail toggle:
+
+- `LLM_DOMAIN_GUARDRAIL_ENABLED=true` (default): enforce out-of-domain rejection.
+- `LLM_DOMAIN_GUARDRAIL_ENABLED=false`: bypass guardrail checks (the request still goes through prompt instructions and providers).
+
 ### Response metadata (detailed)
 
 The endpoint returns two kinds of metadata:
@@ -143,6 +148,7 @@ Provider chain behavior:
 - Providers without credentials are skipped with structured logs.
 - `STATIC_FALLBACK_ENABLED=true` appends a deterministic local fallback response (`provider="static_fallback"` and `degraded=true`).
 - `LLM_AUTH_FALLBACK=false` keeps auth/config failures explicit by default (returns `503` instead of silently falling back).
+- `LLM_DOMAIN_GUARDRAIL_ENABLED=true` enables pre-provider domain rejection for non-estimation prompts.
 
 Required for at least one live provider:
 
