@@ -31,6 +31,9 @@ _SOFTWARE_SIGNALS = (
     "integracion",
     "integración",
     "software",
+    "login",
+    "formulario",
+    "form",
 )
 
 _ESTIMATION_SIGNALS = (
@@ -87,6 +90,12 @@ def _starts_like_general_question(text: str) -> bool:
     return any(text.startswith(pattern) for pattern in _GENERAL_QUESTION_STARTS)
 
 
+def _has_estimation_intent(words: list[str], normalized_text: str) -> bool:
+    if _contains_any_signal(normalized_text, _ESTIMATION_SIGNALS):
+        return True
+    return any(word.startswith("estim") for word in words)
+
+
 def check_estimation_domain(text: str) -> DomainCheckResult:
     """Accept requests that look like software/project estimation work."""
 
@@ -94,13 +103,14 @@ def check_estimation_domain(text: str) -> DomainCheckResult:
     if not normalized:
         return DomainCheckResult(accepted=False, reason="empty_after_normalization")
 
+    words = normalized.split()
     has_software_signal = _contains_any_signal(normalized, _SOFTWARE_SIGNALS)
-    has_estimation_signal = _contains_any_signal(normalized, _ESTIMATION_SIGNALS)
+    has_estimation_signal = _has_estimation_intent(words, normalized)
 
     if has_software_signal:
         return DomainCheckResult(accepted=True)
 
-    word_count = len(normalized.split())
+    word_count = len(words)
     has_general_question_shape = _starts_like_general_question(normalized)
 
     if has_general_question_shape and not has_estimation_signal:

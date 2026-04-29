@@ -52,7 +52,9 @@ def build_system_prompt(examples: list[EstimationExample]) -> str:
         "Respond with a structured estimate: assumptions, task table with hours, "
         "and brief delivery notes.\n"
         "You must only produce estimates for software or project work. "
-        "If the user message is not such a request, refuse politely and do not produce an estimate."
+        "Treat requests mentioning software features/components (e.g., login, form, API, dashboard, backend, frontend, database) "
+        "as in-domain and estimate them normally. "
+        "Refuse only when the request is clearly unrelated to software/project estimation."
     )
     parts: list[str] = [intro, "\n## Reference estimation examples\n"]
     for index, example in enumerate(examples, start=1):
@@ -75,10 +77,11 @@ class EstimationService:
         if not text:
             raise EstimationError("Transcription must not be empty.")
 
-        domain_decision = check_estimation_domain(text)
-        if not domain_decision.accepted:
-            logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
-            raise DomainGuardrailError("Only software/project estimation requests are supported.")
+        if self._settings.llm_domain_guardrail_enabled:
+            domain_decision = check_estimation_domain(text)
+            if not domain_decision.accepted:
+                logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
+                raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
         system_prompt = build_system_prompt(load_examples())
         provider_names = [provider.name for provider in self._providers]
