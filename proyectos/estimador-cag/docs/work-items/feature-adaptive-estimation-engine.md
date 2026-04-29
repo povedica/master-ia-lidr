@@ -1,0 +1,440 @@
+# Feature: Adaptive Estimation Engine with Multi-Level Granularity
+
+## Validation Summary
+
+- Ready: ready with risks
+- Risks: `llm_service.py` could become too large; mode routing could get mixed with provider fallback; output validation could become too strict for markdown; settings could grow too fast.
+- Missing: real calibration data for thresholds and confidence scoring. This should not block the first implementation.
+- Suggested defaults:
+  - Keep `POST /api/v1/estimate` as the only endpoint in v1.
+  - Keep the request body as `{ "transcription": "..." }` in v1.
+  - Expose `mode` in the response first; keep detailed assessment fields internal until they prove useful.
+  - Use deterministic service-level assessment for v1, not a separate classifier LLM call.
+  - Treat low-quality input as an estimation with explicit uncertainty, not as a hard HTTP error.
+- Recommended next command: `requirement-design`
+
+## Objective
+
+Add an adaptive estimation layer to `estimador-cag` so the service can select the right estimation depth for each request, produce a more proportional output, and make uncertainty explicit when the input is weak or ambiguous.
+
+The feature must improve output quality without breaking the current FastAPI boundary, provider abstraction, or provider fallback chain.
+
+## Context
+
+Current behavior is single-mode:
+
+- `POST /api/v1/estimate` accepts only `transcription`.
+- `app/services/llm_service.py` applies the domain guardrail, builds one prompt shape, and runs the ordered provider chain.
+- The provider layer already supports ordered fallback and static degraded mode.
+- The API response already includes operational metadata such as `provider`, `model`, `request_id`, `latency_ms`, `prompt_version`, and `examples_version`.
+
+This means the repo already has the right baseline for an adaptive engine, but the new feature must stay proportional to the current architecture:
+
+- mode selection is a business decision, not a router concern;
+- provider fallback is an operational concern and must remain independent from mode routing;
+- markdown output is the current product format, so validation should be lightweight in the first version.
+
+## Scope
+
+### Includes
+
+- Add an internal input assessment step after the domain guardrail and before prompt construction.
+- Classify requests by detail, completeness, and ambiguity using deterministic rules.
+- Route each request into one of four modes:
+  - `basic`
+  - `standard`
+  - `professional`
+  - `expert_review`
+- Use dedicated prompt instructions per mode.
+- Allow limited per-mode model configuration where it materially matters.
+- Validate the returned markdown against mode-specific required sections.
+- Prevent overconfident outputs on poor input by forcing explicit uncertainty and missing-information sections when needed.
+- Return the selected `mode` in the API response.
+- Preserve the existing provider fallback chain and degraded/static fallback behavior.
+
+### Excludes
+
+- No new endpoint for assessment-only or classify-then-estimate flows.
+- No second LLM call for assessment in the first version.
+- No full parser for markdown tables or strict JSON schema output in the first version.
+- No complete matrix of environment variables for every provider and every mode.
+- No persistence, analytics dashboard, or metrics backend in this work item.
+- No user-facing manual mode override in the first implementation slice.
+
+## Functional Requirements
+
+- **FR-1**: The service must assess input quality after the domain guardrail and before calling a provider.
+- **FR-2**: The assessment must consider at least `detail`, `completeness`, and `ambiguity`.
+- **FR-3**: The service must map the assessment to one of four modes: `basic`, `standard`, `professional`, `expert_review`.
+- **FR-4**: The selected mode must change the prompt instructions and expected output structure.
+- **FR-5**: Low-detail or ambiguous requests must not produce a falsely high-confidence estimate; they must include explicit assumptions, uncertainty, and missing information.
+- **FR-6**: The provider chain must remain reusable; mode routing must not replace or duplicate provider fallback.
+- **FR-7**: If a provider returns a structurally invalid markdown response for the selected mode, the service may treat it as an invalid provider response and continue to the next provider.
+- **FR-8**: The HTTP response must expose `mode` while keeping the rest of the current response contract stable.
+- **FR-9**: The first implementation must remain deterministic, testable, and compatible with `uv run pytest` without real provider keys.
+
+## Technical Approach
+
+### Design Summary
+
+Implement the adaptive logic in `app/services/`, not in the router and not in the schema layer. The smallest proportional design is a new pure helper module that evaluates the transcription, selects the mode, provides prompt instructions for that mode, and validates the returned markdown structure at a lightweight level.
+
+`EstimationService` should remain the orchestrator:
+
+1. validate empty input;
+2. apply domain guardrail;
+3. assess the request and select the mode;
+4. build a mode-aware system prompt;
+5. call the provider chain;
+6. validate returned markdown;
+7. return the estimate plus selected mode and existing metadata.
+
+### Target Files
+
+- `app/services/estimation_engine.py`
+  - pure assessment helpers
+  - mode selection
+  - prompt profile definitions
+  - lightweight output validation
+- `app/services/llm_service.py`
+  - integrate adaptive assessment and mode-aware prompt construction
+  - carry `mode` in `EstimationResult`
+  - keep provider fallback behavior unchanged
+- `app/services/providers/base.py`
+  - optional per-request provider config for model override if needed
+- `app/services/providers/openai_provider.py`
+- `app/services/providers/anthropic_provider.py`
+  - optional support for request-level model override
+- `app/schemas/estimations.py`
+  - add `mode` to `EstimateResponse`
+- `app/routers/estimations.py`
+  - return `mode` without moving business logic into the HTTP layer
+- `app/config.py`
+  - add only the minimum mode-specific settings needed for v1
+- `tests/test_estimation_engine.py`
+  - new focused tests for assessment, routing, prompt profiles, and validation
+- `tests/test_llm_service.py`
+  - integration tests for adaptive flow and invalid-output fallback
+- `tests/test_api.py`
+  - response contract tests including `mode`
+- `tests/test_config.py`
+  - configuration coverage for any new mode-specific settings
+
+### Data Flow
+
+```mermaid
+flowchart LR
+    Req[POST /api/v1/estimate] --> Schema[EstimateRequest]
+    Schema --> Service[EstimationService.estimate]
+    Service --> Guard[check_estimation_domain]
+    Guard -->|accepted| Assess[assess_request]
+    Assess --> Route[select_mode]
+    Route --> Prompt[build_mode_prompt]
+    Prompt --> Chain[provider chain]
+    Chain --> Validate[validate_mode_output]
+    Validate -->|valid| Result[EstimateResponse + mode]
+    Validate -->|invalid| Chain
+    Guard -->|rejected| Http422[422 out_of_domain]
+```
+
+### API Direction for v1
+
+Keep the existing endpoint and extend the response conservatively.
+
+Request in v1:
+
+```json
+{
+  "transcription": "The client needs an admin panel with SSO and CSV imports."
+}
+```
+
+Potential request contract extension (v2-compatible):
+
+```json
+{
+  "transcription": "The client needs an admin panel with SSO and CSV imports.",
+  "mode": "standard",
+  "constraints": {
+    "budget": null,
+    "deadline": null
+  }
+}
+```
+
+Contract notes:
+
+- `transcription` is required.
+- `mode` is optional and represents a preferred override (the service may ignore or downgrade it when guardrails require it).
+- `constraints` is optional.
+- Inside `constraints`, `budget` and `deadline` are optional.
+- If `mode` is omitted, the adaptive engine selects it from assessment.
+
+Response in v1:
+
+```json
+{
+  "estimation": "## Estimation: ...",
+  "mode": "standard",
+  "model": "gpt-4o-mini",
+  "provider": "openai",
+  "request_id": "est_abc123def456",
+  "timestamp": "2026-04-29T10:00:00Z",
+  "latency_ms": 1800,
+  "prompt_version": "v2",
+  "examples_version": "static-v1"
+}
+```
+
+Potential response contract extension (v2-compatible):
+
+```json
+{
+  "estimation": "## Estimation: ...",
+  "mode_used": "standard",
+  "assessment": {
+    "detail_level": "medium",
+    "confidence": "medium"
+  },
+  "model": "gpt-4o-mini",
+  "provider": "openai",
+  "request_id": "est_abc123def456",
+  "timestamp": "2026-04-29T10:00:00Z",
+  "latency_ms": 1800,
+  "prompt_version": "v2",
+  "examples_version": "static-v1"
+}
+```
+
+Contract notes:
+
+- `mode_used` is the effective mode after guardrails and routing.
+- `assessment` is optional in early versions; if present, keep it small and stable.
+- Initial `assessment` fields:
+  - `detail_level`: `low | medium | high | expert`
+  - `confidence`: `low | medium | high`
+- Existing operational metadata remains unchanged.
+
+Detailed assessment fields such as `detail`, `ambiguity`, `missing_information`, or `confidence` may be logged internally first and exposed later only if they are stable and useful for clients.
+
+### Mode Profiles
+
+- `basic`
+  - short but clearly in-domain input
+  - concise estimate
+  - high-level effort range
+  - assumptions and major risks only
+- `standard`
+  - default mode for normal estimation requests
+  - assumptions, scope notes, task breakdown, effort summary, delivery notes
+- `professional`
+  - richer input with enough implementation detail
+  - more explicit breakdown, dependencies, min/realistic/max ranges, stronger structure
+- `expert_review`
+  - incomplete or ambiguous requests that still deserve an estimation attempt
+  - must emphasize gaps, uncertainty, questions, and recommendation for review
+
+### Output Validation
+
+Validation must stay lightweight in v1. It should check for required sections per mode, not for full markdown correctness.
+
+Recommended minimum validation:
+
+- `basic`: assumptions + estimate/range + risks
+- `standard`: assumptions + task breakdown + effort summary
+- `professional`: assumptions + task breakdown + ranges + dependencies
+- `expert_review`: assumptions + missing information or uncertainty + recommendation
+
+If a live provider returns an invalid structure, the service should treat that as an invalid provider response and continue the normal fallback chain.
+
+### Configuration Defaults
+
+Do not add a full per-mode settings matrix in the first version.
+
+Suggested minimal settings evolution:
+
+- Keep `OPENAI_MODEL` and `ANTHROPIC_MODEL` as the default models for most modes.
+- Add optional expert-only overrides if needed later, for example:
+  - `OPENAI_MODEL_EXPERT_REVIEW=`
+  - `ANTHROPIC_MODEL_EXPERT_REVIEW=`
+
+If those overrides are not set, the service should reuse the existing configured models.
+
+### Target Mode Configuration
+
+The intended adaptive configuration for the feature is:
+
+```yaml
+modes:
+  basic:
+    model: gpt-4o-mini
+    max_tokens: 500
+
+  standard:
+    model: gpt-4o-mini
+    max_tokens: 1000
+
+  professional:
+    model: gpt-4o
+    max_tokens: 2000
+
+  expert_review:
+    model: gpt-4o
+    max_tokens: 3000
+```
+
+This table expresses the target behavior of the engine, even if the first implementation keeps the runtime configuration simpler.
+
+Implementation guidance:
+
+- `basic` and `standard` should default to a low-cost model.
+- `professional` and `expert_review` may use a stronger model because they require more structure and reasoning depth.
+- `max_tokens` is part of the mode profile, not part of router logic.
+- The provider layer should receive these values as request-level execution parameters, not as hardcoded branches in the router.
+
+For the first implementation slice, the repo may represent this configuration in code instead of in environment variables, as long as:
+
+- the mode profile is centralized in one service-level module;
+- the values are easy to test and adjust;
+- future settings extraction remains straightforward if operational tuning becomes necessary.
+
+## Acceptance Criteria
+
+- [ ] A short but valid estimation request is routed to `basic`.
+- [ ] A normal project request is routed to `standard`.
+- [ ] A richer, more complete request is routed to `professional`.
+- [ ] An ambiguous or incomplete request is routed to `expert_review` and explicitly includes uncertainty or missing information.
+- [ ] The API response includes `mode` while preserving the current metadata contract.
+- [ ] The provider fallback chain still works when a provider fails operationally.
+- [ ] Structurally invalid outputs can fall through to the next provider.
+- [ ] The feature can be tested without real OpenAI or Anthropic keys.
+- [ ] `.env.example`, `README.md`, and `docs/technical/README.md` are updated if new settings or response fields are implemented.
+
+## Test Plan
+
+### Unit tests
+
+- `tests/test_estimation_engine.py`
+  - classify short, normal, rich, and ambiguous inputs
+  - verify mode routing
+  - verify prompt profile selection
+  - verify lightweight output validation per mode
+
+### Service tests
+
+- `tests/test_llm_service.py`
+  - selected mode is propagated in the result
+  - ambiguous requests route to `expert_review`
+  - invalid markdown output triggers fallback to the next provider
+  - domain guardrail and operational fallback behavior remain intact
+
+### API tests
+
+- `tests/test_api.py`
+  - successful response includes `mode`
+  - current response fields remain stable
+  - `422 out_of_domain` remains unchanged
+  - `503` behavior for provider/config errors remains unchanged
+
+### Manual checks
+
+Run locally:
+
+```bash
+cd proyectos/estimador-cag
+uv run uvicorn app.main:app --reload
+```
+
+Then verify at least these cases:
+
+- short request -> `basic`
+- typical request -> `standard`
+- detailed request -> `professional`
+- ambiguous request -> `expert_review`
+
+Validation command:
+
+```bash
+cd proyectos/estimador-cag
+uv run pytest
+```
+
+## Baby Steps
+
+1. Create `app/services/estimation_engine.py` with pure assessment and mode-selection logic.
+2. Add prompt profiles and lightweight required-section validation.
+3. Extend `EstimationResult` and `EstimateResponse` to carry `mode`.
+4. Integrate the adaptive engine into `EstimationService` without changing provider-chain semantics.
+5. Add focused unit tests for routing and validation.
+6. Extend service and API tests for `mode` and invalid-output fallback.
+7. Add minimal configuration only if a per-mode model override is truly needed.
+8. Update docs and examples after the implementation is stable.
+
+## Risks / Trade-offs
+
+- Heuristic assessment is cheaper and more testable than an LLM classifier, but some boundary cases will be misclassified.
+- Lightweight markdown validation is safer for the first version than a strict parser, but it cannot guarantee perfect structural quality.
+- Keeping detailed assessment internal reduces API churn, but clients will not see the reason behind every mode choice at first.
+- Reusing the same endpoint preserves simplicity, but the feature must be documented clearly so `mode` does not get confused with provider fallback or degraded mode.
+
+## Documentation Plan
+
+If implemented, update:
+
+- `.env.example`
+- `README.md`
+- `docs/technical/README.md`
+- API collection examples if response fields change
+
+This file is the canonical requirement and design source for the adaptive estimation feature.
+
+## 11. Observability
+
+Track at least:
+
+- Mode distribution
+- Cost per mode
+- Estimation variance
+- Retry rates
+- Invalid output rate
+
+Implementation note:
+
+- In the first slice, start with structured logs and deterministic counters in service-level events.
+- If a metrics backend is introduced later, map the same dimensions without changing business behavior.
+
+## 12. Future Improvements
+
+- Learning loop from real project outcomes
+- Calibration against historical data
+- Fine-tuned estimation model
+- User feedback integration
+- Dynamic prompt optimization
+
+## 13. Definition of Done
+
+- [ ] Input assessment working
+- [ ] Mode routing implemented
+- [ ] All 4 modes operational
+- [ ] Prompt system configurable
+- [ ] Output validator active
+- [ ] Guardrails enforced
+- [ ] API returns structured response
+- [ ] Logging and metrics enabled
+
+## Verification Checklist
+
+Before considering the exercise complete, verify:
+
+- [ ] The project starts without errors using `uv run uvicorn app.main:app --reload`
+- [ ] API keys are loaded from `.env` and never appear in source code
+- [ ] `GET /health` responds with HTTP 200
+- [ ] `POST /api/v1/estimate` receives a transcription and returns an estimation
+- [ ] The generated estimation references or is inspired by injected context examples
+- [ ] Swagger documentation is accessible at `/docs`
+- [ ] `.env` is included in `.gitignore`
+
+## Repository commits (master-ia)
+
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|

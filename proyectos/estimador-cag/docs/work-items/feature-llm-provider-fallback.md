@@ -91,8 +91,4 @@ Add a provider abstraction and ordered fallback chain so `estimador-cag` can rec
 
 | Short hash | Message | Scope / summary |
 |---|---|---|
-| `c0deb96` | `feat(services): add provider chain abstraction and fallback backends` | Add provider modules (OpenAI, Anthropic, static fallback), refactor service orchestration, and introduce provider-chain settings/dependency updates. |
-| `ecd3aff` | `feat(api): add provider-aware estimation schemas and startup checks` | Extract HTTP schemas, wire provider-aware API responses, and enforce provider-chain validation at startup. |
-| `18534af` | `test(estimador-cag): expand fallback coverage across providers and API` | Cover provider error mapping, chain ordering, degraded responses, auth fallback policy, and updated request/response contracts. |
-| `84ba109` | `docs(estimador-cag): document provider fallback contracts and verification` | Update README/technical docs and add the canonical work-item for this feature implementation. |
 
