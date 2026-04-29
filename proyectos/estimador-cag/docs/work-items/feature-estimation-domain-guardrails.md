@@ -389,4 +389,6 @@ Result: `41 passed`, `0 failed`.
 | `8d1dd0f` | `feat(estimador-cag): add env toggle for domain guardrail behavior` | Added `LLM_DOMAIN_GUARDRAIL_ENABLED` support in settings/service and refined prompt instructions to avoid false refusals for in-domain software requests. |
 | `b0e494d` | `test(estimador-cag): cover guardrail toggle and intent heuristics` | Added tests for the new environment toggle plus short Spanish estimation-intent acceptance and deterministic settings loading behavior. |
 | `8578e33` | `docs(estimador-cag): document configurable domain-guardrail setting` | Updated runtime and technical docs, and aligned the canonical work item text with the configurable guardrail boundary. |
+| `5a8e720` | `docs(cursor): add ordered work-item naming and rule links` | Added `NNN` work-item naming convention in Cursor workflow docs and linked the new core and baby-steps rules from base standards. |
+| `f8cae23` | `docs(estimador-cag): update active work-item documents` | Added the adaptive estimation engine work item and aligned fallback work-item document contents with the current state. |
 
