@@ -7,6 +7,7 @@ import pytest
 
 from app.config import Settings
 from app.context.examples import load_examples
+from app.services.estimation_engine import EstimationMode
 from app.services.llm_service import (
     DomainGuardrailError,
     EstimationError,
@@ -23,12 +24,13 @@ from app.services.providers.base import (
 
 def test_build_system_prompt_includes_both_example_summaries() -> None:
     examples = load_examples()
-    prompt = build_system_prompt(examples)
+    prompt = build_system_prompt(examples, EstimationMode.STANDARD)
     assert "Sales KPI dashboard" in prompt
     assert "Service marketplace MVP" in prompt
     assert "Reference estimation examples" in prompt
     assert "only produce estimates for software or project work" in prompt
     assert "Treat requests mentioning software features/components" in prompt
+    assert "Adaptive mode: standard" in prompt
 
 
 @dataclass
@@ -89,7 +91,7 @@ async def test_estimate_allows_out_of_domain_when_guardrail_disabled() -> None:
         name="openai",
         model="gpt-4o-mini",
         _result=ProviderResult(
-            text="## Estimation: returned because guardrail is disabled",
+            text="## Assumptions\n- a\n\n## Tasks\n- b\n\n## Effort summary\n- c",
             provider="openai",
             model="gpt-4o-mini",
             usage=None,
@@ -110,7 +112,7 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
         name="openai",
         model="gpt-4o-mini",
         _result=ProviderResult(
-            text="## Estimation: primary",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="openai",
             model="gpt-4o-mini",
             usage=None,
@@ -120,7 +122,7 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
         name="anthropic",
         model="claude-3-5-haiku-latest",
         _result=ProviderResult(
-            text="## Estimation: secondary",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="anthropic",
             model="claude-3-5-haiku-latest",
             usage=None,
@@ -131,6 +133,7 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
     result = await service.estimate("Client needs a portal.")
     assert result.provider == "openai"
     assert result.model == "gpt-4o-mini"
+    assert result.mode == EstimationMode.BASIC
     assert primary.calls == 1
     assert secondary.calls == 0
 
@@ -146,7 +149,7 @@ async def test_estimate_uses_secondary_after_transient_primary_failure() -> None
         name="anthropic",
         model="claude-3-5-haiku-latest",
         _result=ProviderResult(
-            text="## Estimation: secondary",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="anthropic",
             model="claude-3-5-haiku-latest",
             usage=None,
@@ -171,7 +174,7 @@ async def test_estimate_stops_on_config_error_when_auth_fallback_disabled() -> N
         name="anthropic",
         model="claude-3-5-haiku-latest",
         _result=ProviderResult(
-            text="## Estimation: secondary",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="anthropic",
             model="claude-3-5-haiku-latest",
             usage=None,
@@ -196,7 +199,7 @@ async def test_estimate_allows_config_error_fallback_when_enabled() -> None:
         name="anthropic",
         model="claude-3-5-haiku-latest",
         _result=ProviderResult(
-            text="## Estimation: secondary",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="anthropic",
             model="claude-3-5-haiku-latest",
             usage=None,
@@ -221,7 +224,7 @@ async def test_estimate_returns_static_degraded_when_real_providers_fail() -> No
         name="static_fallback",
         model="static-v1",
         _result=ProviderResult(
-            text="## Estimation: degraded",
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
             provider="static_fallback",
             model="static-v1",
             usage=None,
@@ -242,6 +245,36 @@ async def test_estimate_raises_when_all_providers_fail() -> None:
     service = EstimationService(_settings(), providers=providers)
     with pytest.raises(EstimationError, match="All providers failed"):
         await service.estimate("Client needs a portal.")
+
+
+@pytest.mark.asyncio
+async def test_estimate_falls_back_when_primary_output_is_structurally_invalid() -> None:
+    primary = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text="## Estimation: too short",
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    secondary = _StubProvider(
+        name="anthropic",
+        model="claude-3-5-haiku-latest",
+        _result=ProviderResult(
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
+            provider="anthropic",
+            model="claude-3-5-haiku-latest",
+            usage=None,
+        ),
+    )
+    service = EstimationService(_settings(), providers=[primary, secondary])
+
+    result = await service.estimate("Client needs a portal.")
+    assert result.provider == "anthropic"
+    assert primary.calls == 1
+    assert secondary.calls == 1
 
 
 @pytest.mark.asyncio

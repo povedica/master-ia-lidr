@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings, get_settings
 from app.main import app
 from app.routers.estimations import get_estimation_service
+from app.services.estimation_engine import EstimationMode
 from app.services.llm_service import (
     DomainGuardrailError,
     EstimationError,
@@ -20,6 +21,7 @@ class _FakeEstimationService:
             provider="openai",
             model="gpt-4o-mini",
             usage=UsageInfo(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+            mode=EstimationMode.BASIC,
         )
 
 
@@ -30,6 +32,7 @@ class _FakeStaticFallbackEstimationService:
             provider="static_fallback",
             model="static-v1",
             usage=None,
+            mode=EstimationMode.BASIC,
             degraded=True,
         )
 
@@ -85,6 +88,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert body["estimation"].startswith("## Estimation")
     assert body["provider"] == "openai"
     assert body["model"] == "gpt-4o-mini"
+    assert body["mode"] == "basic"
     assert body["request_id"].startswith("est_")
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
@@ -136,6 +140,7 @@ def test_estimate_includes_degraded_only_for_static_fallback() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["provider"] == "static_fallback"
+    assert body["mode"] == "basic"
     assert body["degraded"] is True
     assert "usage" not in body
 
