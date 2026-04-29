@@ -92,7 +92,7 @@ The service now classifies each request and routes it to one output depth mode:
 
 The selected mode is returned in the `mode` response field. Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
 
-Mode-specific system prompt fragments live as plain text files under `app/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording without changing Python code.
+Mode-specific system prompt fragments live as plain text files under `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording without changing Python code.
 
 Mode intent and expected output:
 

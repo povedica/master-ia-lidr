@@ -1,4 +1,4 @@
-"""Load mode-specific system prompt fragments from plain text files."""
+"""Load mode-specific system prompt fragments from plain text files under context."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.services.estimation_engine import EstimationMode
 
-_PROMPTS_DIR = Path(__file__).resolve().parent
+_PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
 
 @lru_cache

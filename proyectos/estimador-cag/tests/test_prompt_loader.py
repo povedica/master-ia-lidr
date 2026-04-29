@@ -1,6 +1,6 @@
 """Tests for external prompt text loading."""
 
-from app.prompts.loader import load_mode_prompt
+from app.context.prompt_loader import load_mode_prompt
 from app.services.estimation_engine import EstimationMode
 
 

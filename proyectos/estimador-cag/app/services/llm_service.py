@@ -8,7 +8,7 @@ from time import perf_counter
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
-from app.prompts.loader import load_mode_prompt
+from app.context.prompt_loader import load_mode_prompt
 from app.services.estimation_engine import (
     EstimationMode,
     assess_and_select_mode,

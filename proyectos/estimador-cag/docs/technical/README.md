@@ -182,17 +182,16 @@ proyectos/estimador-cag/
 │   ├── config.py
 │   ├── context/
 │   │   ├── __init__.py
-│   │   └── examples.py
+│   │   ├── examples.py
+│   │   ├── prompt_loader.py
+│   │   └── prompts/
+│   │       ├── basic.txt
+│   │       ├── standard.txt
+│   │       ├── professional.txt
+│   │       └── expert_review.txt
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   └── estimations.py
-│   ├── prompts/
-│   │   ├── __init__.py
-│   │   ├── loader.py
-│   │   ├── basic.txt
-│   │   ├── standard.txt
-│   │   ├── professional.txt
-│   │   └── expert_review.txt
 │   └── services/
 │       ├── __init__.py
 │       ├── domain_guardrails.py
@@ -228,7 +227,7 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
-| `app/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `loader.py`. |
+| `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Static few-shot examples. |
 | `tests/` | Unit and API tests with a mocked provider. |
@@ -360,7 +359,7 @@ Message pattern:
 `build_system_prompt()` includes:
 
 - Role: expert software estimator.
-- Mode-specific instructions loaded from `app/prompts/<mode>.txt` (editable without changing Python code).
+- Mode-specific instructions loaded from `app/context/prompts/<mode>.txt` (editable without changing Python code).
 - Instruction to mirror structure, detail level, and pragmatism of the examples.
 - Expected format: assumptions, task/hours table, delivery notes.
 - Examples from `EXAMPLES`.
