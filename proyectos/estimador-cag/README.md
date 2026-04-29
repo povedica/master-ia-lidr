@@ -92,6 +92,21 @@ The service now classifies each request and routes it to one output depth mode:
 
 The selected mode is returned in the `mode` response field. Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
 
+Mode-specific system prompt fragments live as plain text files under `app/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording without changing Python code.
+
+Mode intent and expected output:
+
+| Mode | Use case | Input quality | Typical output |
+|------|----------|---------------|----------------|
+| `basic` | very early idea | low | quick MVP scope, assumptions, effort range, key risks |
+| `standard` | default product estimation | medium | scope by areas, task table, risks, sprint-oriented plan |
+| `professional` | presales / client proposal | high | defendable scope, out-of-scope, dependencies, effort scenarios |
+| `expert_review` | high-stakes decision | expert | gap analysis, phased plan, roles, uncertainty and recommendations |
+
+Business rule: mode escalation is based on context quality, not only on input length.
+
+If the request lacks enough context, premium modes should be downgraded with an explicit warning rather than returning false precision.
+
 ### Response metadata (detailed)
 
 The endpoint returns two kinds of metadata:
@@ -180,7 +195,7 @@ With `DEV_MODE=false`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "examples_version": "static-v1"
 }
 ```
@@ -196,7 +211,7 @@ With `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,

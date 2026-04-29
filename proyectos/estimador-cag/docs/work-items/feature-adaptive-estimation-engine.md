@@ -51,6 +51,7 @@ This means the repo already has the right baseline for an adaptive engine, but t
 - Prevent overconfident outputs on poor input by forcing explicit uncertainty and missing-information sections when needed.
 - Return the selected `mode` in the API response.
 - Preserve the existing provider fallback chain and degraded/static fallback behavior.
+- Add a business guardrail that can block high-cost report modes when input quality is insufficient.
 
 ### Excludes
 
@@ -72,6 +73,9 @@ This means the repo already has the right baseline for an adaptive engine, but t
 - **FR-7**: If a provider returns a structurally invalid markdown response for the selected mode, the service may treat it as an invalid provider response and continue to the next provider.
 - **FR-8**: The HTTP response must expose `mode` while keeping the rest of the current response contract stable.
 - **FR-9**: The first implementation must remain deterministic, testable, and compatible with `uv run pytest` without real provider keys.
+- **FR-10**: Mode escalation must depend on context quality (clarity, constraints, architecture signals), not only on input length.
+- **FR-11**: The engine must produce a machine-readable assessment summary including at least `detail_level`, `recommended_mode`, and `reason`.
+- **FR-12**: When input quality is insufficient for high-trust reports, the service must return mode eligibility guardrails (`allowed_modes`, `blocked_modes`, `reason`).
 
 ## Technical Approach
 
@@ -88,6 +92,70 @@ Implement the adaptive logic in `app/services/`, not in the router and not in th
 5. call the provider chain;
 6. validate returned markdown;
 7. return the estimate plus selected mode and existing metadata.
+
+### Recommended Mode Matrix
+
+| Mode | Primary usage | Expected input | Model tier | Output style | Relative cost |
+|------|----------------|----------------|------------|--------------|---------------|
+| `basic` | Very early idea | One short paragraph | cheap/fast | quick MVP estimate, core assumptions, total range | low |
+| `standard` | Reasonable functional analysis | Description plus functional context | mid-tier | area breakdown, tasks, risks, sprint outline | medium |
+| `professional` | Presales / client proposal | requirements, constraints, integrations | stronger model | defendable report with scope, exclusions, dependencies, effort ranges | high |
+| `expert_review` | Serious offer / economic decision | full brief or detailed document | premium + stronger validation | scenarios, phases, risks, assumptions, gaps, recommendations | high+ |
+
+Key rule: do not escalate only by token/word count. Escalate by context quality and decision risk.
+
+### Input Assessment (pre-router contract)
+
+Before estimation, run `input_assessment` to classify:
+
+- detail level
+- ambiguity
+- functional complexity
+- technical complexity
+- estimation risk
+- recommended mode
+
+Suggested output contract:
+
+```json
+{
+  "detail_level": "low | medium | high | expert",
+  "recommended_mode": "basic | standard | professional | expert_review",
+  "reason": "The input includes authentication, mobile platforms and social features, but lacks roles, backend constraints, integrations and non-functional requirements."
+}
+```
+
+Suggested effort range contract (mode-independent):
+
+```json
+{
+  "base_effort_hours": 165,
+  "estimated_range": {
+    "min": 140,
+    "realistic": 180,
+    "max": 230
+  },
+  "confidence": "medium"
+}
+```
+
+Messaging principle: never imply false precision. Preferred wording:
+"More detailed input enables better scope control, clearer assumptions, lower uncertainty and a more defensible estimation range."
+
+### Business Guardrail for premium modes
+
+If input quality is weak, block premium modes and return explicit eligibility:
+
+```json
+{
+  "allowed_modes": ["basic", "standard"],
+  "blocked_modes": ["professional", "expert_review"],
+  "reason": "Input detail is insufficient."
+}
+```
+
+Example warning text:
+"The requested Professional report cannot be generated with high confidence because the input lacks: user roles, backend scope, integrations, data model, design maturity and non-functional requirements."
 
 ### Target Files
 
@@ -127,9 +195,10 @@ flowchart LR
     Req[POST /api/v1/estimate] --> Schema[EstimateRequest]
     Schema --> Service[EstimationService.estimate]
     Service --> Guard[check_estimation_domain]
-    Guard -->|accepted| Assess[assess_request]
-    Assess --> Route[select_mode]
-    Route --> Prompt[build_mode_prompt]
+    Guard -->|accepted| Assess[input_assessment]
+    Assess --> Eligibility[mode_eligibility_guardrail]
+    Eligibility --> Route[mode_router]
+    Route --> Prompt[level-specific prompt]
     Prompt --> Chain[provider chain]
     Chain --> Validate[validate_mode_output]
     Validate -->|valid| Result[EstimateResponse + mode]
@@ -220,19 +289,22 @@ Detailed assessment fields such as `detail`, `ambiguity`, `missing_information`,
 ### Mode Profiles
 
 - `basic`
-  - short but clearly in-domain input
-  - concise estimate
-  - high-level effort range
-  - assumptions and major risks only
+  - objective: fast and useful low-cost answer
+  - expected input: very early idea
+  - output: product interpretation, MVP scope, key assumptions, total effort range, major risks
+  - should avoid overly granular task decomposition
 - `standard`
-  - default mode for normal estimation requests
-  - assumptions, scope notes, task breakdown, effort summary, delivery notes
+  - objective: default reasonable functional estimate
+  - expected input: description + functional context
+  - output: MVP scope, assumptions, area breakdown, task table, buffer, sprint-level plan, risks
 - `professional`
-  - richer input with enough implementation detail
-  - more explicit breakdown, dependencies, min/realistic/max ranges, stronger structure
+  - objective: presales proposal or serious internal assessment
+  - expected input: requirements, constraints, integrations
+  - output: included scope, out of scope, assumptions, modules, architecture notes, task breakdown, optimistic/realistic/conservative ranges, dependencies, risks, delivery plan, business notes
 - `expert_review`
-  - incomplete or ambiguous requests that still deserve an estimation attempt
-  - must emphasize gaps, uncertainty, questions, and recommendation for review
+  - objective: high-stakes review from rich documentation
+  - expected input: complete briefing or extensive context
+  - output: gap analysis, open questions, detailed WBS, phases, required roles, technical/product risks, optional cost scenarios, MVP vs post-MVP recommendation, confidence by block
 
 ### Output Validation
 
@@ -376,6 +448,7 @@ uv run pytest
 - Lightweight markdown validation is safer for the first version than a strict parser, but it cannot guarantee perfect structural quality.
 - Keeping detailed assessment internal reduces API churn, but clients will not see the reason behind every mode choice at first.
 - Reusing the same endpoint preserves simplicity, but the feature must be documented clearly so `mode` does not get confused with provider fallback or degraded mode.
+- Introducing a model-based pre-classifier can improve quality decisions but adds one extra model call and cost overhead; this should be opt-in and benchmarked before default rollout.
 
 ## Documentation Plan
 
@@ -405,6 +478,7 @@ Implementation note:
 
 ## 12. Future Improvements
 
+- Add a cheap model-based `input_assessment` classifier before mode routing (hybrid with deterministic fallback).
 - Learning loop from real project outcomes
 - Calibration against historical data
 - Fine-tuned estimation model

@@ -186,9 +186,17 @@ proyectos/estimador-cag/
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   └── estimations.py
+│   ├── prompts/
+│   │   ├── __init__.py
+│   │   ├── loader.py
+│   │   ├── basic.txt
+│   │   ├── standard.txt
+│   │   ├── professional.txt
+│   │   └── expert_review.txt
 │   └── services/
 │       ├── __init__.py
 │       ├── domain_guardrails.py
+│       ├── estimation_engine.py
 │       └── llm_service.py
 ├── api-collection/
 │   └── Estimador CAG/
@@ -201,6 +209,8 @@ proyectos/estimador-cag/
 │   ├── conftest.py
 │   ├── test_api.py
 │   ├── test_config.py
+│   ├── test_estimation_engine.py
+│   ├── test_prompt_loader.py
 │   └── test_llm_service.py
 ├── .env.example
 ├── .gitignore
@@ -218,6 +228,7 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
+| `app/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `loader.py`. |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Static few-shot examples. |
 | `tests/` | Unit and API tests with a mocked provider. |
@@ -266,9 +277,12 @@ sequenceDiagram
     Client->>Router: POST /api/v1/estimate { transcription }
     Router->>Router: Validate EstimateRequest
     Router->>Service: estimate(transcription)
+    Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
+    Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
+    Service->>Service: route_mode_from_context_quality
     Service->>Context: load_examples()
     Context-->>Service: list[EstimationExample]
-    Service->>Service: build_system_prompt(examples)
+    Service->>Service: build_system_prompt(examples, mode)
     Service->>Chain: iterate providers by priority
     alt OpenAI succeeds
         Chain->>OpenAI: completion request
@@ -285,6 +299,43 @@ sequenceDiagram
     Router->>Router: request_id, timestamp, latency_ms, versions
     Router-->>Client: EstimateResponse
 ```
+
+Mode assessment reference contract:
+
+```json
+{
+  "detail_level": "low | medium | high | expert",
+  "recommended_mode": "basic | standard | professional | expert_review",
+  "reason": "The input includes authentication and mobile features, but lacks roles, backend constraints, integrations and non-functional requirements."
+}
+```
+
+Recommended effort range shape:
+
+```json
+{
+  "base_effort_hours": 165,
+  "estimated_range": {
+    "min": 140,
+    "realistic": 180,
+    "max": 230
+  },
+  "confidence": "medium"
+}
+```
+
+Business guardrail response when context quality is insufficient:
+
+```json
+{
+  "allowed_modes": ["basic", "standard"],
+  "blocked_modes": ["professional", "expert_review"],
+  "reason": "Input detail is insufficient."
+}
+```
+
+Precision guidance:
+"More detailed input enables better scope control, clearer assumptions, lower uncertainty and a more defensible estimation range."
 
 Traceability fields:
 
@@ -309,15 +360,16 @@ Message pattern:
 `build_system_prompt()` includes:
 
 - Role: expert software estimator.
+- Mode-specific instructions loaded from `app/prompts/<mode>.txt` (editable without changing Python code).
 - Instruction to mirror structure, detail level, and pragmatism of the examples.
 - Expected format: assumptions, task/hours table, delivery notes.
 - Examples from `EXAMPLES`.
 
 Versioning:
 
-- `PROMPT_VERSION = "v1"` in `app/services/llm_service.py`.
+- `PROMPT_VERSION = "v2"` in `app/services/llm_service.py`.
 - `EXAMPLES_VERSION = "static-v1"` in `app/services/llm_service.py`.
-- Bump `PROMPT_VERSION` when instructions or output format change.
+- Bump `PROMPT_VERSION` when prompt composition changes or default prompt-file wording materially changes estimation behavior.
 - Bump `EXAMPLES_VERSION` when example content changes behavior in a meaningful way.
 
 ## 11. API contract
@@ -373,7 +425,7 @@ Response with `DEV_MODE=false`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "examples_version": "static-v1"
 }
 ```
@@ -399,7 +451,7 @@ Degraded response (when static fallback is used):
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "examples_version": "static-v1",
   "degraded": true
 }
@@ -416,7 +468,7 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,
