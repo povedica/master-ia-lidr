@@ -20,11 +20,16 @@ Run and interpret the most relevant automated or manual verification for the cur
    - result
    - uncovered risks
    - next test to add if the gap is meaningful
+4. Close with explicit verification evidence:
+   - Verified
+   - Not verified
+   - Residual risk
 
 ## Rules
 - Do not call real provider APIs unless the task explicitly requires it.
 - Prefer focused tests before full-suite runs when scope is narrow.
 - If no automated suite exists, define a concrete manual check.
+- Never claim completion without a `Verified / Not verified / Residual risk` summary.
 
 ## Common Commands
 ```bash

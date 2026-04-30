@@ -17,6 +17,10 @@ Close a task with verification, documentation, and next steps.
    - `uv run uvicorn app.main:app --reload` for manual API checks when relevant
 5. Update documentation if behavior, setup, or architecture changed.
 6. Summarize what changed, what was verified, and what remains pending.
+7. Include explicit evidence blocks:
+   - Verified
+   - Not verified
+   - Residual risk
 
 ## Checklist
 - [ ] No `.env` or real secrets included.
@@ -30,3 +34,4 @@ Close a task with verification, documentation, and next steps.
 - Do not hide failed checks.
 - If no automated test suite exists yet, say so and perform the smallest useful manual verification.
 - If requirements or design changed materially during implementation, reflect that before closing.
+- Never close a task without the `Verified / Not verified / Residual risk` summary.

@@ -1,0 +1,29 @@
+---
+title: Mode And Permission Discipline
+alwaysApply: true
+category: workflow
+---
+
+# Mode And Permission Discipline
+
+## Purpose
+Prevent workflow drift by enforcing strict behavior around active mode constraints and permission boundaries.
+
+## Rules
+- Respect the active mode as a hard boundary (Agent, Plan, Ask, Debug).
+- Never request a mode switch unless the user explicitly asks for it or the current command explicitly requires consent to switch.
+- If a mode switch is rejected, continue in the current mode without retrying or diverting the workflow.
+- In Ask mode, use read-only actions only; do not edit files, run mutating commands, or perform commit operations.
+- If a command requires write access but the current mode forbids it, explain the blocker clearly and ask for mode change before proceeding.
+- Do not shift process burden to the user for agent-caused drift; recover by returning to the requested workflow immediately.
+
+## Checklist
+- [ ] Active mode identified before action.
+- [ ] Mode-specific constraints respected.
+- [ ] No unauthorized retries after rejected mode switch.
+- [ ] Communication stays aligned with the requested command flow.
+
+---
+
+**Last updated:** 2026-04-30
+**Status:** Active

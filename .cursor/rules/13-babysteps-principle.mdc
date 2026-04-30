@@ -32,6 +32,7 @@ After each meaningful step:
 ## 4) Avoid "while I am here" scope creep
 Do not mix unrelated fixes into the same step.
 If new findings appear, capture them as follow-ups and keep the current step focused.
+If additional work is discovered that is not required for the current acceptance criteria, move it to `Out of Scope` / `Follow-up` and do not implement it in the same step.
 
 ## 5) Test-first when practical
 For behavior changes and bug fixes, prefer:
@@ -46,6 +47,7 @@ Before continuing:
 - Confirm relevant tests pass.
 - Confirm no new lints were introduced in edited files.
 - Confirm docs/config updates are included when behavior/settings changed.
+- Record verification evidence explicitly as: `Verified`, `Not verified`, `Residual risk`.
 
 ## 7) Exception for mechanical repetitive refactors
 When the same mechanical change is required across many files:

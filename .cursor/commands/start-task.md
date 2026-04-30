@@ -55,6 +55,19 @@ Phase 7: Learnings     -> Extract reusable learnings when applicable
 
 ---
 
+## Hard stop before coding
+
+Before any implementation, the agent must complete and present:
+
+- A baby-steps plan with 3-6 steps.
+- Verification strategy for each step.
+- TDD intent for each behavior-changing step (`RED -> GREEN -> REFACTOR`) or a concrete reason why test-first is not practical.
+- Open risks and decisions that could change scope.
+
+If any item above is missing, stop and ask before touching code.
+
+---
+
 ## Phase 0. Working document
 
 ### 0.1 Read the input document
@@ -181,6 +194,7 @@ Build a short, executable plan. Each step should use this shape:
 - Tests or checks proportional to risk.
 - Split config, code, tests, and docs when they grow too large.
 - Do not invent validation commands that do not exist in the repo.
+- For behavior changes, default to TDD (`RED -> GREEN -> REFACTOR`).
 
 ### Estimate complexity
 
@@ -232,12 +246,14 @@ If you add a dependency, use the project package manager and update documentatio
 
 For each step, use a tight loop:
 
-1. Write or adjust tests or checks first when it makes sense.
-2. Implement the smallest useful change.
-3. Run focused verification.
-4. Refactor only if clarity improves without expanding scope.
+1. Write or adjust a failing test first (`RED`) for behavior or bug fixes.
+2. Implement the smallest useful change to pass (`GREEN`).
+3. Refactor only if clarity improves without expanding scope (`REFACTOR`).
+4. Run focused verification for this step.
 5. Update the canonical document when design, scope, or criteria change.
 6. Prepare a small commit when the step is complete.
+
+If test-first is not practical for a specific step, record the reason explicitly before coding and define an equivalent verification path.
 
 ### Common verification commands
 
@@ -312,6 +328,7 @@ After `/start-task`, respond with:
 - Baby-steps plan.
 - Proposed verification.
 - Where progress and commits will be recorded.
+- Per-step TDD intent (`RED/GREEN/REFACTOR`) or justified exception.
 
 ## Common scenarios
 
@@ -368,5 +385,6 @@ Before adding a dependency:
 - The plan is small, verifiable, and aligned with the repo.
 - Documentation and commit logging destinations are clear.
 - Coding did not start without enough context.
+- Hard-stop items were completed before implementation.
 
 **Last updated:** 2026-04-27
