@@ -44,7 +44,7 @@ async def test_openai_provider_maps_timeout_to_provider_timeout_error() -> None:
     with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderTimeoutError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,9 @@ async def test_openai_provider_raises_invalid_response_on_empty_message() -> Non
     with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderInvalidResponseError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=888)
+    kwargs = mock_client.chat.completions.create.await_args.kwargs
+    assert kwargs["max_completion_tokens"] == 888
 
 
 @pytest.mark.asyncio
@@ -78,7 +80,7 @@ async def test_openai_provider_maps_authentication_error_to_config_error() -> No
     with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderConfigError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
@@ -92,7 +94,7 @@ async def test_openai_provider_maps_rate_limit_to_unavailable_error() -> None:
     with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderUnavailableError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
@@ -110,7 +112,7 @@ async def test_anthropic_provider_uses_system_as_top_level_argument() -> None:
 
     with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
         provider = AnthropicProvider(settings)
-        result = await provider.complete("SYSTEM BLOCK", "USER TEXT")
+        result = await provider.complete("SYSTEM BLOCK", "USER TEXT", max_output_tokens=3200)
 
     assert result.provider == "anthropic"
     assert result.usage is not None
@@ -118,6 +120,7 @@ async def test_anthropic_provider_uses_system_as_top_level_argument() -> None:
     kwargs = mock_client.messages.create.await_args.kwargs
     assert kwargs["system"] == "SYSTEM BLOCK"
     assert kwargs["messages"] == [{"role": "user", "content": "USER TEXT"}]
+    assert kwargs["max_tokens"] == 3200
 
 
 @pytest.mark.asyncio
@@ -132,7 +135,7 @@ async def test_anthropic_provider_maps_timeout() -> None:
     with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderTimeoutError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
@@ -149,7 +152,7 @@ async def test_anthropic_provider_maps_authentication_error_to_config_error() ->
     with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderConfigError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
@@ -166,13 +169,13 @@ async def test_anthropic_provider_maps_rate_limit_to_unavailable_error() -> None
     with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderUnavailableError):
-            await provider.complete("sys", "user")
+            await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
 async def test_static_fallback_provider_returns_degraded_payload() -> None:
     provider = StaticFallbackProvider()
-    result = await provider.complete("sys", "user")
+    result = await provider.complete("sys", "user", max_output_tokens=256)
     assert result.provider == "static_fallback"
     assert result.model == "static-v1"
     assert result.usage is None
@@ -201,7 +204,7 @@ async def test_static_fallback_budget_shape_follows_mode(
     """Degraded markdown should mirror live-mode budget expectations (range vs breakdown)."""
 
     system = load_mode_prompt(mode)
-    result = await StaticFallbackProvider().complete(system, "user")
+    result = await StaticFallbackProvider().complete(system, "user", max_output_tokens=512)
     lowered = result.text.lower()
     assert must_contain in lowered
     assert must_not_contain not in lowered

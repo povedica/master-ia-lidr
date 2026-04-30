@@ -29,7 +29,13 @@ class OpenAIProvider:
             timeout=settings.openai_timeout_seconds,
         )
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> ProviderResult:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
         """Request a completion and map SDK exceptions into provider errors."""
 
         try:
@@ -39,6 +45,7 @@ class OpenAIProvider:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                max_completion_tokens=max_output_tokens,
             )
         except APITimeoutError as exc:
             raise ProviderTimeoutError("OpenAI request timed out.") from exc

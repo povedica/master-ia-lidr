@@ -102,6 +102,7 @@ class EstimationService:
                 },
             )
         system_prompt = build_system_prompt(load_examples(mode), mode)
+        max_output_tokens = self._settings.completion_token_cap_for_mode(mode)
         provider_names = [provider.name for provider in self._providers]
         last_error: ProviderError | None = None
 
@@ -113,10 +114,16 @@ class EstimationService:
                     "provider": provider.name,
                     "model": provider.model,
                     "attempt_index": attempt_index,
+                    "max_output_tokens": max_output_tokens,
+                    "estimation_mode": mode.value,
                 },
             )
             try:
-                result = await provider.complete(system_prompt=system_prompt, user_prompt=text)
+                result = await provider.complete(
+                    system_prompt=system_prompt,
+                    user_prompt=text,
+                    max_output_tokens=max_output_tokens,
+                )
             except ProviderConfigError as exc:
                 logger.warning(
                     "provider_failed",

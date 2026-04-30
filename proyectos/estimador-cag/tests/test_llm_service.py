@@ -41,10 +41,18 @@ class _StubProvider:
     _result: ProviderResult | None = None
     _error: Exception | None = None
     calls: int = 0
+    last_max_output_tokens: int | None = None
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> ProviderResult:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
         del system_prompt
         del user_prompt
+        self.last_max_output_tokens = max_output_tokens
         self.calls += 1
         if self._error:
             raise self._error
@@ -132,6 +140,7 @@ async def test_estimate_respects_forced_estimation_mode() -> None:
     assert result.mode == EstimationMode.PROFESSIONAL
     assert result.assessment is not None
     assert result.assessment.recommended_mode == EstimationMode.BASIC
+    assert provider.last_max_output_tokens == 4096
 
 
 @pytest.mark.asyncio
@@ -168,6 +177,7 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
     assert EstimationMode.BASIC in result.mode_eligibility.allowed_modes
     assert primary.calls == 1
     assert secondary.calls == 0
+    assert primary.last_max_output_tokens == 1024
 
 
 @pytest.mark.asyncio

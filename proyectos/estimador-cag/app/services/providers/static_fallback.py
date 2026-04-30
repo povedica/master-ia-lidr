@@ -141,8 +141,15 @@ class StaticFallbackProvider:
     name = "static_fallback"
     model = "static-v1"
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> ProviderResult:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
         del user_prompt
+        del max_output_tokens
         mode = _infer_mode_from_system_prompt(system_prompt)
         text = _build_degraded_markdown(mode)
         return ProviderResult(

@@ -31,19 +31,24 @@ class AnthropicProvider:
         if not settings.anthropic_api_key:
             raise ProviderConfigError("Anthropic API key is not configured.")
         self.model = settings.anthropic_model
-        self._max_tokens = settings.anthropic_max_tokens
         self._client = AsyncAnthropic(
             api_key=settings.anthropic_api_key,
             timeout=settings.anthropic_timeout_seconds,
         )
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> ProviderResult:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
         """Request a completion and normalize Anthropic response."""
 
         try:
             response = await self._client.messages.create(
                 model=self.model,
-                max_tokens=self._max_tokens,
+                max_tokens=max_output_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )

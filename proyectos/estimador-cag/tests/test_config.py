@@ -37,13 +37,12 @@ def test_optional_anthropic_fields_have_safe_defaults(
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
     monkeypatch.delenv("ANTHROPIC_TIMEOUT_SECONDS", raising=False)
-    monkeypatch.delenv("ANTHROPIC_MAX_TOKENS", raising=False)
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.anthropic_api_key == ""
     assert settings.anthropic_model == "claude-3-5-haiku-latest"
     assert settings.anthropic_timeout_seconds == 30.0
-    assert settings.anthropic_max_tokens == 2048
+    assert settings.completion_token_cap_for_mode(EstimationMode.STANDARD) == 2048
 
 
 def test_provider_chain_defaults() -> None:
@@ -105,3 +104,18 @@ def test_forced_estimation_mode_rejects_invalid_value() -> None:
             openai_api_key="sk-test",
             forced_estimation_mode="not-a-mode",
         )
+
+
+def test_completion_token_cap_per_mode_defaults() -> None:
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.completion_token_cap_for_mode(EstimationMode.BASIC) == 1024
+    assert settings.completion_token_cap_for_mode(EstimationMode.EXPERT_REVIEW) == 8192
+
+
+def test_completion_token_cap_can_be_overridden_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ESTIMATION_PROFESSIONAL_OUTPUT_TOKENS_MAX", "6000")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.completion_token_cap_for_mode(EstimationMode.PROFESSIONAL) == 6000

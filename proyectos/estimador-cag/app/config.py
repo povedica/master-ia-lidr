@@ -2,8 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.services.estimation_engine import EstimationMode
@@ -38,8 +37,23 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-3-5-haiku-latest"
     anthropic_timeout_seconds: float = 30.0
-    anthropic_max_tokens: int = 2048
     forced_estimation_mode: EstimationMode | None = None
+    # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.
+    estimation_basic_output_tokens_max: int = Field(default=1024, ge=1)
+    estimation_standard_output_tokens_max: int = Field(default=2048, ge=1)
+    estimation_professional_output_tokens_max: int = Field(default=4096, ge=1)
+    estimation_expert_review_output_tokens_max: int = Field(default=8192, ge=1)
+
+    def completion_token_cap_for_mode(self, mode: EstimationMode) -> int:
+        """Upper bound passed to providers as max output tokens for this mode."""
+
+        mapping: dict[EstimationMode, int] = {
+            EstimationMode.BASIC: self.estimation_basic_output_tokens_max,
+            EstimationMode.STANDARD: self.estimation_standard_output_tokens_max,
+            EstimationMode.PROFESSIONAL: self.estimation_professional_output_tokens_max,
+            EstimationMode.EXPERT_REVIEW: self.estimation_expert_review_output_tokens_max,
+        }
+        return mapping[mode]
 
     @field_validator("forced_estimation_mode", mode="before")
     @classmethod

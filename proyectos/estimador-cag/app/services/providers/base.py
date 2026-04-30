@@ -51,6 +51,12 @@ class LLMProvider(Protocol):
     name: str
     model: str
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> ProviderResult:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
         """Return a normalized completion response."""
 

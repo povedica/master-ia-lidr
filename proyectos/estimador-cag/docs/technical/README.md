@@ -131,7 +131,10 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
 | `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
-| `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
+| `ESTIMATION_BASIC_OUTPUT_TOKENS_MAX` | No | `1024` | Max completion tokens for `basic` mode (OpenAI `max_completion_tokens`, Anthropic `max_tokens`). |
+| `ESTIMATION_STANDARD_OUTPUT_TOKENS_MAX` | No | `2048` | Same for `standard` mode. |
+| `ESTIMATION_PROFESSIONAL_OUTPUT_TOKENS_MAX` | No | `4096` | Same for `professional` mode. |
+| `ESTIMATION_EXPERT_REVIEW_OUTPUT_TOKENS_MAX` | No | `8192` | Same for `expert_review` mode. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
 | `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
