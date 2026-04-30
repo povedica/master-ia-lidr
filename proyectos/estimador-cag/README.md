@@ -1,6 +1,6 @@
 # Estimador CAG
 
-FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: static few-shot examples live in `app/context/examples.py` and are injected into the system prompt; the live meeting text is sent as the user message.
+FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded from `app/context/examples/sample-standard-*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request), and injected into the system prompt; the live meeting text is sent as the user message.
 
 ## Documentation mirror
 
@@ -138,7 +138,7 @@ With **`DEV_MODE=true`**, the response additionally includes operational and deb
 Update metadata versions whenever behavior-affecting inputs change:
 
 - Bump `prompt_version` when prompt instructions/format/constraints change.
-- Bump `examples_version` when `app/context/examples.py` content changes.
+- Bump `examples_version` when the few-shot pool or sampling rules change (`app/context/examples/` files or `app/context/examples.py`).
 
 Suggested convention:
 

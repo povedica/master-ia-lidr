@@ -35,13 +35,13 @@ The goal is documentation that supports development, debugging, and growth witho
 
 The project uses **Context-Augmented Generation (CAG)** in a deliberately small form:
 
-- Static context lives in `app/context/examples.py`.
+- Few-shot reference text lives in `app/context/examples/sample-standard-*.txt`; `app/context/examples.py` loads the pool and returns a **random subset** (2–4 examples) per request. Tests seed RNG where non-determinism would break assertions.
 - The app builds a `system prompt` with instructions and prior examples.
 - The live transcription is sent as the `user` message.
 - A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
 - A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
-The first version does not include persistence, authentication, a frontend, or production deployment. It is an AI Engineering baseline meant for learning and safe iteration.
+The baseline does not include authentication, a frontend, or production deployment. **Optional** filesystem persistence of successful `200` responses exists behind `ESTIMATION_OUTPUT_PERSIST_ENABLED` (see §5 and §14). It is an AI Engineering baseline meant for learning and safe iteration.
 
 ## 2. Technical stack
 
@@ -131,8 +131,11 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
 | `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
+| `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
-| `DEV_MODE` | No | `false` | When `true`, responses include `usage` and estimated cost. |
+| `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
+| `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
+| `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
@@ -183,6 +186,8 @@ proyectos/estimador-cag/
 │   ├── context/
 │   │   ├── __init__.py
 │   │   ├── examples.py
+│   │   ├── examples/
+│   │   │   └── sample-standard-*.txt
 │   │   ├── prompt_loader.py
 │   │   └── prompts/
 │   │       ├── basic.txt
@@ -196,7 +201,8 @@ proyectos/estimador-cag/
 │       ├── __init__.py
 │       ├── domain_guardrails.py
 │       ├── estimation_engine.py
-│       └── llm_service.py
+│       ├── llm_service.py
+│       └── response_output_writer.py
 ├── api-collection/
 │   └── Estimador CAG/
 ├── docs/
@@ -209,8 +215,11 @@ proyectos/estimador-cag/
 │   ├── test_api.py
 │   ├── test_config.py
 │   ├── test_estimation_engine.py
+│   ├── test_examples.py
 │   ├── test_prompt_loader.py
-│   └── test_llm_service.py
+│   ├── test_llm_service.py
+│   └── test_response_output_writer.py
+├── output-responses/
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
@@ -229,7 +238,8 @@ Responsibilities:
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
-| `app/context/examples.py` | Static few-shot examples. |
+| `app/context/examples.py` | Loads few-shot pool from `app/context/examples/` and returns a random subset per request. |
+| `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
 | `docs/` | Versioned mirror of Second Brain notes, sessions, work items, and technical docs. |
@@ -342,11 +352,11 @@ Traceability fields (included in the HTTP response only when `DEV_MODE=true`):
 - `timestamp`: UTC response time.
 - `latency_ms`: total duration measured in the router.
 - `prompt_version`: prompt template version.
-- `examples_version`: static context version.
+- `examples_version`: few-shot pool / sampling contract version.
 
 ## 10. CAG design
 
-In this project, CAG means the model receives **team-maintained static context**, not data retrieved from a vector database.
+In this project, CAG means the model receives **team-maintained context** (files under `app/context/examples/` plus prompt files), not data retrieved from a vector database.
 
 Message pattern:
 
@@ -359,14 +369,12 @@ Message pattern:
 `build_system_prompt()` includes:
 
 - Full system instructions for the active mode, loaded from `app/context/prompts/<mode>.txt` (editable without changing Python code).
-- A trailing section `## Reference estimation examples` with static few-shot examples from `EXAMPLES`.
+- A trailing section `## Reference estimation examples` with few-shot examples from `load_examples()` (sampled from the on-disk pool).
 
 Versioning:
 
-- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py`.
-- `EXAMPLES_VERSION = "static-v1"` in `app/services/llm_service.py`.
-- Bump `PROMPT_VERSION` when prompt composition changes or default prompt-file wording materially changes estimation behavior.
-- Bump `EXAMPLES_VERSION` when example content changes behavior in a meaningful way.
+- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
+- `EXAMPLES_VERSION = "file-random-v2"` in `app/services/llm_service.py` (bump when files under `app/context/examples/`, the glob pattern, or sampling rules change).
 
 ## 11. API contract
 
@@ -450,7 +458,7 @@ Response with `DEV_MODE=true`:
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
   "prompt_version": "v5",
-  "examples_version": "static-v1",
+  "examples_version": "file-random-v2",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
@@ -503,6 +511,8 @@ Current events:
 | `chain_exhausted` | `WARNING` | `app.services.llm_service` | `providers_tried` |
 | `provider_skipped` | `INFO` | `app.services.providers` | `provider`, `reason` |
 | `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
+| `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
+| `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
 
 Rules:
 
@@ -529,6 +539,7 @@ Service errors:
 | All providers fail and static fallback enabled | `200` with `provider="static_fallback"` and `degraded=true`. |
 | All providers fail and static fallback disabled | `503 Service Unavailable`. |
 | Unknown provider name in `LLM_PROVIDERS` | Skipped with `provider_unknown` warning. |
+| Output persistence enabled but filesystem write fails | `503` with a safe message; see `estimation_output_persist_failed` log. |
 
 The router maps:
 
@@ -550,7 +561,11 @@ Current coverage:
 
 - `tests/test_config.py`: settings and environment overrides.
 - `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
-- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping.
+- `tests/test_examples.py`: example pool loading and sampling behavior.
+- `tests/test_estimation_engine.py`: adaptive routing and guardrails.
+- `tests/test_prompt_loader.py`: mode prompt file loading.
+- `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.
+- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence.
 
 Testing rules:
 
@@ -580,6 +595,7 @@ Current pieces:
 - `Health.yml`: health request.
 - `Read Root.yml`: root index request.
 - `estimations/Create Estimate.yml`: `POST /api/v1/estimate`.
+- `estimations/*.yml`: sample request bodies (size/category naming may vary by fixture set).
 
 The collection helps validate contracts without relying only on `curl`.
 
@@ -630,7 +646,7 @@ As the project grows, keep these boundaries:
 Possible next technical steps:
 
 - Add a structured schema for estimates if programmatic consumption is needed.
-- Persist estimates and metadata if auditability is required.
+- Extend persistence beyond optional markdown files (for example metadata sidecars or a database) if stronger auditability is required.
 - Add retries/backoff once the current fallback baseline is stable.
 - Add tracing or request logging if local observability is insufficient.
 - Add CI when the project has a stable remote or PR workflow.
