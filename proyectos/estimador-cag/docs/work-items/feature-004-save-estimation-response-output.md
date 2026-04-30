@@ -106,6 +106,7 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 | `599b316` | `docs(estimador-cag): refresh README and synced Second Brain mirror` | Updated subproject README for file-based examples; synced sessions, technical docs, vault README, examples note, and exported feature-004 into `docs/`. |
 | `bb9aea3` | `docs(estimador-cag): extend feature-004 repository commit log` | Mirrored expanded commit history rows into the exported `docs/` copy of this work item after syncing from Second Brain. |
 | `4e7aeb7` | `feat(estimador-cag): load few-shot examples from per-mode directories` | Split example corpus under `app/context/examples/<mode>/`, added `load_examples(mode)` with standard fallback, bumped `EXAMPLES_VERSION` to `file-mode-v3`, updated tests and technical/project README. |
+| `9e3c396` | `docs(estimador-cag): mirror feature-004 commit log after per-mode examples` | Synced exported `docs/work-items/feature-004` from Second Brain after logging commit `4e7aeb7`. |
 
 ## Implementation Notes
 - Added `estimation_output_persist_enabled` setting in `app/config.py` with default `False`.
