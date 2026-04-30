@@ -105,6 +105,7 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 | `da3a20d` | `chore(estimador-cag): reorganize API collection estimation fixtures` | Renamed and expanded Bruno/OpenCollection estimation bodies under Detail/Small/Medium/Large naming for manual checks. |
 | `599b316` | `docs(estimador-cag): refresh README and synced Second Brain mirror` | Updated subproject README for file-based examples; synced sessions, technical docs, vault README, examples note, and exported feature-004 into `docs/`. |
 | `bb9aea3` | `docs(estimador-cag): extend feature-004 repository commit log` | Mirrored expanded commit history rows into the exported `docs/` copy of this work item after syncing from Second Brain. |
+| `4e7aeb7` | `feat(estimador-cag): load few-shot examples from per-mode directories` | Split example corpus under `app/context/examples/<mode>/`, added `load_examples(mode)` with standard fallback, bumped `EXAMPLES_VERSION` to `file-mode-v3`, updated tests and technical/project README. |
 
 ## Implementation Notes
 - Added `estimation_output_persist_enabled` setting in `app/config.py` with default `False`.
