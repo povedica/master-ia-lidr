@@ -32,3 +32,6 @@ docker-compose.override.yml
 
 # Cursor (local debug dumps)
 .cursor/debug*.log
+
+# LLM / estimation output samples (local only)
+output-responses/
