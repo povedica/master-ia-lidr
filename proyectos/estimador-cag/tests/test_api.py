@@ -102,7 +102,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert isinstance(body["latency_ms"], int)
     assert body["latency_ms"] >= 0
     assert body["prompt_version"] == "v5"
-    assert body["examples_version"] == "file-random-v2"
+    assert body["examples_version"] == "file-mode-v3"
     assert body["usage"]["total_tokens"] == 150
     assert body["usage"]["estimated_cost_usd"] > 0
 

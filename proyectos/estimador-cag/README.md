@@ -1,6 +1,6 @@
 # Estimador CAG
 
-FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded from `app/context/examples/sample-standard-*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request), and injected into the system prompt; the live meeting text is sent as the user message.
+FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded per estimation mode from `app/context/examples/<basic|standard|professional|expert_review>/*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request; modes without samples yet fall back to `standard`), and injected into the system prompt; the live meeting text is sent as the user message.
 
 ## Documentation mirror
 
@@ -138,7 +138,7 @@ With **`DEV_MODE=true`**, the response additionally includes operational and deb
 Update metadata versions whenever behavior-affecting inputs change:
 
 - Bump `prompt_version` when prompt instructions/format/constraints change.
-- Bump `examples_version` when the few-shot pool or sampling rules change (`app/context/examples/` files or `app/context/examples.py`).
+- Bump `examples_version` when the few-shot pool, per-mode layout, or sampling rules change (`app/context/examples/<mode>/` files or `app/context/examples.py`).
 
 Suggested convention:
 
@@ -207,7 +207,7 @@ With `DEV_MODE=true`:
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
   "prompt_version": "v5",
-  "examples_version": "static-v1",
+  "examples_version": "file-mode-v3",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,

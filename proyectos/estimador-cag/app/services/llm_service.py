@@ -30,7 +30,7 @@ from app.services.providers.base import (
 
 logger = logging.getLogger(__name__)
 PROMPT_VERSION = "v5"
-EXAMPLES_VERSION = "file-random-v2"
+EXAMPLES_VERSION = "file-mode-v3"
 
 
 class EstimationError(Exception):
@@ -101,7 +101,7 @@ class EstimationService:
                     "recommended_mode": recommended_mode.value,
                 },
             )
-        system_prompt = build_system_prompt(load_examples(), mode)
+        system_prompt = build_system_prompt(load_examples(mode), mode)
         provider_names = [provider.name for provider in self._providers]
         last_error: ProviderError | None = None
 

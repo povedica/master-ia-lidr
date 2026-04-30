@@ -35,7 +35,7 @@ The goal is documentation that supports development, debugging, and growth witho
 
 The project uses **Context-Augmented Generation (CAG)** in a deliberately small form:
 
-- Few-shot reference text lives in `app/context/examples/sample-standard-*.txt`; `app/context/examples.py` loads the pool and returns a **random subset** (2–4 examples) per request. Tests seed RNG where non-determinism would break assertions.
+- Few-shot reference text lives under `app/context/examples/<basic|standard|professional|expert_review>/` as `*.txt` files; `app/context/examples.py` loads the pool for the active mode and returns a **random subset** (2–4 examples) per request, falling back to `standard` when a mode folder has no samples. Tests seed RNG where non-determinism would break assertions.
 - The app builds a `system prompt` with instructions and prior examples.
 - The live transcription is sent as the `user` message.
 - A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
@@ -187,7 +187,11 @@ proyectos/estimador-cag/
 │   │   ├── __init__.py
 │   │   ├── examples.py
 │   │   ├── examples/
-│   │   │   └── sample-standard-*.txt
+│   │   │   ├── basic/
+│   │   │   ├── expert_review/
+│   │   │   ├── professional/
+│   │   │   └── standard/
+│   │   │       └── *.txt
 │   │   ├── prompt_loader.py
 │   │   └── prompts/
 │   │       ├── basic.txt
@@ -238,7 +242,7 @@ Responsibilities:
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
-| `app/context/examples.py` | Loads few-shot pool from `app/context/examples/` and returns a random subset per request. |
+| `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
@@ -374,7 +378,7 @@ Message pattern:
 Versioning:
 
 - `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
-- `EXAMPLES_VERSION = "file-random-v2"` in `app/services/llm_service.py` (bump when files under `app/context/examples/`, the glob pattern, or sampling rules change).
+- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
 
 ## 11. API contract
 
@@ -458,7 +462,7 @@ Response with `DEV_MODE=true`:
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
   "prompt_version": "v5",
-  "examples_version": "file-random-v2",
+  "examples_version": "file-mode-v3",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
