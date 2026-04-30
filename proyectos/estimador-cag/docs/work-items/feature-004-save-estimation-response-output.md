@@ -100,6 +100,10 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `de912b8` | `feat(estimador-cag): persist outputs and randomize few-shot examples` | Added response persistence behind `ESTIMATION_OUTPUT_PERSIST_ENABLED`, file writer service, API wiring, docs/config updates, and migrated few-shot prompt examples to randomized file-based samples with focused tests. |
+| `2fb569c` | `docs(cursor): enforce pre-coding gates and mode discipline` | Tightened start-task hard-stop planning, TDD defaults, verification blocks on testing/finish-task, babysteps follow-up rule, and added always-on mode permission discipline rule. |
+| `683a9d3` | `docs(repo): mention Cursor mode discipline in README` | Documented workflow expectations for Cursor modes and Verified summaries in the repository README automation section. |
+| `da3a20d` | `chore(estimador-cag): reorganize API collection estimation fixtures` | Renamed and expanded Bruno/OpenCollection estimation bodies under Detail/Small/Medium/Large naming for manual checks. |
+| `599b316` | `docs(estimador-cag): refresh README and synced Second Brain mirror` | Updated subproject README for file-based examples; synced sessions, technical docs, vault README, examples note, and exported feature-004 into `docs/`. |
 
 ## Implementation Notes
 - Added `estimation_output_persist_enabled` setting in `app/config.py` with default `False`.
@@ -107,7 +111,6 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 - Wired persistence behind toggle in `app/routers/estimations.py` for successful responses only.
 - Added tests in `tests/test_response_output_writer.py`, `tests/test_api.py`, and `tests/test_config.py`.
 - Updated docs in `.env.example` and `README.md`.
-- Same delivery commit (`de912b8`) introduced file-based few-shot pools and `EXAMPLES_VERSION = file-random-v2`; session and `technical/README.md` were refreshed on 2026-04-30 to match runtime behavior.
 
 ## Verification Results
 - Command: `cd proyectos/estimador-cag && uv run pytest tests/test_config.py tests/test_response_output_writer.py tests/test_api.py`
