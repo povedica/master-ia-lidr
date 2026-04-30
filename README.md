@@ -147,6 +147,11 @@ Activar si cambia contrato API, hay multi-módulo, settings nuevas, integración
 - `finish-task`: cierre operativo de la tarea.
 - `session-review`: retrospectiva de cierre de cada sesión.
 
+### Reglas y disciplina de modo
+
+- Las reglas bajo `.cursor/rules/` incluyen **mode and permission discipline** (Agent / Plan / Ask / Debug): el agente no debe pedir cambio de modo salvo que lo pidas tú o lo exija el comando activo.
+- Los comandos `testing` y `finish-task` piden un cierre explícito con **Verified / Not verified / Residual risk**; `start-task` incluye un *hard stop* antes de codificar (plan en baby steps, verificación y TDD o excepción justificada).
+
 ### Skills y subagentes
 
 - `master-ia-tutor`: apoyo pedagógico para entender conceptos del máster.
