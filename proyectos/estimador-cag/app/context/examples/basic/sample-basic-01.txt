@@ -1,0 +1,16 @@
+## MVP Scope
+Se construirá un dashboard web que permite a los usuarios autenticarse, visualizar métricas de ventas y leads, aplicar filtros por fechas y exportar datos a Excel. También se integrará con un CRM existente a través de una API REST y se implementará control de acceso basado en roles (manager/comercial).
+
+## Assumptions
+- Se utilizará un stack web estándar para el desarrollo del frontend y backend (por ejemplo, React para el frontend y Node.js para el backend).
+- Los datos para las métricas provendrán de la integración con el CRM y su estructura es asumida como estable.
+- El diseño UI será funcional y directo, sin requerimientos complejos de UX.
+
+## Effort Estimate
+- Estimated range: 180–240 hours
+- Confidence: medium
+
+## Risks
+- Complejidad imprevista en la integración con el CRM que pueda ampliar el scope.
+- Posibles cambios en requisitos de negocio que afecten funcionalidades del dashboard.
+- Necesidad de mayor seguridad o control de acceso que pueda complicar el desarrollo más allá de lo previsto.

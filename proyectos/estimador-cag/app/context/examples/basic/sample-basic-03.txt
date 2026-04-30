@@ -1,0 +1,19 @@
+## MVP Scope
+- Registro y autenticación de usuarios.
+- Funcionalidad de reservas de pistas de pádel a través de un calendario.
+- Integración de un sistema de pagos online.
+- Interfaz web responsive.
+
+## Assumptions
+- El calendario permitirá la visualización de disponibilidad y solo permitirá hacer reservas para las pistas disponibles.
+- Los pagos online se manejarán mediante un proveedor de pagos estándar (ej. Stripe, PayPal).
+- Se manejarán solo las funciones básicas de reserva y pagos, sin características avanzadas como gestión de usuarios por email o sistemas de notificaciones adicionales.
+
+## Effort Estimate
+- Estimated range: 180–240 hours
+- Confidence: medium
+
+## Risks
+- Problemas de integración con el sistema de pagos online, especialmente si hay personalizaciones necesarias.
+- Incertidumbre en la gestión del calendario y su sincronización con las reservas.
+- Cambios en los requisitos o funcionalidades adicionales solicitadas por los usuarios tras revisiones iniciales.

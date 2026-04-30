@@ -1,0 +1,21 @@
+## MVP Scope
+Desarrollo de una aplicación móvil para iOS y Android que permita a los usuarios registrados autenticarse, gestionar sus perfiles, seguir a otros usuarios, consultar un catálogo de cafés, y marcar cafés como favoritos. También incluirá un panel de administración para gestionar el contenido de la aplicación.
+
+## Assumptions
+- La autenticación de usuarios se realizará mediante email y contraseña junto con autenticación social (Google y Apple).
+- El diseño de la interfaz será sencillo y funcional, basado en componentes estándar.
+- El contenido inicial del catálogo será ingresado manualmente sin requerir integraciones externas.
+- Las funcionalidades avanzadas, como recomendaciones, no están incluídas en este MVP.
+- Se utilizará una base de datos común para la gestión de usuarios y cafés.
+
+## Effort Estimate
+- Estimated range: 350–450 hours
+- Confidence: medium
+
+## Risks
+1. Cambios en los requisitos durante el desarrollo, que podrían extender los plazos.
+2. Posibles dificultades con la implementación del login social y su integración.
+3. Retos en la gestión y competitividad del rendimiento entre las plataformas iOS y Android.
+
+### Budget (indicative)
+- EUR range (low–high): 20,300–26,100 EUR (at a blended rate of 58 EUR/h)

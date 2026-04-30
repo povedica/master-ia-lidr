@@ -1,0 +1,17 @@
+## MVP Scope
+Desarrollo de una API que gestione el inventario de productos, permitiendo la alta y baja de productos, así como realizar consultas sobre el stock disponible. La API incluirá una integración básica con un ERP externo.
+
+## Assumptions
+- La integración con el ERP externo utilizará un mecanismo estándar de comunicación (por ejemplo, REST o webhook).
+- Se incluirán solo las funcionalidades básicas para la gestión del inventario (altas, bajas, consultas).
+- Se asumirá que el modelo de datos para los productos será sencillo y no requiera personalización compleja.
+- La autenticación para la API será básica, utilizando tokens o API keys.
+
+## Effort Estimate
+- Estimated range: 150–250 hours
+- Confidence: medium
+
+## Risks
+1. Posibles dificultades técnicas en la integración con el ERP externo, especialmente si no está bien documentado.
+2. Cambios en los requisitos de negocio que podrían ampliar el alcance original.
+3. La necesidad de ajustar la API dependiendo de variaciones en la estructura de los datos del ERP externo.
