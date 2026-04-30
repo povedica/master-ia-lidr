@@ -1,0 +1,67 @@
+**Saved:** 2026-04-29 19:36 (local)
+
+## Estimación: Aplicación móvil de catálogo de cafés (MVP)
+
+### Assumptions
+
+- La integración de login social será estándar (utilizando SDKs de Google y Apple).
+- El contenido inicial del catálogo será cargado manualmente para facilitar el lanzamiento.
+- La gestión de perfiles de usuario y el sistema de seguimiento se implementarán con funcionalidades básicas.
+- Se utilizará una tecnología cross-platform adecuada (React Native o Flutter) para desarrollos simultáneos en iOS y Android.
+- Se contempla un diseño UI/UX estándar, sin requerimientos de personalización compleja.
+
+### Architecture Overview
+
+- **Frontend:** Aplicación móvil en React Native o Flutter, que se desarrollará para iOS y Android.
+- **Backend:** API REST que gestionará la autenticación, los usuarios, y el catálogo de cafés, utilizando un sistema de bases de datos adecuado (p.ej., MongoDB o PostgreSQL).
+- **Infrastructure:** Infraestructura básica en la nube (p.ej., AWS, Azure o similar) para el soporte del backend y de la base de datos.
+
+### Tasks Breakdown
+
+| Task                                       | Area          | Hours |
+|--------------------------------------------|---------------|------:|
+| Diseño de API (especificación y seguridad) | Backend       |   20 |
+| Implementación del backend (API REST)      | Backend       |   40 |
+| Implementación de la base de datos         | Backend       |   20 |
+| Autenticación de usuarios (JWT)            | Backend       |   16 |
+| Desarrollo del módulo de gestión de cafés   | Backend       |   24 |
+| Desarrollo del módulo de usuarios           | Backend       |   20 |
+| Desarrollo de la aplicación móvil (iOS/Android)     | Frontend      |   60 |
+| Implementación del sistema de seguimiento    | Frontend      |   24 |
+| Funcionalidad de favoritos                   | Frontend      |   12 |
+| Login social (Google y Apple)               | Frontend      |   20 |
+| Búsqueda básica en el catálogo              | Frontend      |   16 |
+| Panel de administración (backend y frontend) | Frontend      |   28 |
+| QA y pruebas funcionales                    | QA            |   30 |
+| Documentación técnica mínima                 | QA            |   10 |
+| **Total**                                   |               | **364** |
+
+### Effort Summary
+
+- Base effort: 364 horas
+- Buffer (20%): 73 horas
+- **Total: 437 horas**
+
+### Budget (indicative)
+
+- EUR range (low–high): 24,200–32,400 EUR (calculado con un supuesto de 55 EUR/h, que es el promedio del rango de roles).
+- Asumption: blended rate of 55 EUR/h
+
+### Delivery Plan
+
+- **Sprint count:** 5
+- **Sprint duration:** 2 semanas
+- **Key milestones:**
+  - Sprint 1: Diseño de API y base de datos
+  - Sprint 2: Implementación de backend y autenticación
+  - Sprint 3: Desarrollo de la aplicación móvil (primeras vistas y navegación)
+  - Sprint 4: Finalización de funcionalidades principales y Panel de administración
+  - Sprint 5: QA, documentación, y despliegue.
+
+### Risks
+
+- Posibles retrasos en la integración del login social debido a cambios en las políticas de los proveedores (Google, Apple).
+- Dificultades en el despliegue inicial del backend en la infraestructura elegida.
+- Los requisitos de rendimiento y seguridad pueden requerir ajustes adicionales durante el desarrollo.
+
+Esta estimación tiene como objetivo proporcionar una visión clara de los esfuerzos y costos asociados al desarrollo del MVP, asegurando un enfoque pragmático y alineado con el alcance solicitado.

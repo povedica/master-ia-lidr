@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     static_fallback_enabled: bool = True
     llm_auth_fallback: bool = False
     llm_domain_guardrail_enabled: bool = True
+    estimation_output_persist_enabled: bool = False
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0

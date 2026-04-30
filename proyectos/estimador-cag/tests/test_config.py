@@ -52,6 +52,7 @@ def test_provider_chain_defaults() -> None:
     assert settings.static_fallback_enabled is True
     assert settings.llm_auth_fallback is False
     assert settings.llm_domain_guardrail_enabled is True
+    assert settings.estimation_output_persist_enabled is False
 
 
 def test_domain_guardrail_can_be_disabled_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -59,6 +60,15 @@ def test_domain_guardrail_can_be_disabled_from_env(monkeypatch: pytest.MonkeyPat
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.llm_domain_guardrail_enabled is False
+
+
+def test_estimation_output_persist_can_be_enabled_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ESTIMATION_OUTPUT_PERSIST_ENABLED", "true")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.estimation_output_persist_enabled is True
 
 
 def test_forced_estimation_mode_parses_enum_value() -> None:

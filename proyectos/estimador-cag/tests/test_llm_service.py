@@ -25,13 +25,13 @@ from app.services.providers.base import (
 def test_build_system_prompt_includes_both_example_summaries() -> None:
     examples = load_examples()
     prompt = build_system_prompt(examples, EstimationMode.STANDARD)
-    assert "Sales KPI dashboard" in prompt
-    assert "Service marketplace MVP" in prompt
+    assert len(examples) >= 2
     assert "Reference estimation examples" in prompt
+    assert "Historical estimation sample" in prompt
+    assert "Example 1 — meeting summary" in prompt
     assert "standard mode" in prompt.lower()
     assert "practical estimation" in prompt.lower()
     assert "simulated role rate card" in prompt.lower()
-    assert "35" in prompt and "100" in prompt
 
 
 @dataclass

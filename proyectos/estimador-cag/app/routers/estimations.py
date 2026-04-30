@@ -1,5 +1,6 @@
 """Estimation HTTP API."""
 
+import logging
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Annotated
@@ -23,8 +24,13 @@ from app.services.llm_service import (
     EstimationError,
     EstimationService,
 )
+from app.services.response_output_writer import (
+    ResponseOutputPersistError,
+    persist_estimation_output,
+)
 
 router = APIRouter(tags=["estimations"])
+logger = logging.getLogger(__name__)
 
 
 _MODEL_COSTS_PER_1M_TOKENS: dict[str, tuple[float, float]] = {
@@ -85,6 +91,20 @@ async def create_estimate(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+    if settings.estimation_output_persist_enabled:
+        try:
+            destination = persist_estimation_output(result.estimation)
+            logger.info(
+                "estimation_output_persisted",
+                extra={"path": str(destination)},
+            )
+        except ResponseOutputPersistError as exc:
+            logger.warning("estimation_output_persist_failed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to persist estimation output.",
+            ) from exc
 
     degraded_value = True if result.degraded else None
 

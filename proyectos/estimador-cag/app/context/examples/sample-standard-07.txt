@@ -1,0 +1,48 @@
+## Estimación: Landing Page Promocional para Evento de Feria de Calzado
+
+### Assumptions
+- Se considera un diseño simple y limpio sin la necesidad de desarrollo de una identidad visual propia.
+- Los textos, imágenes y logotipos serán proporcionados por el cliente, evitando tiempos de diseño adicionales.
+- El formulario de registro será de contacto básico con seguridad mínima implementada.
+- La integración será únicamente para un correo electrónico, sin almacenamiento complejo.
+- Se asume que la plataforma CMS existente (si se usa) está configurada adecuadamente para soportar el despliegue.
+
+### Architecture Overview
+- **Frontend:** Desarrollo de HTML, CSS y JavaScript para la landing page, asegurando que sea responsive.
+- **Backend:** Implementación de un formulario funcional con conexión a email.
+- **Infrastructure:** Publicación en un entorno web existente con optimización básica de carga.
+
+### Tasks Breakdown
+| Task                                     | Area      | Hours |
+|------------------------------------------|-----------|------:|
+| Diseño de layout y estructura de la página | Frontend  | 8    |
+| Desarrollo de HTML/CSS/JavaScript         | Frontend  | 16   |
+| Optimización para responsividad           | Frontend  | 4    |
+| Implementación del formulario             | Backend   | 6    |
+| Configuración de envío de correos        | Backend   | 4    |
+| Integración de elementos visuales (galería) | Frontend  | 4    |
+| Revisión de compatibilidad y pruebas      | QA        | 6    |
+| Documentación mínima                      | QA        | 2    |
+| **Total**                                 |           | **50** |
+
+### Effort Summary
+- Base effort: 50 hours
+- Buffer (20%): 10 hours
+- **Total: 60 hours**
+
+### Budget (indicative)
+- EUR range (low–high): 2,100–3,600 EUR
+- Assumption: blended rate of 58 EUR/h has been used for calculations.
+
+### Delivery Plan
+- Sprint count: 3 sprints
+- Sprint duration: 1 week each
+- Key milestones:
+  - Sprint 1: Diseño y estructura aprobada.
+  - Sprint 2: Desarrollo funcional y pruebas iniciales.
+  - Sprint 3: Revisión final, ajustes y publicación.
+
+### Risks
+- Cambios en los requisitos o la información proporcionada por el cliente podrían afectar el plazo de entrega.
+- Posibles incompatibilidades con navegadores o dispositivos si no se prueba adecuadamente.
+- Dependencia de la disponibilidad del cliente para la revisión y aprobación de los entregables en cada sprint.

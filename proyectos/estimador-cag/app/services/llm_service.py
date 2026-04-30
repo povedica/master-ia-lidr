@@ -30,7 +30,7 @@ from app.services.providers.base import (
 
 logger = logging.getLogger(__name__)
 PROMPT_VERSION = "v5"
-EXAMPLES_VERSION = "static-v1"
+EXAMPLES_VERSION = "file-random-v2"
 
 
 class EstimationError(Exception):

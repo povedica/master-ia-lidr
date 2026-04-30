@@ -1,0 +1,48 @@
+## Estimation: Padel Court Booking Web Application
+
+### Assumptions
+- Users will be able to register, log in, and manage bookings.
+- The calendar will show available times for booking.
+- Payment processing will be handled via a third-party service (e.g., Stripe).
+- The design will be responsive to accommodate various screen sizes but does not require a separate mobile app.
+- All integrations (payments and calendar) will be based on existing APIs.
+
+### Architecture Overview
+- **Frontend:** Responsive web application, built with a modern JavaScript framework (React, Angular, or Vue).
+- **Backend:** RESTful API to handle user authentication, bookings, and payments, likely built with Node.js, Express, or similar technologies.
+- **Infrastructure:** Hosted on a cloud platform, with a database for persistent storage and basic CI/CD for deployment.
+
+### Tasks Breakdown
+| Task                                   | Area      | Hours |
+|----------------------------------------|-----------|------:|
+| User registration & authentication     | Backend   |   16  |
+| Calendar view & booking management     | Frontend  |   24  |
+| Payment integration                    | Backend   |   20  |
+| Responsive UI design                   | Frontend  |   30  |
+| Admin panel for booking management     | Frontend  |   20  |
+| Testing and QA                         | QA        |   16  |
+| Deployment & CI/CD setup               | DevOps    |   10  |
+| **Total**                              |           | **136** |
+
+### Effort Summary
+- Base effort: 136 hours
+- Buffer (15%): 20 hours
+- **Total: 156 hours**
+
+### Budget (indicative)
+- EUR range (low–high): 9,080–15,600 EUR, aligned with total hours and a blended rate of 58 EUR/h (Mid-level developer rate).
+- Assumption: blended rate 58 EUR/h used for calculations.
+
+### Delivery Plan
+- Sprint count: 4
+- Sprint duration: 2 weeks
+- Key milestones:
+  - End of Sprint 1: User registration and authentication complete.
+  - End of Sprint 2: Calendar integration and booking management complete.
+  - End of Sprint 3: Payment integration and initial testing complete.
+  - End of Sprint 4: UI polishing, final testing, and deployment.
+
+### Risks
+- Potential delays in payment gateway integration.
+- User interface may require more iterations based on UX feedback.
+- Dependency on external APIs for calendar and payments could introduce integration challenges.

@@ -1,0 +1,81 @@
+**Saved:** 2026-04-29 19:04 (local)
+
+# Estimation: Mobile Coffee Catalog Application MVP
+
+---
+
+## Assumptions
+
+- The application will support both Android and iOS platforms with a shared codebase (using a framework like React Native or Flutter) to minimize development effort.
+- Users will authenticate via email/password or social login.
+- Coffee-related content (descriptions, images) is assumed to be provided and stable.
+- The application will include basic user profiles, search functionality, and a follow feature.
+
+---
+
+## Architecture overview
+
+### Frontend
+
+- A shared mobile codebase utilizing React Native or Flutter for Android and iOS compatibility.
+
+### Backend
+
+- REST API to manage user data, coffee catalog, and follow relationships.
+- User authentication and authorization management.
+
+### Infrastructure
+
+- Cloud hosting for the backend (e.g., AWS, Firebase).
+- Database service for user and coffee catalog information (e.g., PostgreSQL, Firestore).
+
+---
+
+## Tasks breakdown
+
+| Task | Area | Hours |
+| --- | --- | ---: |
+| API design + user authentication | Backend | 20 |
+| Database schema design + setup | Backend | 12 |
+| Coffee catalog API implementation | Backend | 16 |
+| User profile and follow feature | Backend | 18 |
+| Mobile UI design (shared codebase) | Frontend | 26 |
+| User authentication screens | Frontend | 10 |
+| Coffee catalog display and search | Frontend | 18 |
+| Profile management UI | Frontend | 12 |
+| QA + testing (frontend & backend) | QA | 20 |
+| Integration and hardening | All | 10 |
+| **Total** | | **252** |
+
+---
+
+## Effort summary
+
+| Concept | Hours |
+| --- | ---: |
+| Base effort | 252 |
+| Buffer (15%) | 38 |
+| **Total** | **290** |
+
+---
+
+## Delivery plan
+
+- **Sprint count:** 5 (2-week sprints)  
+- **Sprint duration:** 2 weeks  
+
+### Key milestones
+
+1. **Sprint 1:** API design and initial backend setup.
+2. **Sprint 2:** Coffee catalog API and user authentication.
+3. **Sprint 3:** Mobile UI design and user authentication.
+4. **Sprint 4:** Coffee catalog display and profile management.
+5. **Sprint 5:** QA, integration, and hardening before release.
+
+---
+
+## Risks
+
+- Potential delays in backend service integration.
+- Unforeseen complexities in cross-platform UI adaptations.
+- User authentication and data privacy concerns could increase scope if complex regulations are involved.

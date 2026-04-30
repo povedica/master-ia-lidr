@@ -1,0 +1,51 @@
+## Estimation: Mobile Habit Management App MVP (iOS & Android)
+
+### Assumptions
+- The app will support both iOS and Android platforms but will be built in parallel, sharing code where feasible.
+- The design will prioritize functionality over aesthetics due to the "sencilla" interface requirement.
+- The user registration process will rely on email and password authentication.
+- Notifications will be handled via built-in push notification services for both platforms.
+- Basic statistics will involve simple user inputs without complex analytics or graphs.
+
+### Architecture Overview
+- **Frontend**: Simple user interface for habit creation, registration, and basic statistics visualizations; developed using a cross-platform framework (e.g., React Native).
+- **Backend**: REST API for user management, habit data storage, and push notification triggering; uses a database for persistence.
+- **Infrastructure**: Deployment on a cloud service with basic CI/CD setup for automated builds and deployments.
+
+### Tasks Breakdown
+| Task                                     | Area          | Hours |
+|------------------------------------------|---------------|------:|
+| User registration (email/password)       | Backend       | 15    |
+| Habit creation and management endpoints   | Backend       | 20    |
+| Push notification setup                   | Backend       | 12    |
+| Daily reminder scheduling                  | Backend       | 15    |
+| Basic statistics API                      | Backend       | 18    |
+| Mobile UI flows (registration, habits, stats) | Frontend | 40    |
+| Basic testing for backend APIs            | QA            | 15    |
+| Basic testing for front end               | QA            | 15    |
+| CI/CD integration                         | DevOps        | 10    |
+| **Total**                                 |               |  120  |
+
+### Effort Summary
+- Base effort: 120 hours
+- Buffer (20%): 24 hours
+- **Total: 144 hours**
+
+### Budget (indicative)
+- EUR range (low–high): 8,400–14,400 EUR (at a blended rate of 58 EUR/h)
+- Assumption: blended rate of 58 EUR/h across roles involved
+
+### Delivery Plan
+- Sprint count: 3
+- Sprint duration: 2 weeks each
+- Key milestones:
+  - Sprint 1: Complete backend user management and habit APIs
+  - Sprint 2: Develop front-end user flows and integrate with backend
+  - Sprint 3: Finalize testing, CI/CD, and prepare for deployment
+
+### Risks
+- Complexity in handling push notifications can lead to delays if platform-specific issues arise.
+- User onboarding and habit setting complexity may require additional iteration based on user feedback.
+- Unforeseen integration issues between shared code for iOS and Android may arise due to platform differences.
+
+This structured estimation assists in planning and internal decision-making, ensuring clarity on scope, budget, and potential milestones.

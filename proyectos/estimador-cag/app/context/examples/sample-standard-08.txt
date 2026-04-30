@@ -1,0 +1,42 @@
+## Estimación: Aplicación móvil para consulta de cafés
+
+### Assumptions
+- La aplicación se desarrollará solo para una plataforma (iOS o Android), con la posibilidad de un 20% adicional de esfuerzo para la segunda plataforma en el futuro.
+- Se utilizarán API RESTful para la gestión de datos del catálogo y la funcionalidad de seguimiento de usuarios.
+- El acceso privado se gestionará mediante autenticación (registro e inicio de sesión) utilizando un sistema de autenticación estándar (ej. JWT).
+  
+### Tasks Breakdown
+| Task                           | Area          | Hours |
+|--------------------------------|---------------|------:|
+| Diseño API (catálogo y usuarios)| Backend       |   16  |
+| Implementación del registro e inicio de sesión | Backend |   12  |
+| Desarrollo de la lógica de seguimiento de usuarios | Backend |   12  |
+| Diseño de la interfaz de usuario (UI) | Frontend (Mobile) |   24  |
+| Implementación de la visualización del catálogo | Frontend (Mobile) |   20  |
+| Detalles del producto (UI e interacción) | Frontend (Mobile) |   16  |
+| Pruebas manuales y automatizadas (QA) | QA            |   18  |
+| Revisión y preparación para el lanzamiento | QA y Backend |   10  |
+| **Total**                       |               | **136** |
+
+### Effort Summary
+- Base effort: 136 hours
+- Buffer (20%): 27 hours
+- **Total: 163 hours**
+
+### Budget (indicative)
+- EUR range (low–high): **5,480–16,300 EUR**, aligned with total hours and stated rate assumption (illustrative only; not a quote)
+- Assumption: blended rate **60 EUR/h** (calculado a partir de un promedio razonable basado en los roles requeridos)
+
+### Delivery Plan
+- Sprint count: 4
+- Sprint duration: 2 weeks
+- Key milestones:
+  - Sprint 1: Diseño de API y autenticación.
+  - Sprint 2: Desarrollo y pruebas del catálogo de cafés.
+  - Sprint 3: Implementación de la funcionalidad de seguimiento de usuarios.
+  - Sprint 4: QA final y lanzamiento.
+
+### Risks
+- Posibles retrasos en la integración de la API si los endpoints no son claros o no se documentan adecuadamente.
+- Falta de recursos en QA puede llevar a una disminución en la calidad de la aplicación si no se aborda a tiempo.
+- Cambios en los requisitos por parte de los stakeholders que pueden afectar el alcance y el esfuerzo estimado.

@@ -170,7 +170,11 @@ Required for at least one live provider:
 
 - `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`
 
-Optional overrides include `OPENAI_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT_SECONDS`, `ANTHROPIC_MAX_TOKENS`, `DEV_MODE` (set `true` to include mode, provider, timing, versions, routing assessment, token usage, and approximate cost), and `FORCED_ESTIMATION_MODE` (set to `basic`, `standard`, `professional`, or `expert_review` to skip adaptive routing; leave empty for default behavior).
+Optional overrides include `OPENAI_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT_SECONDS`, `ANTHROPIC_MAX_TOKENS`, `DEV_MODE` (set `true` to include mode, provider, timing, versions, routing assessment, token usage, and approximate cost), `FORCED_ESTIMATION_MODE` (set to `basic`, `standard`, `professional`, or `expert_review` to skip adaptive routing; leave empty for default behavior), and `ESTIMATION_OUTPUT_PERSIST_ENABLED` (set `true` to persist successful `200` estimate outputs to markdown files under `output-responses/`).
+
+When `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`, each successful `POST /api/v1/estimate` writes the `estimation` field into:
+
+- `output-responses/response-YYYYmmdd-hhmmss.md` (UTC timestamp).
 
 ### Response examples by environment mode
 

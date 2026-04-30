@@ -1,0 +1,31 @@
+**Saved:** 2026-04-29 19:28 (local)
+
+---
+
+## Estimación: Aplicación móvil de catálogo de cafés (MVP)
+
+### MVP Scope
+
+Desarrollo de una aplicación móvil cross-platform que permite a usuarios registrados autenticarse, gestionar su perfil, seguir a otros usuarios, consultar un catálogo de cafés, realizar búsquedas, marcar cafés como favoritos y tomar decisiones de login social mediante Google y Apple. Incluye un backend REST y un panel de administración básico.
+
+### Assumptions
+
+- Se utilizará una tecnología cross-platform (React Native o Flutter).
+- La API REST será desarrollada internamente y se utilizará una base de datos sencilla.
+- El diseño UI será básico y no personalizado.
+- No hay integraciones externas complejas.
+- La carga de contenido inicial será manual y no se incluyen características avanzadas.
+- La app se lanzará en ambas plataformas (iOS y Android) desde el inicio.
+
+### Effort Estimate
+
+- Estimated range: 250–350 hours
+- Confidence: medium
+
+### Risks
+
+1. Dificultades en la integración de login social (Google y Apple) que podrían aumentar el esfuerzo requerido.
+2. Cambios en los requisitos de contenido o funcionalidades que podrían requerir ajustes significativos.
+3. Dependencia de la capacidad de carga manual del catálogo inicial y posibles ajustes en el mismo.
+
+Esta estimación considera el esfuerzo mínimo requerido para cubrir las funcionalidades básicas, con una expectativa de ajustes a medida que se va implementando y testeando la solución.

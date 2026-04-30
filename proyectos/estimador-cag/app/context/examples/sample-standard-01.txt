@@ -1,0 +1,82 @@
+# Estimation: Coffee Catalog Mobile App MVP
+
+**Generated:** 2026-04-29
+
+---
+
+## Assumptions
+
+- User authentication will be basic email/password.
+- Social features (following users) and querying about coffee will be implemented with a basic user interface.
+- Initial release will cover both Android and iOS platforms, with additional effort accounted for.
+- Data storage and retrieval operations are not expected to require complex caching or data optimization initially.
+
+---
+
+## Architecture overview
+
+### Frontend
+
+- Mobile app built using a cross-platform framework (e.g., Flutter or React Native).
+
+### Backend
+
+- REST API for user management and coffee cataloging.
+- Database to store user profiles and coffee information.
+
+### Infrastructure
+
+- Cloud-based infrastructure (e.g., AWS or Firebase) hosting the backend and database.
+
+---
+
+## Tasks breakdown
+
+| Task | Area | Hours |
+| --- | --- | ---: |
+| API design + user authentication | Backend | 20 |
+| Coffee catalog management | Backend | 24 |
+| User following functionality | Backend | 16 |
+| Mobile UI flows design (iOS + Android) | Frontend | 40 |
+| Integration of backend with mobile UI | Frontend | 16 |
+| QA and testing | QA | 12 |
+| Deployment setup | Infrastructure | 8 |
+| **Total** | | **144** |
+
+---
+
+## Effort summary
+
+| Concept | Hours |
+| --- | ---: |
+| Base effort | 144 |
+| Buffer (15%) | 22 |
+| **Total** | **166** |
+
+---
+
+## Delivery plan
+
+- **Sprint count:** 4  
+- **Sprint duration:** 2 weeks  
+
+### Key milestones
+
+1. **Sprint 1:** Complete API design and initial authentication implementation.
+2. **Sprint 2:** Develop coffee catalog features and basic user interface.
+3. **Sprint 3:** Implement user following functionality and start integration.
+4. **Sprint 4:** Complete QA and prepare for deployment.
+
+---
+
+## Risks
+
+- Potential delays in user authentication implementation depending on chosen methods/services.
+- Integration issues between backend APIs and frontend mobile app could arise, increasing time for resolution.
+- User interface design complexity may result in additional iterations.
+
+---
+
+## Summary
+
+This estimation provides a structured foundation for planning and clarifies scope and tasks for developing the **Coffee Catalog Mobile App MVP**.
