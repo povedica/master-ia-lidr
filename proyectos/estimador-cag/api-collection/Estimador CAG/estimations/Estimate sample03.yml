@@ -1,0 +1,83 @@
+info:
+  name: Estimate sample03
+  type: http
+  seq: 3
+  tags:
+    - estimations
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/estimate"
+  body:
+    type: json
+    data: |-
+      {
+        "transcription": "Necesito una estimación de esfuerzo y coste para el desarrollo de un plugin de WordPress.\n\nContexto general:\nSe trata de un plugin para WordPress que se conectará con un servicio externo de venta de tickets para conciertos. El plugin permitirá mostrar eventos musicales en la web, consultar el detalle de cada evento, gestionar pedidos de entradas y redirigir o integrar una pasarela de pago para completar la compra.\n\nAlcance funcional:\n- Conexión con API externa del servicio de venta de tickets\n- Importación o consulta de eventos desde el servicio externo\n- Listado público de conciertos/eventos\n- Filtros básicos por fecha, artista, ciudad o categoría\n- Página de detalle de evento\n- Visualización de información del evento: título, artista, fecha, hora, ubicación, descripción, imagen, disponibilidad y precio\n- Selección de entradas por tipo o cantidad\n- Creación de pedido desde WordPress\n- Envío del pedido al servicio externo de ticketing\n- Integración o redirección a pasarela de pago\n- Confirmación de pago y actualización del estado del pedido\n- Página de resumen de pedido\n- Gestión básica de errores de disponibilidad, pago o comunicación con la API\n- Panel de configuración en WordPress para credenciales, entorno, URLs y parámetros del servicio externo\n\nPlataforma:\n- WordPress\n\nRequisitos técnicos:\n- Plugin desarrollado siguiendo estándares de WordPress\n- Integración con API REST externa del proveedor de ticketing\n- Uso de shortcodes, bloques Gutenberg o plantillas para mostrar listados y detalle de eventos\n- Gestión segura de credenciales de API\n- Compatibilidad con temas estándar de WordPress\n- Registro básico de logs técnicos para errores de integración\n\nRequisitos no funcionales:\n- Seguridad básica en formularios, llamadas externas y gestión de pedidos\n- Rendimiento estándar para un MVP\n- Compatibilidad con una versión reciente de WordPress y PHP\n- Escalabilidad media, sin previsión inicial de alta concurrencia\n- Experiencia de usuario sencilla y orientada a conversión\n\nSupuestos:\n- El proveedor externo dispone de una API documentada para eventos, pedidos, disponibilidad y pagos\n- No se incluye desarrollo completo de una pasarela de pago propia si el proveedor ofrece redirección o checkout externo\n- No se incluye integración avanzada con WooCommerce salvo que se indique expresamente\n- No se incluye diseño visual altamente personalizado\n- No se incluye sistema avanzado de reporting o analítica\n- No se incluye gestión compleja de devoluciones, cambios de entrada o cancelaciones\n\nEntregables esperados:\n- Plugin funcional instalable en WordPress\n- Configuración básica desde el panel de administración\n- Listado público de eventos\n- Página de detalle de evento\n- Flujo básico de pedido y pago\n- Gestión de estados de pedido\n- Documentación técnica mínima de instalación, configuración y uso\n\nObjetivo:\nObtener una estimación de esfuerzo y coste aproximado para un MVP del plugin, incluyendo desglose por bloques funcionales, principales riesgos, dependencias con la API externa y supuestos de alcance."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Successful Response
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "estimation": "",
+            "model": "",
+            "provider": ""
+          }
+  - name: 422 Response
+    description: Validation Error
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "detail": [
+              {
+                "loc": [],
+                "msg": "",
+                "type": "",
+                "input": "",
+                "ctx": {}
+              }
+            ]
+          }
+
+docs: Run CAG-style estimation for a single meeting transcription.

@@ -86,8 +86,16 @@ async def create_estimate(
             detail=str(exc),
         ) from exc
 
+    degraded_value = True if result.degraded else None
+
+    if not settings.dev_mode:
+        return EstimateResponse(
+            estimation=result.estimation,
+            degraded=degraded_value,
+        )
+
     usage: UsageView | None = None
-    if settings.dev_mode and result.usage:
+    if result.usage:
         usage = UsageView(
             prompt_tokens=result.usage.prompt_tokens,
             completion_tokens=result.usage.completion_tokens,
@@ -123,6 +131,6 @@ async def create_estimate(
             if result.mode_eligibility
             else None
         ),
-        degraded=True if result.degraded else None,
+        degraded=degraded_value,
         usage=usage,
     )

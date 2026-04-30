@@ -23,6 +23,8 @@ from app.services.providers.base import (
     ProviderTimeoutError,
     ProviderUnavailableError,
 )
+from app.context.prompt_loader import load_mode_prompt
+from app.services.estimation_engine import EstimationMode
 from app.services.providers.openai_provider import OpenAIProvider
 from app.services.providers.static_fallback import StaticFallbackProvider
 
@@ -175,3 +177,31 @@ async def test_static_fallback_provider_returns_degraded_payload() -> None:
     assert result.model == "static-v1"
     assert result.usage is None
     assert "degraded mode" in result.text.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "must_contain", "must_not_contain"),
+    [
+        (EstimationMode.BASIC, "## mvp scope", "## budget (indicative)"),
+        (EstimationMode.STANDARD, "## budget (indicative)", "scenario bands"),
+        (EstimationMode.PROFESSIONAL, "scenario bands", "worst case: 40 hours"),
+        (
+            EstimationMode.EXPERT_REVIEW,
+            "## profile breakdown",
+            "scenario bands",
+        ),
+    ],
+)
+async def test_static_fallback_budget_shape_follows_mode(
+    mode: EstimationMode,
+    must_contain: str,
+    must_not_contain: str,
+) -> None:
+    """Degraded markdown should mirror live-mode budget expectations (range vs breakdown)."""
+
+    system = load_mode_prompt(mode)
+    result = await StaticFallbackProvider().complete(system, "user")
+    lowered = result.text.lower()
+    assert must_contain in lowered
+    assert must_not_contain not in lowered

@@ -69,4 +69,3 @@ class OpenAIProvider:
             model=self.model,
             usage=usage_info,
         )
-

@@ -29,7 +29,7 @@ from app.services.providers.base import (
 )
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v5"
 EXAMPLES_VERSION = "static-v1"
 
 
@@ -92,6 +92,15 @@ class EstimationService:
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
+        if self._settings.forced_estimation_mode is not None:
+            mode = self._settings.forced_estimation_mode
+            logger.info(
+                "estimation_mode_forced",
+                extra={
+                    "mode": mode.value,
+                    "recommended_mode": recommended_mode.value,
+                },
+            )
         system_prompt = build_system_prompt(load_examples(), mode)
         provider_names = [provider.name for provider in self._providers]
         last_error: ProviderError | None = None

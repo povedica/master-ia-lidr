@@ -30,6 +30,8 @@ def test_build_system_prompt_includes_both_example_summaries() -> None:
     assert "Reference estimation examples" in prompt
     assert "standard mode" in prompt.lower()
     assert "practical estimation" in prompt.lower()
+    assert "simulated role rate card" in prompt.lower()
+    assert "35" in prompt and "100" in prompt
 
 
 @dataclass
@@ -103,6 +105,33 @@ async def test_estimate_allows_out_of_domain_when_guardrail_disabled() -> None:
     result = await service.estimate("Que distancia hay desde la tierra al sol?")
     assert result.provider == "openai"
     assert provider.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_estimate_respects_forced_estimation_mode() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text=(
+                "## Assumptions\n- a\n\n## Tasks Breakdown\n| t |\n\n"
+                "## Dependencies\n- d\n\n## Effort Estimation\n"
+                "- Optimistic: 1\n- Realistic: 2\n- Conservative: 3\n"
+                "effort range documented\n"
+            ),
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    service = EstimationService(
+        _settings(forced_estimation_mode=EstimationMode.PROFESSIONAL),
+        providers=[provider],
+    )
+    result = await service.estimate("Client needs a portal.")
+    assert result.mode == EstimationMode.PROFESSIONAL
+    assert result.assessment is not None
+    assert result.assessment.recommended_mode == EstimationMode.BASIC
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ from app.services.estimation_engine import (
     assess_and_select_mode,
     evaluate_mode_eligibility,
     summarize_assessment,
+    validate_mode_output,
 )
 
 
@@ -41,3 +42,15 @@ def test_routes_ambiguous_request_to_expert_review() -> None:
     assert summary.detail_level == "low"
     assert EstimationMode.EXPERT_REVIEW in eligibility.blocked_modes
     assert EstimationMode.STANDARD in eligibility.allowed_modes
+
+
+def test_expert_review_validation_requires_profile_keyword() -> None:
+    """Expert mode output must include a profile breakdown (validated via normalized keyword)."""
+
+    without_profile = (
+        "## Assumptions\nok\n## Gaps & Missing Information\nok\n## Uncertainty\nok\n## Recommendations\nok\n"
+    )
+    assert validate_mode_output(without_profile, EstimationMode.EXPERT_REVIEW) is False
+
+    with_profile = without_profile + "## Profile breakdown\nok\n"
+    assert validate_mode_output(with_profile, EstimationMode.EXPERT_REVIEW) is True

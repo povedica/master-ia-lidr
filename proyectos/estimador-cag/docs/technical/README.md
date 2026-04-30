@@ -295,7 +295,7 @@ sequenceDiagram
     end
     Chain-->>Service: normalized provider result
     Service-->>Router: EstimationResult
-    Router->>Router: request_id, timestamp, latency_ms, versions
+    Router->>Router: build EstimateResponse (full metadata only when DEV_MODE=true)
     Router-->>Client: EstimateResponse
 ```
 
@@ -336,7 +336,7 @@ Business guardrail response when context quality is insufficient:
 Precision guidance:
 "More detailed input enables better scope control, clearer assumptions, lower uncertainty and a more defensible estimation range."
 
-Traceability fields:
+Traceability fields (included in the HTTP response only when `DEV_MODE=true`):
 
 - `request_id`: per-request identifier.
 - `timestamp`: UTC response time.
@@ -363,7 +363,7 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION = "v4"` in `app/services/llm_service.py`.
+- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py`.
 - `EXAMPLES_VERSION = "static-v1"` in `app/services/llm_service.py`.
 - Bump `PROMPT_VERSION` when prompt composition changes or default prompt-file wording materially changes estimation behavior.
 - Bump `EXAMPLES_VERSION` when example content changes behavior in a meaningful way.
@@ -410,19 +410,11 @@ Validation:
 - After `strip()`, it must not be empty.
 - It must be in the software/project estimation domain.
 
-Response with `DEV_MODE=false`:
+Response with `DEV_MODE=false` (live provider):
 
 ```json
 {
-  "estimation": "## Estimation: ...",
-  "mode": "standard",
-  "model": "gpt-4o-mini",
-  "provider": "openai",
-  "request_id": "est_abc123def456",
-  "timestamp": "2026-04-27T10:00:00Z",
-  "latency_ms": 1800,
-  "prompt_version": "v4",
-  "examples_version": "static-v1"
+  "estimation": "## Estimation: ..."
 }
 ```
 
@@ -437,18 +429,11 @@ Out-of-domain rejection response:
 }
 ```
 
-Degraded response (when static fallback is used):
+Degraded response when static fallback is used and `DEV_MODE=false`:
 
 ```json
 {
   "estimation": "## Estimation: Temporary degraded mode ...",
-  "model": "static-v1",
-  "provider": "static_fallback",
-  "request_id": "est_abc123def456",
-  "timestamp": "2026-04-27T10:00:00Z",
-  "latency_ms": 1800,
-  "prompt_version": "v4",
-  "examples_version": "static-v1",
   "degraded": true
 }
 ```
@@ -464,7 +449,7 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v4",
+  "prompt_version": "v5",
   "examples_version": "static-v1",
   "usage": {
     "prompt_tokens": 920,
@@ -477,7 +462,9 @@ Response with `DEV_MODE=true`:
 
 ## 12. Response metadata
 
-Operational metadata (always present):
+When `DEV_MODE=false`, the response body is **`estimation` only**, except when static fallback is used, in which case **`degraded: true`** is also included.
+
+When `DEV_MODE=true`, the following are included in addition to `estimation`:
 
 - `request_id`: correlates a response with logs or incident reports.
 - `timestamp`: UTC time when the response was produced.
@@ -487,14 +474,9 @@ Operational metadata (always present):
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
 - `model`: model identifier reported by the provider implementation.
 - `mode`: adaptive estimation mode selected by service-level deterministic routing.
+- `assessment` / `mode_eligibility`: routing diagnostics when present.
 - `degraded`: only present when static fallback is used.
-
-Development metadata (only when `DEV_MODE=true`):
-
-- `usage.prompt_tokens`: input tokens reported by the provider.
-- `usage.completion_tokens`: output tokens reported by the provider.
-- `usage.total_tokens`: total reported by the provider.
-- `usage.estimated_cost_usd`: local approximation from known model pricing.
+- `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
 
 Cost is not a billing source of truth. It supports learning, tuning, and cost awareness.
 

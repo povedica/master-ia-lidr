@@ -1,5 +1,5 @@
 info:
-  name: Create Estimate
+  name: Estimate sample01
   type: http
   seq: 1
   tags:
@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "transcription": ""
+        "transcription": "Necesito una estimación de esfuerzo y coste para el desarrollo de una aplicación móvil.Contexto general: Se trata de una aplicación móvil con acceso privado para usuarios registrados. La app permitirá a los usuarios consultar un catálogo de cafés, ver información detallada de cada producto y seguir a otros usuarios dentro de la plataforma."
       }
   auth: inherit
 

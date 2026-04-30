@@ -72,4 +72,3 @@ def build_provider_chain(settings: Settings) -> list[LLMProvider]:
             "No provider could be configured from LLM_PROVIDERS and static fallback is disabled.",
         )
     return chain
-

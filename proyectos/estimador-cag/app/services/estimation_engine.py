@@ -235,7 +235,7 @@ _MODE_PROFILES: dict[EstimationMode, ModeProfile] = {
         required_sections=("assumption", "task", "dependencies", "range"),
     ),
     EstimationMode.EXPERT_REVIEW: ModeProfile(
-        required_sections=("assumption", "missing", "uncertainty", "recommendation"),
+        required_sections=("assumption", "missing", "uncertainty", "recommendation", "profile"),
     ),
 }
 

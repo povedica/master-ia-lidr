@@ -51,17 +51,22 @@ class ModeEligibilityView(BaseModel):
 
 
 class EstimateResponse(BaseModel):
-    """Structured API response including provider metadata."""
+    """Structured API response.
+
+    When DEV_MODE is off, only `estimation` is returned (plus `degraded` when the static
+    fallback path was used). Routing metadata, provider identity, timing, versions,
+    token usage, and cost appear only when DEV_MODE is true.
+    """
 
     estimation: str
-    mode: EstimationMode
-    model: str
-    provider: str
-    request_id: str
-    timestamp: datetime
-    latency_ms: int
-    prompt_version: str
-    examples_version: str
+    mode: EstimationMode | None = None
+    model: str | None = None
+    provider: str | None = None
+    request_id: str | None = None
+    timestamp: datetime | None = None
+    latency_ms: int | None = None
+    prompt_version: str | None = None
+    examples_version: str | None = None
     assessment: AssessmentView | None = None
     mode_eligibility: ModeEligibilityView | None = None
     degraded: bool | None = None

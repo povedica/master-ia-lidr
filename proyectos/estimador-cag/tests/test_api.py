@@ -97,7 +97,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
     assert body["latency_ms"] >= 0
-    assert body["prompt_version"] == "v4"
+    assert body["prompt_version"] == "v5"
     assert body["examples_version"] == "static-v1"
     assert body["usage"]["total_tokens"] == 150
     assert body["usage"]["estimated_cost_usd"] > 0
@@ -123,7 +123,10 @@ def test_estimate_hides_usage_and_cost_when_dev_mode_disabled() -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert body.keys() == {"estimation"}
     assert "usage" not in body
+    assert "mode" not in body
+    assert "assessment" not in body
 
 
 def test_estimate_includes_degraded_only_for_static_fallback() -> None:
@@ -147,6 +150,27 @@ def test_estimate_includes_degraded_only_for_static_fallback() -> None:
     assert body["mode"] == "basic"
     assert body["degraded"] is True
     assert "usage" not in body
+
+
+def test_estimate_non_dev_surfaces_degraded_only_for_static_fallback() -> None:
+    app.dependency_overrides[get_estimation_service] = lambda: _FakeStaticFallbackEstimationService()  # type: ignore[return-value]
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        openai_api_key="sk-test",
+        dev_mode=False,
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/estimate",
+                json={"transcription": "Client wants a landing page with a contact form."},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body.keys() == {"estimation", "degraded"}
+    assert body["degraded"] is True
 
 
 def test_estimate_validation_error_on_missing_transcription() -> None:

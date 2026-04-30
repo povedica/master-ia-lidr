@@ -1,8 +1,18 @@
 """Settings loading tests."""
 
 import pytest
+from pydantic import ValidationError
 
+import app.config as app_config
 from app.config import Settings, get_settings
+from app.services.estimation_engine import EstimationMode
+
+
+def test_default_env_file_is_beside_app_package() -> None:
+    """`.env` is anchored to the service root, not the process CWD."""
+    root = app_config._APP_ROOT
+    assert (root / "app" / "main.py").is_file()
+    assert app_config._DEFAULT_ENV_FILE == root / ".env"
 
 
 def test_settings_reads_openai_model_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,3 +59,39 @@ def test_domain_guardrail_can_be_disabled_from_env(monkeypatch: pytest.MonkeyPat
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.llm_domain_guardrail_enabled is False
+
+
+def test_forced_estimation_mode_parses_enum_value() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="sk-test",
+        forced_estimation_mode="expert_review",
+    )
+    assert settings.forced_estimation_mode == EstimationMode.EXPERT_REVIEW
+
+
+def test_forced_estimation_mode_none_when_blank() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="sk-test",
+        forced_estimation_mode="",
+    )
+    assert settings.forced_estimation_mode is None
+
+
+def test_forced_estimation_mode_none_when_off_sentinel() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="sk-test",
+        forced_estimation_mode="off",
+    )
+    assert settings.forced_estimation_mode is None
+
+
+def test_forced_estimation_mode_rejects_invalid_value() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            openai_api_key="sk-test",
+            forced_estimation_mode="not-a-mode",
+        )

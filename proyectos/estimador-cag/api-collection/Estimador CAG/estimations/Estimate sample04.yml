@@ -1,0 +1,83 @@
+info:
+  name: Estimate sample04
+  type: http
+  seq: 4
+  tags:
+    - estimations
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/estimate"
+  body:
+    type: json
+    data: |-
+      {
+        "transcription": "Necesito una estimación de esfuerzo y coste para el desarrollo de una landing page web promocional para un evento de feria de calzado.\n\nContexto general:\nSe trata de una página web sencilla orientada a promocionar un evento presencial relacionado con el sector del calzado. La landing debe presentar la información principal del evento, comunicar su propuesta de valor y facilitar que los usuarios se registren o soliciten más información.\n\nAlcance funcional:\n- Página única tipo landing page\n- Cabecera con título del evento y llamada a la acción\n- Sección de descripción del evento\n- Información de fecha, horario y ubicación\n- Sección de expositores o marcas participantes\n- Agenda básica del evento\n- Galería de imágenes o elementos visuales promocionales\n- Formulario de registro o solicitud de información\n- Botones de llamada a la acción\n- Enlace a mapa o ubicación\n\nPlataforma:\n- Web responsive\n\nRequisitos técnicos:\n- Desarrollo HTML, CSS y JavaScript o implementación sobre CMS existente\n- Diseño responsive para móvil, tablet y escritorio\n- Formulario conectado a email o almacenamiento básico de contactos\n- Optimización básica de carga\n\nRequisitos no funcionales:\n- Diseño visual sencillo y profesional\n- Buen rendimiento para una página promocional\n- Seguridad básica en el formulario\n- Compatibilidad con navegadores modernos\n\nSupuestos:\n- No se incluye área privada\n- No se incluye venta de entradas\n- No se incluye integración compleja con CRM\n- No se incluye diseño de identidad visual desde cero\n- El cliente proporcionará textos, imágenes, logotipo e información del evento\n\nEntregables esperados:\n- Landing page responsive\n- Formulario funcional\n- Publicación en entorno web\n- Documentación mínima de uso o mantenimiento\n\nObjetivo:\nObtener una estimación de esfuerzo y coste aproximado para una landing page sencilla, incluyendo desglose por bloques funcionales, supuestos y posibles dependencias."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Successful Response
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "estimation": "",
+            "model": "",
+            "provider": ""
+          }
+  - name: 422 Response
+    description: Validation Error
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "detail": [
+              {
+                "loc": [],
+                "msg": "",
+                "type": "",
+                "input": "",
+                "ctx": {}
+              }
+            ]
+          }
+
+docs: Run CAG-style estimation for a single meeting transcription.
