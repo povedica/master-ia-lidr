@@ -1,0 +1,83 @@
+info:
+  name: Detail sample02
+  type: http
+  seq: 2
+  tags:
+    - estimations
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/estimate"
+  body:
+    type: json
+    data: |-
+      {
+        "transcription": "Necesito una estimación de esfuerzo y coste para el desarrollo de una aplicación móvil.\n\nContexto general:\nSe trata de una aplicación móvil con acceso privado para usuarios registrados. La app permitirá a los usuarios consultar un catálogo de cafés, ver información detallada de cada producto y seguir a otros usuarios dentro de la plataforma.\n\nAlcance funcional:\n- Autenticación de usuarios (registro y login)\n- Gestión de perfiles de usuario\n- Sistema de seguimiento entre usuarios (follow/unfollow)\n- Catálogo de cafés con listado y detalle\n- Búsqueda básica dentro del catálogo\n- Posibilidad de marcar cafés como favoritos\n- Login social (Google y Apple)\n- Panel de administración para gestión de contenido (cafés y usuarios)\n\nPlataformas:\n- iOS\n- Android\n\nRequisitos técnicos:\n- Aplicación desarrollada en tecnología cross-platform (por ejemplo, React Native o Flutter)\n- Backend con API REST\n- Base de datos para gestión de usuarios y catálogo\n- Sistema de autenticación seguro (JWT o similar)\n\nRequisitos no funcionales:\n- Rendimiento estándar para un MVP\n- Seguridad básica (protección de endpoints y autenticación)\n- Escalabilidad media (no se espera alta concurrencia inicial)\n\nSupuestos:\n- No se incluyen integraciones con sistemas externos complejos\n- El diseño UI/UX será estándar (sin diseño altamente personalizado)\n- El contenido inicial del catálogo será cargado manualmente\n- No se incluyen funcionalidades avanzadas como recomendaciones inteligentes\n\nEntregables esperados:\n- Aplicación móvil funcional (iOS y Android)\n- Backend desplegable\n- Panel de administración básico\n- Documentación técnica mínima\n\nObjetivo:\nObtener una estimación de esfuerzo (en horas o semanas) y coste aproximado para un MVP, incluyendo desglose por bloques funcionales y principales supuestos. Añade un presupuesto"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Successful Response
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "estimation": "",
+            "model": "",
+            "provider": ""
+          }
+  - name: 422 Response
+    description: Validation Error
+    request:
+      url: "{{baseUrl}}/api/v1/estimate"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "transcription": ""
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "detail": [
+              {
+                "loc": [],
+                "msg": "",
+                "type": "",
+                "input": "",
+                "ctx": {}
+              }
+            ]
+          }
+
+docs: Run CAG-style estimation for a single meeting transcription.

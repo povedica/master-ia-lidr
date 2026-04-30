@@ -1,7 +1,7 @@
 info:
-  name: Estimate sample02
+  name: Medium sample07
   type: http
-  seq: 2
+  seq: 8
   tags:
     - estimations
 
@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "transcription": ""
+        "transcription": "Aplicación móvil para iOS y Android de gestión de hábitos. Registro de usuario, creación de hábitos, recordatorios diarios y estadísticas básicas. Backend con autenticación, almacenamiento y notificaciones push. Sin funcionalidades sociales. Interfaz sencilla, sin diseño avanzado."
       }
   auth: inherit
 
