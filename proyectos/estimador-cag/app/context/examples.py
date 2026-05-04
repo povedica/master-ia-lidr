@@ -21,13 +21,18 @@ class EstimationExample(BaseModel):
 _EXAMPLES_ROOT = Path(__file__).resolve().parent / "examples"
 _EXAMPLE_FILE_GLOB = "*.txt"
 _FALLBACK_MODE = EstimationMode.STANDARD
-_SPACE_PATTERN = re.compile(r"\s+")
-
-
 def _normalize_example_text(raw_text: str) -> str:
-    """Collapse newlines and repeated whitespace into single spaces."""
+    """Trim and normalize line endings; keep Markdown tables/headings intact for few-shot quality.
 
-    return _SPACE_PATTERN.sub(" ", raw_text).strip()
+    Examples must preserve newlines so models imitate ``| Task | Hours | Cost (EUR) |`` blocks and
+    ``Total hours`` / ``Total cost`` lines checked by ``evaluate_estimation_structure`` (same as
+    ``ai-engineering/estimator``).
+    """
+
+    text = raw_text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    while "\n\n\n\n" in text:
+        text = text.replace("\n\n\n\n", "\n\n\n")
+    return text
 
 
 def _load_example_pool(mode: EstimationMode) -> list[EstimationExample]:

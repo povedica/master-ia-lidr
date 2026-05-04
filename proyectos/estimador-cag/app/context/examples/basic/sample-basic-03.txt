@@ -1,19 +1,37 @@
 ## MVP Scope
-- Registro y autenticación de usuarios.
-- Funcionalidad de reservas de pistas de pádel a través de un calendario.
-- Integración de un sistema de pagos online.
-- Interfaz web responsive.
+Read-only dashboard over the warehouse DB with role-based views.
 
 ## Assumptions
-- El calendario permitirá la visualización de disponibilidad y solo permitirá hacer reservas para las pistas disponibles.
-- Los pagos online se manejarán mediante un proveedor de pagos estándar (ej. Stripe, PayPal).
-- Se manejarán solo las funciones básicas de reserva y pagos, sin características avanzadas como gestión de usuarios por email o sistemas de notificaciones adicionales.
+- Scope is limited to the MVP slice described above.
+- Third-party APIs are assumed stable for the planning window.
+
+### Task Breakdown
+
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Data model + read APIs | 20 | 1,250 |
+| Charts + filters UI | 18 | 1,125 |
+| Access control + rollout | 12 | 750 |
+
+### Totals
+
+- **Total hours:** 50
+- **Total cost:** 3,125 EUR
+
+### Recommended Team
+
+- 1 Mid-level Full-Stack Developer
+- 1 QA Engineer (part-time)
+
+### Estimated Duration
+
+**5 weeks** calendar time with the team above.
 
 ## Effort Estimate
-- Estimated range: 180–240 hours
-- Confidence: medium
+- Estimated range: 46–58 hours
+- Confidence: high
 
 ## Risks
-- Problemas de integración con el sistema de pagos online, especialmente si hay personalizaciones necesarias.
-- Incertidumbre en la gestión del calendario y su sincronización con las reservas.
-- Cambios en los requisitos o funcionalidades adicionales solicitadas por los usuarios tras revisiones iniciales.
+- Legacy SQL quirks may require defensive queries.
+- Stakeholder churn on KPI definitions impacts sign-off.
+

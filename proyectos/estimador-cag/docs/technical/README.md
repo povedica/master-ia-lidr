@@ -102,6 +102,23 @@ ANTHROPIC_API_KEY=...
 
 Never commit `.env`.
 
+### Docker (optional)
+
+From `proyectos/estimador-cag`, production-style container (no bind mount, no `--reload`):
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Development override (project mounted at `/app`, `uv sync --frozen --group dev` on container start, Uvicorn `--reload`):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+The root-level `Dockerfile` / `docker-compose.yml` in `master-ia` target a different application; use the compose files in this subproject for `estimador-cag`.
+
 Run the API locally:
 
 ```bash
@@ -129,7 +146,7 @@ Variables documented in `.env.example`:
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | Model used by the service. |
 | `OPENAI_TIMEOUT_SECONDS` | No | `30` | OpenAI client timeout. |
 | `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
-| `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
+| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Anthropic Messages model id (Claude 3.5 Haiku snapshots were retired; override e.g. to `claude-3-haiku-20240307` if your org requires it). |
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
 | `ESTIMATION_BASIC_OUTPUT_TOKENS_MAX` | No | `1024` | Max completion tokens for `basic` mode (OpenAI `max_completion_tokens`, Anthropic `max_tokens`). |
 | `ESTIMATION_STANDARD_OUTPUT_TOKENS_MAX` | No | `2048` | Same for `standard` mode. |
@@ -139,6 +156,8 @@ Variables documented in `.env.example`:
 | `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
+| `ESTIMATION_STATS_LOG_ENABLED` | No | `false` | When `true`, each successful `200` appends one NDJSON line with request metadata (no `estimation` body) for analytics. Write failures log a warning and do not change the HTTP response. |
+| `ESTIMATION_STATS_LOG_PATH` | No | empty | Absolute path to the NDJSON log file. When empty, defaults to monorepo `output-stats/estimation-stats.jsonl`. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
@@ -152,6 +171,12 @@ cd proyectos/estimador-cag
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 uv run pytest
+```
+
+Docker equivalents (from `proyectos/estimador-cag`): `docker compose up --build` for the default image; merge `docker-compose.dev.yml` for bind-mount + reload (see §4). One-off tests (requires the dev merge file so `tests/` is mounted and the dev entrypoint runs `uv sync --group dev`):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
 ```
 
 Health check:
@@ -292,7 +317,7 @@ sequenceDiagram
 
     Client->>Router: POST /api/v1/estimate { transcription }
     Router->>Router: Validate EstimateRequest
-    Router->>Service: estimate(transcription)
+    Router->>Service: estimate(transcription, preprocessing)
     Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
     Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
     Service->>Service: route_mode_from_context_quality
@@ -380,8 +405,8 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
-- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
+- `PROMPT_VERSION = "v6"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
+- `EXAMPLES_VERSION = "file-mode-v4-estimator-layout"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, sampling rules, or example Markdown shape change).
 
 ## 11. API contract
 
@@ -414,9 +439,15 @@ Request:
 
 ```json
 {
-  "transcription": "The client needs a REST API for orders with idempotent POST."
+  "transcription": "The client needs a REST API for orders with idempotent POST.",
+  "preprocessing": "none"
 }
 ```
+
+Optional fields:
+
+- `evaluate` (`bool`, default `true`, same as `ai-engineering/estimator`): include `score`, `structure_evaluation`, and `output_validation` (see `docs/technical/output-validation-and-input-score.md`). Set `false` for a slimmer body (`estimation` only, plus `degraded` when applicable).
+- `preprocessing` (`none` | `inline_cleaning` | `two_phase`, default `none`): optional input pipeline before the main estimate (see same doc).
 
 Validation:
 
@@ -424,12 +455,16 @@ Validation:
 - It must contain at least one character.
 - After `strip()`, it must not be empty.
 - It must be in the software/project estimation domain.
+- `preprocessing` must be one of the allowed literals when present.
 
-Response with `DEV_MODE=false` (live provider):
+Response with `DEV_MODE=false` (live provider, default `evaluate`):
 
 ```json
 {
-  "estimation": "## Estimation: ..."
+  "estimation": "## Estimation: ...",
+  "score": 0.612,
+  "structure_evaluation": { "...": "..." },
+  "output_validation": { "...": "..." }
 }
 ```
 
@@ -444,11 +479,14 @@ Out-of-domain rejection response:
 }
 ```
 
-Degraded response when static fallback is used and `DEV_MODE=false`:
+Degraded response when static fallback is used and `DEV_MODE=false` (default `evaluate`):
 
 ```json
 {
   "estimation": "## Estimation: Temporary degraded mode ...",
+  "score": 0.25,
+  "structure_evaluation": { "...": "..." },
+  "output_validation": { "...": "..." },
   "degraded": true
 }
 ```
@@ -464,12 +502,16 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v5",
-  "examples_version": "file-mode-v3",
+  "prompt_version": "v6",
+  "examples_version": "file-mode-v4-estimator-layout",
+  "score": 0.6125,
+  "finish_reason": "stop",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
     "total_tokens": 1330,
+    "preprocessing_input_tokens": 0,
+    "preprocessing_output_tokens": 0,
     "estimated_cost_usd": 0.000384
   }
 }
@@ -477,9 +519,9 @@ Response with `DEV_MODE=true`:
 
 ## 12. Response metadata
 
-When `DEV_MODE=false`, the response body is **`estimation` only**, except when static fallback is used, in which case **`degraded: true`** is also included.
+When `DEV_MODE=false`, the response body includes **`estimation`**. With default **`evaluate: true`**, it also includes **`score`** and **`structure_evaluation`** from `evaluate_estimation_structure` (same as `ai-engineering/estimator`), **`output_validation`** (mode-specific checks), and **`degraded: true`** when static fallback is used. With **`evaluate: false`**, only `estimation` (and `degraded` when applicable) are returned.
 
-When `DEV_MODE=true`, the following are included in addition to `estimation`:
+When `DEV_MODE=true`, the following are included in addition to `estimation` and the evaluation fields above:
 
 - `request_id`: correlates a response with logs or incident reports.
 - `timestamp`: UTC time when the response was produced.
@@ -489,9 +531,11 @@ When `DEV_MODE=true`, the following are included in addition to `estimation`:
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
 - `model`: model identifier reported by the provider implementation.
 - `mode`: adaptive estimation mode selected by service-level deterministic routing.
+- `score`: deterministic structural scalar in `[0, 1]` from the generated estimation markdown (same formula as stats NDJSON; estimator-compatible).
+- `finish_reason`: provider stop reason (`stop`, `length`, Anthropic `stop_reason` values, etc.).
 - `assessment` / `mode_eligibility`: routing diagnostics when present.
 - `degraded`: only present when static fallback is used.
-- `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
+- `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, `preprocessing_input_tokens`, `preprocessing_output_tokens` (OpenAI exposes these on some responses; otherwise `0`), and optional `estimated_cost_usd` (local approximation from known model pricing).
 
 Cost is not a billing source of truth. It supports learning, tuning, and cost awareness.
 

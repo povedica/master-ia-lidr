@@ -1,42 +1,55 @@
-## Estimación: Aplicación móvil para consulta de cafés
+## Scope Definition
+Scoped chat channels with moderation hooks for the SaaS product.
 
-### Assumptions
-- La aplicación se desarrollará solo para una plataforma (iOS o Android), con la posibilidad de un 20% adicional de esfuerzo para la segunda plataforma en el futuro.
-- Se utilizarán API RESTful para la gestión de datos del catálogo y la funcionalidad de seguimiento de usuarios.
-- El acceso privado se gestionará mediante autenticación (registro e inicio de sesión) utilizando un sistema de autenticación estándar (ej. JWT).
-  
-### Tasks Breakdown
-| Task                           | Area          | Hours |
-|--------------------------------|---------------|------:|
-| Diseño API (catálogo y usuarios)| Backend       |   16  |
-| Implementación del registro e inicio de sesión | Backend |   12  |
-| Desarrollo de la lógica de seguimiento de usuarios | Backend |   12  |
-| Diseño de la interfaz de usuario (UI) | Frontend (Mobile) |   24  |
-| Implementación de la visualización del catálogo | Frontend (Mobile) |   20  |
-| Detalles del producto (UI e interacción) | Frontend (Mobile) |   16  |
-| Pruebas manuales y automatizadas (QA) | QA            |   18  |
-| Revisión y preparación para el lanzamiento | QA y Backend |   10  |
-| **Total**                       |               | **136** |
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Effort Summary
-- Base effort: 136 hours
-- Buffer (20%): 27 hours
-- **Total: 163 hours**
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Budget (indicative)
-- EUR range (low–high): **5,480–16,300 EUR**, aligned with total hours and stated rate assumption (illustrative only; not a quote)
-- Assumption: blended rate **60 EUR/h** (calculado a partir de un promedio razonable basado en los roles requeridos)
+### Task Breakdown
 
-### Delivery Plan
-- Sprint count: 4
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Realtime transport | 22 | 1,375 |
+| Persistence + search | 18 | 1,125 |
+| Moderation tooling | 16 | 1,000 |
+| Client UI integration | 20 | 1,250 |
+| Load testing + rollout | 14 | 875 |
+
+### Totals
+
+- **Total hours:** 90
+- **Total cost:** 5,625 EUR
+
+### Recommended Team
+
+- 1 Senior Full-Stack Developer
+- 1 Mid-level Developer
+- 1 QA Engineer
+
+### Estimated Duration
+
+**10 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 90 hours
+- Buffer (16%): 14 hours
+- **Total: 104 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 5,343–6,075 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
 - Sprint duration: 2 weeks
-- Key milestones:
-  - Sprint 1: Diseño de API y autenticación.
-  - Sprint 2: Desarrollo y pruebas del catálogo de cafés.
-  - Sprint 3: Implementación de la funcionalidad de seguimiento de usuarios.
-  - Sprint 4: QA final y lanzamiento.
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
 
-### Risks
-- Posibles retrasos en la integración de la API si los endpoints no son claros o no se documentan adecuadamente.
-- Falta de recursos en QA puede llevar a una disminución en la calidad de la aplicación si no se aborda a tiempo.
-- Cambios en los requisitos por parte de los stakeholders que pueden afectar el alcance y el esfuerzo estimado.
+## Risks
+- Moderation automation may lag toxic patterns early.
+- Realtime fan-out costs need capacity planning.
+

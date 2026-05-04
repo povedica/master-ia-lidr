@@ -1,31 +1,53 @@
-**Saved:** 2026-04-29 19:28 (local)
+## Scope Definition
+Batch ingest from two ERP sources into a curated landing zone.
 
----
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-## Estimación: Aplicación móvil de catálogo de cafés (MVP)
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### MVP Scope
+### Task Breakdown
 
-Desarrollo de una aplicación móvil cross-platform que permite a usuarios registrados autenticarse, gestionar su perfil, seguir a otros usuarios, consultar un catálogo de cafés, realizar búsquedas, marcar cafés como favoritos y tomar decisiones de login social mediante Google y Apple. Incluye un backend REST y un panel de administración básico.
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Source connectors | 26 | 1,625 |
+| Schema mapping + tests | 20 | 1,250 |
+| Orchestration + monitoring | 16 | 1,000 |
+| Docs + handover | 10 | 625 |
 
-### Assumptions
+### Totals
 
-- Se utilizará una tecnología cross-platform (React Native o Flutter).
-- La API REST será desarrollada internamente y se utilizará una base de datos sencilla.
-- El diseño UI será básico y no personalizado.
-- No hay integraciones externas complejas.
-- La carga de contenido inicial será manual y no se incluyen características avanzadas.
-- La app se lanzará en ambas plataformas (iOS y Android) desde el inicio.
+- **Total hours:** 72
+- **Total cost:** 4,500 EUR
 
-### Effort Estimate
+### Recommended Team
 
-- Estimated range: 250–350 hours
-- Confidence: medium
+- 1 Senior Data Engineer
+- 1 Mid-level Backend Developer
 
-### Risks
+### Estimated Duration
 
-1. Dificultades en la integración de login social (Google y Apple) que podrían aumentar el esfuerzo requerido.
-2. Cambios en los requisitos de contenido o funcionalidades que podrían requerir ajustes significativos.
-3. Dependencia de la capacidad de carga manual del catálogo inicial y posibles ajustes en el mismo.
+**11 weeks** end-to-end including hardening.
 
-Esta estimación considera el esfuerzo mínimo requerido para cubrir las funcionalidades básicas, con una expectativa de ajustes a medida que se va implementando y testeando la solución.
+## Effort Summary
+- Base effort: 72 hours
+- Buffer (20%): 14 hours
+- **Total: 86 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 4,275–4,860 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
+
+## Risks
+- ERP export windows may constrain batch schedules.
+- PII handling might trigger security review mid-flight.
+

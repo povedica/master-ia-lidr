@@ -56,18 +56,25 @@ class OpenAIProvider:
         except APIError as exc:
             raise ProviderUnavailableError("OpenAI returned an API error.") from exc
 
-        choice = response.choices[0].message if response.choices else None
-        content = (choice.content or "").strip() if choice else ""
+        choice = response.choices[0] if response.choices else None
+        message = choice.message if choice else None
+        content = (message.content or "").strip() if message else ""
         if not content:
             raise ProviderInvalidResponseError("OpenAI returned an empty response.")
+
+        finish = (choice.finish_reason or "stop") if choice else "stop"
 
         usage = response.usage
         usage_info = None
         if usage:
+            prep_in = int(getattr(usage, "preprocessing_input_tokens", 0) or 0)
+            prep_out = int(getattr(usage, "preprocessing_output_tokens", 0) or 0)
             usage_info = UsageInfo(
                 prompt_tokens=usage.prompt_tokens,
                 completion_tokens=usage.completion_tokens,
                 total_tokens=usage.total_tokens,
+                preprocessing_input_tokens=prep_in,
+                preprocessing_output_tokens=prep_out,
             )
 
         return ProviderResult(
@@ -75,4 +82,5 @@ class OpenAIProvider:
             provider=self.name,
             model=self.model,
             usage=usage_info,
+            finish_reason=str(finish),
         )

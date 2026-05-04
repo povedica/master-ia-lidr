@@ -2,11 +2,38 @@
 
 from app.services.estimation_engine import (
     EstimationMode,
+    RequestAssessment,
     assess_and_select_mode,
     evaluate_mode_eligibility,
+    input_quality_score_01,
+    required_section_presence,
     summarize_assessment,
     validate_mode_output,
 )
+
+
+def test_input_quality_score_is_in_unit_interval() -> None:
+    low = input_quality_score_01(RequestAssessment(0, 0, 0, 0))
+    high = input_quality_score_01(RequestAssessment(20, 10, 0, 80))
+    assert 0.0 <= low <= 1.0
+    assert 0.0 <= high <= 1.0
+    assert high > low
+
+
+def test_required_section_presence_maps_keys() -> None:
+    text = "## Estimation\n### Assumptions\nx\n### Estimate\ny\n### Risks\nz\n"
+    presence = required_section_presence(text, EstimationMode.BASIC)
+    assert presence == {
+        "assumption": True,
+        "estimate": True,
+        "risk": True,
+    }
+
+
+def test_input_quality_score_ambiguity_reduces_value() -> None:
+    clear = input_quality_score_01(RequestAssessment(6, 2, 0, 30))
+    vague = input_quality_score_01(RequestAssessment(6, 2, 4, 30))
+    assert vague < clear
 
 
 def test_routes_short_request_to_basic() -> None:

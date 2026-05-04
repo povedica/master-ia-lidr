@@ -1,48 +1,55 @@
-## Estimation: Padel Court Booking Web Application
+## Scope Definition
+OCR + extraction into structured fields with human review queue.
 
-### Assumptions
-- Users will be able to register, log in, and manage bookings.
-- The calendar will show available times for booking.
-- Payment processing will be handled via a third-party service (e.g., Stripe).
-- The design will be responsive to accommodate various screen sizes but does not require a separate mobile app.
-- All integrations (payments and calendar) will be based on existing APIs.
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Architecture Overview
-- **Frontend:** Responsive web application, built with a modern JavaScript framework (React, Angular, or Vue).
-- **Backend:** RESTful API to handle user authentication, bookings, and payments, likely built with Node.js, Express, or similar technologies.
-- **Infrastructure:** Hosted on a cloud platform, with a database for persistent storage and basic CI/CD for deployment.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Tasks Breakdown
-| Task                                   | Area      | Hours |
-|----------------------------------------|-----------|------:|
-| User registration & authentication     | Backend   |   16  |
-| Calendar view & booking management     | Frontend  |   24  |
-| Payment integration                    | Backend   |   20  |
-| Responsive UI design                   | Frontend  |   30  |
-| Admin panel for booking management     | Frontend  |   20  |
-| Testing and QA                         | QA        |   16  |
-| Deployment & CI/CD setup               | DevOps    |   10  |
-| **Total**                              |           | **136** |
+### Task Breakdown
 
-### Effort Summary
-- Base effort: 136 hours
-- Buffer (15%): 20 hours
-- **Total: 156 hours**
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| OCR integration | 20 | 1,250 |
+| Extraction rules | 22 | 1,375 |
+| Review queue UI | 18 | 1,125 |
+| Accuracy evaluation | 12 | 750 |
+| Hardening | 10 | 625 |
 
-### Budget (indicative)
-- EUR range (low–high): 9,080–15,600 EUR, aligned with total hours and a blended rate of 58 EUR/h (Mid-level developer rate).
-- Assumption: blended rate 58 EUR/h used for calculations.
+### Totals
 
-### Delivery Plan
-- Sprint count: 4
+- **Total hours:** 82
+- **Total cost:** 5,125 EUR
+
+### Recommended Team
+
+- 1 ML-savvy Backend Developer
+- 1 Mid-level Frontend Developer
+- 1 QA Engineer (part-time)
+
+### Estimated Duration
+
+**11 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 82 hours
+- Buffer (18%): 15 hours
+- **Total: 97 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 4,868–5,535 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
 - Sprint duration: 2 weeks
-- Key milestones:
-  - End of Sprint 1: User registration and authentication complete.
-  - End of Sprint 2: Calendar integration and booking management complete.
-  - End of Sprint 3: Payment integration and initial testing complete.
-  - End of Sprint 4: UI polishing, final testing, and deployment.
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
 
-### Risks
-- Potential delays in payment gateway integration.
-- User interface may require more iterations based on UX feedback.
-- Dependency on external APIs for calendar and payments could introduce integration challenges.
+## Risks
+- Low-quality scans inflate manual review volume.
+- Model drift may need periodic re-evaluation.
+

@@ -1,82 +1,55 @@
-# Estimation: Coffee Catalog Mobile App MVP
-
-**Generated:** 2026-04-29
-
----
+## Scope Definition
+Rules engine that evaluates stock thresholds and notifies ops.
 
 ## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-- User authentication will be basic email/password.
-- Social features (following users) and querying about coffee will be implemented with a basic user interface.
-- Initial release will cover both Android and iOS platforms, with additional effort accounted for.
-- Data storage and retrieval operations are not expected to require complex caching or data optimization initially.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
----
+### Task Breakdown
 
-## Architecture overview
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Design + data model | 16 | 1,000 |
+| Rule evaluation service | 24 | 1,500 |
+| Notification channels | 14 | 875 |
+| Admin configuration UI | 18 | 1,125 |
+| Testing + rollout | 16 | 1,000 |
 
-### Frontend
+### Totals
 
-- Mobile app built using a cross-platform framework (e.g., Flutter or React Native).
+- **Total hours:** 88
+- **Total cost:** 5,500 EUR
 
-### Backend
+### Recommended Team
 
-- REST API for user management and coffee cataloging.
-- Database to store user profiles and coffee information.
+- 1 Senior Backend Developer
+- 1 Mid-level Developer
+- 1 QA Engineer (part-time)
 
-### Infrastructure
+### Estimated Duration
 
-- Cloud-based infrastructure (e.g., AWS or Firebase) hosting the backend and database.
+**10 weeks** end-to-end including hardening.
 
----
+## Effort Summary
+- Base effort: 88 hours
+- Buffer (15%): 13 hours
+- **Total: 101 hours**
 
-## Tasks breakdown
+## Budget (indicative)
+- EUR range (low–high): 5,225–5,940 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
 
-| Task | Area | Hours |
-| --- | --- | ---: |
-| API design + user authentication | Backend | 20 |
-| Coffee catalog management | Backend | 24 |
-| User following functionality | Backend | 16 |
-| Mobile UI flows design (iOS + Android) | Frontend | 40 |
-| Integration of backend with mobile UI | Frontend | 16 |
-| QA and testing | QA | 12 |
-| Deployment setup | Infrastructure | 8 |
-| **Total** | | **144** |
-
----
-
-## Effort summary
-
-| Concept | Hours |
-| --- | ---: |
-| Base effort | 144 |
-| Buffer (15%) | 22 |
-| **Total** | **166** |
-
----
-
-## Delivery plan
-
-- **Sprint count:** 4  
-- **Sprint duration:** 2 weeks  
-
-### Key milestones
-
-1. **Sprint 1:** Complete API design and initial authentication implementation.
-2. **Sprint 2:** Develop coffee catalog features and basic user interface.
-3. **Sprint 3:** Implement user following functionality and start integration.
-4. **Sprint 4:** Complete QA and prepare for deployment.
-
----
+## Delivery Plan
+- Sprint count: 5
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
 
 ## Risks
+- Alert storms under load may need throttling beyond MVP.
+- Upstream inventory feed quality impacts accuracy.
 
-- Potential delays in user authentication implementation depending on chosen methods/services.
-- Integration issues between backend APIs and frontend mobile app could arise, increasing time for resolution.
-- User interface design complexity may result in additional iterations.
-
----
-
-## Summary
-
-This estimation provides a structured foundation for planning and clarifies scope and tasks for developing the **Coffee Catalog Mobile App MVP**.

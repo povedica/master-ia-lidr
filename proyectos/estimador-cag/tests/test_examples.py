@@ -10,10 +10,13 @@ def _write_example(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def test_normalize_example_text_collapses_newlines() -> None:
-    raw = "Line one.\n\nLine two.\r\nLine three."
+def test_normalize_example_text_preserves_markdown_newlines() -> None:
+    raw = "Line one.\n\nLine two.\r\nLine three.\n\n\n\nExtra gap."
     normalized = examples_module._normalize_example_text(raw)
-    assert normalized == "Line one. Line two. Line three."
+    assert "Line one." in normalized
+    assert "Line two." in normalized
+    assert "Line three." in normalized
+    assert "\n" in normalized
 
 
 def test_load_examples_returns_random_subset_between_two_and_four(
@@ -25,7 +28,7 @@ def test_load_examples_returns_random_subset_between_two_and_four(
     for index in range(1, 6):
         _write_example(
             standard / f"sample-standard-{index:02d}.txt",
-            f"## Estimation {index}\n\n- task a\n- task b",
+            f"## Title {index}\n\n### Task Breakdown\n\n| Task | Hours | Cost (EUR) |\n|------|------:|------------|\n| A | 1 | 100 |\n\n### Totals\n\n- **Total hours:** 1\n- **Total cost:** 100 EUR\n",
         )
 
     monkeypatch.setattr(examples_module, "_EXAMPLES_ROOT", tmp_path)
@@ -34,7 +37,7 @@ def test_load_examples_returns_random_subset_between_two_and_four(
     examples = examples_module.load_examples(EstimationMode.STANDARD)
     assert len(examples) == 4
     assert all("Historical standard estimation sample" in example.meeting_summary for example in examples)
-    assert all("\n" not in example.estimation for example in examples)
+    assert all("\n" in example.estimation for example in examples)
 
 
 def test_load_examples_returns_all_when_pool_has_two_or_less(

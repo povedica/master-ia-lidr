@@ -13,6 +13,8 @@ class UsageInfo:
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    preprocessing_input_tokens: int = 0
+    preprocessing_output_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,7 @@ class ProviderResult:
     provider: str
     model: str
     usage: UsageInfo | None
+    finish_reason: str = "stop"
 
 
 class ProviderError(Exception):

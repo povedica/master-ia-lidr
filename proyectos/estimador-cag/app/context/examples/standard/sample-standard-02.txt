@@ -1,81 +1,55 @@
-**Saved:** 2026-04-29 19:04 (local)
-
-# Estimation: Mobile Coffee Catalog Application MVP
-
----
+## Scope Definition
+Authenticated portal for RFQs with file uploads and status tracking.
 
 ## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-- The application will support both Android and iOS platforms with a shared codebase (using a framework like React Native or Flutter) to minimize development effort.
-- Users will authenticate via email/password or social login.
-- Coffee-related content (descriptions, images) is assumed to be provided and stable.
-- The application will include basic user profiles, search functionality, and a follow feature.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
----
+### Task Breakdown
 
-## Architecture overview
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Auth + org model | 20 | 1,250 |
+| RFQ forms + attachments | 22 | 1,375 |
+| Workflow + notifications | 18 | 1,125 |
+| Reporting export | 12 | 750 |
+| QA + hardening | 16 | 1,000 |
 
-### Frontend
+### Totals
 
-- A shared mobile codebase utilizing React Native or Flutter for Android and iOS compatibility.
+- **Total hours:** 88
+- **Total cost:** 5,500 EUR
 
-### Backend
+### Recommended Team
 
-- REST API to manage user data, coffee catalog, and follow relationships.
-- User authentication and authorization management.
+- 1 Mid-level Full-Stack Developer
+- 1 Senior Frontend Developer (part-time)
+- 1 QA Engineer
 
-### Infrastructure
+### Estimated Duration
 
-- Cloud hosting for the backend (e.g., AWS, Firebase).
-- Database service for user and coffee catalog information (e.g., PostgreSQL, Firestore).
+**12 weeks** end-to-end including hardening.
 
----
+## Effort Summary
+- Base effort: 88 hours
+- Buffer (18%): 16 hours
+- **Total: 104 hours**
 
-## Tasks breakdown
+## Budget (indicative)
+- EUR range (low–high): 5,225–5,940 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
 
-| Task | Area | Hours |
-| --- | --- | ---: |
-| API design + user authentication | Backend | 20 |
-| Database schema design + setup | Backend | 12 |
-| Coffee catalog API implementation | Backend | 16 |
-| User profile and follow feature | Backend | 18 |
-| Mobile UI design (shared codebase) | Frontend | 26 |
-| User authentication screens | Frontend | 10 |
-| Coffee catalog display and search | Frontend | 18 |
-| Profile management UI | Frontend | 12 |
-| QA + testing (frontend & backend) | QA | 20 |
-| Integration and hardening | All | 10 |
-| **Total** | | **252** |
-
----
-
-## Effort summary
-
-| Concept | Hours |
-| --- | ---: |
-| Base effort | 252 |
-| Buffer (15%) | 38 |
-| **Total** | **290** |
-
----
-
-## Delivery plan
-
-- **Sprint count:** 5 (2-week sprints)  
-- **Sprint duration:** 2 weeks  
-
-### Key milestones
-
-1. **Sprint 1:** API design and initial backend setup.
-2. **Sprint 2:** Coffee catalog API and user authentication.
-3. **Sprint 3:** Mobile UI design and user authentication.
-4. **Sprint 4:** Coffee catalog display and profile management.
-5. **Sprint 5:** QA, integration, and hardening before release.
-
----
+## Delivery Plan
+- Sprint count: 6
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
 
 ## Risks
+- Large attachments may force storage and scanning policies.
+- Internationalization deferred but may resurface quickly.
 
-- Potential delays in backend service integration.
-- Unforeseen complexities in cross-platform UI adaptations.
-- User authentication and data privacy concerns could increase scope if complex regulations are involved.

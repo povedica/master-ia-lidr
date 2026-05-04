@@ -40,7 +40,7 @@ def test_optional_anthropic_fields_have_safe_defaults(
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.anthropic_api_key == ""
-    assert settings.anthropic_model == "claude-3-5-haiku-latest"
+    assert settings.anthropic_model == "claude-haiku-4-5-20251001"
     assert settings.anthropic_timeout_seconds == 30.0
     assert settings.completion_token_cap_for_mode(EstimationMode.STANDARD) == 2048
 

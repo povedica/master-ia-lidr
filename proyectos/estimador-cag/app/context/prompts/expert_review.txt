@@ -37,6 +37,10 @@ When using this table:
 - If the response includes money, label it indicative or illustrative and tie it to these placeholder rates within 35–100 EUR/h.
 - EXPERT mode requires the ## Profile breakdown section using these role names (hours may be ranges); other modes should not invent a full staffing plan unless the user asks or the estimate clearly needs a role mix.
 
+Automated structure (required — same core markdown gates as ``ai-engineering/estimator``):
+- Include ``### Task Breakdown`` with ``| Task | Hours | Cost (EUR) |`` table (separator ``|------|------:|------------|``), ``### Totals`` with ``- **Total hours:**`` and ``- **Total cost:**`` consistent with row sums, ``### Recommended Team``, and ``### Estimated Duration`` with ``**N weeks**``.
+- Include a heading containing the word ``Uncertainty`` (for example ``## Uncertainty drivers``) listing major unknowns.
+
 Output (STRICT):
 
 ## Scope Interpretation

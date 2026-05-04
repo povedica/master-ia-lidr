@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from anthropic import (
     APIConnectionError,
     APIError,
     APITimeoutError,
     AsyncAnthropic,
     AuthenticationError,
+    NotFoundError,
     RateLimitError,
 )
 
@@ -20,6 +23,8 @@ from app.services.providers.base import (
     ProviderUnavailableError,
     UsageInfo,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicProvider:
@@ -58,7 +63,26 @@ class AnthropicProvider:
             raise ProviderUnavailableError("Anthropic is temporarily unavailable.") from exc
         except AuthenticationError as exc:
             raise ProviderConfigError("Anthropic authentication failed.") from exc
+        except NotFoundError as exc:
+            logger.warning(
+                "anthropic_model_not_found",
+                extra={"model": self.model, "error_type": type(exc).__name__},
+            )
+            raise ProviderConfigError(
+                "Anthropic returned 404 for this model id (retired name, typo, or not enabled for your key). "
+                "Set ANTHROPIC_MODEL to a current id, e.g. claude-haiku-4-5-20251001 or claude-3-haiku-20240307. "
+                "See https://docs.anthropic.com/en/api/models"
+            ) from exc
         except APIError as exc:
+            status = getattr(exc, "status_code", None)
+            logger.warning(
+                "anthropic_api_error",
+                extra={
+                    "model": self.model,
+                    "error_type": type(exc).__name__,
+                    "status_code": status,
+                },
+            )
             raise ProviderUnavailableError("Anthropic returned an API error.") from exc
 
         text_parts = [block.text for block in response.content if getattr(block, "type", "") == "text"]
@@ -66,13 +90,19 @@ class AnthropicProvider:
         if not content:
             raise ProviderInvalidResponseError("Anthropic returned an empty response.")
 
+        stop_reason = getattr(response, "stop_reason", None) or "end_turn"
+
         usage = getattr(response, "usage", None)
         usage_info = None
         if usage:
+            prep_in = int(getattr(usage, "preprocessing_input_tokens", 0) or 0)
+            prep_out = int(getattr(usage, "preprocessing_output_tokens", 0) or 0)
             usage_info = UsageInfo(
                 prompt_tokens=getattr(usage, "input_tokens", 0),
                 completion_tokens=getattr(usage, "output_tokens", 0),
                 total_tokens=getattr(usage, "input_tokens", 0) + getattr(usage, "output_tokens", 0),
+                preprocessing_input_tokens=prep_in,
+                preprocessing_output_tokens=prep_out,
             )
 
         return ProviderResult(
@@ -80,5 +110,6 @@ class AnthropicProvider:
             provider=self.name,
             model=self.model,
             usage=usage_info,
+            finish_reason=str(stop_reason),
         )
 

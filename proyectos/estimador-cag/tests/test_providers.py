@@ -7,6 +7,7 @@ import pytest
 from anthropic import (
     APITimeoutError as AnthropicTimeoutError,
     AuthenticationError as AnthropicAuthenticationError,
+    NotFoundError as AnthropicNotFoundError,
     RateLimitError as AnthropicRateLimitError,
 )
 from openai import (
@@ -70,6 +71,34 @@ async def test_openai_provider_raises_invalid_response_on_empty_message() -> Non
 
 
 @pytest.mark.asyncio
+async def test_openai_provider_maps_preprocessing_tokens_from_usage() -> None:
+    settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
+    mock_message = MagicMock()
+    mock_message.content = "## Estimation: ok"
+    mock_choice = MagicMock()
+    mock_choice.message = mock_message
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_response.usage = SimpleNamespace(
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+        preprocessing_input_tokens=3,
+        preprocessing_output_tokens=1,
+    )
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+        provider = OpenAIProvider(settings)
+        result = await provider.complete("sys", "user", max_output_tokens=512)
+
+    assert result.usage is not None
+    assert result.usage.preprocessing_input_tokens == 3
+    assert result.usage.preprocessing_output_tokens == 1
+
+
+@pytest.mark.asyncio
 async def test_openai_provider_maps_authentication_error_to_config_error() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
     mock_client = MagicMock()
@@ -117,6 +146,8 @@ async def test_anthropic_provider_uses_system_as_top_level_argument() -> None:
     assert result.provider == "anthropic"
     assert result.usage is not None
     assert result.usage.total_tokens == 18
+    assert result.usage.preprocessing_input_tokens == 0
+    assert result.usage.preprocessing_output_tokens == 0
     kwargs = mock_client.messages.create.await_args.kwargs
     assert kwargs["system"] == "SYSTEM BLOCK"
     assert kwargs["messages"] == [{"role": "user", "content": "USER TEXT"}]
@@ -152,6 +183,23 @@ async def test_anthropic_provider_maps_authentication_error_to_config_error() ->
     with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderConfigError):
+            await provider.complete("sys", "user", max_output_tokens=1024)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_maps_not_found_to_config_error() -> None:
+    settings = Settings(
+        anthropic_api_key="ak-test",
+        anthropic_model="claude-nonexistent-model",
+    )
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(
+        side_effect=_api_status_error(AnthropicNotFoundError),
+    )
+
+    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+        provider = AnthropicProvider(settings)
+        with pytest.raises(ProviderConfigError, match="404"):
             await provider.complete("sys", "user", max_output_tokens=1024)
 
 

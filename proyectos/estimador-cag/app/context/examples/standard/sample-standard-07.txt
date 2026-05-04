@@ -1,48 +1,55 @@
-## Estimación: Landing Page Promocional para Evento de Feria de Calzado
+## Scope Definition
+Tokenize card data paths and retire legacy storage.
 
-### Assumptions
-- Se considera un diseño simple y limpio sin la necesidad de desarrollo de una identidad visual propia.
-- Los textos, imágenes y logotipos serán proporcionados por el cliente, evitando tiempos de diseño adicionales.
-- El formulario de registro será de contacto básico con seguridad mínima implementada.
-- La integración será únicamente para un correo electrónico, sin almacenamiento complejo.
-- Se asume que la plataforma CMS existente (si se usa) está configurada adecuadamente para soportar el despliegue.
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Architecture Overview
-- **Frontend:** Desarrollo de HTML, CSS y JavaScript para la landing page, asegurando que sea responsive.
-- **Backend:** Implementación de un formulario funcional con conexión a email.
-- **Infrastructure:** Publicación en un entorno web existente con optimización básica de carga.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Tasks Breakdown
-| Task                                     | Area      | Hours |
-|------------------------------------------|-----------|------:|
-| Diseño de layout y estructura de la página | Frontend  | 8    |
-| Desarrollo de HTML/CSS/JavaScript         | Frontend  | 16   |
-| Optimización para responsividad           | Frontend  | 4    |
-| Implementación del formulario             | Backend   | 6    |
-| Configuración de envío de correos        | Backend   | 4    |
-| Integración de elementos visuales (galería) | Frontend  | 4    |
-| Revisión de compatibilidad y pruebas      | QA        | 6    |
-| Documentación mínima                      | QA        | 2    |
-| **Total**                                 |           | **50** |
+### Task Breakdown
 
-### Effort Summary
-- Base effort: 50 hours
-- Buffer (20%): 10 hours
-- **Total: 60 hours**
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Current flow mapping | 18 | 1,125 |
+| Token provider integration | 24 | 1,500 |
+| Legacy decommission | 20 | 1,250 |
+| Pen-test fixes | 14 | 875 |
+| Operational runbooks | 10 | 625 |
 
-### Budget (indicative)
-- EUR range (low–high): 2,100–3,600 EUR
-- Assumption: blended rate of 58 EUR/h has been used for calculations.
+### Totals
 
-### Delivery Plan
-- Sprint count: 3 sprints
-- Sprint duration: 1 week each
-- Key milestones:
-  - Sprint 1: Diseño y estructura aprobada.
-  - Sprint 2: Desarrollo funcional y pruebas iniciales.
-  - Sprint 3: Revisión final, ajustes y publicación.
+- **Total hours:** 86
+- **Total cost:** 5,375 EUR
 
-### Risks
-- Cambios en los requisitos o la información proporcionada por el cliente podrían afectar el plazo de entrega.
-- Posibles incompatibilidades con navegadores o dispositivos si no se prueba adecuadamente.
-- Dependencia de la disponibilidad del cliente para la revisión y aprobación de los entregables en cada sprint.
+### Recommended Team
+
+- 1 Senior Backend Developer
+- 1 DevOps Engineer (part-time)
+- 1 Security-minded QA
+
+### Estimated Duration
+
+**10 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 86 hours
+- Buffer (15%): 13 hours
+- **Total: 99 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 5,106–5,805 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
+
+## Risks
+- Dormant integrations may still reference PAN data.
+- Pen-test findings can extend hardening sprints.
+

@@ -29,8 +29,26 @@ from app.services.providers.base import (
 )
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "v5"
-EXAMPLES_VERSION = "file-mode-v3"
+PROMPT_VERSION = "v6"
+EXAMPLES_VERSION = "file-mode-v4-estimator-layout"
+
+_EXTRACTION_MAX_TOKENS = 1500
+
+INLINE_CLEANING_BLOCK = """\
+The transcription you receive is from a real meeting and may contain:
+- Informal small talk you must ignore
+- Implicit requirements you must surface explicitly
+- Contradictions where you must trust the most recent statement
+- Non-technical jargon you must interpret
+
+Extract ONLY the functional and technical requirements relevant to the estimation."""
+
+EXTRACTION_SYSTEM_PROMPT = (
+    "You are an analyst. Read the meeting transcription and produce a clean, "
+    "deduplicated bullet list of functional requirements, non-functional "
+    "requirements, integrations, constraints and explicit deadlines. Ignore "
+    "fillers, divagations and off-topic remarks. Output Markdown only."
+)
 
 
 class EstimationError(Exception):
@@ -55,17 +73,53 @@ class EstimationResult:
     assessment: InputAssessment | None = None
     mode_eligibility: ModeEligibility | None = None
     degraded: bool = False
+    finish_reason: str | None = None
 
 
-def build_system_prompt(examples: list[EstimationExample], mode: EstimationMode) -> str:
+def build_system_prompt(
+    examples: list[EstimationExample],
+    mode: EstimationMode,
+    *,
+    inline_cleaning: bool = False,
+) -> str:
     """Compose the system message: full mode-specific instructions plus static few-shot examples."""
 
     system_preamble = load_mode_prompt(mode).strip()
-    parts: list[str] = [system_preamble, "\n\n## Reference estimation examples\n"]
+    cleaning = INLINE_CLEANING_BLOCK if inline_cleaning else ""
+    parts: list[str] = [system_preamble]
+    if cleaning:
+        parts.append("\n\n" + cleaning)
+    parts.append("\n\n## Reference estimation examples\n")
     for index, example in enumerate(examples, start=1):
         parts.append(f"\n### Example {index} — meeting summary\n{example.meeting_summary}\n")
         parts.append(f"\n### Example {index} — estimate\n{example.estimation}\n")
     return "".join(parts)
+
+
+def _merge_preprocessing_usage(
+    main: UsageInfo | None,
+    extra_prep_in: int,
+    extra_prep_out: int,
+) -> UsageInfo | None:
+    """Add phase-1 preprocessing token counts onto the main completion usage."""
+
+    if extra_prep_in == 0 and extra_prep_out == 0:
+        return main
+    if main is None:
+        return UsageInfo(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            preprocessing_input_tokens=extra_prep_in,
+            preprocessing_output_tokens=extra_prep_out,
+        )
+    return UsageInfo(
+        prompt_tokens=main.prompt_tokens,
+        completion_tokens=main.completion_tokens,
+        total_tokens=main.total_tokens,
+        preprocessing_input_tokens=extra_prep_in + main.preprocessing_input_tokens,
+        preprocessing_output_tokens=extra_prep_out + main.preprocessing_output_tokens,
+    )
 
 
 class EstimationService:
@@ -75,7 +129,41 @@ class EstimationService:
         self._settings = settings
         self._providers = providers
 
-    async def estimate(self, transcription: str) -> EstimationResult:
+    async def _extract_requirements_two_phase(self, transcription: str) -> tuple[str, int, int]:
+        """Cheap phase-1 call: raw transcription to structured requirements (Markdown)."""
+
+        cap = min(
+            _EXTRACTION_MAX_TOKENS,
+            self._settings.estimation_standard_output_tokens_max,
+        )
+        for provider in self._providers:
+            if provider.name == "static_fallback":
+                continue
+            try:
+                res = await provider.complete(
+                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                    user_prompt=transcription,
+                    max_output_tokens=cap,
+                )
+            except ProviderError:
+                continue
+            text = res.text.strip()
+            if not text:
+                continue
+            prep_in = prep_out = 0
+            if res.usage is not None:
+                prep_in = res.usage.prompt_tokens
+                prep_out = res.usage.completion_tokens
+            logger.info(
+                "preprocessing_two_phase_extracted",
+                extra={"provider": provider.name, "prep_in": prep_in, "prep_out": prep_out},
+            )
+            return text, prep_in, prep_out
+        raise EstimationError(
+            "Two-phase preprocessing requires at least one live LLM provider before static fallback."
+        )
+
+    async def estimate(self, transcription: str, *, preprocessing: str = "none") -> EstimationResult:
         """Return generated estimation plus provider usage metadata."""
 
         text = transcription.strip()
@@ -101,7 +189,21 @@ class EstimationService:
                     "recommended_mode": recommended_mode.value,
                 },
             )
-        system_prompt = build_system_prompt(load_examples(mode), mode)
+
+        if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
+            raise EstimationError("Invalid preprocessing mode.")
+
+        user_text = text
+        phase1_prep_in = 0
+        phase1_prep_out = 0
+        if preprocessing == "two_phase":
+            user_text, phase1_prep_in, phase1_prep_out = await self._extract_requirements_two_phase(text)
+
+        system_prompt = build_system_prompt(
+            load_examples(mode),
+            mode,
+            inline_cleaning=(preprocessing == "inline_cleaning"),
+        )
         max_output_tokens = self._settings.completion_token_cap_for_mode(mode)
         provider_names = [provider.name for provider in self._providers]
         last_error: ProviderError | None = None
@@ -121,7 +223,7 @@ class EstimationService:
             try:
                 result = await provider.complete(
                     system_prompt=system_prompt,
-                    user_prompt=text,
+                    user_prompt=user_text,
                     max_output_tokens=max_output_tokens,
                 )
             except ProviderConfigError as exc:
@@ -192,15 +294,18 @@ class EstimationService:
                     extra={"static_fallback_used": True},
                 )
 
+            merged_usage = _merge_preprocessing_usage(result.usage, phase1_prep_in, phase1_prep_out)
+
             return EstimationResult(
                 estimation=result.text,
                 provider=result.provider,
                 model=result.model,
-                usage=result.usage,
+                usage=merged_usage,
                 mode=mode,
                 assessment=assessment_summary,
                 mode_eligibility=mode_eligibility,
                 degraded=degraded,
+                finish_reason=result.finish_reason,
             )
 
         logger.warning("chain_exhausted", extra={"providers_tried": provider_names})

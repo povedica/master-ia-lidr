@@ -1,77 +1,54 @@
-**Saved:** 2026-04-29 19:31 (local)
+## Scope Definition
+Macro library with approvals and audit trail inside the CRM.
 
----
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-## Estimación: Aplicación móvil de cafeterías (MVP)
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Assumptions
+### Task Breakdown
 
-- La aplicación será desarrollada utilizando React Native o Flutter como tecnología cross-platform.
-- La API REST se implementará utilizando una arquitectura estándar con autenticación JWT.
-- El diseño UI/UX será limpio y funcional, sin personalización compleja.
-- La escalabilidad se planificará para un uso moderado, acorde a un MVP.
-- La carga de contenido inicial del catálogo es manual y no se prevén integraciones externas.
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| CRM extension shell | 14 | 875 |
+| Macro authoring UX | 20 | 1,250 |
+| Approval workflow | 18 | 1,125 |
+| Audit search + export | 14 | 875 |
+| Pilot + fixes | 14 | 875 |
 
----
+### Totals
 
-### Architecture Overview
+- **Total hours:** 80
+- **Total cost:** 5,000 EUR
 
-- **Frontend:** Aplicación móvil realizada en React Native o Flutter, con componentes reutilizables y navegación sencilla.
-- **Backend:** API REST para la gestión de usuarios, cafés y seguimientos. Implementación de endpoints seguros y protección de datos.
-- **Infrastructure:** Base de datos para almacenamiento (por ejemplo, PostgreSQL o Firebase), autenticación a través de JWT, y despliegue en un entorno de nube (Heroku, AWS, etc.).
+### Recommended Team
 
----
+- 1 Mid-level Full-Stack Developer
+- 1 QA Engineer (part-time)
 
-### Tasks Breakdown
+### Estimated Duration
 
-| Task | Area | Hours |
-|------|------|------:|
-| **Autenticación de usuarios** | Backend | 20 |
-| Registro y login | Frontend | 16 |
-| **Gestión de perfiles de usuario** | Backend | 12 |
-| Perfiles de usuario (CRUD) | Frontend | 12 |
-| **Sistema de seguimiento entre usuarios** | Backend | 16 |
-| Funcionalidad de follow/unfollow | Frontend | 8 |
-| **Catálogo de cafés** | Backend | 24 |
-| Listado y detalle de cafés | Frontend | 20 |
-| **Búsqueda dentro del catálogo** | Backend | 12 |
-| Búsqueda en la UI | Frontend | 10 |
-| **Favoritos** | Backend | 10 |
-| Marcar cafés como favoritos | Frontend | 8 |
-| **Login social (Google y Apple)** | Backend | 16 |
-| Integración de login social | Frontend | 12 |
-| **Panel de administración** | Backend | 24 |
-| Panel básico de gestión (CRUD) | Frontend | 20 |
-| **QA y pruebas** | Todos | 30 |
-| **Documentación técnica** | Todos | 10 |
-| **Total** | | **338** |
+**9 weeks** end-to-end including hardening.
 
----
+## Effort Summary
+- Base effort: 80 hours
+- Buffer (16%): 13 hours
+- **Total: 93 hours**
 
-### Effort Summary
+## Budget (indicative)
+- EUR range (low–high): 4,750–5,400 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
 
-- Base effort: **338 hours**
-- Buffer (15%): **51 hours**
-- **Total: 389 hours**
+## Delivery Plan
+- Sprint count: 4
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
 
----
+## Risks
+- CRM API rate limits may affect bulk operations.
+- Audit retention policy might change compliance scope.
 
-### Delivery Plan
-
-- **Sprint count:** Aproximadamente 4 sprints
-- **Sprint duration:** 2 semanas cada uno
-- **Key milestones:**
-  - Sprint 1: Autenticación, perfiles de usuario y gestión de usuarios.
-  - Sprint 2: Catálogo de cafés y funcionalidades básicas.
-  - Sprint 3: Integraciones, favoritos y pruebas iniciales.
-  - Sprint 4: Panel de administración y QA final.
-
----
-
-### Risks
-
-- El tiempo de implementación puede aumentar si se detectan necesidades de personalización adicional en la UI durante el desarrollo.
-- La integración de login social puede presentar desafíos técnicos imprevistos.
-- Los cambios en requisitos de negocio pueden impactar los tiempos de desarrollo.
-
-Esta estimación proporciona un marco práctico y realista para el desarrollo de la aplicación móvil de cafeterías en su versión MVP, considerando las funcionalidades básicas y el enfoque en un lanzamiento rápido y efectivo.

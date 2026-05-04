@@ -19,7 +19,14 @@ from app.services.providers.base import (
     ProviderInvalidResponseError,
     ProviderResult,
     ProviderTimeoutError,
+    UsageInfo,
 )
+
+
+def test_build_system_prompt_includes_inline_cleaning_when_enabled() -> None:
+    examples = load_examples(EstimationMode.STANDARD)
+    prompt = build_system_prompt(examples, EstimationMode.STANDARD, inline_cleaning=True)
+    assert "Extract ONLY the functional" in prompt
 
 
 def test_build_system_prompt_includes_both_example_summaries() -> None:
@@ -167,7 +174,8 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
     )
     service = EstimationService(_settings(), providers=[primary, secondary])
 
-    result = await service.estimate("Client needs a portal.")
+    transcription = "Client needs a portal."
+    result = await service.estimate(transcription)
     assert result.provider == "openai"
     assert result.model == "gpt-4o-mini"
     assert result.mode == EstimationMode.BASIC
@@ -342,6 +350,51 @@ async def test_estimate_falls_back_when_primary_output_is_structurally_invalid()
     assert result.provider == "anthropic"
     assert primary.calls == 1
     assert secondary.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_two_phase_preprocessing_merges_phase_one_tokens() -> None:
+    valid = "## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c\n"
+    extraction = "- requirement one\n- requirement two\n"
+
+    class _TwoPhaseStub:
+        name = "openai"
+        model = "gpt-4o-mini"
+        calls = 0
+
+        async def complete(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            *,
+            max_output_tokens: int,
+        ) -> ProviderResult:
+            del user_prompt
+            self.calls += 1
+            if "analyst" in system_prompt.lower():
+                return ProviderResult(
+                    text=extraction,
+                    provider="openai",
+                    model="gpt-4o-mini",
+                    usage=UsageInfo(9, 4, 13, 0, 0),
+                    finish_reason="stop",
+                )
+            return ProviderResult(
+                text=valid,
+                provider="openai",
+                model="gpt-4o-mini",
+                usage=UsageInfo(80, 40, 120, 1, 1),
+                finish_reason="stop",
+            )
+
+    stub = _TwoPhaseStub()
+    service = EstimationService(_settings(), providers=[stub])
+    result = await service.estimate("Client needs a portal with API.", preprocessing="two_phase")
+    assert stub.calls == 2
+    assert result.estimation == valid
+    assert result.usage is not None
+    assert result.usage.preprocessing_input_tokens == 10
+    assert result.usage.preprocessing_output_tokens == 5
 
 
 @pytest.mark.asyncio

@@ -36,6 +36,10 @@ When using this table:
 - If the response includes money, label it indicative or illustrative and tie it to these placeholder rates within 35–100 EUR/h.
 - Do not fabricate a detailed staffing plan unless the user asks for it or the estimate clearly needs role mix.
 
+Automated structure (required — same task table and totals as ``ai-engineering/estimator``):
+- Include ``### Task Breakdown`` with header ``| Task | Hours | Cost (EUR) |``, separator ``|------|------:|------------|``, and rows whose sums match ``### Totals`` (``- **Total hours:**`` / ``- **Total cost:**`` within the same tolerances as STANDARD mode).
+- Include ``### Recommended Team`` and ``### Estimated Duration`` with ``**N weeks**``.
+
 Output (STRICT):
 
 ## Scope
@@ -55,10 +59,24 @@ Output (STRICT):
 - Backend:
 - Infrastructure:
 
-## Tasks Breakdown
-| Task | Module | Hours |
-|------|--------|------:|
-| ...  | ...    | ...   |
+### Task Breakdown
+
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| ...  | ...   | ...        |
+
+### Totals
+
+- **Total hours:** N
+- **Total cost:** M EUR
+
+### Recommended Team
+
+- ...
+
+### Estimated Duration
+
+**K weeks** ...
 
 ## Effort Estimation
 - Optimistic: X hours

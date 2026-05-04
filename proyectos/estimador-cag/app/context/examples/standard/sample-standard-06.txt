@@ -1,74 +1,55 @@
-## Estimation: Plugin de WordPress para venta de tickets
+## Scope Definition
+Authoring tool for modules, quizzes, and SCORM export.
 
-### Scope Definition
-**Included in MVP:**
-- Conexión con API externa de venta de tickets.
-- Importación de eventos desde el servicio externo.
-- Listado público de conciertos/eventos con filtros básicos (fecha, artista, ciudad, categoría).
-- Página de detalle de evento con información relevante.
-- Selección de entradas y creación de pedido.
-- Envío del pedido al servicio de ticketing.
-- Integración/redirección a pasarela de pago.
-- Confirmación de pago y actualización del estado del pedido.
-- Gestión básica de errores.
-- Panel de configuración en WordPress para gestionar credenciales y parámetros.
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Assumptions
-- API del proveedor es bien documentada y estable.
-- Requiere uso de estándares de desarrollo de plugins de WordPress.
-- Se asume un nivel de seguridad básico y cumplimiento con las buenas prácticas.
-- La integración con WooCommerce no se contempla.
-- Se prioriza un desarrollo funcional sobre un diseño altamente personalizado.
-  
-### Architecture Overview
-- **Frontend:** 
-  - Uso de shortcodes o bloques de Gutenberg para visualización de eventos.
-- **Backend:** 
-  - Lógica para comunicación con la API externa y gestión de pedidos.
-- **Infrastructure:** 
-  - Almacenamiento de configuraciones y logs técnicos dentro de la instalación de WordPress.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Tasks Breakdown
-| Task                                                 | Area     | Hours |
-|------------------------------------------------------|----------|------:|
-| Diseño de arquitectura y especificaciones del plugin | Backend   | 8    |
-| Conectar y autenticar con API del proveedor          | Backend   | 12   |
-| Implementar importación de eventos                    | Backend   | 16   |
-| Desarrollar listado público de conciertos/events      | Frontend  | 16   |
-| Implementar filtros de búsqueda                        | Frontend  | 8    |
-| Crear página de detalle de evento                     | Frontend  | 10   |
-| Implementar flujo de selección de entradas            | Backend   | 10   |
-| Implementar creación y envío de pedidos               | Backend   | 12   |
-| Integración/redirección a pasarela de pago           | Backend   | 10   |
-| Confirmación de pedido y actualización del estado     | Backend   | 8    |
-| Implementar gestión de errores                        | Backend   | 6    |
-| Desarrollo del panel de configuración                 | Backend   | 10   |
-| QA y pruebas funcionales                              | QA       | 12   |
-| Documentación técnica mínima                          | PM       | 8    |
-| **Total**                                            |          | **X**  |
+### Task Breakdown
 
-### Effort Summary
-- Base effort:  X hours
-- Buffer (20%):  Y hours
-- **Total: Z hours**
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Authoring UI | 26 | 1,625 |
+| Quiz engine + grading | 20 | 1,250 |
+| SCORM packaging | 16 | 1,000 |
+| Accessibility sweep | 12 | 750 |
+| Release train | 10 | 625 |
 
-### Budget (indicative)
-- EUR range (low–high): …–… EUR, aligned with total hours and stated rate assumption (illustrative only; not a quote)
-- Assumption: blended rate 58 EUR/h (mid-level developer)
+### Totals
 
-### Delivery Plan
-- **Sprint count:** 3 sprints
-- **Sprint duration:** 2 weeks
-- **Key milestones:** 
-  - Sprint 1: Entregable de arquitectura y conexión con API externa.
-  - Sprint 2: Desarrollo del listado y página de detalle de eventos.
-  - Sprint 3: Implementación del flujo de pedido y pago.
+- **Total hours:** 84
+- **Total cost:** 5,250 EUR
 
-### Risks
-- Dependencia de la estabilidad y documentación de la API externa.
-- Posibles alteraciones en los requisitos de seguridad y adaptación a las actualizaciones de WordPress.
-- Complejidades inesperadas en la integración con la pasarela de pago.
+### Recommended Team
 
----
+- 1 Senior Frontend Developer
+- 1 Mid-level Backend Developer
+- 1 QA Engineer (part-time)
 
-Por favor, complete las horas totales de cada tarea y calcule el esfuerzo total, incluyendo los buffers correspondientes, para brindar una estimación final en horas y presupuesto.
+### Estimated Duration
+
+**11 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 84 hours
+- Buffer (17%): 14 hours
+- **Total: 98 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 4,987–5,670 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
+
+## Risks
+- Accessibility findings can cascade into template refactors.
+- SCORM compatibility targets may multiply test matrices.
+

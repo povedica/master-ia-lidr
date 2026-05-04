@@ -157,4 +157,5 @@ class StaticFallbackProvider:
             provider=self.name,
             model=self.model,
             usage=None,
+            finish_reason="stop",
         )

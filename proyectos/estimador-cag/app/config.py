@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     llm_auth_fallback: bool = False
     llm_domain_guardrail_enabled: bool = True
     estimation_output_persist_enabled: bool = False
+    estimation_stats_log_enabled: bool = False
+    estimation_stats_log_path: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0
@@ -35,7 +37,8 @@ class Settings(BaseSettings):
     dev_mode: bool = False
     log_level: str = "INFO"
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-3-5-haiku-latest"
+    # Claude 3.5 Haiku snapshots were retired (see SDK ``DEPRECATED_MODELS``); use current Haiku 4.5 id.
+    anthropic_model: str = "claude-haiku-4-5-20251001"
     anthropic_timeout_seconds: float = 30.0
     forced_estimation_mode: EstimationMode | None = None
     # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.

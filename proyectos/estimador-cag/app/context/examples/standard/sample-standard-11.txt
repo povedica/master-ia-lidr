@@ -1,51 +1,55 @@
-## Estimation: Mobile Habit Management App MVP (iOS & Android)
+## Scope Definition
+Federate partner IdPs with JIT provisioning and least privilege.
 
-### Assumptions
-- The app will support both iOS and Android platforms but will be built in parallel, sharing code where feasible.
-- The design will prioritize functionality over aesthetics due to the "sencilla" interface requirement.
-- The user registration process will rely on email and password authentication.
-- Notifications will be handled via built-in push notification services for both platforms.
-- Basic statistics will involve simple user inputs without complex analytics or graphs.
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Architecture Overview
-- **Frontend**: Simple user interface for habit creation, registration, and basic statistics visualizations; developed using a cross-platform framework (e.g., React Native).
-- **Backend**: REST API for user management, habit data storage, and push notification triggering; uses a database for persistence.
-- **Infrastructure**: Deployment on a cloud service with basic CI/CD setup for automated builds and deployments.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Tasks Breakdown
-| Task                                     | Area          | Hours |
-|------------------------------------------|---------------|------:|
-| User registration (email/password)       | Backend       | 15    |
-| Habit creation and management endpoints   | Backend       | 20    |
-| Push notification setup                   | Backend       | 12    |
-| Daily reminder scheduling                  | Backend       | 15    |
-| Basic statistics API                      | Backend       | 18    |
-| Mobile UI flows (registration, habits, stats) | Frontend | 40    |
-| Basic testing for backend APIs            | QA            | 15    |
-| Basic testing for front end               | QA            | 15    |
-| CI/CD integration                         | DevOps        | 10    |
-| **Total**                                 |               |  120  |
+### Task Breakdown
 
-### Effort Summary
-- Base effort: 120 hours
-- Buffer (20%): 24 hours
-- **Total: 144 hours**
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Federation design | 16 | 1,000 |
+| SSO broker implementation | 26 | 1,625 |
+| JIT provisioning rules | 18 | 1,125 |
+| Security review fixes | 14 | 875 |
+| Rollout + monitoring | 12 | 750 |
 
-### Budget (indicative)
-- EUR range (low–high): 8,400–14,400 EUR (at a blended rate of 58 EUR/h)
-- Assumption: blended rate of 58 EUR/h across roles involved
+### Totals
 
-### Delivery Plan
-- Sprint count: 3
-- Sprint duration: 2 weeks each
-- Key milestones:
-  - Sprint 1: Complete backend user management and habit APIs
-  - Sprint 2: Develop front-end user flows and integrate with backend
-  - Sprint 3: Finalize testing, CI/CD, and prepare for deployment
+- **Total hours:** 86
+- **Total cost:** 5,375 EUR
 
-### Risks
-- Complexity in handling push notifications can lead to delays if platform-specific issues arise.
-- User onboarding and habit setting complexity may require additional iteration based on user feedback.
-- Unforeseen integration issues between shared code for iOS and Android may arise due to platform differences.
+### Recommended Team
 
-This structured estimation assists in planning and internal decision-making, ensuring clarity on scope, budget, and potential milestones.
+- 1 Senior Backend Developer
+- 1 DevOps Engineer (part-time)
+- 1 Security QA
+
+### Estimated Duration
+
+**9 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 86 hours
+- Buffer (14%): 12 hours
+- **Total: 98 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 5,106–5,805 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 4
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
+
+## Risks
+- Partner IdP quirks may require per-tenant adapters.
+- JIT misconfiguration risk needs strong test coverage.
+

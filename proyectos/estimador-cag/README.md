@@ -45,6 +45,40 @@ uv run uvicorn app.main:app --reload
 
 Browsers may request `/favicon.ico`; there is no favicon asset, so that request may return 404 and can be ignored.
 
+## Docker
+
+Reproducible runtime for **this** subproject only. The `Dockerfile` and `docker-compose.yml` at the **monorepo root** build a different demo app (`app/` at the root), not `estimador-cag`.
+
+From `proyectos/estimador-cag`:
+
+```bash
+cd proyectos/estimador-cag
+cp .env.example .env
+# Edit .env (API keys, etc.); never commit .env.
+docker compose up --build
+```
+
+- Service listens on `http://127.0.0.1:8000` (same routes as local `uv run`).
+
+Development compose (bind-mounts the project, runs `uv sync --frozen --group dev` on start, Uvicorn with `--reload`):
+
+```bash
+cd proyectos/estimador-cag
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Quick check after `up`:
+
+```bash
+curl -s http://127.0.0.1:8000/health
+```
+
+Optional: run tests in a one-off container (uses the dev override so the project — including `tests/` — is bind-mounted and dev dependencies are synced on start):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
+```
+
 ## Example request
 
 ```bash
@@ -53,11 +87,17 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
 ```
 
+Optional JSON body fields (same `POST`):
+
+- **`evaluate`** (`bool`, default `true`, same as `ai-engineering/estimator`): when `true`, runs `evaluate_estimation_structure` in the router and returns `score`, `structure_evaluation`, and `output_validation` (mode-specific section checks). Set `false` to omit those fields. See [docs/technical/output-validation-and-input-score.md](docs/technical/output-validation-and-input-score.md).
+- **`preprocessing`** (`none` | `inline_cleaning` | `two_phase`, default `none`): `inline_cleaning` adds meeting-cleaning instructions to the system prompt; `two_phase` runs an extraction LLM call before the main estimate and merges phase-one tokens into `usage.preprocessing_*` (requires a live provider before static fallback).
+
 Response fields:
 
 - **Always:** `estimation` (the markdown estimate).
+- **When `evaluate` is true (default):** **`score`** and **`structure_evaluation`** (Level-1 structural metric, same formula as `ai-engineering/estimator`) plus **`output_validation`** (mode-specific section checks).
 - **When static fallback is used and `DEV_MODE=false`:** `degraded` is also present (`true`) so clients can tell the response is not from a live model.
-- **When `DEV_MODE=true`:** `mode`, `model`, `provider`, `request_id`, `timestamp`, `latency_ms`, `prompt_version`, `examples_version`, optional `assessment`, optional `mode_eligibility`, optional `degraded`, and optional `usage` (tokens + `estimated_cost_usd` when usage is available).
+- **When `DEV_MODE=true`:** `mode`, `model`, `provider`, `request_id`, `timestamp`, `latency_ms`, `prompt_version`, `examples_version`, `finish_reason`, optional `assessment`, optional `mode_eligibility`, optional `degraded`, and optional `usage` (tokens + `estimated_cost_usd` when usage is available).
 
 ## Estimation domain guardrail
 
@@ -111,14 +151,14 @@ If the request lacks enough context, premium modes should be downgraded with an 
 
 ### Response metadata (detailed)
 
-With **`DEV_MODE=false`** (default), the JSON body is minimal: **`estimation`** only, plus **`degraded`** when the static fallback path produced the text (so callers are not misled into treating it as a live model output).
+With **`DEV_MODE=false`** (default), the JSON body is minimal: **`estimation`**, a deterministic **`score`** in `[0, 1]` from the **generated markdown** (estimator-compatible structural checks), plus **`degraded`** when the static fallback path produced the text (so callers are not misled into treating it as a live model output).
 
 With **`DEV_MODE=true`**, the response additionally includes operational and debugging fields:
 
 - **Routing and provider:** `mode`, `model`, `provider`, optional `assessment`, optional `mode_eligibility`
 - **Request correlation:** `request_id`, `timestamp`, `latency_ms`
 - **Reproducibility:** `prompt_version`, `examples_version` (trace prompt/example changes vs model or infra changes)
-- **Usage (when the provider returns token counts):** `usage` with `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd`
+- **Usage (when the provider returns token counts):** `usage` with `prompt_tokens`, `completion_tokens`, `total_tokens`, `preprocessing_input_tokens`, `preprocessing_output_tokens` (from the provider when present, otherwise `0`), and optional `estimated_cost_usd`
 
 `degraded` may appear in either mode when static fallback is used.
 
@@ -176,13 +216,16 @@ When `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`, each successful `POST /api/v1/est
 
 - `output-responses/response-YYYYmmdd-hhmmss.md` (UTC timestamp).
 
+When `ESTIMATION_STATS_LOG_ENABLED=true`, each successful `POST /api/v1/estimate` appends one NDJSON line (metadata only, no estimation body) for usage analytics. The default file is `output-stats/estimation-stats.jsonl` at the monorepo root; override with `ESTIMATION_STATS_LOG_PATH` (absolute path). Failures to write the log are logged as warnings and do not fail the request.
+
 ### Response examples by environment mode
 
 With `DEV_MODE=false` (live provider):
 
 ```json
 {
-  "estimation": "## Estimation: ..."
+  "estimation": "## Estimation: ...",
+  "score": 0.6125
 }
 ```
 
@@ -191,6 +234,7 @@ With `DEV_MODE=false` and static fallback (`degraded`):
 ```json
 {
   "estimation": "## Estimation: ...",
+  "score": 0.35,
   "degraded": true
 }
 ```
@@ -206,12 +250,15 @@ With `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v5",
-  "examples_version": "file-mode-v3",
+  "prompt_version": "v6",
+  "examples_version": "file-mode-v4-estimator-layout",
+  "score": 0.6125,
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
     "total_tokens": 1330,
+    "preprocessing_input_tokens": 0,
+    "preprocessing_output_tokens": 0,
     "estimated_cost_usd": 0.000384
   }
 }

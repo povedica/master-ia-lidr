@@ -1,68 +1,55 @@
-## Estimación: Sistema interno de gestión documental para una empresa legal
+## Scope Definition
+Immutable audit stream with tenant-scoped queries and exports.
 
-### Scope Definition
-**MVP incluye:**
-- Acceso autenticado con roles (admin, abogado, cliente).
-- Subida y almacenamiento de documentos (PDF, Word).
-- Organización de documentos por casos.
-- Búsqueda por texto y metadatos.
-- Control de versiones de documentos.
-- Registro de actividad (logs).
-- Integración con servicio externo de firma digital.
-- Notificaciones por correo electrónico ante cambios en documentos.
-- Interfaz de usuario web orientada a productividad.
+## Assumptions
+- Delivery follows incremental milestones with one production release train.
+- Non-functional requirements match typical SaaS expectations unless stated otherwise.
 
-### Assumptions
-- Los documentos tienen un tamaño y número manejables.
-- El servicio externo de firma digital tiene un API bien documentado.
-- La búsqueda por texto no incluye capacidades de procesamiento de lenguaje natural.
-- El almacenamiento seguro asume el uso de S3 pero no necesita integración de terceros para el cifrado en reposo.
-- La implementación contempla roles y permisos granulares por documento.
+## Architecture Overview
+- Frontend: web client aligned with the MVP scope.
+- Backend: REST services and persistence for core entities.
+- Infrastructure: managed cloud with CI/CD and staging.
 
-### Architecture Overview
-- **Frontend:** Desarrollo de una aplicación web interactiva con autenticación y gestión de roles.
-- **Backend:** API modular para la gestión de documentos, con almacenamiento en S3 y lógica para control de versiones.
-- **Infrastructure:** Uso de servicios en la nube para almacenamiento seguro y manejo de correos electrónicos (por ejemplo, AWS S3 para documentos y SES para notificaciones).
+### Task Breakdown
 
-### Tasks Breakdown
-| Task                                      | Area       | Hours |
-|-------------------------------------------|------------|------:|
-| Diseño de arquitectura y esquema de DB    | Backend    |    16 |
-| Implementación de API de autenticación    | Backend    |    20 |
-| Gestión de roles y permisos                | Backend    |    12 |
-| Desarrollo de lógica de subida de documentos | Backend    |    18 |
-| Implementación de control de versiones     | Backend    |    14 |
-| Integración con servicio de firma digital | Backend    |    10 |
-| Implementación de búsqueda por texto y metadatos | Backend |    18 |
-| Desarrollo de registro de actividad (logs) | Backend    |    12 |
-| Desarrollo de notificaciones por email     | Backend    |    8  |
-| Diseño de UI y UX                          | Frontend   |    16 |
-| Implementación de interfaz web             | Frontend   |    32 |
-| Pruebas QA (manual y automatizadas)       | QA         |    20 |
-| Integración y pruebas de sistema           | QA         |    12 |
-| **Total**                                  |            | **Y** |
+| Task | Hours | Cost (EUR) |
+|------|------:|------------|
+| Event model + ingestion | 24 | 1,500 |
+| Query API + indexes | 20 | 1,250 |
+| Export + retention jobs | 16 | 1,000 |
+| Tenant isolation tests | 14 | 875 |
+| Docs + migration | 10 | 625 |
 
-### Effort Summary
-- Base effort:  240 hours (Suma de las horas de todas las tareas)
-- Buffer (20%): 48 hours (Aumento para manejar incertidumbres)
-- **Total: 288 hours**
+### Totals
 
-### Budget (indicative)
-- EUR range (low–high): 16,320 – 28,800 EUR, alineado con el total de horas y la tasa asumida (ilustrativo solamente).
-- Assumption: blended rate 60 EUR/h, considerando una mezcla entre roles necesarios.
+- **Total hours:** 84
+- **Total cost:** 5,250 EUR
 
-### Delivery Plan
-- Sprint count: 6
-- Sprint duration: 2 semanas
-- Key milestones:
-  - Sprint 1: Diseño de arquitectura y disciplinas de seguridad.
-  - Sprint 2: Implementación de autenticación y gestión de roles.
-  - Sprint 3: Desarrollo de funciones de subida y control de versiones.
-  - Sprint 4: Integración con servicio de firma digital y log.
-  - Sprint 5: Desarrollo de interfaz de usuario y búsqueda de documentos.
-  - Sprint 6: Pruebas finales e integración de sistema.
+### Recommended Team
 
-### Risks
-- Cambios en los requisitos del servicio de firma digital que pueden afectar la integración.
-- Complejidad de mantener una buena experiencia de usuario en la búsqueda y gestión de documentos.
-- Posibles retrasos en la entrega de pruebas debido a la integración adecuada de los roles y permisos.
+- 1 Senior Backend Developer
+- 1 Mid-level Developer
+- 1 QA Engineer
+
+### Estimated Duration
+
+**10 weeks** end-to-end including hardening.
+
+## Effort Summary
+- Base effort: 84 hours
+- Buffer (15%): 13 hours
+- **Total: 97 hours**
+
+## Budget (indicative)
+- EUR range (low–high): 4,987–5,670 EUR, illustrative only using blended mid-level rate assumptions.
+- Assumption: blended ~58–65 EUR/h for build-heavy work.
+
+## Delivery Plan
+- Sprint count: 5
+- Sprint duration: 2 weeks
+- Key milestones: discovery sign-off, MVP feature complete, UAT, production.
+
+## Risks
+- Retention vs legal hold conflicts need policy clarity.
+- Index growth may pressure storage budgets.
+

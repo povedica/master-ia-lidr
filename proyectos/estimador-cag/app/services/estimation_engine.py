@@ -121,6 +121,23 @@ def assess_request(transcription: str) -> RequestAssessment:
     )
 
 
+def input_quality_score_01(assessment: RequestAssessment) -> float:
+    """Map deterministic request signals to a single quality score in ``[0.0, 1.0]``.
+
+    Combines capped detail, completeness, and word-count strength, then dampens by
+    ambiguity markers. Routing still uses discrete rules in ``select_mode``; this
+    scalar is for API consumers and analytics only.
+    """
+
+    d = min(assessment.detail_score / 8.0, 1.0)
+    c = min(assessment.completeness_score / 4.0, 1.0)
+    w = min(assessment.word_count / 40.0, 1.0)
+    amb = min(assessment.ambiguity_score / 4.0, 1.0)
+    strength = 0.38 * d + 0.32 * c + 0.30 * w
+    diluted = strength * (1.0 - 0.9 * amb)
+    return round(max(0.0, min(1.0, diluted)), 4)
+
+
 def select_mode(assessment: RequestAssessment) -> EstimationMode:
     """Map request assessment scores to one adaptive mode."""
 
@@ -252,3 +269,10 @@ def validate_mode_output(markdown_text: str, mode: EstimationMode) -> bool:
     normalized = _normalize(markdown_text)
     required_sections = get_mode_profile(mode).required_sections
     return all(section in normalized for section in required_sections)
+
+
+def required_section_presence(markdown_text: str, mode: EstimationMode) -> dict[str, bool]:
+    """Per-section presence map for optional client-side output validation."""
+
+    normalized = _normalize(markdown_text)
+    return {key: key in normalized for key in get_mode_profile(mode).required_sections}
