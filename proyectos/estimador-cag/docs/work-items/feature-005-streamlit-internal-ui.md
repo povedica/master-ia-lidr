@@ -118,7 +118,7 @@ Use at least: `st.set_page_config`, `st.title`, `st.text_area`, `st.button`, `st
 
 | Item | Status |
 |------|--------|
-| `uv run pytest` (estimador-cag) after changes | Verified (101 tests, incl. `test_streamlit_error_messages`) |
+| `uv run pytest` (estimador-cag) after changes | Verified (105 tests, incl. `test_streamlit_error_messages`, `test_estimate_response_builder`) |
 | Streamlit manual smoke (commands above) | Not verified in this session (no long-lived browser run); module import verified |
 | No secrets in repo | Verified (no `.env`, no keys added) |
 
@@ -136,4 +136,6 @@ Prompt templates, file upload, transcript history in `st.session_state`, model o
 | `c5dfc26` | `feat(estimador-cag): add streamlit estimation demo ui` | `streamlit_app.py`, `streamlit_error_messages.py`, pytest coverage, README run instructions. |
 | `3a1184c` | `docs(cursor): align start-task with baby-steps tdd workflow` | Rewrites `.cursor/commands/start-task.md` with phased TDD / baby-steps flow for `master-ia`. |
 | `a5781c3` | `docs(estimador-cag): add feature-005 streamlit work item and commit log` | Adds this work-item file and the commit table (see `git log` for any follow-up doc-only rows). |
+| `8744839` | `refactor(estimador-cag): extract shared estimate response assembly` | Moves `EstimateResponse` construction into `estimate_response_builder.py`; route delegates; adds `test_estimate_response_builder.py`. |
+| `df5cb0f` | `feat(estimador-cag): streamlit dev JSON table and back-to-top control` | DEV_MODE JSON field preview table, evaluate checkbox parity, scroll-to-top after results. |
 
