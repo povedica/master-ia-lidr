@@ -21,6 +21,8 @@ Add a lightweight **Streamlit** front end to **`proyectos/estimador-cag`** so te
 
 **Out of repo root (`master-ia` package `app/`):** FastAPI exposes `POST /llm/demo` with logic in `llm_demo.py` and **no** `services/` split. That path is **out of scope** for this document unless a separate work item explicitly targets it.
 
+**Separate work item (not this feature):** LiteLLM abstraction is tracked in `feature-006-litellm-ai-model-abstraction.md`. It is **not** included in feature-005 scope; version it and implement it on its own cadence.
+
 ## Scope
 
 ### Includes

@@ -1,5 +1,7 @@
 # Feature: LiteLLM as the AI model abstraction layer
 
+**Work-item boundary:** This file is **not** part of **feature-005** (Streamlit internal UI). It defines a **separate** feature (LiteLLM as transport). It may ship on the same Git branch as other work only for convenience; scope, review, and acceptance are **independent**.
+
 ## Objective
 
 Add **LiteLLM** as the single gateway for chat completions so the application does not depend on provider-specific SDKs in business logic. Model identity and credentials remain **configuration-driven**, so switching providers (OpenAI, Anthropic, Google Gemini, etc.) is done by changing environment/settings, not application code.
