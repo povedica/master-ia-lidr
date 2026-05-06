@@ -45,6 +45,18 @@ uv run uvicorn app.main:app --reload
 
 Browsers may request `/favicon.ico`; there is no favicon asset, so that request may return 404 and can be ignored.
 
+## Streamlit demo UI (manual testing)
+
+Internal browser UI only; it delegates to **`EstimationService`** (same as `POST /api/v1/estimate`). Configure keys and models via `.env` as for the API (see [.env.example](.env.example)).
+
+```bash
+cd proyectos/estimador-cag
+uv sync
+uv run streamlit run app/streamlit_app.py
+```
+
+The app validates empty input locally. Domain guardrail, configuration, and provider failures show short messages intended for testers—no stack traces in the UI.
+
 ## Docker
 
 Reproducible runtime for **this** subproject only. The `Dockerfile` and `docker-compose.yml` at the **monorepo root** build a different demo app (`app/` at the root), not `estimador-cag`.
