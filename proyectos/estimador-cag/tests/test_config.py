@@ -46,7 +46,12 @@ def test_optional_anthropic_fields_have_safe_defaults(
 
 
 def test_provider_chain_defaults() -> None:
-    settings = Settings(_env_file=None)
+    settings = Settings(
+        _env_file=None,
+        llm_auth_fallback=False,
+        estimation_output_persist_enabled=False,
+        estimation_stats_log_enabled=False,
+    )
     assert settings.llm_providers == "openai,anthropic"
     assert settings.static_fallback_enabled is True
     assert settings.llm_auth_fallback is False
@@ -119,3 +124,36 @@ def test_completion_token_cap_can_be_overridden_from_env(
     get_settings.cache_clear()
     settings = Settings(_env_file=None, openai_api_key="sk-test")
     assert settings.completion_token_cap_for_mode(EstimationMode.PROFESSIONAL) == 6000
+
+
+def test_default_llm_provider_and_model_have_documented_defaults() -> None:
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.default_llm_provider == "unset"
+    assert settings.default_llm_model == "openai/gpt-4o-mini"
+    assert settings.gemini_api_key == ""
+
+
+def test_default_llm_model_can_be_overridden_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEFAULT_LLM_MODEL", "anthropic/claude-haiku-4-5-20251001")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.default_llm_model == "anthropic/claude-haiku-4-5-20251001"
+
+
+def test_openai_litellm_model_id_prefixes_short_model_names() -> None:
+    settings = Settings(_env_file=None, openai_api_key="sk-test", openai_model="gpt-4o-mini")
+    assert settings.openai_litellm_model_id() == "openai/gpt-4o-mini"
+
+
+def test_openai_litellm_model_id_passthrough_when_already_prefixed() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="sk-test",
+        openai_model="openai/custom-model",
+    )
+    assert settings.openai_litellm_model_id() == "openai/custom-model"
+
+
+def test_anthropic_litellm_model_id_prefixes_short_model_names() -> None:
+    settings = Settings(_env_file=None, anthropic_api_key="ak-test", anthropic_model="claude-haiku-4-5-20251001")
+    assert settings.anthropic_litellm_model_id() == "anthropic/claude-haiku-4-5-20251001"

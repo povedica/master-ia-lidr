@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.routers import estimations
-from app.services.providers import build_provider_chain
+from app.services.llm_chain import build_provider_chain
 
 _log_level = os.environ.get("LOG_LEVEL", "INFO")
 logging.basicConfig(

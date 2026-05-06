@@ -14,7 +14,7 @@ from app.services.llm_service import (
     EstimationService,
     build_system_prompt,
 )
-from app.services.providers.base import (
+from app.services.llm_types import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderResult,
@@ -71,6 +71,8 @@ def _settings(**overrides: Any) -> Settings:
     defaults = {
         "openai_api_key": "sk-test",
         "anthropic_api_key": "ak-test",
+        "llm_auth_fallback": False,
+        "forced_estimation_mode": None,
     }
     defaults.update(overrides)
     return Settings(_env_file=None, **defaults)

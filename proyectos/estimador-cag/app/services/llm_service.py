@@ -20,7 +20,7 @@ from app.services.estimation_engine import (
     validate_mode_output,
 )
 from app.services.domain_guardrails import check_estimation_domain
-from app.services.providers.base import (
+from app.services.llm_types import (
     LLMProvider,
     ProviderConfigError,
     ProviderError,

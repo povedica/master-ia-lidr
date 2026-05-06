@@ -52,8 +52,8 @@ The baseline does not include authentication, a frontend, or production deployme
 | HTTP framework | FastAPI | Typed API, automatic OpenAPI, Pydantic integration. |
 | ASGI server | `uvicorn[standard]` | Local runtime for FastAPI. |
 | Configuration | `pydantic-settings` | Typed settings from environment and `.env`. |
-| LLM providers | OpenAI + Anthropic + static fallback | Ordered chain with graceful fallback and explicit degraded mode. |
-| Default model | `gpt-4o-mini` | Low cost for exercises and manual checks. |
+| LLM providers | OpenAI + Anthropic + static fallback (via LiteLLM transport) | Ordered chain with graceful fallback and explicit degraded mode. |
+| Default model | `gpt-4o-mini` (`openai/gpt-4o-mini` at the LiteLLM boundary) | Low cost for exercises and manual checks. |
 | Tests | `pytest`, `pytest-asyncio`, `httpx` | Fast, deterministic suite without real provider calls. |
 | Manual API client | OpenCollection/Bruno collection under `api-collection/` | Versioned manual checks alongside the code. |
 
@@ -64,8 +64,9 @@ Runtime dependencies declared in `pyproject.toml`:
 - `fastapi[standard]`: web framework, validation, OpenAPI docs.
 - `uvicorn[standard]`: local ASGI server.
 - `pydantic-settings`: typed configuration from the environment.
-- `openai`: official SDK for OpenAI.
-- `anthropic`: official SDK for Anthropic.
+- `litellm`: unified async gateway for chat completions (`acompletion`).
+- `openai`: retained for compatibility/tests; completions go through LiteLLM, not route handlers.
+- `anthropic`: retained for compatibility/tests; completions go through LiteLLM.
 - `python-dotenv`: load `.env` in local development.
 
 Development dependencies:
@@ -74,7 +75,7 @@ Development dependencies:
 - `pytest-asyncio`: async test support.
 - `httpx`: HTTP client used by FastAPI `TestClient` and tests.
 
-Important rule: tests mock provider SDK clients. The default suite must not depend on real provider API keys.
+Important rule: tests mock `litellm.acompletion` via `app.services.ai_model_service` (or mocked `acomplete_chat` at provider bindings). The default suite must not depend on real provider API keys.
 
 ## 4. Local setup
 
@@ -142,13 +143,16 @@ Variables documented in `.env.example`:
 | `STATIC_FALLBACK_ENABLED` | No | `true` | Appends deterministic local fallback provider at chain end. |
 | `LLM_AUTH_FALLBACK` | No | `false` | If `true`, provider auth/config errors may continue to the next provider. |
 | `LLM_DOMAIN_GUARDRAIL_ENABLED` | No | `true` | Enables service-level rejection for out-of-domain prompts before provider calls. |
-| `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Must not appear in logs, tests, or documentation. |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model used by the service. |
-| `OPENAI_TIMEOUT_SECONDS` | No | `30` | OpenAI client timeout. |
-| `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
-| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Anthropic Messages model id (Claude 3.5 Haiku snapshots were retired; override e.g. to `claude-3-haiku-20240307` if your org requires it). |
-| `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
-| `ESTIMATION_BASIC_OUTPUT_TOKENS_MAX` | No | `1024` | Max completion tokens for `basic` mode (OpenAI `max_completion_tokens`, Anthropic `max_tokens`). |
+| `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Passed to LiteLLM for `openai/...` models. Must not appear in logs, tests, or documentation. |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI-facing model segment. If no `/` is present, the runtime builds a LiteLLM id `openai/{OPENAI_MODEL}`. Override with an already-qualified id (for example `openai/gpt-4o-mini`) when needed. |
+| `OPENAI_TIMEOUT_SECONDS` | No | `30` | Request timeout (seconds) for the OpenAI chain entry (LiteLLM `timeout`). |
+| `DEFAULT_LLM_PROVIDER` | No | `unset` | Operators’ label only for observability conventions; **not** a secret and not used as a LiteLLM router key inside this app today. |
+| `DEFAULT_LLM_MODEL` | No | `openai/gpt-4o-mini` | Documented LiteLLM-style default (`provider/model`); aligns examples with upstream naming. Calls still use prefixed `OPENAI_MODEL` / `ANTHROPIC_MODEL` described above unless you configure those vars with full literals. |
+| `GEMINI_API_KEY` | No | empty | Optional Google Gemini key — reserved for `gemini/...` models when that route is wired; unused by the shipped OpenAI/Anthropic adapters. |
+| `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential passed to LiteLLM for `anthropic/...` models. |
+| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Anthropic model segment: prefixed as `anthropic/{ANTHROPIC_MODEL}` for LiteLLM when no slash is present. |
+| `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Request timeout (seconds) for the Anthropic chain entry (LiteLLM `timeout`). |
+| `ESTIMATION_BASIC_OUTPUT_TOKENS_MAX` | No | `1024` | Max completion tokens for `basic` mode (passed as LiteLLM `max_completion_tokens`). |
 | `ESTIMATION_STANDARD_OUTPUT_TOKENS_MAX` | No | `2048` | Same for `standard` mode. |
 | `ESTIMATION_PROFESSIONAL_OUTPUT_TOKENS_MAX` | No | `4096` | Same for `professional` mode. |
 | `ESTIMATION_EXPERT_REVIEW_OUTPUT_TOKENS_MAX` | No | `8192` | Same for `expert_review` mode. |
@@ -231,9 +235,12 @@ proyectos/estimador-cag/
 │   │   └── estimations.py
 │   └── services/
 │       ├── __init__.py
+│       ├── ai_model_service.py
 │       ├── domain_guardrails.py
 │       ├── estimation_engine.py
+│       ├── llm_chain.py
 │       ├── llm_service.py
+│       ├── llm_types.py
 │       └── response_output_writer.py
 ├── api-collection/
 │   └── Estimador CAG/
@@ -268,8 +275,10 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
+| `app/services/ai_model_service.py` | Sole LiteLLM import site: async chat completions (`acompletion`), error mapping to `ProviderError`, structured `llm_request_*` logs. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
-| `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
+| `app/services/llm_types.py` | `LLMProvider` protocol, `ProviderResult`, `UsageInfo`, `ProviderError` hierarchy. |
+| `app/services/llm_chain.py` | `build_provider_chain`, `LitellmChainProvider`, `StaticFallbackProvider`, `PROVIDER_REGISTRY`. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
@@ -288,8 +297,9 @@ flowchart TD
     Router --> Service[app.services.EstimationService]
     Service --> Examples[app.context.examples]
     Service --> Chain[Provider chain]
-    Chain --> OpenAI[OpenAI API]
-    Chain --> Anthropic[Anthropic API]
+    Chain --> LiteLLMGateway[LiteLLM acompletion]
+    LiteLLMGateway --> OpenAI[OpenAI API]
+    LiteLLMGateway --> Anthropic[Anthropic API]
     Chain --> StaticFallback[Static fallback]
     Router --> Response[EstimateResponse]
 ```
@@ -298,7 +308,7 @@ Current principles:
 
 - `app/main.py` does not contain business logic.
 - The router orchestrates HTTP, validation, and metadata.
-- SDK-specific behavior is isolated in `app/services/providers/`.
+- Chain rows (`LitellmChainProvider`) pick credentials and timeouts from settings; LiteLLM transport and error mappings live only in `app/services/ai_model_service.py`.
 - CAG examples live outside the router and service so they can be versioned and tested.
 - Configuration is injected with `Depends(get_settings)` at the HTTP boundary.
 
@@ -326,10 +336,10 @@ sequenceDiagram
     Service->>Service: build_system_prompt(examples, mode)
     Service->>Chain: iterate providers by priority
     alt OpenAI succeeds
-        Chain->>OpenAI: completion request
+        Chain->>OpenAI: LiteLLM completion (async)
         OpenAI-->>Chain: content + usage
     else OpenAI fails transiently
-        Chain->>Anthropic: messages request
+        Chain->>Anthropic: LiteLLM completion (async)
         Anthropic-->>Chain: content + usage
     else All live providers fail
         Chain->>Static: deterministic fallback
@@ -529,7 +539,7 @@ When `DEV_MODE=true`, the following are included in addition to `estimation` and
 - `prompt_version`: prompt instruction version.
 - `examples_version`: few-shot context version.
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
-- `model`: model identifier reported by the provider implementation.
+- `model`: model identifier from the LiteLLM response (`resolved_model` field when present), falling back to the configured LiteLLM id for that chain row.
 - `mode`: adaptive estimation mode selected by service-level deterministic routing.
 - `score`: deterministic structural scalar in `[0, 1]` from the generated estimation markdown (same formula as stats NDJSON; estimator-compatible).
 - `finish_reason`: provider stop reason (`stop`, `length`, Anthropic `stop_reason` values, etc.).
@@ -560,8 +570,11 @@ Current events:
 | `provider_succeeded` | `INFO` | `app.services.llm_service` | `provider`, `model` |
 | `chain_degraded` | `WARNING` | `app.services.llm_service` | `static_fallback_used` |
 | `chain_exhausted` | `WARNING` | `app.services.llm_service` | `providers_tried` |
-| `provider_skipped` | `INFO` | `app.services.providers` | `provider`, `reason` |
-| `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
+| `provider_skipped` | `INFO` | `app.services.llm_chain` | `provider`, `reason` |
+| `provider_unknown` | `WARNING` | `app.services.llm_chain` | `provider` |
+| `llm_request_started` | `INFO` | `app.services.ai_model_service` | `event`, `llm_model`, `llm_vendor` (provider prefix before `/`), `chain_provider` |
+| `llm_request_succeeded` | `INFO` | `app.services.ai_model_service` | Same plus `resolved_model` when LiteLLM returns a concrete id |
+| `llm_request_failed` | `WARNING` | `app.services.ai_model_service` | `error_type`; never raw upstream bodies or prompts |
 | `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
 | `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
 

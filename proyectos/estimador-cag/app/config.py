@@ -40,12 +40,33 @@ class Settings(BaseSettings):
     # Claude 3.5 Haiku snapshots were retired (see SDK ``DEPRECATED_MODELS``); use current Haiku 4.5 id.
     anthropic_model: str = "claude-haiku-4-5-20251001"
     anthropic_timeout_seconds: float = 30.0
+    # LiteLLM: documented default routing label (structured logs only); not a credential.
+    default_llm_provider: str = "unset"
+    # Canonical LiteLLM-style id for documentation defaults; runtime model ids come from OPENAI_MODEL / ANTHROPIC_MODEL.
+    default_llm_model: str = "openai/gpt-4o-mini"
+    gemini_api_key: str = ""
     forced_estimation_mode: EstimationMode | None = None
     # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.
     estimation_basic_output_tokens_max: int = Field(default=1024, ge=1)
     estimation_standard_output_tokens_max: int = Field(default=2048, ge=1)
     estimation_professional_output_tokens_max: int = Field(default=4096, ge=1)
     estimation_expert_review_output_tokens_max: int = Field(default=8192, ge=1)
+
+    def openai_litellm_model_id(self) -> str:
+        """Return a LiteLLM chat model id for the OpenAI chain entry."""
+
+        raw = self.openai_model.strip()
+        if "/" in raw:
+            return raw
+        return f"openai/{raw}"
+
+    def anthropic_litellm_model_id(self) -> str:
+        """Return a LiteLLM chat model id for the Anthropic chain entry."""
+
+        raw = self.anthropic_model.strip()
+        if "/" in raw:
+            return raw
+        return f"anthropic/{raw}"
 
     def completion_token_cap_for_mode(self, mode: EstimationMode) -> int:
         """Upper bound passed to providers as max output tokens for this mode."""

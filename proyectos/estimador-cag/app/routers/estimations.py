@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.config import Settings, get_settings
 from app.schemas.estimations import EstimateRequest, EstimateResponse, UsageView
 from app.services.estimate_response_builder import assemble_estimate_response, estimate_cost_usd
-from app.services.providers import build_provider_chain
+from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import DomainGuardrailError, EXAMPLES_VERSION, PROMPT_VERSION, EstimationError, EstimationService
 from app.services.estimation_stats_logger import (
     resolve_stats_log_path,
