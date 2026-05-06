@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "anthropic>=0.97.0",
     "streamlit>=1.57.0",
+    "litellm>=1.83.14",
 ]
 
 [dependency-groups]
