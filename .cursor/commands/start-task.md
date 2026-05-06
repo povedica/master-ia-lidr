@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Kick off development work in `master-ia` from an **existing working document**: feature, decision, session note, bug, improvement, experiment, or technical note. The agent must read that document in depth, turn it into operational context, review related rules and code, propose a baby-steps plan, and make explicit what will be implemented, how it will be verified, and where progress will be recorded.
+Kick off development work in `master-ia` from an **existing working document**: feature, decision, session note, bug, improvement, experiment, or technical note. The agent must read that document in depth, turn it into operational context, review related rules and code, and **execute** (or hand off) work using a **strict baby-steps + TDD** loop.
 
-This command mirrors the full `a-currar` style workflow, adapted to `master-ia`: the source of truth is not Linear, but the document the user passes as input and the associated Second Brain material.
+This command is the `master-ia` adaptation of the **`a-currar` workflow** (document-driven phases, quality gates, per-step commits, RED → GREEN → REFACTOR). The **source of truth** is **not** Linear: it is the document the user passes as input and the associated Second Brain material.
 
 ## When to use
 
@@ -14,7 +14,7 @@ Use `/start-task` when:
 - A decision or session note must become an executable work plan.
 - Work continues on a task started in the Second Brain.
 - You need context before editing code.
-- You want baby steps, verification, and living documentation.
+- You want **enforced** baby steps, verification, TDD where practical, and living documentation.
 
 To create the document from scratch, use `/write-feature` or `/docs` first. To close pending changes, use `/commit-pending`.
 
@@ -32,51 +32,62 @@ They may also use a Cursor reference:
 /start-task @second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
 ```
 
+For the **versioned documentation mirror** (when the vault symlink is missing), paths under `proyectos/<project>/docs/` are valid canonical inputs too.
+
 ## Critical rule: single source of truth
 
 - The input document is the **canonical** document for the task.
 - Do not create another document for the same feature unless the user asks.
-- Decisions discovered during analysis go back into the same document or into an explicitly linked note.
-- If the document is missing, empty, or unclear on goals, stop and ask. Always suggest a likely path under `second-brain-master-ia/proyectos/<project>/work-items/`.
+- All progress, plan changes, acceptance updates, commit log entries, and **learnings during implementation** go into **that same file** (or an explicitly linked note referenced from it).
+- If the document is missing, empty, or unclear on goals, stop and ask. Suggest a likely path under `second-brain-master-ia/proyectos/<project>/work-items/` (or `proyectos/<project>/docs/work-items/`).
 - If session or project is unclear, infer from the path, suggest a default, and confirm before implementing.
 
-## Workflow overview
+---
+
+## Workflow overview (aligned with `a-currar`, adapted to `master-ia`)
 
 ```text
-Phase 0: Document     -> Read input, validate canonical source, detect task type
-Phase 1: Standards     -> Read relevant `.cursor/rules/`
-Phase 2: Context       -> Inspect repo, notes, and similar patterns
-Phase 3: Planning      -> Baby-steps plan, risks, verification
-Phase 4: Setup         -> Git, dependencies, environment
-Phase 5: Implementation-> Small steps, tests, living documentation
-Phase 6: Completion    -> Validate, update docs, prepare `/commit-pending`
-Phase 7: Learnings     -> Extract reusable learnings when applicable
+Phase 0: Task intake      → Canonical doc, readiness, conflicts / WIP awareness
+Phase 1: Standards        → Read relevant `.cursor/rules/`
+Phase 2: Documentation    → Validate or complete canonical sections (still one file)
+Phase 3: Planning         → Baby steps, dependencies, sizing, verification map
+Phase 4: Setup            → Git branch policy, uv sync, subproject cwd if needed
+Phase 5: Implementation   → Strict TDD + baby steps + commit cadence + doc sync
+Phase 6: Completion       → Final verification, doc accuracy, `/commit-pending` prep
+Phase 7: Retrospective    → Learnings → canonical doc / aprendizajes / rules candidates
 ```
 
 ---
 
 ## Hard stop before coding
 
-Before any implementation, the agent must complete and present:
+Before any implementation, the agent must complete and present in the chat:
 
-- A baby-steps plan with 3-6 steps.
-- Verification strategy for each step.
-- TDD intent for each behavior-changing step (`RED -> GREEN -> REFACTOR`) or a concrete reason why test-first is not practical.
-- Open risks and decisions that could change scope.
+- **Baby-steps plan** with **3–8 steps** (each step ideally one reviewer-friendly commit).
+- For **every step that changes behavior**: **explicit TDD intent** — `RED → GREEN → REFACTOR`, including **which test file** will fail first and **which command** proves RED — **or** a one-line **justified exception** (e.g. “Streamlit layout only; manual smoke + screenshot checklist”) **before** writing production code.
+- **Verification strategy per step** (command or manual check).
+- **Open risks** and decisions that could change scope.
 
-If any item above is missing, stop and ask before touching code.
+**Discipline (non-negotiable when TDD applies):**
+
+1. For new or changed **logic** (pure functions, parsing, validation, error mapping, service contracts): add or extend a **failing test first**, run the narrowest `pytest` invocation to show **RED**, then implement **GREEN**, then **REFACTOR** only if it clarifies without scope creep.
+2. **Do not** land production code and tests in one undifferentiated batch without having shown test-first order in the session (unless the justified exception applies).
+3. Prefer **≤ ~100 meaningful changed lines per commit** where practical (same intent as `a-currar`); splitting deps / code / docs across commits is encouraged.
+4. **Documentation must not lag more than one step** behind behavior changes (canonical document updated in the same step or immediate follow-up micro-commit).
+
+If any hard-stop item is missing, **stop and ask** before touching application code.
 
 ---
 
-## Phase 0. Working document
+## Phase 0. Task intake and canonical document
 
 ### 0.1 Read the input document
 
-Read the full file or the relevant sections if it is long. Extract:
+Extract:
 
 - Primary objective.
 - Task type: `feature`, `bug`, `refactor`, `docs`, `experiment`, `setup`, or `learning`.
-- Affected project, e.g. `estimador-cag`.
+- Affected project (e.g. `estimador-cag`, monorepo root `app/`).
 - Linked session, if any.
 - Included and excluded scope.
 - Acceptance criteria.
@@ -84,53 +95,20 @@ Read the full file or the relevant sections if it is long. Extract:
 - Test or verification plan.
 - External dependencies, LLM models, APIs, or environment variables.
 
-### 0.2 Validate that the document is ready to start
+### 0.2 Validate readiness (documentation gate)
 
-Before editing code, check:
+Same checks as historical `start-task`, strengthened:
 
-- [ ] The objective is clear.
-- [ ] Scope is bounded.
+- [ ] Objective and scope are clear.
 - [ ] Acceptance criteria exist or can be derived.
-- [ ] The document states where to record progress and commits (or you add that in English).
-- [ ] It contains no real secrets.
-- [ ] It does not contradict repo rules.
+- [ ] **Test / verification strategy** exists (automated **or** explicit manual checklist).
+- [ ] **Repository commits section** exists or you add `## Repository commits (master-ia)` (**table body in English**).
+- [ ] No real secrets.
+- [ ] Does not contradict repo rules.
 
-If something important is missing, complete the document when intent is obvious. Otherwise ask the user with a concrete suggestion.
+If critical sections are missing, **pause implementation** and either complete the document (when intent is obvious) or route to `/write-feature`, `/requirement-validate`, etc., per complexity.
 
-### 0.3 Identify documentation and commit destinations
-
-Defaults:
-
-- Progress and decisions: the input document.
-- Commits: section `## Commits del repositorio (master-ia)` (or `## Repository commits (master-ia)`) in that same document; **table body in English** per base standards.
-- Session: note under `second-brain-master-ia/proyectos/<project>/sesiones/` when applicable.
-- Reusable learnings: `second-brain-master-ia/proyectos/<project>/aprendizajes/`.
-
-Follow `/commit-pending` for workflow; if the commit log destination is unclear, ask before committing and suggest a path.
-
----
-
-## Phase 1. Project standards
-
-Read only the rules needed for the task:
-
-- Always: `.cursor/rules/00-base-standards.mdc`
-- Python: `.cursor/rules/01-python-standards.mdc`
-- FastAPI: `.cursor/rules/02-fastapi-standards.mdc`
-- AI/LLM: `.cursor/rules/03-ai-engineering-standards.mdc`
-- Environment and secrets: `.cursor/rules/04-environment-and-secrets.mdc`
-- Tests: `.cursor/rules/05-testing-standards.mdc`
-- Errors/logging: `.cursor/rules/06-error-handling-and-logging.mdc`
-- Pre-implementation analysis: `.cursor/rules/07-pre-implementation-analysis.mdc`
-- Refactoring: `.cursor/rules/08-refactoring-standards.mdc`
-
-Do not assume Laravel, Sail, Pint, Pest, or Linear. This repo uses Python, `uv`, notebooks, FastAPI when relevant, and Second Brain notes.
-
----
-
-## Phase 2. Analysis and context
-
-### 2.1 Inspect repository state
+### 0.3 WIP awareness (Linear-free equivalent of “In Progress”)
 
 Run or review:
 
@@ -140,251 +118,270 @@ git status --short
 git diff --stat
 ```
 
-Identify:
+If there is **large unrelated dirt** or **mixed tasks** in one working tree, **warn the user** and agree what belongs to this canonical document before proceeding (same *focus discipline* as resolving multiple Linear “In Progress” issues).
 
-- Pending user changes.
-- Files already modified that you must not overwrite.
-- Current branch and relation to `origin`.
-- Whether separate commits will be needed later.
+### 0.4 Record destinations
 
-### 2.2 Find similar patterns
+- **Progress**: canonical input document (including an **Implementation progress** subsection if useful — see Phase 5.3).
+- **Commits**: `## Repository commits (master-ia)` (or Spanish header if legacy, descriptions **English**).
+- **Sessions / learnings**: `second-brain-master-ia/proyectos/<project>/sesiones/` and `…/aprendizajes/` when applicable.
+
+---
+
+## Phase 1. Project standards
+
+Read only what the task needs:
+
+- Always: `.cursor/rules/00-base-standards.mdc`
+- Baby steps discipline: `.cursor/rules/13-babysteps-principle.mdc`
+- Python: `.cursor/rules/01-python-standards.mdc`
+- FastAPI: `.cursor/rules/02-fastapi-standards.mdc` (when relevant)
+- AI/LLM: `.cursor/rules/03-ai-engineering-standards.mdc` (when relevant)
+- Environment and secrets: `.cursor/rules/04-environment-and-secrets.mdc`
+- Tests: `.cursor/rules/05-testing-standards.mdc`
+- Errors/logging: `.cursor/rules/06-error-handling-and-logging.mdc`
+- Pre-implementation analysis: `.cursor/rules/07-pre-implementation-analysis.mdc`
+- Refactoring: `.cursor/rules/08-refactoring-standards.mdc`
+
+**Do not assume** Laravel, Sail, Pint, Pest, Composer, or Linear. This repo uses **Python**, **`uv`**, **`pytest`**, FastAPI when relevant, and Second Brain notes.
+
+---
+
+## Phase 2. Analysis and context
+
+### 2.1 Find similar patterns
 
 Depending on task type, review:
 
-- Existing Python under `proyectos/`, `app/`, `notebooks/`, or paths implied by the document.
-- `pyproject.toml` for dependencies and available commands.
+- Python under `proyectos/`, root `app/`, `notebooks/`, or paths implied by the document.
+- Subproject layout: some packages live under `proyectos/<name>/` with their own `pyproject.toml` — run `uv` and `pytest` **from the correct directory**.
 - `.env.example` when configuration is involved.
-- Existing tests, if any.
-- Related notes under `second-brain-master-ia/`.
+- Existing tests and routers/services boundaries.
 
-Do not implement until local patterns are understood or you confirm the project is still initial scaffold.
+### 2.2 Detect workflow flavor
 
-### 2.3 Detect workflow flavor
-
-From the document and context:
-
-- `feature`: new behavior.
-- `bug`: reproduce, isolate root cause, minimal fix.
-- `refactor`: preserve behavior; add characterization tests when risk warrants.
-- `docs`: sync README, commands, rules, or Second Brain technical content.
-- `setup`: structure, dependencies, configuration, minimal verification.
-- `experiment`: isolate hypothesis, record results, avoid mixing into production shape.
-- `learning`: explain, practice, document takeaways.
+- `feature`: new behavior — default **TDD** for logic.
+- `bug`: reproduce → failing test → minimal fix.
+- `refactor`: preserve behavior; characterization tests when risk warrants.
+- `docs` / `setup` / `experiment` / `learning`: TDD only when it still reduces risk; **state the exception** under hard stop.
 
 ---
 
 ## Phase 3. Baby-steps planning
 
-Build a short, executable plan. Each step should use this shape:
+Build a plan. Each step uses this shape (same structure as `a-currar` Phase 3, adapted):
 
 ```markdown
 ### Step N: [name]
 
-**Goal**: what this unblocks.
-**Changes**: expected files or modules.
-**Verification**: test, command, or manual check.
-**Documentation**: what updates in the canonical document.
+**Goal**: …
+**Changes**: files / modules
+**TDD**: RED test name + path (or **Exception**: …)
+**Verification**: `uv run pytest …` and/or manual
+**Documentation**: bullet for canonical doc
 **Suggested commit**: `type(scope): message`
 ```
 
 ### Plan criteria
 
-- Steps of about 10–30 minutes when possible.
-- One focus per step.
-- Tests or checks proportional to risk.
-- Split config, code, tests, and docs when they grow too large.
-- Do not invent validation commands that do not exist in the repo.
-- For behavior changes, default to TDD (`RED -> GREEN -> REFACTOR`).
+- **5–30 minutes** per step when possible; **one focus** per step.
+- Where behavior changes, **each step should end with tests passing** for that slice.
+- Split **dependencies**, **production code**, **tests**, and **docs** across commits when size grows.
+- Do not invent commands; use what exists (`uv run pytest`, `uv sync`, project README).
 
-### Estimate complexity
+### Sizing (T-shirt)
 
-Classify:
+- `XS` | `S` | `M` | `L` | `XL` — same meaning as `a-currar`.
+- `L` / `XL`: split into multiple documents or child tasks before coding.
 
-- `XS`: small change, docs, or tiny tweak.
-- `S`: scaffold or small feature.
-- `M`: several pieces with tests and configuration.
-- `L`: should be split into subtasks.
-- `XL`: propose multiple features or documents.
+### Optional external tracking
 
-If the plan is `L` or `XL`, suggest splitting before implementing.
+If the user uses Linear or another tracker, **they** update it; `start-task` does **not** require MCP or issue IDs.
 
 ---
 
-## Phase 4. Environment setup
+## Phase 4. Environment and Git setup
 
-### 4.1 Git
+### 4.1 Branch and PR policy (`a-currar` adapted)
 
-Before editing:
+- **Default (`master-ia`)**: do **not** open a PR or create a branch **unless the user asks** (project convention).
+- **If the user requests a branch / PR** (optional `a-currar`-style flow):
+  - Create `feature/…`, `fix/…`, or `chore/…` from up-to-date `main`.
+  - Optionally open a **draft** PR early for traceability; link it in the canonical document.
 
-- Check `git status`.
-- Do not revert unrelated user work.
-- If unrelated changes exist, work around them.
-- If the user wants a branch or PR, create the branch before touching code.
+### 4.2 Python / uv
 
-In `master-ia`, do not open a PR automatically unless explicitly requested. The usual flow may be direct work on `main` with small commits traced in the Second Brain.
-
-### 4.2 Python environment
-
-When the task touches Python or dependencies:
+From the **relevant** project root (monorepo root vs `proyectos/<pkg>/`):
 
 ```bash
 uv sync
+# When dev groups exist:
+uv sync --group dev
 ```
 
-If you add a dependency, use the project package manager and update documentation.
+Dependencies: **`uv add <pkg>`** in that project; update `.env.example` and README when behavior or config changes.
 
-### 4.3 Configuration and secrets
+### 4.3 Secrets
 
-- Never create or commit a real `.env`.
-- Update `.env.example` when introducing a new variable.
-- Document variables in the README or canonical document.
-- Never put real keys in prompts, tests, logs, or notes.
+Never commit `.env`. No keys in prompts, tests, logs, or mirrored docs.
 
 ---
 
-## Phase 5. Implementation
+## Phase 5. Implementation — TDD + baby steps (`a-currar` core)
 
-For each step, use a tight loop:
+Execute **one plan step at a time**. For each step that includes testable logic:
 
-1. Write or adjust a failing test first (`RED`) for behavior or bug fixes.
-2. Implement the smallest useful change to pass (`GREEN`).
-3. Refactor only if clarity improves without expanding scope (`REFACTOR`).
-4. Run focused verification for this step.
-5. Update the canonical document when design, scope, or criteria change.
-6. Prepare a small commit when the step is complete.
+### A. RED — failing test first
 
-If test-first is not practical for a specific step, record the reason explicitly before coding and define an equivalent verification path.
-
-### Common verification commands
-
-Use only what applies:
+- Add or extend the smallest failing test (`pytest`, Arrange-Act-Assert).
+- Run the **narrowest** command, e.g.:
 
 ```bash
-uv sync
+cd <project-root>
+uv run pytest tests/test_module.py::test_name -q
+```
+
+- Confirm failure for the **right reason** (assertion / expected error), not import noise.
+
+### B. GREEN — minimal implementation
+
+- Write the smallest change to pass the test.
+- Re-run the same narrow command, then broaden if needed:
+
+```bash
+uv run pytest tests/test_module.py -q
 uv run pytest
-uv run uvicorn app.main:app --reload
-docker compose config
-docker compose build
 ```
 
-If there is no automated suite, say so explicitly and define a minimal manual check.
+### C. REFACTOR
 
-### Living documentation
+- Improve clarity only; **keep tests green**. No drive-by scope.
 
-Update the input document when:
+### D. Quality checks
 
-- The technical plan changes.
-- A relevant decision appears.
-- A new edge case is found.
-- An environment variable changes.
-- Acceptance criteria are added or removed.
-- A major milestone completes.
+- Prefer full suite **`uv run pytest`** before declaring the step done.
+- Use **`read_lints`** (or project linter config if documented) when editing non-trivial Python.
 
-Do not let documentation drift more than one step behind the code.
+### E. Living documentation (**before or with** the commit)
+
+Update the canonical document when acceptance criteria, APIs, env vars, or verification change. **Never** let the doc drift more than **one step**.
+
+### F. Commit (baby-step cadence)
+
+- Prefer **one commit per plan step** (or tight pair: `test:` then `feat:` only when strictly needed for reviewer clarity).
+- Commit messages **English**, conventional prefixes (`feat`, `fix`, `test`, `docs`, `chore`, `refactor`).
+
+### 5.2 Push rhythm
+
+If using a remote branch, push periodically (e.g. every few commits).
+
+### 5.3 Progress checklist in the canonical doc
+
+Maintain a lightweight block (when useful):
+
+```markdown
+## Implementation progress
+
+- [ ] Step 1: …
+- [ ] Step 2: …
+```
 
 ---
 
 ## Phase 6. Completion and commit preparation
 
-Before finishing:
+- [ ] Full applicable **`uv run pytest`** for the touched project(s).
+- [ ] Canonical document: acceptance criteria and **verification** match reality.
+- [ ] **`git status`** clean or intentional; no secrets staged.
+- [ ] **`## Repository commits (master-ia)`** table updated with **English** summaries.
+- [ ] Ready for **`/commit-pending`** grouping if the user wants multiple commits spelled out.
 
-- [ ] Run applicable verification.
-- [ ] Review `git status`.
-- [ ] Confirm no secrets or local artifacts are staged.
-- [ ] Update the canonical document.
-- [ ] Add or prepare the repository commits section if commits will follow.
-- [ ] Propose commit grouping when there are multiple focuses.
-
-If the user asks for commits, follow `/commit-pending`:
-
-- Commit messages in English with conventional prefixes.
-- Commit log table: headers may match existing docs; **descriptions in English** per base standards.
-- Prefer logging commits in the feature document; push to `origin` when appropriate.
+Optional: mark draft PR ready, self-review checklist (adapted from `a-currar`): criteria met, no stray debug prints, docs complete.
 
 ---
 
-## Phase 7. Learnings and rules
+## Phase 7. Retrospective and learnings (`a-currar` adapted)
 
-When closing a task, check for learnings:
+Answer briefly:
 
-- **Feature-specific**: add to the canonical document.
-- **Reusable**: create or update a note under `aprendizajes/`.
-- **Project rule**: only if it applies across tasks, prevents repeat mistakes, and does not contradict existing rules.
+1. **Process**: Was TDD honored? Were commits truly small?
+2. **Technical**: Patterns reused correctly?
+3. **Quality**: Edge cases covered?
+4. **Docs**: Could someone else onboard from the canonical file alone?
 
-Do not promote one-off anecdotes into permanent rules.
+**Outputs:**
+
+- **Feature-specific**: canonical document (consider **Learnings** subsection — optional but encouraged for non-trivial work).
+- **Reusable**: `second-brain-master-ia/proyectos/<project>/aprendizajes/` (Spanish allowed for reflective notes per project norms; paths and commands still English).
+- **Rule candidates**: propose updates to `.cursor/rules/` **only** if broadly applicable and non-duplicative.
 
 ---
 
-## Expected output when starting
+## Expected output immediately after `/start-task`
 
-After `/start-task`, respond with:
+Before coding:
 
-- Task summary.
-- Canonical document identified.
-- Task type.
-- Rules read.
-- Relevant files or areas.
-- Risks or open decisions.
-- Baby-steps plan.
-- Proposed verification.
-- Where progress and commits will be recorded.
-- Per-step TDD intent (`RED/GREEN/REFACTOR`) or justified exception.
+- Task summary, canonical path, task type.
+- Standards actually read (list filenames).
+- Relevant repo areas / subprojects.
+- Risks and open decisions.
+- **Numbered baby-steps plan** with **per-step TDD** or justified exception.
+- Where progress and commits are recorded.
 
-## Common scenarios
+After **implementation** (when requested in the same invocation):
 
-### Incomplete document
+- Per-step adherence: RED shown (or exception logged), GREEN, commits implied or listed.
+- Residual risks and **not verified** items stated explicitly.
 
-Fill obvious gaps; ask only for blocking decisions. Include a suggestion, in English:
+---
 
-```text
-The document does not name an LLM model. I suggest defaulting to `gpt-4o-mini` as a low-cost baseline because it appears in `.env.example`. Confirm?
-```
+## Common scenarios (from `a-currar`, adapted)
+
+### Tests reveal bad design
+
+Pause, revise the canonical document and plan, commit doc/plan adjustment, resume.
+
+### External dependency needed
+
+Ded vote in plan → `uv add` → lockfile → document in README / `.env.example` → dedicate a small commit.
 
 ### Scope creep
 
-When new work appears:
+Small → extend plan and document; large → **`Out of scope` / Future work** item; avoid mixing unrelated fixes.
 
-- If small, extend the plan and document the change.
-- If large, park it under `Out of Scope` or `Future Work`.
-- Do not merge unrelated features without explicit agreement.
+### Failing CI or `pytest`
 
-### No tests yet
+Fix before moving on; do not advance the plan with a red suite.
 
-If tests do not exist:
-
-- Define a minimal manual verification path.
-- Propose tests once the code surface is stable.
-- Do not assume `pytest` is configured if it is not.
-
-### External dependency
-
-Before adding a dependency:
-
-- Check for an existing alternative in the repo.
-- Justify why it is needed.
-- Add it with `uv`.
-- Update `pyproject.toml`, lockfile, and documentation.
+---
 
 ## Integration with other commands
 
-- Before: `/write-feature` or `/requirement-write` to create the document if it does not exist.
-- Before implementation: `/requirement-validate` if the note is still vague.
-- For non-trivial changes: `/requirement-design` and `/requirement-tasks`.
-- During validation: `/check-quality`, `/check-architecture`, `/testing`, and `/check-dod`.
-- During: `/docs` to sync README, decisions, and sessions.
-- After: `/commit-pending` for traceable commits in the feature document.
-- Learning-focused work: `/master-tutor` when the main goal is understanding a master-class concept.
+- Before: `/write-feature` or `/requirement-write`; `/requirement-validate` when vague.
+- Non-trivial: `/requirement-design`, `/requirement-tasks`.
+- During: `/docs`, `/testing`, `/check-quality`, `/check-architecture`, `/check-dod`.
+- After: `/commit-pending`.
+- Learning-first: `/master-tutor`.
+
+---
 
 ## Success criteria
 
 `/start-task` succeeds when:
 
-- The input document is identified as the canonical source.
-- The task is scoped and no hidden blockers remain.
-- Relevant rules were read.
-- The plan is small, verifiable, and aligned with the repo.
-- Documentation and commit logging destinations are clear.
-- Coding did not start without enough context.
-- Hard-stop items were completed before implementation.
+- The input document is the **single** canonical source.
+- Hard-stop items (plan, per-step verification, **TDD or justified exception**) are satisfied **before** code.
+- Phases **0–7** are applied at a proportionate weight (XS tasks may collapse phases lightly, but never skip explicit verification).
+- Coding does not regress into “big bang” batches for testable logic.
+- Documentation and commit-log destinations remain clear throughout.
 
-**Last updated:** 2026-04-27
+---
+
+## Changelog
+
+- **2026-05-06**: Integrated **`a-currar`**-style phased flow and **strict** TDD + baby-steps commit cadence for `master-ia`; Phase 0 WIP replaces Linear intake; tooling mapped to **`uv`** / **`pytest`** / Second Brain paths; strengthened hard stop and documentation lag rule.
+
+---
+
+**Last updated:** 2026-05-06  
+**Status:** Active
