@@ -135,5 +135,5 @@ Prompt templates, file upload, transcript history in `st.session_state`, model o
 | `cef8a0d` | `chore(estimador-cag): add streamlit dependency` | Adds `streamlit` to subproject `pyproject.toml` and `uv.lock`. |
 | `c5dfc26` | `feat(estimador-cag): add streamlit estimation demo ui` | `streamlit_app.py`, `streamlit_error_messages.py`, pytest coverage, README run instructions. |
 | `3a1184c` | `docs(cursor): align start-task with baby-steps tdd workflow` | Rewrites `.cursor/commands/start-task.md` with phased TDD / baby-steps flow for `master-ia`. |
-| `a5781c3` | `docs(estimador-cag): add feature-005 streamlit work item and commit log` | Adds this work-item file and the commit table above. |
+| `a5781c3` | `docs(estimador-cag): add feature-005 streamlit work item and commit log` | Adds this work-item file and the commit table (see `git log` for any follow-up doc-only rows). |
 
