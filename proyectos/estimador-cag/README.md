@@ -30,6 +30,8 @@ cp .env.example .env
 # Set OPENAI_API_KEY in .env (never commit .env).
 ```
 
+Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)** in `app/services/ai_model_service.py`. Use `OPENAI_MODEL` / `ANTHROPIC_MODEL` with short ids (defaults add the `openai/` and `anthropic/` prefixes automatically) or paste a fully qualified LiteLLM id that already contains `provider/model`. `.env.example` also documents **`DEFAULT_LLM_MODEL`** (`openai/gpt-4o-mini` default) as the canonical LiteLLM-style reference for operators; **`GEMINI_API_KEY`** is optional for future `gemini/...` routes.
+
 Configuration reads **`proyectos/estimador-cag/.env` by absolute path** (next to the `app/` package), so variables such as `FORCED_ESTIMATION_MODE` still apply when you start Uvicorn from another working directory (for example the monorepo root).
 
 ## Run the API

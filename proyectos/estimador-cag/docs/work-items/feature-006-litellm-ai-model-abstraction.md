@@ -126,15 +126,41 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 
 ## Baby steps and verification
 
+0. Optional workflow: Create Git branch **`F/006-litellm-ai-model-abstraction`** from `main`.
 1. Add `litellm` + lockfile; **`uv run python -c "import litellm"`** smoke test.
-2. Add settings + `.env.example` only; load settings in a tiny test or REPL.
+2. Add settings + `.env.example` only; load settings in tests (`tests/test_config.py`).
 3. Implement `ai_model_service` + unit tests with mocks.
-4. Refactor one provider (e.g. OpenAI), run targeted tests, then second provider.
-5. Full `uv run pytest`; manual API/Streamlit smoke.
-6. Update docs; mark acceptance checklist.
+4. Refactor OpenAI then Anthropic providers to delegate to `ai_model_service`; keep provider-chain lazy-imports to avoid circular imports.
+5. Full **`uv run pytest`** (automated verification without real keys).
+6. Update `README.md`, `docs/technical/README.md`, and this checklist.
 
-**Verified in spec:** N/A (planning only).  
-**Not verified:** Runtime behavior until implemented.
+## Implementation progress
+
+- [x] Step 0: Branch `F/006-litellm-ai-model-abstraction`.
+- [x] Dependency + settings + `.env.example`.
+- [x] `app/services/ai_model_service.py` + `tests/test_ai_model_service.py`.
+- [x] `OpenAIProvider` / `AnthropicProvider` refactored; `providers/__init__.py` lazy factory imports (no LiteLLM in routers/`llm_service`/Streamlit).
+- [x] `uv run pytest` — **116 passed** (`2026-05-06`, no API keys).
+
+**Verified:** Unit tests mocking `acompletion`; settings defaults with explicit `_settings()`/`Settings(...)` kwargs where env leakage would skew assertions.  
+
+**Not verified:** Live LiteLLM calls to Anthropic/Google (operator manual smoke still recommended).
+
+## Acceptance criteria (post-implementation snapshot)
+
+- [x] `litellm` is listed in `pyproject.toml` and locked in `uv.lock`.
+- [x] `app/services/ai_model_service.py` exists and is the sole LiteLLM import site for completions.
+- [x] `OpenAIProvider` and `AnthropicProvider` do not import `openai` / `anthropic` SDK clients for completions.
+- [x] `DEFAULT_LLM_MODEL`, `DEFAULT_LLM_PROVIDER`, and keys are configuration-driven (`Settings`); model ids derive as `openai/{OPENAI_MODEL}` and `anthropic/{ANTHROPIC_MODEL}` when no slash is present.
+- [ ] Switching `DEFAULT_LLM_MODEL` alone — **migration path:** change `OPENAI_MODEL`/`ANTHROPIC_MODEL` to bare or fully qualified LiteLLM ids for the desired backend; document `DEFAULT_LLM_MODEL` as reference (see README / technical §5).
+- [x] Errors map to existing `ProviderError` types via `ai_model_service`; callers still surface safe API/Streamlit messaging.
+- [x] Logging: `llm_request_started`, `llm_request_succeeded`, `llm_request_failed` with model/vendor/chain_provider; no secrets or full prompts.
+- [x] Usage from LiteLLM responses maps into `UsageInfo` where present.
+- [x] `uv run pytest` passes without real keys.
+- [x] `.env.example` + technical README + subproject README updated.
+
+**Verified in spec:** Implemented and tested as above (`uv run pytest` in-repo).  
+**Not verified:** End-to-end `uvicorn`/Streamlit smoke with production keys from this CI workspace.
 
 ## Repository commits (master-ia)
 
@@ -143,11 +169,8 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 | `6168ada` | `docs(estimador-cag): add feature-006 LiteLLM work item` | Planning/spec work item for LiteLLM gateway; no runtime code in this commit. |
 | `5f50a7c` | `docs(estimador-cag): correct short hash in feature-006 commit log` | Sets the table hash for the row above to match commit `6168ada`. |
 | `32c417b` | `docs(estimador-cag): clarify feature-006 independence from feature-005` | Boundary note: this work item is not part of Streamlit feature-005; cross-link in feature-005 doc. |
+| `6dde520` | `feat(estimador-cag): add litellm dependency` | `litellm` runtime dependency + refreshed `uv.lock` (semver drift on transitive packages). |
+| `dfce8f6` | `feat(estimador-cag): extend settings for LiteLLM defaults and Gemini key` | `Settings`: `DEFAULT_LLM_*`, `GEMINI_API_KEY`, prefixed model helpers + `tests/test_config.py` + `.env.example`. |
+| `0842547` | `feat(estimador-cag): add LiteLLM gateway and refactor providers` | `ai_model_service.py`, lazy provider imports, OpenAI/Anthropic route through `acompletion`, tests. |
 
-### Planned implementation commits (not in git yet)
-
-Example messages for upcoming rows (adjust when implemented):
-
-1. `feat(estimador-cag): add litellm dependency and ai_model_service scaffold`
-2. `refactor(estimador-cag): route OpenAI/Anthropic providers through LiteLLM`
-3. `docs(estimador-cag): document DEFAULT_LLM_MODEL and Gemini env vars`
+**Docs sync (same branch):** one commit updates `README.md`, `docs/technical/README.md`, and this note (implementation progress + acceptance criteria). See `git log` on **`F/006-litellm-ai-model-abstraction`** — not duplicated here because the documenting commit cannot embed its final short hash reliably.
