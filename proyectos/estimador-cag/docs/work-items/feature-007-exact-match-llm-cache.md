@@ -201,4 +201,8 @@ On Redis errors: log `cache.error`, proceed without cache (same as miss). Option
 
 ## Repository commits (master-ia)
 
-- To be filled during implementation (deps, settings, service, API schema, tests, docs).
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `2d78f10` | `docs(estimador-cag): add feature-007 exact-match LLM cache work item` | Planning/spec only; Redis exact-match cache FR and approach (no runtime code yet). |
+
+Further rows: add during implementation (deps, settings, service, API schema, tests, docs).
