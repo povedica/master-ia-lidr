@@ -173,3 +173,4 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 | `0842547` | `feat(estimador-cag): add LiteLLM gateway and refactor providers` | `ai_model_service.py`, lazy `providers/` factory imports, OpenAI/Anthropic route through `acompletion`, tests. |
 | `a6f7ffb` | `docs(estimador-cag): document LiteLLM gateway and feature-006 log` | `README.md`, `docs/technical/README.md`, work-item progress and acceptance in this file. |
 | `2707f4e` | `refactor(estimador-cag): replace providers package with llm_chain and llm_types` | Remove `app/services/providers/`; add `llm_chain.py` + `llm_types.py`, single `LitellmChainProvider`, update imports and tests. |
+| `215c931` | `docs(estimador-cag): sync feature-006 commit table with branch history` | Adds missing rows (`a6f7ffb`, `2707f4e`) to this work item for traceability. |
