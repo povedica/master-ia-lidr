@@ -46,7 +46,12 @@ def test_optional_anthropic_fields_have_safe_defaults(
 
 
 def test_provider_chain_defaults() -> None:
-    settings = Settings(_env_file=None)
+    settings = Settings(
+        _env_file=None,
+        llm_auth_fallback=False,
+        estimation_output_persist_enabled=False,
+        estimation_stats_log_enabled=False,
+    )
     assert settings.llm_providers == "openai,anthropic"
     assert settings.static_fallback_enabled is True
     assert settings.llm_auth_fallback is False

@@ -7,8 +7,6 @@ from collections.abc import Callable
 
 from app.config import Settings
 from app.services.providers.base import LLMProvider, ProviderConfigError
-from app.services.providers.anthropic_provider import AnthropicProvider
-from app.services.providers.openai_provider import OpenAIProvider
 from app.services.providers.static_fallback import StaticFallbackProvider
 
 logger = logging.getLogger(__name__)
@@ -23,6 +21,8 @@ def _openai_factory(settings: Settings) -> LLMProvider | None:
             extra={"provider": "openai", "reason": "missing_api_key"},
         )
         return None
+    from app.services.providers.openai_provider import OpenAIProvider
+
     return OpenAIProvider(settings)
 
 
@@ -33,6 +33,8 @@ def _anthropic_factory(settings: Settings) -> LLMProvider | None:
             extra={"provider": "anthropic", "reason": "missing_api_key"},
         )
         return None
+    from app.services.providers.anthropic_provider import AnthropicProvider
+
     return AnthropicProvider(settings)
 
 

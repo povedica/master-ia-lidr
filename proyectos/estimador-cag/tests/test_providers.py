@@ -1,48 +1,33 @@
-"""Provider-specific tests with mocked SDK clients."""
+"""Provider-specific tests with mocked LiteLLM gateway (acomplete_chat)."""
 
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from anthropic import (
-    APITimeoutError as AnthropicTimeoutError,
-    AuthenticationError as AnthropicAuthenticationError,
-    NotFoundError as AnthropicNotFoundError,
-    RateLimitError as AnthropicRateLimitError,
-)
-from openai import (
-    APITimeoutError as OpenAITimeoutError,
-    AuthenticationError as OpenAIAuthenticationError,
-    RateLimitError as OpenAIRateLimitError,
-)
 
 from app.config import Settings
+from app.context.prompt_loader import load_mode_prompt
+from app.services.ai_model_service import LiteLLMChatOutcome
+from app.services.estimation_engine import EstimationMode
 from app.services.providers.anthropic_provider import AnthropicProvider
 from app.services.providers.base import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderTimeoutError,
     ProviderUnavailableError,
+    UsageInfo,
 )
-from app.context.prompt_loader import load_mode_prompt
-from app.services.estimation_engine import EstimationMode
 from app.services.providers.openai_provider import OpenAIProvider
 from app.services.providers.static_fallback import StaticFallbackProvider
-
-
-def _api_status_error(error_cls: type[Exception]) -> Exception:
-    response = MagicMock()
-    response.request = MagicMock()
-    return error_cls("failure", response=response, body={})
 
 
 @pytest.mark.asyncio
 async def test_openai_provider_maps_timeout_to_provider_timeout_error() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(side_effect=OpenAITimeoutError("timeout"))
 
-    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+    with patch(
+        "app.services.providers.openai_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderTimeoutError("OpenAI request timed out.")),
+    ):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderTimeoutError):
             await provider.complete("sys", "user", max_output_tokens=1024)
@@ -51,62 +36,55 @@ async def test_openai_provider_maps_timeout_to_provider_timeout_error() -> None:
 @pytest.mark.asyncio
 async def test_openai_provider_raises_invalid_response_on_empty_message() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
-    mock_message = MagicMock()
-    mock_message.content = "   "
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_response.usage = None
-
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-
-    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+    with patch(
+        "app.services.providers.openai_provider.acomplete_chat",
+        AsyncMock(
+            side_effect=ProviderInvalidResponseError("OpenAI returned an empty response."),
+        ),
+    ):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderInvalidResponseError):
             await provider.complete("sys", "user", max_output_tokens=888)
-    kwargs = mock_client.chat.completions.create.await_args.kwargs
-    assert kwargs["max_completion_tokens"] == 888
 
 
 @pytest.mark.asyncio
 async def test_openai_provider_maps_preprocessing_tokens_from_usage() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
-    mock_message = MagicMock()
-    mock_message.content = "## Estimation: ok"
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_response.usage = SimpleNamespace(
+    usage = UsageInfo(
         prompt_tokens=10,
         completion_tokens=5,
         total_tokens=15,
         preprocessing_input_tokens=3,
         preprocessing_output_tokens=1,
     )
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    outcome = LiteLLMChatOutcome(
+        text="## Estimation: ok",
+        model="openai/gpt-4o-mini",
+        usage=usage,
+        finish_reason="stop",
+    )
+    mock_complete = AsyncMock(return_value=outcome)
 
-    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+    with patch("app.services.providers.openai_provider.acomplete_chat", mock_complete):
         provider = OpenAIProvider(settings)
         result = await provider.complete("sys", "user", max_output_tokens=512)
 
     assert result.usage is not None
     assert result.usage.preprocessing_input_tokens == 3
     assert result.usage.preprocessing_output_tokens == 1
+    kwargs = mock_complete.await_args.kwargs
+    assert kwargs["max_output_tokens"] == 512
+    assert kwargs["litellm_model"] == "openai/gpt-4o-mini"
 
 
 @pytest.mark.asyncio
 async def test_openai_provider_maps_authentication_error_to_config_error() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(
-        side_effect=_api_status_error(OpenAIAuthenticationError),
-    )
 
-    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+    with patch(
+        "app.services.providers.openai_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderConfigError("OpenAI authentication failed.")),
+    ):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderConfigError):
             await provider.complete("sys", "user", max_output_tokens=1024)
@@ -115,43 +93,49 @@ async def test_openai_provider_maps_authentication_error_to_config_error() -> No
 @pytest.mark.asyncio
 async def test_openai_provider_maps_rate_limit_to_unavailable_error() -> None:
     settings = Settings(openai_api_key="sk-test", openai_model="gpt-4o-mini")
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(
-        side_effect=_api_status_error(OpenAIRateLimitError),
-    )
 
-    with patch("app.services.providers.openai_provider.AsyncOpenAI", return_value=mock_client):
+    with patch(
+        "app.services.providers.openai_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderUnavailableError("OpenAI rate limit reached.")),
+    ):
         provider = OpenAIProvider(settings)
         with pytest.raises(ProviderUnavailableError):
             await provider.complete("sys", "user", max_output_tokens=1024)
 
 
 @pytest.mark.asyncio
-async def test_anthropic_provider_uses_system_as_top_level_argument() -> None:
+async def test_anthropic_provider_delegates_via_acomplete_chat_messages() -> None:
     settings = Settings(
         anthropic_api_key="ak-test",
         anthropic_model="claude-3-5-haiku-latest",
     )
-    mock_response = SimpleNamespace(
-        content=[SimpleNamespace(type="text", text="## Estimation: anthropic")],
-        usage=SimpleNamespace(input_tokens=11, output_tokens=7),
+    usage = UsageInfo(
+        prompt_tokens=11,
+        completion_tokens=7,
+        total_tokens=18,
+        preprocessing_input_tokens=0,
+        preprocessing_output_tokens=0,
     )
-    mock_client = MagicMock()
-    mock_client.messages.create = AsyncMock(return_value=mock_response)
+    outcome = LiteLLMChatOutcome(
+        text="## Estimation: anthropic",
+        model="anthropic/claude-3-5-haiku-latest",
+        usage=usage,
+        finish_reason="stop",
+    )
+    mock_complete = AsyncMock(return_value=outcome)
 
-    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+    with patch("app.services.providers.anthropic_provider.acomplete_chat", mock_complete):
         provider = AnthropicProvider(settings)
         result = await provider.complete("SYSTEM BLOCK", "USER TEXT", max_output_tokens=3200)
 
     assert result.provider == "anthropic"
     assert result.usage is not None
     assert result.usage.total_tokens == 18
-    assert result.usage.preprocessing_input_tokens == 0
-    assert result.usage.preprocessing_output_tokens == 0
-    kwargs = mock_client.messages.create.await_args.kwargs
-    assert kwargs["system"] == "SYSTEM BLOCK"
-    assert kwargs["messages"] == [{"role": "user", "content": "USER TEXT"}]
-    assert kwargs["max_tokens"] == 3200
+    kwargs = mock_complete.await_args.kwargs
+    assert kwargs["system_message"] == "SYSTEM BLOCK"
+    assert kwargs["user_message"] == "USER TEXT"
+    assert kwargs["max_output_tokens"] == 3200
+    assert kwargs["litellm_model"] == "anthropic/claude-3-5-haiku-latest"
 
 
 @pytest.mark.asyncio
@@ -160,10 +144,11 @@ async def test_anthropic_provider_maps_timeout() -> None:
         anthropic_api_key="ak-test",
         anthropic_model="claude-3-5-haiku-latest",
     )
-    mock_client = MagicMock()
-    mock_client.messages.create = AsyncMock(side_effect=AnthropicTimeoutError("timeout"))
 
-    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+    with patch(
+        "app.services.providers.anthropic_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderTimeoutError("Anthropic request timed out.")),
+    ):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderTimeoutError):
             await provider.complete("sys", "user", max_output_tokens=1024)
@@ -175,12 +160,11 @@ async def test_anthropic_provider_maps_authentication_error_to_config_error() ->
         anthropic_api_key="ak-test",
         anthropic_model="claude-3-5-haiku-latest",
     )
-    mock_client = MagicMock()
-    mock_client.messages.create = AsyncMock(
-        side_effect=_api_status_error(AnthropicAuthenticationError),
-    )
 
-    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+    with patch(
+        "app.services.providers.anthropic_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderConfigError("Anthropic authentication failed.")),
+    ):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderConfigError):
             await provider.complete("sys", "user", max_output_tokens=1024)
@@ -192,12 +176,15 @@ async def test_anthropic_provider_maps_not_found_to_config_error() -> None:
         anthropic_api_key="ak-test",
         anthropic_model="claude-nonexistent-model",
     )
-    mock_client = MagicMock()
-    mock_client.messages.create = AsyncMock(
-        side_effect=_api_status_error(AnthropicNotFoundError),
-    )
 
-    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+    with patch(
+        "app.services.providers.anthropic_provider.acomplete_chat",
+        AsyncMock(
+            side_effect=ProviderConfigError(
+                "Anthropic returned 404 for this model id (retired name, typo, or not enabled for your key).",
+            ),
+        ),
+    ):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderConfigError, match="404"):
             await provider.complete("sys", "user", max_output_tokens=1024)
@@ -209,12 +196,11 @@ async def test_anthropic_provider_maps_rate_limit_to_unavailable_error() -> None
         anthropic_api_key="ak-test",
         anthropic_model="claude-3-5-haiku-latest",
     )
-    mock_client = MagicMock()
-    mock_client.messages.create = AsyncMock(
-        side_effect=_api_status_error(AnthropicRateLimitError),
-    )
 
-    with patch("app.services.providers.anthropic_provider.AsyncAnthropic", return_value=mock_client):
+    with patch(
+        "app.services.providers.anthropic_provider.acomplete_chat",
+        AsyncMock(side_effect=ProviderUnavailableError("Anthropic rate limit reached.")),
+    ):
         provider = AnthropicProvider(settings)
         with pytest.raises(ProviderUnavailableError):
             await provider.complete("sys", "user", max_output_tokens=1024)
