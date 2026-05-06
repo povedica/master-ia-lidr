@@ -141,3 +141,4 @@ Prompt templates, file upload, transcript history in `st.session_state`, model o
 | `8744839` | `refactor(estimador-cag): extract shared estimate response assembly` | Moves `EstimateResponse` construction into `estimate_response_builder.py`; route delegates; adds `test_estimate_response_builder.py`. |
 | `df5cb0f` | `feat(estimador-cag): streamlit dev JSON table and back-to-top control` | DEV_MODE JSON field preview table, evaluate checkbox parity, scroll-to-top after results. |
 | `6abfa5d` | `docs(cursor): unify finish-task with optional PR workflow` | Expands `.cursor/commands/finish-task.md`: task closure plus optional GitHub PR merge/sync/cleanup (repo-wide). |
+| `32c417b` | `docs(estimador-cag): clarify feature-006 independence from feature-005` | States feature-006 (LiteLLM) is out of scope for Streamlit UI; points to `feature-006-*.md`. |
