@@ -138,7 +138,7 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| `5d845bf` | `docs(estimador-cag): add feature-006 LiteLLM work item` | Planning/spec work item for LiteLLM gateway; no runtime code in this commit. |
+| `6168ada` | `docs(estimador-cag): add feature-006 LiteLLM work item` | Planning/spec work item for LiteLLM gateway; no runtime code in this commit. |
 
 ### Planned implementation commits (not in git yet)
 
