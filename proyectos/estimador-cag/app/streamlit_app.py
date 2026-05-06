@@ -14,7 +14,7 @@ import streamlit.components.v1 as components
 from app.config import get_settings
 from app.services.estimate_response_builder import assemble_estimate_response, dev_response_property_rows
 from app.services.llm_service import DomainGuardrailError, EstimationError, EstimationService
-from app.services.providers import build_provider_chain
+from app.services.llm_chain import build_provider_chain
 from app.streamlit_error_messages import message_for_estimation_failure
 
 logger = logging.getLogger(__name__)

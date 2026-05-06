@@ -1,4 +1,4 @@
-"""Provider abstraction and common provider result/error models."""
+"""Shared LLM chain types, errors, and the LLMProvider protocol."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class UsageInfo:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Normalized LLM completion result returned by providers."""
+    """Normalized LLM completion result returned by chain entries."""
 
     text: str
     provider: str
@@ -62,4 +62,3 @@ class LLMProvider(Protocol):
         max_output_tokens: int,
     ) -> ProviderResult:
         """Return a normalized completion response."""
-

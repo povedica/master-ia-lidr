@@ -11,10 +11,9 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 - **Project:** `proyectos/estimador-cag` — FastAPI + optional Streamlit; `uv` + `pyproject.toml` (not `requirements.txt`).
 - **Existing architecture (keep boundaries):**
   - `app/services/llm_service.py` — `EstimationService` orchestrates preprocessing and an ordered **provider chain**.
-  - `app/services/providers/` — `LLMProvider` protocol, `ProviderResult`, typed `ProviderError` subclasses.
-  - `app/services/providers/openai_provider.py` — uses **AsyncOpenAI** directly.
-  - `app/services/providers/anthropic_provider.py` — uses **Anthropic** SDK directly.
-  - `app/services/providers/__init__.py` — builds chain from `LLM_PROVIDERS` (CSV); skips missing keys; optional static fallback.
+  - `app/services/llm_types.py` — `LLMProvider` protocol, `ProviderResult`, typed `ProviderError` subclasses.
+  - `app/services/llm_chain.py` — `build_provider_chain`, `LitellmChainProvider`, `StaticFallbackProvider`, registry from `LLM_PROVIDERS` (CSV); skips missing keys.
+  - ~~`app/services/providers/`~~ — removed: chain + types flattened into `llm_chain` / `llm_types` (no per-vendor modules).
   - `app/config.py` — `openai_*`, `anthropic_*`, timeouts; no Gemini key today.
 - **Related doc:** `feature-llm-provider-fallback.md` describes the current chain behavior; this feature **replaces transport** with LiteLLM while preserving the chain contract unless explicitly revised in implementation.
 - **Async:** Route handlers and providers are **async**; LiteLLM should use **`acompletion`** (or equivalent async API), not blocking `completion` in the hot path.
@@ -139,7 +138,7 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 - [x] Step 0: Branch `F/006-litellm-ai-model-abstraction`.
 - [x] Dependency + settings + `.env.example`.
 - [x] `app/services/ai_model_service.py` + `tests/test_ai_model_service.py`.
-- [x] `OpenAIProvider` / `AnthropicProvider` refactored; `providers/__init__.py` lazy factory imports (no LiteLLM in routers/`llm_service`/Streamlit).
+- [x] Single `LitellmChainProvider` + `llm_chain` registry (replaces OpenAI/Anthropic modules; no LiteLLM in routers/`llm_service`/Streamlit).
 - [x] `uv run pytest` — **116 passed** (`2026-05-06`, no API keys).
 
 **Verified:** Unit tests mocking `acompletion`; settings defaults with explicit `_settings()`/`Settings(...)` kwargs where env leakage would skew assertions.  

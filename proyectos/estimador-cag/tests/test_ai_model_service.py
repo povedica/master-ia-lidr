@@ -9,7 +9,7 @@ from litellm import exceptions as litellm_exc
 from openai import APITimeoutError
 
 from app.services.ai_model_service import acomplete_chat
-from app.services.providers.base import (
+from app.services.llm_types import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderTimeoutError,

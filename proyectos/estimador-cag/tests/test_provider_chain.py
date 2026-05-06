@@ -3,8 +3,8 @@
 import pytest
 
 from app.config import Settings
-from app.services.providers import build_provider_chain
-from app.services.providers.base import ProviderConfigError
+from app.services.llm_chain import build_provider_chain
+from app.services.llm_types import ProviderConfigError
 
 
 def test_build_provider_chain_respects_llm_providers_order() -> None:

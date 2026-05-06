@@ -235,9 +235,12 @@ proyectos/estimador-cag/
 │   │   └── estimations.py
 │   └── services/
 │       ├── __init__.py
+│       ├── ai_model_service.py
 │       ├── domain_guardrails.py
 │       ├── estimation_engine.py
+│       ├── llm_chain.py
 │       ├── llm_service.py
+│       ├── llm_types.py
 │       └── response_output_writer.py
 ├── api-collection/
 │   └── Estimador CAG/
@@ -274,7 +277,8 @@ Responsibilities:
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
 | `app/services/ai_model_service.py` | Sole LiteLLM import site: async chat completions (`acompletion`), error mapping to `ProviderError`, structured `llm_request_*` logs. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
-| `app/services/providers/` | Chain entries (`openai`, `anthropic`, `static_fallback`) delegating completions to `ai_model_service`; chain registry lazy-imports implementations to avoid import cycles. |
+| `app/services/llm_types.py` | `LLMProvider` protocol, `ProviderResult`, `UsageInfo`, `ProviderError` hierarchy. |
+| `app/services/llm_chain.py` | `build_provider_chain`, `LitellmChainProvider`, `StaticFallbackProvider`, `PROVIDER_REGISTRY`. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
@@ -304,7 +308,7 @@ Current principles:
 
 - `app/main.py` does not contain business logic.
 - The router orchestrates HTTP, validation, and metadata.
-- Provider-specific credentials and timeouts are chosen in `app/services/providers/`; LiteLLM transport and mappings live only in `app/services/ai_model_service.py`.
+- Chain rows (`LitellmChainProvider`) pick credentials and timeouts from settings; LiteLLM transport and error mappings live only in `app/services/ai_model_service.py`.
 - CAG examples live outside the router and service so they can be versioned and tested.
 - Configuration is injected with `Depends(get_settings)` at the HTTP boundary.
 
@@ -566,8 +570,8 @@ Current events:
 | `provider_succeeded` | `INFO` | `app.services.llm_service` | `provider`, `model` |
 | `chain_degraded` | `WARNING` | `app.services.llm_service` | `static_fallback_used` |
 | `chain_exhausted` | `WARNING` | `app.services.llm_service` | `providers_tried` |
-| `provider_skipped` | `INFO` | `app.services.providers` | `provider`, `reason` |
-| `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
+| `provider_skipped` | `INFO` | `app.services.llm_chain` | `provider`, `reason` |
+| `provider_unknown` | `WARNING` | `app.services.llm_chain` | `provider` |
 | `llm_request_started` | `INFO` | `app.services.ai_model_service` | `event`, `llm_model`, `llm_vendor` (provider prefix before `/`), `chain_provider` |
 | `llm_request_succeeded` | `INFO` | `app.services.ai_model_service` | Same plus `resolved_model` when LiteLLM returns a concrete id |
 | `llm_request_failed` | `WARNING` | `app.services.ai_model_service` | `error_type`; never raw upstream bodies or prompts |

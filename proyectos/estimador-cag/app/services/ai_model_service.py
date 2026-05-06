@@ -12,7 +12,7 @@ from litellm import acompletion
 from litellm import exceptions as litellm_exc
 from openai import APITimeoutError as OpenAIAPITimeoutError
 
-from app.services.providers.base import (
+from app.services.llm_types import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderTimeoutError,

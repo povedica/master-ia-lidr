@@ -14,7 +14,7 @@ from app.services.llm_service import (
     EstimationService,
     build_system_prompt,
 )
-from app.services.providers.base import (
+from app.services.llm_types import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderResult,
