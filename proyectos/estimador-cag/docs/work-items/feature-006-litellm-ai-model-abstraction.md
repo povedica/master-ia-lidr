@@ -170,6 +170,6 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 | `32c417b` | `docs(estimador-cag): clarify feature-006 independence from feature-005` | Boundary note: this work item is not part of Streamlit feature-005; cross-link in feature-005 doc. |
 | `6dde520` | `feat(estimador-cag): add litellm dependency` | `litellm` runtime dependency + refreshed `uv.lock` (semver drift on transitive packages). |
 | `dfce8f6` | `feat(estimador-cag): extend settings for LiteLLM defaults and Gemini key` | `Settings`: `DEFAULT_LLM_*`, `GEMINI_API_KEY`, prefixed model helpers + `tests/test_config.py` + `.env.example`. |
-| `0842547` | `feat(estimador-cag): add LiteLLM gateway and refactor providers` | `ai_model_service.py`, lazy provider imports, OpenAI/Anthropic route through `acompletion`, tests. |
-
-**Docs sync (same branch):** one commit updates `README.md`, `docs/technical/README.md`, and this note (implementation progress + acceptance criteria). See `git log` on **`F/006-litellm-ai-model-abstraction`** — not duplicated here because the documenting commit cannot embed its final short hash reliably.
+| `0842547` | `feat(estimador-cag): add LiteLLM gateway and refactor providers` | `ai_model_service.py`, lazy `providers/` factory imports, OpenAI/Anthropic route through `acompletion`, tests. |
+| `a6f7ffb` | `docs(estimador-cag): document LiteLLM gateway and feature-006 log` | `README.md`, `docs/technical/README.md`, work-item progress and acceptance in this file. |
+| `2707f4e` | `refactor(estimador-cag): replace providers package with llm_chain and llm_types` | Remove `app/services/providers/`; add `llm_chain.py` + `llm_types.py`, single `LitellmChainProvider`, update imports and tests. |
