@@ -174,3 +174,4 @@ Add **LiteLLM** as the single gateway for chat completions so the application do
 | `a6f7ffb` | `docs(estimador-cag): document LiteLLM gateway and feature-006 log` | `README.md`, `docs/technical/README.md`, work-item progress and acceptance in this file. |
 | `2707f4e` | `refactor(estimador-cag): replace providers package with llm_chain and llm_types` | Remove `app/services/providers/`; add `llm_chain.py` + `llm_types.py`, single `LitellmChainProvider`, update imports and tests. |
 | `215c931` | `docs(estimador-cag): sync feature-006 commit table with branch history` | Adds missing rows (`a6f7ffb`, `2707f4e`) to this work item for traceability. |
+| `f06afe5` | `chore(estimador-cag): add logfire dependency` | Declares `logfire>=4.32.1` in `pyproject.toml` and refreshes `uv.lock` for optional Pydantic Logfire instrumentation (no app wiring in this commit). |
