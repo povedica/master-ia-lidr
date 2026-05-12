@@ -219,3 +219,4 @@ Streamlit  --HTTP POST stream-->  FastAPI /estimate/stream  --async iter-->  Est
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `e74dbaa` | `feat(estimador-cag): add SSE streaming estimate endpoint and progressive UI` | Added `POST /api/v1/estimate/stream` with SSE framing, LiteLLM `astream_chat` deltas via `StreamingLLMProvider`, estimation service fallback chain, Streamlit `httpx` SSE consumer with `st.write_stream`, docs (technical README §11.1, subproject README), `ESTIMATOR_API_BASE_URL` in `.env.example`, root service index hint for `estimate_stream`, and focused API/service tests. |
+| `a42157a` | `docs(estimador-cag): add feature-005 SSE streaming work item` | Exported the canonical feature note into `docs/work-items/` and recorded the implementation commit in the repository commit log table. |
