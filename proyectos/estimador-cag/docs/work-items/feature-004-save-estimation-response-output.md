@@ -109,6 +109,7 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 | `9e3c396` | `docs(estimador-cag): mirror feature-004 commit log after per-mode examples` | Synced exported `docs/work-items/feature-004` from Second Brain after logging commit `4e7aeb7`. |
 | `12fe013` | `feat(estimador-cag): per-mode max output tokens for LLM providers` | Added per-mode `ESTIMATION_*_OUTPUT_TOKENS_MAX` settings, passed caps through `LLMProvider.complete`, OpenAI `max_completion_tokens` and Anthropic `max_tokens`, removed unused min bounds, updated tests and env/docs. |
 | `e0b1478` | `chore(estimador-cag): add basic few-shot example corpus` | Added four `sample-basic-*.txt` files under `app/context/examples/basic/` for basic-mode CAG samples; removed placeholder `.gitkeep`. |
+| `ff2f0f7` | `docs(estimador-cag): extend feature-004 commit log in docs mirror` | Appended the two new repository commit rows to the exported `docs/work-items/feature-004` copy in git. |
 
 ## Implementation Notes
 - Added `estimation_output_persist_enabled` setting in `app/config.py` with default `False`.
