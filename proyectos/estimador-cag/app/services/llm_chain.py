@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
 from app.config import Settings
-from app.services.ai_model_service import acomplete_chat
+from app.services.ai_model_service import acomplete_chat, astream_chat
 from app.services.estimation_engine import EstimationMode
 from app.services.llm_types import (
     LLMProvider,
     ProviderConfigError,
     ProviderResult,
+    UsageInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,26 @@ class LitellmChainProvider:
             usage=outcome.usage,
             finish_reason=outcome.finish_reason,
         )
+
+    async def stream_complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> AsyncIterator[str | UsageInfo]:
+        """Yield text deltas from the upstream LiteLLM streaming completion."""
+
+        async for delta in astream_chat(
+            litellm_model=self.model,
+            system_message=system_prompt,
+            user_message=user_prompt,
+            max_output_tokens=max_output_tokens,
+            timeout_seconds=self._timeout_seconds,
+            chain_provider=self.name,
+            api_key=self._api_key,
+        ):
+            yield delta
 
 
 _DEGRADED_PREAMBLE = (

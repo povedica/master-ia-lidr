@@ -407,3 +407,224 @@ async def test_estimate_raises_on_unexpected_provider_exception() -> None:
     service = EstimationService(_settings(), providers=providers)
     with pytest.raises(EstimationError, match="Unexpected provider failure"):
         await service.estimate("Client needs a portal.")
+
+
+def test_serialize_sse_event_returns_valid_payload() -> None:
+    payload = EstimationService.serialize_sse_event("chunk", {"content": "hello"})
+    assert payload == 'event: chunk\ndata: {"content":"hello"}\n\n'
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_emits_done_event() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _result=ProviderResult(
+            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=None,
+        ),
+    )
+    service = EstimationService(_settings(), providers=[provider])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    assert any("event: chunk" in event for event in events)
+    assert events[-1].startswith("event: done\n")
+    assert '"status":"completed"' in events[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_done_includes_usage_when_dev_mode_and_upstream_reports() -> None:
+    provider = _StreamingStubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _deltas=["## ok\n"],
+        _final_usage=UsageInfo(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+            preprocessing_input_tokens=0,
+            preprocessing_output_tokens=0,
+        ),
+    )
+    service = EstimationService(_settings(dev_mode=True), providers=[provider])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    assert events[-1].startswith("event: done\n")
+    assert '"usage"' in events[-1]
+    assert '"prompt_tokens":10' in events[-1]
+    assert '"completion_tokens":5' in events[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_emits_error_event_on_failure() -> None:
+    provider = _StubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _error=ProviderTimeoutError("timeout"),
+    )
+    service = EstimationService(_settings(), providers=[provider])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    assert len(events) == 1
+    assert events[0] == 'event: error\ndata: {"message":"All providers failed."}\n\n'
+
+
+@dataclass
+class _StreamingStubProvider:
+    """Provider stub that emits pre-configured deltas through `stream_complete`.
+
+    If `_final_usage` is set, it is yielded after all text deltas (mirrors live providers).
+
+    If `_stream_error` is set, it is raised after yielding all configured deltas
+    (simulating a mid-stream upstream failure that drops the connection partway).
+    """
+
+    name: str
+    model: str
+    _deltas: list[str]
+    _stream_error: Exception | None = None
+    _final_usage: UsageInfo | None = None
+    last_max_output_tokens: int | None = None
+
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> ProviderResult:
+        del system_prompt, user_prompt, max_output_tokens
+        raise AssertionError("stream-capable provider must use stream_complete in tests.")
+
+    async def stream_complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ):
+        del system_prompt
+        del user_prompt
+        self.last_max_output_tokens = max_output_tokens
+        for delta in self._deltas:
+            yield delta
+        if self._stream_error is not None:
+            raise self._stream_error
+        if self._final_usage is not None:
+            yield self._final_usage
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_emits_one_chunk_event_per_upstream_delta() -> None:
+    provider = _StreamingStubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _deltas=["## Assumptions\n", "- a\n\n", "## Estimate range\n", "- b"],
+    )
+    service = EstimationService(_settings(), providers=[provider])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    chunk_events = [event for event in events if event.startswith("event: chunk")]
+    assert len(chunk_events) == 4
+    assert chunk_events[0] == 'event: chunk\ndata: {"content":"## Assumptions\\n"}\n\n'
+    assert chunk_events[3] == 'event: chunk\ndata: {"content":"- b"}\n\n'
+    assert events[-1].startswith("event: done\n")
+    assert '"status":"completed"' in events[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_emits_chunks_progressively_not_in_burst() -> None:
+    """Verifies SSE chunks are yielded as deltas arrive, not buffered until done."""
+
+    provider = _StreamingStubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _deltas=["one ", "two ", "three"],
+    )
+    service = EstimationService(_settings(), providers=[provider])
+
+    chunks_seen: list[str] = []
+    saw_done = False
+    async for event in service.stream_estimation("Client needs a portal."):
+        if event.startswith("event: chunk"):
+            # Each delta must surface before the next iteration of the upstream stream;
+            # if the implementation buffered the full output, all chunk events would
+            # only appear after the `done` event (which never arrives mid-iteration).
+            chunks_seen.append(event)
+        elif event.startswith("event: done"):
+            saw_done = True
+            assert len(chunks_seen) == 3, (
+                "done event must follow all chunk events emitted progressively"
+            )
+
+    assert saw_done is True
+    assert len(chunks_seen) == 3
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_falls_back_to_next_provider_on_mid_stream_failure() -> None:
+    failing = _StreamingStubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _deltas=["partial "],
+        _stream_error=ProviderTimeoutError("upstream dropped"),
+    )
+    healthy = _StreamingStubProvider(
+        name="anthropic",
+        model="claude-haiku",
+        _deltas=["full ", "answer"],
+    )
+    service = EstimationService(_settings(), providers=[failing, healthy])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    chunk_events = [event for event in events if event.startswith("event: chunk")]
+    # Both partial chunk from failing provider AND complete chunks from healthy provider are emitted.
+    assert any('"content":"partial "' in event for event in chunk_events)
+    assert any('"content":"full "' in event for event in chunk_events)
+    assert any('"content":"answer"' in event for event in chunk_events)
+    assert events[-1].startswith("event: done\n")
+    assert '"status":"completed"' in events[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_uses_complete_for_non_streaming_provider() -> None:
+    """Static fallback (no `stream_complete`) must be invoked via `complete()` and emit one chunk."""
+
+    fallback = _StubProvider(
+        name="static_fallback",
+        model="static-v1",
+        _result=ProviderResult(
+            text="## Estimation: Temporary degraded mode\n- placeholder",
+            provider="static_fallback",
+            model="static-v1",
+            usage=None,
+        ),
+    )
+    service = EstimationService(_settings(), providers=[fallback])
+
+    events = [event async for event in service.stream_estimation("Client needs a portal.")]
+    chunk_events = [event for event in events if event.startswith("event: chunk")]
+    assert len(chunk_events) == 1
+    assert "Temporary degraded mode" in chunk_events[0]
+    assert events[-1].startswith("event: done\n")
+    assert '"status":"completed"' in events[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_estimation_emits_error_when_domain_guardrail_rejects() -> None:
+    provider = _StreamingStubProvider(
+        name="openai",
+        model="gpt-4o-mini",
+        _deltas=["should not be emitted"],
+    )
+    service = EstimationService(
+        _settings(llm_domain_guardrail_enabled=True),
+        providers=[provider],
+    )
+
+    events = [event async for event in service.stream_estimation("Tell me a joke.")]
+    assert len(events) == 1
+    assert events[0].startswith("event: error")
+    assert "estimation requests" in events[0]

@@ -35,6 +35,11 @@ class _FakeEstimationService:
             finish_reason="stop",
         )
 
+    async def stream_estimation(self, transcription: str, **_: object):
+        del transcription
+        yield 'event: chunk\ndata: {"content":"## Estimation: mocked output"}\n\n'
+        yield 'event: done\ndata: {"status":"completed"}\n\n'
+
 
 class _FakeStaticFallbackEstimationService:
     async def estimate(self, transcription: str, **_: object) -> EstimationResult:
@@ -61,6 +66,16 @@ class _OutOfDomainEstimationService:
         raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
 
+class _FailingStreamEstimationService:
+    async def estimate(self, transcription: str, **_: object) -> str:
+        del transcription
+        raise EstimationError("not used")
+
+    async def stream_estimation(self, transcription: str, **_: object):
+        del transcription
+        yield 'event: error\ndata: {"message":"All providers failed."}\n\n'
+
+
 def test_root_returns_service_index() -> None:
     with TestClient(app) as client:
         response = client.get("/")
@@ -70,6 +85,7 @@ def test_root_returns_service_index() -> None:
     assert body["docs"] == "/docs"
     assert body["health"] == "/health"
     assert "estimate" in body
+    assert body.get("estimate_stream") == "POST /api/v1/estimate/stream"
 
 
 def test_health_returns_ok() -> None:
@@ -380,3 +396,49 @@ def test_estimate_does_not_persist_output_for_422_errors(
 
     assert response.status_code == 422
     assert list(tmp_path.glob("response-*.md")) == []
+
+
+def test_estimate_stream_returns_sse_done_event() -> None:
+    app.dependency_overrides[get_estimation_service] = lambda: _FakeEstimationService()  # type: ignore[return-value]
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        openai_api_key="sk-test",
+        dev_mode=True,
+    )
+    try:
+        with TestClient(app) as client:
+            with client.stream(
+                "POST",
+                "/api/v1/estimate/stream",
+                json={"transcription": "Client wants a landing page with a contact form."},
+            ) as response:
+                body = response.read().decode("utf-8")
+                content_type = response.headers.get("content-type", "")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert content_type.startswith("text/event-stream")
+    assert "event: done" in body
+    assert 'data: {"status":"completed"}' in body
+
+
+def test_estimate_stream_emits_error_event_on_service_failure() -> None:
+    app.dependency_overrides[get_estimation_service] = lambda: _FailingStreamEstimationService()  # type: ignore[return-value]
+    app.dependency_overrides[get_settings] = lambda: Settings(openai_api_key="sk-test", dev_mode=True)
+    try:
+        with TestClient(app) as client:
+            with client.stream(
+                "POST",
+                "/api/v1/estimate/stream",
+                json={"transcription": "Client wants a landing page with a contact form."},
+            ) as response:
+                body = response.read().decode("utf-8")
+                headers = response.headers
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert headers.get("cache-control") == "no-cache"
+    assert headers.get("x-accel-buffering") == "no"
+    assert "event: error" in body
+    assert "All providers failed." in body

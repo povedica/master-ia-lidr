@@ -19,6 +19,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [9. Estimation request flow](#9-estimation-request-flow)
 - [10. CAG design](#10-cag-design)
 - [11. API contract](#11-api-contract)
+  - [11.1 Streaming estimation (SSE)](#111-streaming-estimation-sse)
 - [12. Response metadata](#12-response-metadata)
 - [13. Logging](#13-logging)
 - [14. Error handling](#14-error-handling)
@@ -52,8 +53,8 @@ The baseline does not include authentication, a frontend, or production deployme
 | HTTP framework | FastAPI | Typed API, automatic OpenAPI, Pydantic integration. |
 | ASGI server | `uvicorn[standard]` | Local runtime for FastAPI. |
 | Configuration | `pydantic-settings` | Typed settings from environment and `.env`. |
-| LLM providers | OpenAI + Anthropic + static fallback (via LiteLLM transport) | Ordered chain with graceful fallback and explicit degraded mode. |
-| Default model | `gpt-4o-mini` (`openai/gpt-4o-mini` at the LiteLLM boundary) | Low cost for exercises and manual checks. |
+| LLM providers | OpenAI + Anthropic + static fallback | Ordered chain with graceful fallback and explicit degraded mode. |
+| Default model | `gpt-4o-mini` | Low cost for exercises and manual checks. |
 | Tests | `pytest`, `pytest-asyncio`, `httpx` | Fast, deterministic suite without real provider calls. |
 | Manual API client | OpenCollection/Bruno collection under `api-collection/` | Versioned manual checks alongside the code. |
 
@@ -64,9 +65,8 @@ Runtime dependencies declared in `pyproject.toml`:
 - `fastapi[standard]`: web framework, validation, OpenAPI docs.
 - `uvicorn[standard]`: local ASGI server.
 - `pydantic-settings`: typed configuration from the environment.
-- `litellm`: unified async gateway for chat completions (`acompletion`).
-- `openai`: retained for compatibility/tests; completions go through LiteLLM, not route handlers.
-- `anthropic`: retained for compatibility/tests; completions go through LiteLLM.
+- `openai`: official SDK for OpenAI.
+- `anthropic`: official SDK for Anthropic.
 - `python-dotenv`: load `.env` in local development.
 
 Development dependencies:
@@ -75,7 +75,7 @@ Development dependencies:
 - `pytest-asyncio`: async test support.
 - `httpx`: HTTP client used by FastAPI `TestClient` and tests.
 
-Important rule: tests mock `litellm.acompletion` via `app.services.ai_model_service` (or mocked `acomplete_chat` at provider bindings). The default suite must not depend on real provider API keys.
+Important rule: tests mock provider SDK clients. The default suite must not depend on real provider API keys.
 
 ## 4. Local setup
 
@@ -103,23 +103,6 @@ ANTHROPIC_API_KEY=...
 
 Never commit `.env`.
 
-### Docker (optional)
-
-From `proyectos/estimador-cag`, production-style container (no bind mount, no `--reload`):
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Development override (project mounted at `/app`, `uv sync --frozen --group dev` on container start, Uvicorn `--reload`):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-The root-level `Dockerfile` / `docker-compose.yml` in `master-ia` target a different application; use the compose files in this subproject for `estimador-cag`.
-
 Run the API locally:
 
 ```bash
@@ -131,7 +114,10 @@ Useful URLs:
 - `GET http://127.0.0.1:8000/`
 - `GET http://127.0.0.1:8000/health`
 - `POST http://127.0.0.1:8000/api/v1/estimate`
+- `POST http://127.0.0.1:8000/api/v1/estimate/stream` (SSE, see §11.1)
 - `http://127.0.0.1:8000/docs`
+
+**Progressive UI (FastAPI + Streamlit, two processes):** start the API in one terminal (`uv run uvicorn app.main:app --reload`), then run the demo UI in another (`uv run streamlit run app/streamlit_app.py`). The UI streams from `POST /api/v1/estimate/stream` by default at `http://127.0.0.1:8000`. Override the base URL with the **FastAPI base URL** field in the app or set optional environment variable `ESTIMATOR_API_BASE_URL` for the default field value. No extra LLM env vars are required for streaming; uses the same provider settings as the non-streaming endpoint.
 
 ## 5. Environment variables
 
@@ -143,25 +129,17 @@ Variables documented in `.env.example`:
 | `STATIC_FALLBACK_ENABLED` | No | `true` | Appends deterministic local fallback provider at chain end. |
 | `LLM_AUTH_FALLBACK` | No | `false` | If `true`, provider auth/config errors may continue to the next provider. |
 | `LLM_DOMAIN_GUARDRAIL_ENABLED` | No | `true` | Enables service-level rejection for out-of-domain prompts before provider calls. |
-| `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Passed to LiteLLM for `openai/...` models. Must not appear in logs, tests, or documentation. |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI-facing model segment. If no `/` is present, the runtime builds a LiteLLM id `openai/{OPENAI_MODEL}`. Override with an already-qualified id (for example `openai/gpt-4o-mini`) when needed. |
-| `OPENAI_TIMEOUT_SECONDS` | No | `30` | Request timeout (seconds) for the OpenAI chain entry (LiteLLM `timeout`). |
-| `DEFAULT_LLM_PROVIDER` | No | `unset` | Operators’ label only for observability conventions; **not** a secret and not used as a LiteLLM router key inside this app today. |
-| `DEFAULT_LLM_MODEL` | No | `openai/gpt-4o-mini` | Documented LiteLLM-style default (`provider/model`); aligns examples with upstream naming. Calls still use prefixed `OPENAI_MODEL` / `ANTHROPIC_MODEL` described above unless you configure those vars with full literals. |
-| `GEMINI_API_KEY` | No | empty | Optional Google Gemini key — reserved for `gemini/...` models when that route is wired; unused by the shipped OpenAI/Anthropic adapters. |
-| `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential passed to LiteLLM for `anthropic/...` models. |
-| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Anthropic model segment: prefixed as `anthropic/{ANTHROPIC_MODEL}` for LiteLLM when no slash is present. |
-| `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Request timeout (seconds) for the Anthropic chain entry (LiteLLM `timeout`). |
-| `ESTIMATION_BASIC_OUTPUT_TOKENS_MAX` | No | `1024` | Max completion tokens for `basic` mode (passed as LiteLLM `max_completion_tokens`). |
-| `ESTIMATION_STANDARD_OUTPUT_TOKENS_MAX` | No | `2048` | Same for `standard` mode. |
-| `ESTIMATION_PROFESSIONAL_OUTPUT_TOKENS_MAX` | No | `4096` | Same for `professional` mode. |
-| `ESTIMATION_EXPERT_REVIEW_OUTPUT_TOKENS_MAX` | No | `8192` | Same for `expert_review` mode. |
+| `OPENAI_API_KEY` | Yes for OpenAI live calls | empty | OpenAI credential. Must not appear in logs, tests, or documentation. |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model used by the service. |
+| `OPENAI_TIMEOUT_SECONDS` | No | `30` | OpenAI client timeout. |
+| `ANTHROPIC_API_KEY` | Yes for Anthropic live calls | empty | Anthropic credential for fallback or primary usage. |
+| `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model used by the service. |
+| `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
+| `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
 | `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
-| `ESTIMATION_STATS_LOG_ENABLED` | No | `false` | When `true`, each successful `200` appends one NDJSON line with request metadata (no `estimation` body) for analytics. Write failures log a warning and do not change the HTTP response. |
-| `ESTIMATION_STATS_LOG_PATH` | No | empty | Absolute path to the NDJSON log file. When empty, defaults to monorepo `output-stats/estimation-stats.jsonl`. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
@@ -175,12 +153,6 @@ cd proyectos/estimador-cag
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 uv run pytest
-```
-
-Docker equivalents (from `proyectos/estimador-cag`): `docker compose up --build` for the default image; merge `docker-compose.dev.yml` for bind-mount + reload (see §4). One-off tests (requires the dev merge file so `tests/` is mounted and the dev entrypoint runs `uv sync --group dev`):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
 ```
 
 Health check:
@@ -235,12 +207,9 @@ proyectos/estimador-cag/
 │   │   └── estimations.py
 │   └── services/
 │       ├── __init__.py
-│       ├── ai_model_service.py
 │       ├── domain_guardrails.py
 │       ├── estimation_engine.py
-│       ├── llm_chain.py
 │       ├── llm_service.py
-│       ├── llm_types.py
 │       └── response_output_writer.py
 ├── api-collection/
 │   └── Estimador CAG/
@@ -275,10 +244,8 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
-| `app/services/ai_model_service.py` | Sole LiteLLM import site: async chat completions (`acompletion`), error mapping to `ProviderError`, structured `llm_request_*` logs. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
-| `app/services/llm_types.py` | `LLMProvider` protocol, `ProviderResult`, `UsageInfo`, `ProviderError` hierarchy. |
-| `app/services/llm_chain.py` | `build_provider_chain`, `LitellmChainProvider`, `StaticFallbackProvider`, `PROVIDER_REGISTRY`. |
+| `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
@@ -297,9 +264,8 @@ flowchart TD
     Router --> Service[app.services.EstimationService]
     Service --> Examples[app.context.examples]
     Service --> Chain[Provider chain]
-    Chain --> LiteLLMGateway[LiteLLM acompletion]
-    LiteLLMGateway --> OpenAI[OpenAI API]
-    LiteLLMGateway --> Anthropic[Anthropic API]
+    Chain --> OpenAI[OpenAI API]
+    Chain --> Anthropic[Anthropic API]
     Chain --> StaticFallback[Static fallback]
     Router --> Response[EstimateResponse]
 ```
@@ -308,7 +274,7 @@ Current principles:
 
 - `app/main.py` does not contain business logic.
 - The router orchestrates HTTP, validation, and metadata.
-- Chain rows (`LitellmChainProvider`) pick credentials and timeouts from settings; LiteLLM transport and error mappings live only in `app/services/ai_model_service.py`.
+- SDK-specific behavior is isolated in `app/services/providers/`.
 - CAG examples live outside the router and service so they can be versioned and tested.
 - Configuration is injected with `Depends(get_settings)` at the HTTP boundary.
 
@@ -327,7 +293,7 @@ sequenceDiagram
 
     Client->>Router: POST /api/v1/estimate { transcription }
     Router->>Router: Validate EstimateRequest
-    Router->>Service: estimate(transcription, preprocessing)
+    Router->>Service: estimate(transcription)
     Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
     Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
     Service->>Service: route_mode_from_context_quality
@@ -336,10 +302,10 @@ sequenceDiagram
     Service->>Service: build_system_prompt(examples, mode)
     Service->>Chain: iterate providers by priority
     alt OpenAI succeeds
-        Chain->>OpenAI: LiteLLM completion (async)
+        Chain->>OpenAI: completion request
         OpenAI-->>Chain: content + usage
     else OpenAI fails transiently
-        Chain->>Anthropic: LiteLLM completion (async)
+        Chain->>Anthropic: messages request
         Anthropic-->>Chain: content + usage
     else All live providers fail
         Chain->>Static: deterministic fallback
@@ -415,8 +381,8 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION = "v6"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
-- `EXAMPLES_VERSION = "file-mode-v4-estimator-layout"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, sampling rules, or example Markdown shape change).
+- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
+- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
 
 ## 11. API contract
 
@@ -429,7 +395,8 @@ Minimal index for humans and browsers:
   "service": "Estimador CAG",
   "docs": "/docs",
   "health": "/health",
-  "estimate": "POST /api/v1/estimate"
+  "estimate": "POST /api/v1/estimate",
+  "estimate_stream": "POST /api/v1/estimate/stream"
 }
 ```
 
@@ -449,15 +416,9 @@ Request:
 
 ```json
 {
-  "transcription": "The client needs a REST API for orders with idempotent POST.",
-  "preprocessing": "none"
+  "transcription": "The client needs a REST API for orders with idempotent POST."
 }
 ```
-
-Optional fields:
-
-- `evaluate` (`bool`, default `true`, same as `ai-engineering/estimator`): include `score`, `structure_evaluation`, and `output_validation` (see `docs/technical/output-validation-and-input-score.md`). Set `false` for a slimmer body (`estimation` only, plus `degraded` when applicable).
-- `preprocessing` (`none` | `inline_cleaning` | `two_phase`, default `none`): optional input pipeline before the main estimate (see same doc).
 
 Validation:
 
@@ -465,16 +426,12 @@ Validation:
 - It must contain at least one character.
 - After `strip()`, it must not be empty.
 - It must be in the software/project estimation domain.
-- `preprocessing` must be one of the allowed literals when present.
 
-Response with `DEV_MODE=false` (live provider, default `evaluate`):
+Response with `DEV_MODE=false` (live provider):
 
 ```json
 {
-  "estimation": "## Estimation: ...",
-  "score": 0.612,
-  "structure_evaluation": { "...": "..." },
-  "output_validation": { "...": "..." }
+  "estimation": "## Estimation: ..."
 }
 ```
 
@@ -489,14 +446,11 @@ Out-of-domain rejection response:
 }
 ```
 
-Degraded response when static fallback is used and `DEV_MODE=false` (default `evaluate`):
+Degraded response when static fallback is used and `DEV_MODE=false`:
 
 ```json
 {
   "estimation": "## Estimation: Temporary degraded mode ...",
-  "score": 0.25,
-  "structure_evaluation": { "...": "..." },
-  "output_validation": { "...": "..." },
   "degraded": true
 }
 ```
@@ -512,26 +466,54 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v6",
-  "examples_version": "file-mode-v4-estimator-layout",
-  "score": 0.6125,
-  "finish_reason": "stop",
+  "prompt_version": "v5",
+  "examples_version": "file-mode-v3",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
     "total_tokens": 1330,
-    "preprocessing_input_tokens": 0,
-    "preprocessing_output_tokens": 0,
     "estimated_cost_usd": 0.000384
   }
 }
 ```
 
+### 11.1 Streaming estimation (SSE)
+
+`POST /api/v1/estimate/stream` returns a **Server-Sent Events** stream for progressive consumption (Streamlit demo, proxies, or `curl -N`).
+
+**Request body:** same **`EstimateRequest`** as `POST /api/v1/estimate` (`transcription`, optional `evaluate`, optional `preprocessing`). The field `evaluate` is accepted for contract parity with the JSON endpoint; the stream carries **markdown text only** via `chunk` events—structural scoring and validation are not emitted on the wire (use `POST /api/v1/estimate` when you need `score` / `structure_evaluation` in one response).
+
+**Response:** `Content-Type: text/event-stream` with headers:
+
+| Header | Value |
+|--------|--------|
+| `Cache-Control` | `no-cache` |
+| `Connection` | `keep-alive` |
+| `X-Accel-Buffering` | `no` (disables buffering on common reverse proxies) |
+
+**Event framing** (each event is a block of lines ending with a blank line):
+
+| `event` | `data` JSON | When |
+|---------|----------------|------|
+| `chunk` | `{"content":"<partial text>"}` | Partial model output (one event per upstream delta when the live provider supports streaming; static fallback emits a single chunk). |
+| `done` | `{"status":"completed"}` and, when **`DEV_MODE=true`**, optional `model`, `provider`, and `usage` (same token fields as `POST /api/v1/estimate` when counts exist; `two_phase` preprocessing tokens are merged into `usage` like the JSON path). | Successful end of generation. |
+| `error` | `{"message":"<safe description>"}` | Domain guardrail, configuration/provider failure, or stream error; clients should stop reading after this. |
+
+When **`DEV_MODE=true`**, OpenAI streaming requests include LiteLLM **`stream_options.include_usage`** so the completion leg can surface token counts on the final `done` payload when the upstream returns them. Other providers may omit `usage` until they expose an equivalent signal.
+
+Example `curl` (reads until the connection closes):
+
+```bash
+curl -sN -X POST http://127.0.0.1:8000/api/v1/estimate/stream \
+  -H "Content-Type: application/json" \
+  -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
+```
+
 ## 12. Response metadata
 
-When `DEV_MODE=false`, the response body includes **`estimation`**. With default **`evaluate: true`**, it also includes **`score`** and **`structure_evaluation`** from `evaluate_estimation_structure` (same as `ai-engineering/estimator`), **`output_validation`** (mode-specific checks), and **`degraded: true`** when static fallback is used. With **`evaluate: false`**, only `estimation` (and `degraded` when applicable) are returned.
+When `DEV_MODE=false`, the response body is **`estimation` only**, except when static fallback is used, in which case **`degraded: true`** is also included.
 
-When `DEV_MODE=true`, the following are included in addition to `estimation` and the evaluation fields above:
+When `DEV_MODE=true`, the following are included in addition to `estimation`:
 
 - `request_id`: correlates a response with logs or incident reports.
 - `timestamp`: UTC time when the response was produced.
@@ -539,13 +521,11 @@ When `DEV_MODE=true`, the following are included in addition to `estimation` and
 - `prompt_version`: prompt instruction version.
 - `examples_version`: few-shot context version.
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
-- `model`: model identifier from the LiteLLM response (`resolved_model` field when present), falling back to the configured LiteLLM id for that chain row.
+- `model`: model identifier reported by the provider implementation.
 - `mode`: adaptive estimation mode selected by service-level deterministic routing.
-- `score`: deterministic structural scalar in `[0, 1]` from the generated estimation markdown (same formula as stats NDJSON; estimator-compatible).
-- `finish_reason`: provider stop reason (`stop`, `length`, Anthropic `stop_reason` values, etc.).
 - `assessment` / `mode_eligibility`: routing diagnostics when present.
 - `degraded`: only present when static fallback is used.
-- `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, `preprocessing_input_tokens`, `preprocessing_output_tokens` (OpenAI exposes these on some responses; otherwise `0`), and optional `estimated_cost_usd` (local approximation from known model pricing).
+- `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
 
 Cost is not a billing source of truth. It supports learning, tuning, and cost awareness.
 
@@ -570,11 +550,8 @@ Current events:
 | `provider_succeeded` | `INFO` | `app.services.llm_service` | `provider`, `model` |
 | `chain_degraded` | `WARNING` | `app.services.llm_service` | `static_fallback_used` |
 | `chain_exhausted` | `WARNING` | `app.services.llm_service` | `providers_tried` |
-| `provider_skipped` | `INFO` | `app.services.llm_chain` | `provider`, `reason` |
-| `provider_unknown` | `WARNING` | `app.services.llm_chain` | `provider` |
-| `llm_request_started` | `INFO` | `app.services.ai_model_service` | `event`, `llm_model`, `llm_vendor` (provider prefix before `/`), `chain_provider` |
-| `llm_request_succeeded` | `INFO` | `app.services.ai_model_service` | Same plus `resolved_model` when LiteLLM returns a concrete id |
-| `llm_request_failed` | `WARNING` | `app.services.ai_model_service` | `error_type`; never raw upstream bodies or prompts |
+| `provider_skipped` | `INFO` | `app.services.providers` | `provider`, `reason` |
+| `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
 | `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
 | `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
 
@@ -629,7 +606,7 @@ Current coverage:
 - `tests/test_estimation_engine.py`: adaptive routing and guardrails.
 - `tests/test_prompt_loader.py`: mode prompt file loading.
 - `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.
-- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence.
+- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence, SSE stream headers and `done` / `error` framing for `POST /api/v1/estimate/stream`.
 
 Testing rules:
 

@@ -8,13 +8,44 @@ import pytest
 from litellm import exceptions as litellm_exc
 from openai import APITimeoutError
 
-from app.services.ai_model_service import acomplete_chat
+from app.services.ai_model_service import acomplete_chat, astream_chat
 from app.services.llm_types import (
     ProviderConfigError,
     ProviderInvalidResponseError,
     ProviderTimeoutError,
     ProviderUnavailableError,
 )
+
+
+def _delta_chunk(content: str) -> SimpleNamespace:
+    """Build a LiteLLM-shaped streaming chunk with a single delta content string."""
+
+    return SimpleNamespace(
+        choices=[SimpleNamespace(delta=SimpleNamespace(content=content))]
+    )
+
+
+class _AsyncDeltaStream:
+    """Minimal async iterator that yields the configured chunks in order."""
+
+    def __init__(self, chunks: list[SimpleNamespace], raise_at: int | None = None,
+                 error: BaseException | None = None) -> None:
+        self._chunks = chunks
+        self._raise_at = raise_at
+        self._error = error
+        self._index = 0
+
+    def __aiter__(self) -> "_AsyncDeltaStream":
+        return self
+
+    async def __anext__(self) -> SimpleNamespace:
+        if self._raise_at is not None and self._index == self._raise_at and self._error is not None:
+            raise self._error
+        if self._index >= len(self._chunks):
+            raise StopAsyncIteration
+        chunk = self._chunks[self._index]
+        self._index += 1
+        return chunk
 
 
 @pytest.mark.asyncio
@@ -151,3 +182,140 @@ async def test_acomplete_chat_maps_empty_completion_to_invalid_response() -> Non
                 timeout_seconds=1.0,
                 chain_provider="openai",
             )
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_yields_each_delta_and_passes_stream_flag() -> None:
+    captured: dict[str, object] = {}
+    chunks = [_delta_chunk("Hello "), _delta_chunk("there"), _delta_chunk("!")]
+
+    async def _fake_completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return _AsyncDeltaStream(chunks)
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=_fake_completion)):
+        deltas = [
+            delta
+            async for delta in astream_chat(
+                litellm_model="openai/gpt-4o-mini",
+                system_message="sys",
+                user_message="usr",
+                max_output_tokens=128,
+                timeout_seconds=10.0,
+                chain_provider="openai",
+                api_key="sk-test",
+            )
+        ]
+
+    assert deltas == ["Hello ", "there", "!"]
+    assert captured["stream"] is True
+    assert captured["timeout"] == 10.0
+    assert captured["api_key"] == "sk-test"
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_skips_chunks_without_textual_delta() -> None:
+    chunks = [
+        _delta_chunk("partial"),
+        SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=None))]),
+        _delta_chunk(" answer"),
+    ]
+
+    async def _fake_completion(**_: object) -> object:
+        return _AsyncDeltaStream(chunks)
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=_fake_completion)):
+        deltas = [
+            delta
+            async for delta in astream_chat(
+                litellm_model="openai/gpt-4o-mini",
+                system_message="sys",
+                user_message="usr",
+                max_output_tokens=128,
+                timeout_seconds=10.0,
+                chain_provider="openai",
+            )
+        ]
+
+    assert deltas == ["partial", " answer"]
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_maps_open_phase_authentication_error() -> None:
+    err = litellm_exc.AuthenticationError("no", llm_provider="openai", model="openai/x")
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=err)):
+        with pytest.raises(ProviderConfigError, match="OpenAI authentication"):
+            async for _ in astream_chat(
+                litellm_model="openai/x",
+                system_message="sys",
+                user_message="usr",
+                max_output_tokens=10,
+                timeout_seconds=1.0,
+                chain_provider="openai",
+                api_key="bad",
+            ):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_maps_mid_stream_failure_to_provider_error() -> None:
+    chunks = [_delta_chunk("first ")]
+    rate_limit = litellm_exc.RateLimitError(
+        "limit",
+        "openai",
+        "openai/x",
+        response=httpx.Response(429, request=httpx.Request("POST", "https://api.openai.com")),
+        litellm_debug_info=None,
+    )
+
+    async def _fake_completion(**_: object) -> object:
+        return _AsyncDeltaStream(chunks, raise_at=1, error=rate_limit)
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=_fake_completion)):
+        collected: list[str] = []
+        with pytest.raises(ProviderUnavailableError, match="rate limit"):
+            async for delta in astream_chat(
+                litellm_model="openai/x",
+                system_message="sys",
+                user_message="usr",
+                max_output_tokens=10,
+                timeout_seconds=1.0,
+                chain_provider="openai",
+            ):
+                collected.append(delta)
+
+    assert collected == ["first "]
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_raises_when_stream_yields_no_text() -> None:
+    async def _fake_completion(**_: object) -> object:
+        return _AsyncDeltaStream([])
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=_fake_completion)):
+        with pytest.raises(ProviderInvalidResponseError, match="OpenAI returned an empty"):
+            async for _ in astream_chat(
+                litellm_model="openai/gpt-4o-mini",
+                system_message="sys",
+                user_message="usr",
+                max_output_tokens=10,
+                timeout_seconds=1.0,
+                chain_provider="openai",
+            ):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_rejects_empty_user_message_without_calling_provider() -> None:
+    with patch("app.services.ai_model_service.acompletion", AsyncMock()) as mocked:
+        with pytest.raises(ProviderInvalidResponseError, match="empty"):
+            async for _ in astream_chat(
+                litellm_model="openai/x",
+                system_message="sys",
+                user_message="   ",
+                max_output_tokens=10,
+                timeout_seconds=1.0,
+                chain_provider="openai",
+            ):
+                pass
+    mocked.assert_not_awaited()

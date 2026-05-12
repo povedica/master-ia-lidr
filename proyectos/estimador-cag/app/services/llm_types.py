@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -62,3 +63,24 @@ class LLMProvider(Protocol):
         max_output_tokens: int,
     ) -> ProviderResult:
         """Return a normalized completion response."""
+
+
+@runtime_checkable
+class StreamingLLMProvider(Protocol):
+    """Optional capability: emit text deltas as the upstream model produces them.
+
+    Providers that cannot stream (e.g. the static fallback) simply do not implement
+    `stream_complete`; callers detect support with `isinstance(p, StreamingLLMProvider)`.
+    """
+
+    name: str
+    model: str
+
+    def stream_complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_output_tokens: int,
+    ) -> AsyncIterator[str | UsageInfo]:
+        """Yield text deltas; may yield a final ``UsageInfo`` when the upstream reports usage."""

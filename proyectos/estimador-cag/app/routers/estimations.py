@@ -7,6 +7,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.config import Settings, get_settings
 from app.schemas.estimations import EstimateRequest, EstimateResponse, UsageView
@@ -121,3 +122,21 @@ async def create_estimate(
             )
 
     return response
+
+
+@router.post("/estimate/stream")
+async def create_estimate_stream(
+    body: EstimateRequest,
+    service: Annotated[EstimationService, Depends(get_estimation_service)],
+) -> StreamingResponse:
+    """Stream estimation output using SSE."""
+
+    return StreamingResponse(
+        service.stream_estimation(body.transcription, preprocessing=body.preprocessing),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

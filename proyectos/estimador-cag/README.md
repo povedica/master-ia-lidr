@@ -49,15 +49,28 @@ Browsers may request `/favicon.ico`; there is no favicon asset, so that request 
 
 ## Streamlit demo UI (manual testing)
 
-Internal browser UI only; it delegates to **`EstimationService`** (same as `POST /api/v1/estimate`). Configure keys and models via `.env` as for the API (see [.env.example](.env.example)).
+Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event). You must run **FastAPI and Streamlit in two terminals** so the UI can reach the API.
+
+**Terminal 1 — API**
 
 ```bash
 cd proyectos/estimador-cag
-uv sync
+uv sync --group dev
+uv run uvicorn app.main:app --reload
+```
+
+**Terminal 2 — UI**
+
+```bash
+cd proyectos/estimador-cag
 uv run streamlit run app/streamlit_app.py
 ```
 
+Configure keys and models via `.env` as for the API (see [.env.example](.env.example)). Optional: set **`ESTIMATOR_API_BASE_URL`** (e.g. `http://127.0.0.1:8000`) so the default base URL in the sidebar matches your API; you can also edit **FastAPI base URL** in the app.
+
 The app validates empty input locally. Domain guardrail, configuration, and provider failures show short messages intended for testers—no stack traces in the UI.
+
+For the full SSE contract and `curl` example, see [docs/technical/README.md §11.1](docs/technical/README.md#111-streaming-estimation-sse).
 
 ## Docker
 

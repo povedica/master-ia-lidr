@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -264,3 +265,175 @@ async def acomplete_chat(
         usage=usage_info,
         finish_reason=str(finish),
     )
+
+
+def _empty_completion_message(chain_provider: str) -> str:
+    """Return a provider-aware safe message when the upstream model emits nothing."""
+
+    if chain_provider == "openai":
+        return "OpenAI returned an empty response."
+    if chain_provider == "anthropic":
+        return "Anthropic returned an empty response."
+    return "LLM returned an empty response."
+
+
+def _extract_stream_delta_text(chunk: Any) -> str:
+    """Read the textual delta from a LiteLLM streaming chunk (preserves whitespace)."""
+
+    choices = getattr(chunk, "choices", None)
+    if not choices:
+        return ""
+    first = choices[0]
+    delta = getattr(first, "delta", None)
+    if delta is None:
+        # Some LiteLLM emitters expose dict-shaped deltas.
+        delta = first.get("delta") if isinstance(first, dict) else None
+    if delta is None:
+        return ""
+    raw = getattr(delta, "content", None)
+    if raw is None and isinstance(delta, dict):
+        raw = delta.get("content")
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        parts: list[str] = []
+        for block in raw:
+            if isinstance(block, dict):
+                txt = block.get("text") or block.get("content")
+                if isinstance(txt, str):
+                    parts.append(txt)
+            else:
+                txt = getattr(block, "text", None)
+                if isinstance(txt, str):
+                    parts.append(txt)
+        return "".join(parts)
+    return str(raw)
+
+
+async def astream_chat(
+    *,
+    litellm_model: str,
+    system_message: str,
+    user_message: str,
+    max_output_tokens: int,
+    timeout_seconds: float,
+    chain_provider: str,
+    api_key: str | None = None,
+) -> AsyncIterator[str | UsageInfo]:
+    """Yield text deltas from a LiteLLM streaming chat completion.
+
+    When the upstream exposes token usage (for example OpenAI with
+    ``stream_options.include_usage``), a final :class:`UsageInfo` may be yielded
+    after all text deltas.
+
+    Mid-stream upstream failures are mapped onto the same `ProviderError` subclasses
+    used by `acomplete_chat`, so callers can apply identical fallback logic.
+    """
+
+    trimmed_system = system_message.strip()
+    trimmed_user = user_message.strip()
+    if not trimmed_user:
+        raise ProviderInvalidResponseError("User message content is empty.")
+
+    vendor = _infer_llm_vendor(litellm_model)
+    logger.info(
+        "llm_stream_started",
+        extra={
+            "event": "llm_stream_started",
+            "llm_model": litellm_model,
+            "llm_vendor": vendor,
+            "chain_provider": chain_provider,
+        },
+    )
+
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": trimmed_system},
+        {"role": "user", "content": trimmed_user},
+    ]
+
+    kwargs: dict[str, Any] = {"timeout": timeout_seconds, "stream": True}
+    if api_key:
+        kwargs["api_key"] = api_key
+    if _infer_llm_vendor(litellm_model) == "openai":
+        kwargs["stream_options"] = {"include_usage": True}
+
+    try:
+        response_stream = await acompletion(
+            model=litellm_model,
+            messages=messages,
+            max_completion_tokens=max_output_tokens,
+            **kwargs,
+        )
+    except Exception as exc:  # noqa: BLE001 — boundary: map LiteLLM/transport errors to ProviderError
+        mapped = _map_litellm_exception(
+            exc, litellm_model=litellm_model, chain_provider=chain_provider
+        )
+        logger.warning(
+            "llm_stream_failed",
+            extra={
+                "event": "llm_stream_failed",
+                "llm_model": litellm_model,
+                "llm_vendor": vendor,
+                "chain_provider": chain_provider,
+                "error_type": type(exc).__name__,
+                "phase": "open",
+            },
+        )
+        raise mapped from exc
+
+    emitted_any = False
+    last_usage: UsageInfo | None = None
+    try:
+        async for chunk in response_stream:
+            usage_candidate = _usage_from_litellm(getattr(chunk, "usage", None))
+            if usage_candidate is not None:
+                last_usage = usage_candidate
+            delta_text = _extract_stream_delta_text(chunk)
+            if delta_text:
+                emitted_any = True
+                yield delta_text
+    except Exception as exc:  # noqa: BLE001 — boundary: mid-stream upstream failure
+        mapped = _map_litellm_exception(
+            exc, litellm_model=litellm_model, chain_provider=chain_provider
+        )
+        logger.warning(
+            "llm_stream_failed",
+            extra={
+                "event": "llm_stream_failed",
+                "llm_model": litellm_model,
+                "llm_vendor": vendor,
+                "chain_provider": chain_provider,
+                "error_type": type(exc).__name__,
+                "phase": "iterate",
+            },
+        )
+        raise mapped from exc
+
+    if not emitted_any:
+        logger.warning(
+            "llm_stream_failed",
+            extra={
+                "event": "llm_stream_failed",
+                "llm_model": litellm_model,
+                "llm_vendor": vendor,
+                "chain_provider": chain_provider,
+                "error_type": "empty_completion",
+                "phase": "iterate",
+            },
+        )
+        raise ProviderInvalidResponseError(_empty_completion_message(chain_provider))
+
+    logger.info(
+        "llm_stream_succeeded",
+        extra={
+            "event": "llm_stream_succeeded",
+            "llm_model": litellm_model,
+            "llm_vendor": vendor,
+            "chain_provider": chain_provider,
+            "usage_reported": last_usage is not None,
+        },
+    )
+    if last_usage is not None:
+        yield last_usage
