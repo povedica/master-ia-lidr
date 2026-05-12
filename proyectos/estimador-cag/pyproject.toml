@@ -13,6 +13,7 @@ dependencies = [
     "anthropic>=0.97.0",
     "streamlit>=1.57.0",
     "litellm>=1.83.14",
+    "logfire>=4.32.1",
 ]
 
 [dependency-groups]
