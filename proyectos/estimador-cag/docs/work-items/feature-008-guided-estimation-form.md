@@ -456,6 +456,6 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `a1f3aa3` | `chore(cursor): add product-strategy-analyst agent and output folder` | Adds the Cursor agent definition and `docs/agent_outputs/product-strategy-analyst/README.md` for output naming conventions. |
-| `e8e8927` | `docs(estimador-cag): add feature-008 guided estimation form work item` | Canonical work item: guided form spec, enums, risks, API mapping, acceptance criteria, and verification notes. |
+| `a362d75` | `docs(estimador-cag): add feature-008 guided estimation form work item` | Canonical work item: guided form spec, enums, risks, API mapping, acceptance criteria, and verification notes. |
 
 Add rows during implementation (schemas, renderer, routers, Streamlit, tests, docs).
