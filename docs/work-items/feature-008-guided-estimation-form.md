@@ -468,5 +468,7 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 | `a1f3aa3` | `chore(cursor): add product-strategy-analyst agent and output folder` | Adds the Cursor agent definition and `docs/agent_outputs/product-strategy-analyst/README.md` for output naming conventions. |
 | `a362d75` | `docs(estimador-cag): add feature-008 guided estimation form work item` | Canonical work item: guided form spec, enums, risks, API mapping, acceptance criteria, and verification notes. |
 | `a6ced6f` | `feat(estimador-cag): guided EstimationRequest form and render pipeline` | `EstimationRequest`, render module, `assessment_input`, routers, Streamlit, tests, README and technical docs. |
+| `a68cc04` | `refactor(repo): colocate estimador-cag and learnings at repository root` | Moves the estimator app, tests, tooling, and docs mirror to the repository root; removes `proyectos/estimador-cag`; adds `learnings/` (notebooks, mirrored subtrees, vault symlink) and updates the sync script and root README. |
+| `d9acf20` | `docs(cursor): align Second Brain and notebook paths for learnings/` | Updates Cursor commands, rules, skills, and the Docker plan to reference `learnings/second-brain-master-ia` and `learnings/notebooks`. |
 
 _Add further rows only if the work splits across additional commits._
