@@ -28,7 +28,7 @@ Define Python 3.11+ coding standards for maintainable, testable AI Engineering c
 - Put HTTP endpoints under `app/routers/`.
 - Put business and provider logic under `app/services/`.
 - Put static prompt/context examples under `app/context/`.
-- Put experiments under `notebooks/` or `experiments/` only when needed.
+- Put experiments under `learnings/notebooks/` or `experiments/` only when needed.
 - Do not leave business logic only in notebooks.
 
 ## Example

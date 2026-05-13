@@ -19,7 +19,7 @@ Ayudarte a hacer retrospectiva al final de cada sesión:
 
 ## Flujo
 
-1. Identifica la sesión activa en `second-brain-master-ia/sesiones/sesion-NN-*.md`.
+1. Identifica la sesión activa en `learnings/second-brain-master-ia/sesiones/sesion-NN-*.md`.
 2. Resume lo trabajado en clase, en el repo y en tus notas.
 3. Genera o completa una sección `## Retrospectiva` con estos bloques:
 
@@ -51,7 +51,7 @@ Ayudarte a hacer retrospectiva al final de cada sesión:
 ```
 
 4. Si hubo commits o decisiones relevantes, enlázalos o resúmelos.
-5. Si aparece un aprendizaje transversal, sugiere promoverlo a `second-brain-master-ia/aprendizajes/`.
+5. Si aparece un aprendizaje transversal, sugiere promoverlo a `learnings/second-brain-master-ia/aprendizajes/`.
 
 ## Regla importante
 

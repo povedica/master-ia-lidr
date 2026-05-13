@@ -7,11 +7,11 @@ Synchronize project documentation with the repository and Second Brain.
 Use after setup changes, architecture decisions, FastAPI changes, LLM integration changes, or session work.
 
 ## Documentation Targets
-- Session work: `second-brain-master-ia/proyectos/estimador-cag/sesiones/`
-- Work items: `second-brain-master-ia/proyectos/estimador-cag/work-items/`
-- Reusable learnings: `second-brain-master-ia/proyectos/estimador-cag/aprendizajes/`
-- Retrospectives: `second-brain-master-ia/proyectos/estimador-cag/retrospectivas/`
-- **Versioned replica (git):** `proyectos/estimador-cag/docs/` — mirror of the paths above; after you add or change notes under `second-brain-master-ia/proyectos/estimador-cag/`, run `bash scripts/sync-estimador-cag-docs.sh` from the repo root before committing.
+- Session work (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/sesiones/` — **versioned git mirror:** `learnings/docs/sesiones/`
+- Work items (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/` — **versioned git mirror:** `docs/work-items/`
+- Reusable learnings (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/` — **versioned git mirror:** `learnings/aprendizajes/`
+- Retrospectives (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/retrospectivas/` — **versioned git mirror:** `learnings/retrospectiva/`
+- **After vault edits**, run `bash scripts/sync-estimador-cag-docs.sh` from the repo root before committing (updates `docs/`, `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/`).
 - Runtime/setup docs: project `README.md`
 
 ## Rules

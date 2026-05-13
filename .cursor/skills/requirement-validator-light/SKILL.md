@@ -9,7 +9,7 @@ Use this skill to validate work items in `master-ia` without introducing unneces
 
 ## When to apply
 
-- A task starts from `second-brain-master-ia/`.
+- A task starts from `learnings/second-brain-master-ia/`.
 - A feature note exists but may be incomplete.
 - The user asks if something is ready to build.
 - A change touches multiple files or has unclear scope.

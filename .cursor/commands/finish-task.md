@@ -26,7 +26,7 @@ If you only need to **prepare commits** without merging a PR, prefer `/commit-pe
 
 **For local task closure:**
 
-- Relevant project directory identified (repo root or e.g. `proyectos/estimador-cag/` when work lives in a subproject).
+- Relevant project directory identified (the repository root for Estimador CAG).
 
 **For PR completion (in addition):**
 
@@ -43,7 +43,7 @@ If you only need to **prepare commits** without merging a PR, prefer `/commit-pe
 Do **not** merge a PR and defer documentation.
 
 1. Confirm the **canonical work-item** (single source of truth) is up to date:
-   - Vault path: `second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-<slug>.md`
+   - Vault path: `learnings/second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-<slug>.md`
    - Mirror in this repo: `proyectos/<project>/docs/work-items/` (see `11-spec-system.mdc` and `/start-task` for naming).
 2. Ensure **acceptance**, **verification**, **`Repository commits (master-ia)`**, and any **retrospective / learnings** are reflected in that document (or a note explicitly linked from it), per **Phase 6–7** of `/start-task`.
 3. If a learning should become repo policy, capture it in `.cursor/rules/` in a follow-up when appropriate — not as a substitute for updating the canonical doc.
@@ -75,7 +75,7 @@ When FastAPI or Python scope applies, you may use the **`validation-pass-fastapi
 
 - `uv sync`
 - `uv run pytest` when tests exist (narrower scope when verifying a single area)
-- `uv run uvicorn app.main:app --reload` for manual API checks when runtime behavior is in scope (e.g. under `proyectos/estimador-cag/` if that is where the app lives)
+- `uv run uvicorn app.main:app --reload` for manual API checks when runtime behavior is in scope (from the repository root).
 
 ### A.4 Documentation
 

@@ -16,8 +16,8 @@ Provide a small, growable Spec-Driven Development baseline for `master-ia`: expl
   - `<type>-<NNN>-<slug>.md`
   - Example: `feature-007-adaptive-estimation-engine.md`
 - Default location for project work:
-  - `second-brain-master-ia/proyectos/<project>/work-items/`
-- For **estimador-cag**, a versioned mirror of `second-brain-master-ia/proyectos/estimador-cag/` lives at `proyectos/estimador-cag/docs/`; refresh it with `bash scripts/sync-estimador-cag-docs.sh` from the repo root after vault edits.
+  - `learnings/second-brain-master-ia/proyectos/<project>/work-items/`
+- For **estimador-cag**, a versioned mirror of `learnings/second-brain-master-ia/proyectos/estimador-cag/` lives under git at `docs/` (excluding `sesiones/`, `aprendizajes/`, `retrospectivas/`) plus `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/`; refresh with `bash scripts/sync-estimador-cag-docs.sh` from the repo root after vault edits.
 - Session-bound work may live alongside the active session note instead.
 
 ## Document Types (file prefix)

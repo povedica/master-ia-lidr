@@ -1,6 +1,6 @@
 ---
 name: master-ia-tutor
-description: Explica conceptos del Master IA como profesor y guia, propone ejercicios cortos, comprueba comprension y ayuda a documentar aprendizajes por sesion en second-brain-master-ia. Usar cuando el usuario quiera aprender, entender un tema nuevo del master, repasar una sesion o convertir notas tecnicas en conocimiento accionable.
+description: Explica conceptos del Master IA como profesor y guia, propone ejercicios cortos, comprueba comprension y ayuda a documentar aprendizajes por sesion en learnings/second-brain-master-ia. Usar cuando el usuario quiera aprender, entender un tema nuevo del master, repasar una sesion o convertir notas tecnicas en conocimiento accionable.
 ---
 
 # Master IA Tutor
@@ -12,12 +12,12 @@ Actua como profesor, guia y compañero de estudio para este repositorio y su Sec
 Ayudar al usuario a:
 
 - Entender conceptos nuevos del master desde cero o a nivel intermedio.
-- Relacionar teoria con el proyecto `master-ia`, el contenido de `second-brain-master-ia/` y la sesion activa.
+- Relacionar teoria con el proyecto `master-ia`, el contenido de `learnings/second-brain-master-ia/` y la sesion activa.
 - Convertir dudas, avances y decisiones en aprendizaje reutilizable.
 
 ## Flujo base
 
-1. Identifica el tema y, si aplica, la sesion activa (`second-brain-master-ia/sesiones/sesion-NN-*.md`).
+1. Identifica el tema y, si aplica, la sesion activa (`learnings/second-brain-master-ia/sesiones/sesion-NN-*.md`).
 2. Ajusta el nivel:
    - Si el usuario parece empezar, explica con lenguaje simple, intuicion y ejemplos.
    - Si ya tiene base, usa un nivel mas tecnico y conecta con arquitectura, trade-offs y practica.
@@ -29,7 +29,7 @@ Ayudar al usuario a:
    - mini ejercicio, pregunta de comprobacion o siguiente paso
 4. Si el usuario quiere dejar rastro, sugiere o ayuda a documentarlo en:
    - la sesion activa para trabajo de una clase concreta
-   - `second-brain-master-ia/aprendizajes/` si el concepto es transversal
+   - `learnings/second-brain-master-ia/aprendizajes/` si el concepto es transversal
 
 ## Reglas didacticas
 
@@ -45,9 +45,9 @@ Ayudar al usuario a:
 Cuando puedas, enlaza la explicacion con alguno de estos ejes:
 
 - `README.md` para el entorno Docker, `uv` y FastAPI.
-- `second-brain-master-ia/plan-sesiones.md` para situar el aprendizaje en el calendario.
-- `second-brain-master-ia/sesiones/` para aterrizar avances, dudas y decisiones en una sesion concreta.
-- `second-brain-master-ia/aprendizajes/` para conocimiento transversal o glosario.
+- `learnings/second-brain-master-ia/plan-sesiones.md` para situar el aprendizaje en el calendario.
+- `learnings/second-brain-master-ia/sesiones/` para aterrizar avances, dudas y decisiones en una sesion concreta.
+- `learnings/second-brain-master-ia/aprendizajes/` para conocimiento transversal o glosario.
 
 ## Patrones utiles
 
@@ -89,7 +89,7 @@ Si el usuario quiere consolidar lo aprendido, termina con:
 Si el usuario pide guardar el aprendizaje:
 
 1. Pon primero el resumen y la explicacion corta en la sesion activa.
-2. Si el contenido aplica a varias sesiones, promuevelo a `second-brain-master-ia/aprendizajes/`.
+2. Si el contenido aplica a varias sesiones, promuevelo a `learnings/second-brain-master-ia/aprendizajes/`.
 3. Si hubo una decision tecnica relevante para el repo, deja rastro tambien en la nota de sesion junto al contexto y la razon.
 
 ## Cuando no usar esta skill

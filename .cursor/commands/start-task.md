@@ -23,13 +23,13 @@ To create the document from scratch, use `/write-feature` or `/docs` first. To c
 The user passes the document to start from:
 
 ```text
-/start-task second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/start-task learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
 ```
 
 They may also use a Cursor reference:
 
 ```text
-/start-task @second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/start-task @learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
 ```
 
 For the **versioned documentation mirror** (when the vault symlink is missing), paths under `proyectos/<project>/docs/` are valid canonical inputs too.
@@ -39,7 +39,7 @@ For the **versioned documentation mirror** (when the vault symlink is missing), 
 - The input document is the **canonical** document for the task.
 - Do not create another document for the same feature unless the user asks.
 - All progress, plan changes, acceptance updates, commit log entries, and **learnings during implementation** go into **that same file** (or an explicitly linked note referenced from it).
-- If the document is missing, empty, or unclear on goals, stop and ask. Suggest a likely path under `second-brain-master-ia/proyectos/<project>/work-items/` (or `proyectos/<project>/docs/work-items/`).
+- If the document is missing, empty, or unclear on goals, stop and ask. Suggest a likely path under `learnings/second-brain-master-ia/proyectos/<project>/work-items/` (or the versioned mirror under `docs/work-items/` in this repo).
 - If session or project is unclear, infer from the path, suggest a default, and confirm before implementing.
 
 ---
@@ -124,7 +124,7 @@ If there is **large unrelated dirt** or **mixed tasks** in one working tree, **w
 
 - **Progress**: canonical input document (including an **Implementation progress** subsection if useful — see Phase 5.3).
 - **Commits**: `## Repository commits (master-ia)` (or Spanish header if legacy, descriptions **English**).
-- **Sessions / learnings**: `second-brain-master-ia/proyectos/<project>/sesiones/` and `…/aprendizajes/` when applicable.
+- **Sessions / learnings**: `learnings/second-brain-master-ia/proyectos/<project>/sesiones/` and `…/aprendizajes/` when applicable.
 
 ---
 
@@ -153,7 +153,7 @@ Read only what the task needs:
 
 Depending on task type, review:
 
-- Python under `proyectos/`, root `app/`, `notebooks/`, or paths implied by the document.
+- Python at the repository root (`app/`, `tests/`), `learnings/notebooks/`, or paths implied by the document.
 - Subproject layout: some packages live under `proyectos/<name>/` with their own `pyproject.toml` — run `uv` and `pytest` **from the correct directory**.
 - `.env.example` when configuration is involved.
 - Existing tests and routers/services boundaries.
@@ -237,7 +237,7 @@ Execute **one plan step at a time**. For each step that includes testable logic:
 - Run the **narrowest** command, e.g.:
 
 ```bash
-cd <project-root>
+<project-root>
 uv run pytest tests/test_module.py::test_name -q
 ```
 
@@ -312,7 +312,7 @@ Answer briefly:
 **Outputs:**
 
 - **Feature-specific**: canonical document (consider **Learnings** subsection — optional but encouraged for non-trivial work).
-- **Reusable**: `second-brain-master-ia/proyectos/<project>/aprendizajes/` (Spanish allowed for reflective notes per project norms; paths and commands still English).
+- **Reusable**: `learnings/second-brain-master-ia/proyectos/<project>/aprendizajes/` (Spanish allowed for reflective notes per project norms; paths and commands still English).
 - **Rule candidates**: propose updates to `.cursor/rules/` **only** if broadly applicable and non-duplicative.
 
 ---
