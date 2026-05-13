@@ -30,6 +30,7 @@ Requirements: valid `learnings/second-brain-master-ia` symlink and `rsync` on yo
 
 - Python 3.11
 - [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ and npm (for the `web/` UI)
 
 ## Setup
 
@@ -44,7 +45,7 @@ Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)** in
 
 Configuration reads **`.env` by absolute path** (next to the `app/` package), so variables such as `FORCED_ESTIMATION_MODE` still apply when you start Uvicorn from another working directory.
 
-## Run with Docker (API + Streamlit)
+## Run with Docker (API + web UI)
 
 From the repository root, after `cp .env.example .env` and filling API keys:
 
@@ -53,13 +54,15 @@ docker compose up --build
 ```
 
 - **FastAPI:** `http://127.0.0.1:8000` (health: `/health`, docs: `/docs`)
-- **Streamlit:** `http://127.0.0.1:8501` — Compose sets `ESTIMATOR_API_BASE_URL=http://host.docker.internal:8000` for the Streamlit container so server-side calls hit the same published API as `http://127.0.0.1:8000` in the browser.
+- **Web (static build):** `http://127.0.0.1:5175` — the UI is built with `VITE_API_BASE_URL=http://127.0.0.1:8000`, so the browser calls the API on the host. Compose sets **`FRONTEND_ORIGINS`** on the API service to allow `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5175`, and `http://127.0.0.1:5175`.
 
-For bind-mounted code and `--reload` on the API (and the same Streamlit service), use:
+For bind-mounted code and `--reload` on the API only, use:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
+
+Run the web app on the host with hot reload (second terminal): see [Web UI (Vite)](#web-ui-vite).
 
 ## Run the API (without Docker)
 
@@ -74,13 +77,11 @@ uv run uvicorn app.main:app --reload
 
 Browsers may request `/favicon.ico`; there is no favicon asset, so that request may return 404 and can be ignored.
 
-## Streamlit demo UI (manual testing)
+## Web UI (Vite)
 
-Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP with the same structured JSON as `POST /api/v1/estimate` and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event).
+The **`web/`** package is a **React + Vite + TypeScript** browser UI. It calls **`POST /api/v1/estimate/stream`** with the same structured JSON as `POST /api/v1/estimate` and renders markdown progressively from SSE `chunk` events. Client-side validation uses **Zod**; the API remains authoritative via Pydantic.
 
-**Docker (default):** `docker compose up --build` starts both the API and Streamlit (see [Run with Docker](#run-with-docker-api--streamlit)).
-
-**Local — two terminals** (if you are not using Docker for the UI):
+**Prerequisites:** Node.js 20+ and npm (or use your preferred package manager with the same scripts).
 
 **Terminal 1 — API**
 
@@ -89,21 +90,33 @@ uv sync --group dev
 uv run uvicorn app.main:app --reload
 ```
 
-**Terminal 2 — UI**
+**Terminal 2 — web**
 
 ```bash
-uv run streamlit run app/streamlit_app.py
+cd web
+cp .env.example .env.local
+# Optionally edit VITE_API_BASE_URL (default http://127.0.0.1:8000)
+npm install
+npm run dev
 ```
 
-Configure keys and models via `.env` as for the API (see [.env.example](.env.example)). For local Streamlit, set **`ESTIMATOR_API_BASE_URL`** (e.g. `http://127.0.0.1:8000`) or use the **FastAPI base URL** field in the sidebar.
+Open the URL Vite prints (default `http://127.0.0.1:5173`). The API must list that origin in **`FRONTEND_ORIGINS`** (see [.env.example](.env.example)); defaults already include the usual Vite dev URLs.
 
-The app validates empty input locally. Domain guardrail, configuration, and provider failures show short messages intended for testers—no stack traces in the UI.
+**Production build (smoke check):**
+
+```bash
+cd web
+npm run build
+npm run preview
+```
+
+When **`DEV_MODE=true`** on the API and the provider reports usage, the final SSE `done` event may include a `usage` object; the web UI prints a short JSON line when present.
 
 For the full SSE contract and `curl` example, see [docs/technical/README.md §11.1](docs/technical/README.md#111-streaming-estimation-sse).
 
 ## Docker (details)
 
-The root **`Dockerfile`** builds one image used by **`docker-compose.yml`** for two services: **`app`** (FastAPI on port 8000) and **`streamlit`** (port 8501). Both load `.env`; Compose injects `ESTIMATOR_API_BASE_URL=http://host.docker.internal:8000` for Streamlit so **HTTP from the Streamlit process** targets the API on the host-mapped port (same as opening **`http://127.0.0.1:8000`** in the browser). The Streamlit service adds **`extra_hosts: host.docker.internal:host-gateway`** for Linux; Docker Desktop already resolves `host.docker.internal`. The API exposes a **`healthcheck`** on `/health`; Streamlit **`depends_on`** the app with **`service_healthy`** so the UI container starts only after the API is reachable.
+The root **`Dockerfile`** builds the **FastAPI** image for **`docker-compose.yml`** service **`app`** (port 8000). **`Dockerfile.web`** builds the static **`web`** UI served by **nginx** (mapped to host port **5175**). Both stacks load `.env`; Compose sets **`FRONTEND_ORIGINS`** on the API so browsers hitting the published web port can call the API from another origin. The API **`healthcheck`** gates **`web`** via **`depends_on: service_healthy`**.
 
 ```bash
 cp .env.example .env
@@ -111,7 +124,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-**Development compose** bind-mounts the project, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`** and **Streamlit** against the mounted tree. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. **Streamlit starts only after the API passes its health check** (so the UI does not open before `/health` responds).
+**Development compose** bind-mounts the project, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`** against the mounted tree. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. Run **`npm run dev`** from **`web/`** on the host when you need the browser UI with hot reload alongside the containerized API.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
