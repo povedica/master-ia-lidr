@@ -470,5 +470,10 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 | `a6ced6f` | `feat(estimador-cag): guided EstimationRequest form and render pipeline` | `EstimationRequest`, render module, `assessment_input`, routers, Streamlit, tests, README and technical docs. |
 | `a68cc04` | `refactor(repo): colocate estimador-cag and learnings at repository root` | Moves the estimator app, tests, tooling, and docs mirror to the repository root; removes `proyectos/estimador-cag`; adds `learnings/` (notebooks, mirrored subtrees, vault symlink) and updates the sync script and root README. |
 | `d9acf20` | `docs(cursor): align Second Brain and notebook paths for learnings/` | Updates Cursor commands, rules, skills, and the Docker plan to reference `learnings/second-brain-master-ia` and `learnings/notebooks`. |
+| `d19ab86` | `fix(app): resolve repo root paths for stats and response output` | Corrects `Path.parents` depth so default `output-stats/` and `output-responses/` paths resolve to the repository root after layout colocation. |
+| `308f118` | `fix(docker): cd to /app before uv sync in entrypoints` | Ensures `uv sync` runs from the project directory inside production and dev container entrypoints. |
+| `677935b` | `feat(docker): add Streamlit service, healthchecks, and dev overlay` | Adds Streamlit to root Compose with API health gating, `host.docker.internal` wiring, dev bind mounts, isolated `.venv` volumes, and exposes port 8501 on the image. |
+| `d913a65` | `feat(streamlit): sidebar API base URL and compose-friendly defaults` | Sidebar **Backend** URL field, session-state defaults for compose-injected API base, clearer SSE connection errors for Docker vs local. |
+| `ee6e72d` | `docs: Docker+Streamlit quick start and ESTIMATOR_API_BASE_URL notes` | README runbook for dual-service Compose and dev override; `.env.example` comments for Streamlit base URL defaults. |
 
 _Add further rows only if the work splits across additional commits._
