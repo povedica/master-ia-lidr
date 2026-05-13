@@ -32,13 +32,13 @@ The goal is documentation that supports development, debugging, and growth witho
 
 ## 1. Overview
 
-`estimador-cag` is a FastAPI service that accepts a client meeting transcription and returns a structured software estimate.
+`estimador-cag` is a FastAPI service that accepts **structured project context** (`EstimationRequest`) and returns a structured software estimate.
 
 The project uses **Context-Augmented Generation (CAG)** in a deliberately small form:
 
 - Few-shot reference text lives under `app/context/examples/<basic|standard|professional|expert_review>/` as `*.txt` files; `app/context/examples.py` loads the pool for the active mode and returns a **random subset** (2–4 examples) per request, falling back to `standard` when a mode folder has no samples. Tests seed RNG where non-determinism would break assertions.
 - The app builds a `system prompt` with instructions and prior examples.
-- The live transcription is sent as the `user` message.
+- The router renders a deterministic Markdown **user message** from the structured payload and sends it as the `user` message.
 - A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
 - A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
@@ -166,7 +166,7 @@ Sample estimate request:
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -H "Content-Type: application/json" \
-  -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
+  -d '{"project_summary":"B2B portal for partners to submit requests and track SLA status.","project_type":"web_saas","target_audience":"b2b_smb","project_description":"The client needs a REST API for orders with idempotent POST. The service must validate inventory and expose admin reporting. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["REST API with idempotent POST for orders","Admin reporting dashboard","Inventory validation rules"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
 ```
 
 Documentation mirror sync from the repository root:
@@ -291,9 +291,9 @@ sequenceDiagram
     participant Anthropic
     participant Static as static_fallback
 
-    Client->>Router: POST /api/v1/estimate { transcription }
-    Router->>Router: Validate EstimateRequest
-    Router->>Service: estimate(transcription)
+    Client->>Router: POST /api/v1/estimate { EstimationRequest JSON }
+    Router->>Router: Validate EstimationRequest, render user + assessment text
+    Router->>Service: estimate(user_message, assessment_input=surface)
     Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
     Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
     Service->>Service: route_mode_from_context_quality
@@ -370,7 +370,7 @@ Message pattern:
 
 ```text
 [system]    Instructions + reference estimation examples
-[user]      Meeting transcription
+[user]      Composed project brief (from structured request)
 [assistant] Generated estimate
 ```
 
@@ -381,8 +381,9 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
-- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
+- `PROMPT_VERSION` in `app/services/llm_service.py` (currently `v7-guided-input`; bump when system prompt composition or guided user-message pipeline materially changes behavior).
+- `EXAMPLES_VERSION` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
+- `USER_MESSAGE_TEMPLATE_VERSION` (`guided-form-v1`) in `app/services/estimation_request_render.py` (bump when the Markdown mapping from `EstimationRequest` changes).
 
 ## 11. API contract
 
@@ -412,20 +413,42 @@ Liveness probe:
 
 ### `POST /api/v1/estimate`
 
-Request:
+Request (structured `EstimationRequest`; see `/docs` for the full schema and enums):
 
 ```json
 {
-  "transcription": "The client needs a REST API for orders with idempotent POST."
+  "project_summary": "B2B portal for partners to submit requests and track SLA status.",
+  "project_type": "web_saas",
+  "target_audience": "b2b_smb",
+  "project_description": "The client needs a responsive web application for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards. Integrations with existing CRM are out of scope for the first milestone. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "deliverables": [
+    "Partner authentication with SSO and role-based access control",
+    "Configurable ticket intake forms and commenting threads",
+    "Operations dashboards with CSV export and saved filters"
+  ],
+  "delivery_urgency": "standard",
+  "data_sensitivity": "internal_business",
+  "detail_level": "medium",
+  "output_format": "phases_table"
 }
 ```
 
-Validation:
+Validation (high level):
 
-- `transcription` is required.
-- It must contain at least one character.
-- After `strip()`, it must not be empty.
-- It must be in the software/project estimation domain.
+- Required fields include `project_summary`, `project_type`, `target_audience`, `project_description`, `deliverables` (3–8 non-empty lines), `delivery_urgency`, `data_sensitivity`, `detail_level`, and `output_format` (see `app/schemas/estimation_request.py` for caps, conditional `target_date`, and attachment rules).
+- The **domain guardrail** and **adaptive mode** heuristics run on a **narrow assessment surface** (summary + description + scope lines), not the full Markdown template, so keyword metrics stay aligned with user intent (see **Guided form assessment surface** under §11).
+- The composed user message sent to the model is built server-side from the same payload (versioned template `guided-form-v1` in `app/services/estimation_request_render.py`).
+
+#### Guided form assessment surface
+
+`POST /api/v1/estimate` and `/estimate/stream` validate an `EstimationRequest` (`app/schemas/estimation_request.py`). The router builds:
+
+- **`user_message`**: `render_estimation_user_message(request)` — full Markdown for the LLM `user` role (Spanish section titles to reduce accidental keyword matches in the adaptive engine).
+- **`assessment_surface`**: `render_estimation_assessment_surface(request)` — summary, long description, deliverables, and optional out-of-scope lines only.
+
+`EstimationService._prepare_call` runs `check_estimation_domain` and `assess_and_select_mode` on **`assessment_surface`** when provided (non-empty after trim); otherwise it falls back to the full user message. **Two-phase** preprocessing still sends the **full** `user_message` into the phase-1 extraction call.
+
+**Attachments:** JSON body uses **base64** per file (`filename`, `content_type`, `content_base64`). Allowed types: `text/plain`, `text/markdown`, `application/pdf` (PDFs are referenced in the template without OCR). Limits: max **3** files, **256 KiB** decoded per file, **512 KiB** total decoded (see `app/schemas/estimation_request.py`).
 
 Response with `DEV_MODE=false` (live provider):
 
@@ -466,8 +489,8 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v5",
-  "examples_version": "file-mode-v3",
+  "prompt_version": "v7-guided-input",
+  "examples_version": "file-mode-v4-estimator-layout",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
@@ -481,7 +504,7 @@ Response with `DEV_MODE=true`:
 
 `POST /api/v1/estimate/stream` returns a **Server-Sent Events** stream for progressive consumption (Streamlit demo, proxies, or `curl -N`).
 
-**Request body:** same **`EstimateRequest`** as `POST /api/v1/estimate` (`transcription`, optional `evaluate`, optional `preprocessing`). The field `evaluate` is accepted for contract parity with the JSON endpoint; the stream carries **markdown text only** via `chunk` events—structural scoring and validation are not emitted on the wire (use `POST /api/v1/estimate` when you need `score` / `structure_evaluation` in one response).
+**Request body:** same structured **`EstimationRequest`** as `POST /api/v1/estimate` (including optional `evaluate` and `preprocessing`). The field `evaluate` is accepted for contract parity with the JSON endpoint; the stream carries **markdown text only** via `chunk` events—structural scoring and validation are not emitted on the wire (use `POST /api/v1/estimate` when you need `score` / `structure_evaluation` in one response).
 
 **Response:** `Content-Type: text/event-stream` with headers:
 
@@ -506,7 +529,7 @@ Example `curl` (reads until the connection closes):
 ```bash
 curl -sN -X POST http://127.0.0.1:8000/api/v1/estimate/stream \
   -H "Content-Type: application/json" \
-  -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
+  -d '{"project_summary":"B2B portal for partners to submit requests and track SLA status.","project_type":"web_saas","target_audience":"b2b_smb","project_description":"The client needs a REST API for orders with idempotent POST. The service must validate inventory and expose admin reporting. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["REST API with idempotent POST for orders","Admin reporting dashboard","Inventory validation rules"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
 ```
 
 ## 12. Response metadata
@@ -559,7 +582,7 @@ Rules:
 
 - Do not log `OPENAI_API_KEY`.
 - Do not log full prompts by default.
-- Do not log full transcriptions when they may contain sensitive information.
+- Do not log full user briefs or attachment bodies when they may contain sensitive information.
 - Use stable keys in `extra` for search and correlation.
 
 ## 14. Error handling
@@ -567,7 +590,7 @@ Rules:
 Input errors:
 
 - FastAPI/Pydantic returns `422` for invalid requests.
-- `EstimateRequest` rejects empty `transcription` after trim.
+- `EstimationRequest` rejects invalid field combinations (see Pydantic `422` detail); domain guardrail rejects off-topic **assessment** text before providers run.
 
 Service errors:
 
@@ -601,7 +624,7 @@ uv run pytest
 Current coverage:
 
 - `tests/test_config.py`: settings and environment overrides.
-- `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
+- `tests/test_llm_service.py`: prompt construction, empty-input handling, timeout, mocked success path.
 - `tests/test_examples.py`: example pool loading and sampling behavior.
 - `tests/test_estimation_engine.py`: adaptive routing and guardrails.
 - `tests/test_prompt_loader.py`: mode prompt file loading.
@@ -622,7 +645,7 @@ uv run uvicorn app.main:app --reload
 curl http://127.0.0.1:8000/health
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -H "Content-Type: application/json" \
-  -d '{"transcription":"The client needs a landing page with HubSpot integration."}'
+  -d '{"project_summary":"Marketing site with HubSpot form and blog for launch.","project_type":"web_marketing_site","target_audience":"b2b_smb","project_description":"The client needs a landing page with HubSpot integration, lead capture, and a simple blog. Timeline is six weeks. Design exists in Figma. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["Responsive landing from Figma","HubSpot form and CRM sync","Blog with editor and basic SEO"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
 ```
 
 ## 16. API collection
@@ -669,7 +692,7 @@ Project rules:
 - `.env` is local and must not be committed.
 - `.env.example` contains placeholders or non-sensitive defaults only.
 - API keys are read from environment variables.
-- Logs must not include credentials or full transcriptions.
+- Logs must not include credentials or full user payloads.
 - Tests must not require real keys.
 - Do not document real tokens in Second Brain notes that sync into the repository.
 
@@ -713,7 +736,7 @@ By default, auth/configuration errors do not fallback silently. Check API keys a
 
 ### `422 Unprocessable Entity`
 
-The body is missing `transcription`, or it is empty after `strip()`.
+The body failed Pydantic validation (missing required fields, invalid enums, list size limits, conditional `target_date`, or attachment rules). Inspect the `422` response `detail` from FastAPI.
 
 ### `503 Service Unavailable`
 

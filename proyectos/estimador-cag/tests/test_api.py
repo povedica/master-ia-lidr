@@ -17,6 +17,10 @@ from app.services.llm_service import (
     EstimationResult,
     UsageInfo,
 )
+from tests.estimation_fixtures import (
+    minimal_estimation_request_dict,
+    out_of_domain_estimation_request_dict,
+)
 
 
 class _FakeEstimationService:
@@ -106,10 +110,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -124,7 +125,7 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
     assert body["latency_ms"] >= 0
-    assert body["prompt_version"] == "v6"
+    assert body["prompt_version"] == "v7-guided-input"
     assert body["examples_version"] == "file-mode-v4-estimator-layout"
     assert body["usage"]["total_tokens"] == 150
     assert body["usage"]["preprocessing_input_tokens"] == 0
@@ -145,9 +146,7 @@ def test_estimate_returns_estimator_scoring_by_default() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                },
+                json=minimal_estimation_request_dict(),
             )
     finally:
         app.dependency_overrides.clear()
@@ -166,7 +165,10 @@ def test_estimate_rejects_invalid_preprocessing() -> None:
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/estimate",
-            json={"transcription": "Client wants a landing page.", "preprocessing": "invalid"},
+            json=minimal_estimation_request_dict(
+                project_description="y" * 100,
+                preprocessing="invalid",
+            ),
         )
     assert response.status_code == 422
 
@@ -182,10 +184,7 @@ def test_estimate_hides_usage_and_cost_when_dev_mode_disabled() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -214,10 +213,7 @@ def test_estimate_persists_output_when_toggle_enabled(
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -238,10 +234,7 @@ def test_estimate_includes_degraded_only_for_static_fallback() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -265,10 +258,7 @@ def test_estimate_non_dev_surfaces_degraded_only_for_static_fallback() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -279,15 +269,18 @@ def test_estimate_non_dev_surfaces_degraded_only_for_static_fallback() -> None:
     assert body["degraded"] is True
 
 
-def test_estimate_validation_error_on_missing_transcription() -> None:
+def test_estimate_validation_error_on_missing_required_fields() -> None:
     with TestClient(app) as client:
         response = client.post("/api/v1/estimate", json={})
     assert response.status_code == 422
 
 
-def test_estimate_validation_error_on_blank_transcription() -> None:
+def test_estimate_validation_error_on_short_project_summary() -> None:
     with TestClient(app) as client:
-        response = client.post("/api/v1/estimate", json={"transcription": "   "})
+        response = client.post(
+            "/api/v1/estimate",
+            json=minimal_estimation_request_dict(project_summary="short"),
+        )
     assert response.status_code == 422
 
 
@@ -297,7 +290,7 @@ def test_estimate_returns_503_when_service_raises_estimation_error() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={"transcription": "Any text"},
+                json=minimal_estimation_request_dict(project_description="p" * 100),
             )
     finally:
         app.dependency_overrides.clear()
@@ -312,7 +305,7 @@ def test_estimate_returns_422_for_out_of_domain() -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={"transcription": "Que distancia hay desde la tierra al sol?"},
+                json=out_of_domain_estimation_request_dict(),
             )
     finally:
         app.dependency_overrides.clear()
@@ -337,7 +330,7 @@ def test_estimate_does_not_persist_output_for_503_errors(
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={"transcription": "Any text"},
+                json=minimal_estimation_request_dict(project_description="q" * 100),
             )
     finally:
         app.dependency_overrides.clear()
@@ -362,10 +355,7 @@ def test_estimate_appends_stats_jsonl_when_stats_log_enabled(
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/estimate",
-                json={
-                    "transcription": "Client wants a landing page with a contact form.",
-                    "evaluate": False,
-                },
+                json=minimal_estimation_request_dict(evaluate=False),
             )
     finally:
         app.dependency_overrides.clear()
@@ -409,7 +399,7 @@ def test_estimate_stream_returns_sse_done_event() -> None:
             with client.stream(
                 "POST",
                 "/api/v1/estimate/stream",
-                json={"transcription": "Client wants a landing page with a contact form."},
+                json=minimal_estimation_request_dict(),
             ) as response:
                 body = response.read().decode("utf-8")
                 content_type = response.headers.get("content-type", "")
@@ -430,7 +420,7 @@ def test_estimate_stream_emits_error_event_on_service_failure() -> None:
             with client.stream(
                 "POST",
                 "/api/v1/estimate/stream",
-                json={"transcription": "Client wants a landing page with a contact form."},
+                json=minimal_estimation_request_dict(),
             ) as response:
                 body = response.read().decode("utf-8")
                 headers = response.headers

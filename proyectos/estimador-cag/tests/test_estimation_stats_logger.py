@@ -45,7 +45,7 @@ def test_build_estimation_stats_record_omits_estimation_and_matches_shape() -> N
         request_id="est_abc",
         timestamp=ts,
         latency_ms=5703,
-        prompt_version="v6",
+        prompt_version="v7-guided-input",
         examples_version="file-mode-v4-estimator-layout",
         estimated_cost_usd=0.00041295,
     )

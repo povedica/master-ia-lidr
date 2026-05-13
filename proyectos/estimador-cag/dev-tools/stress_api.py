@@ -12,7 +12,7 @@ Examples (from ``proyectos/estimador-cag``)::
 
 Warning: POST ``/api/v1/estimate`` triggers real provider work unless you use mocks/static
 fallback; prefer ``/health`` for pure load on the stack. The guardrail returns ``422`` with
-``out_of_domain`` when the transcription does not look like a software/project estimate request.
+``out_of_domain`` when the structured request does not look like a software/project estimate.
 """
 
 from __future__ import annotations
@@ -29,6 +29,38 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+def _estimation_request_body_from_seed(text: str) -> dict[str, Any]:
+    """Build a valid ``EstimationRequest`` JSON dict from a free-form seed string."""
+
+    cleaned = text.strip()
+    summary = cleaned.replace("\n", " ").strip()
+    if len(summary) > 200:
+        summary = summary[:197] + "..."
+    if len(summary) < 20:
+        summary = (summary + " software estimation request.").strip()[:200]
+        if len(summary) < 20:
+            summary = summary.ljust(20, ".")
+
+    description = cleaned if len(cleaned) >= 100 else (cleaned + "\n" + "y" * 120)[:12000]
+    return {
+        "project_summary": summary,
+        "project_type": "web_saas",
+        "target_audience": "b2b_smb",
+        "project_description": description,
+        "deliverables": [
+            "User-visible features implied by the narrative",
+            "Persistence layer and APIs as required",
+            "Basic observability and operational safeguards",
+        ],
+        "delivery_urgency": "standard",
+        "data_sensitivity": "internal_business",
+        "detail_level": "medium",
+        "output_format": "phases_table",
+        "preprocessing": "none",
+        "evaluate": True,
+    }
+
 
 ESTIMATION_REQUESTS: list[str] = [
     # ≤ 50 words
@@ -124,7 +156,7 @@ def _parse_args() -> argparse.Namespace:
         "--random-estimation-request",
         action="store_true",
         help=(
-            "Each request sends JSON {\"transcription\": ...} with a random string from "
+            "Each request sends a random structured EstimationRequest JSON body built from "
             "ESTIMATION_REQUESTS (for POST /api/v1/estimate stress). Mutually exclusive "
             "with --json-body and --json-file; requires --method POST."
         ),
@@ -190,7 +222,7 @@ async def _run(args: argparse.Namespace) -> int:
         async with sem:
             if use_random_transcription:
                 payload = json.dumps(
-                    {"transcription": random.choice(ESTIMATION_REQUESTS)},
+                    _estimation_request_body_from_seed(random.choice(ESTIMATION_REQUESTS)),
                     ensure_ascii=False,
                 ).encode("utf-8")
             else:

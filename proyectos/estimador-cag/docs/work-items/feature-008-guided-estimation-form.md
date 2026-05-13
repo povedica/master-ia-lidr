@@ -406,12 +406,12 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 
 ## Acceptance Criteria
 
-- [ ] User can complete an estimate **without** free-form model instructions; long free text is limited to **product description** roles (`project_summary`, `project_description`, capped notes).
-- [ ] `POST /api/v1/estimate` and `POST /api/v1/estimate/stream` accept **only** the structured request (no `transcription`-only public contract).
-- [ ] OpenAPI describes all enums and constraints (list sizes, string lengths).
-- [ ] Server builds the LLM user message from a **versioned template**; template changes bump version metadata.
-- [ ] Streamlit mirrors API fields with primary vs advanced disclosure.
-- [ ] Tests cover validators, render golden fixtures, attachment rejection, and API fakes.
+- [x] User can complete an estimate **without** free-form model instructions; long free text is limited to **product description** roles (`project_summary`, `project_description`, capped notes).
+- [x] `POST /api/v1/estimate` and `POST /api/v1/estimate/stream` accept **only** the structured request (no `transcription`-only public contract).
+- [x] OpenAPI describes all enums and constraints (list sizes, string lengths) via Pydantic `Field` / validators on `EstimationRequest`.
+- [x] Server builds the LLM user message from a **versioned template** (`USER_MESSAGE_TEMPLATE_VERSION` / `PROMPT_VERSION` bump); template changes bump version metadata.
+- [x] Streamlit mirrors API fields with primary vs advanced disclosure.
+- [x] Tests cover validators, render assertions, attachment rejection, and API fakes.
 
 ---
 
@@ -442,12 +442,22 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 
 ---
 
+## Implementation progress
+
+- [x] **Git branch:** `feature/estimador-cag-008-guided-form` (work continues here until merge).
+- [x] Schemas + validators + unit tests (`EstimationRequest`, `Attachment`).
+- [x] `render_estimation_user_message` / `render_estimation_assessment_surface` + `assessment_input` wiring in `EstimationService`.
+- [x] Routers, `stress_api`, API tests, `PROMPT_VERSION` → `v7-guided-input`.
+- [x] Streamlit guided form + expander + optional uploads.
+- [x] README + `docs/technical/README.md` (assessment surface, attachments, curl samples).
+- [ ] **Manual smoke:** FastAPI + Streamlit end-to-end with a small `.txt` attachment (not executed in this session).
+
 ## Verification
 
-- `cd proyectos/estimador-cag && uv run pytest`
+- `cd proyectos/estimador-cag && uv run pytest` — **148 passed** (automated, this session).
 - Manual: FastAPI + Streamlit as above.
 
-**Verified / not verified / residual risk:** Planning-only until implementation. Residual: assessment vs template trade-off and `detail_level` vs `EstimationMode` precedence if both influence behavior.
+**Verified / not verified / residual risk:** Automated suite verified. Manual Streamlit + attachment path **not** verified here. Residual: `detail_level` vs inferred `EstimationMode` precedence remains unchanged (explicit coupling still optional follow-up).
 
 ---
 
@@ -457,5 +467,6 @@ Replace router usage of `EstimateRequest.transcription` with this model (rename 
 |------------|---------|-----------------|
 | `a1f3aa3` | `chore(cursor): add product-strategy-analyst agent and output folder` | Adds the Cursor agent definition and `docs/agent_outputs/product-strategy-analyst/README.md` for output naming conventions. |
 | `a362d75` | `docs(estimador-cag): add feature-008 guided estimation form work item` | Canonical work item: guided form spec, enums, risks, API mapping, acceptance criteria, and verification notes. |
+| `f8540b4` | `feat(estimador-cag): guided EstimationRequest form and render pipeline` | `EstimationRequest`, render module, `assessment_input`, routers, Streamlit, tests, README and technical docs. |
 
-Add rows during implementation (schemas, renderer, routers, Streamlit, tests, docs).
+_Add further rows only if the work splits across additional commits._

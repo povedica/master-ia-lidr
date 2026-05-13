@@ -1,6 +1,6 @@
 # Estimador CAG
 
-FastAPI service that turns a meeting transcription into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded per estimation mode from `app/context/examples/<basic|standard|professional|expert_review>/*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request; modes without samples yet fall back to `standard`), and injected into the system prompt; the live meeting text is sent as the user message.
+FastAPI service that turns **structured project context** (guided form / JSON) into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded per estimation mode from `app/context/examples/<basic|standard|professional|expert_review>/*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request; modes without samples yet fall back to `standard`), and injected into the system prompt; the composed project brief is sent as the user message.
 
 ## Documentation mirror
 
@@ -49,7 +49,7 @@ Browsers may request `/favicon.ico`; there is no favicon asset, so that request 
 
 ## Streamlit demo UI (manual testing)
 
-Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event). You must run **FastAPI and Streamlit in two terminals** so the UI can reach the API.
+Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP with the same structured JSON as `POST /api/v1/estimate` and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event). You must run **FastAPI and Streamlit in two terminals** so the UI can reach the API.
 
 **Terminal 1 — API**
 
@@ -111,8 +111,24 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv r
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -H "Content-Type: application/json" \
-  -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
+  -d '{
+    "project_summary": "B2B portal for partners to submit requests and track SLA status.",
+    "project_type": "web_saas",
+    "target_audience": "b2b_smb",
+    "project_description": "The client needs a responsive web application for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards. Integrations with existing CRM are out of scope for the first milestone. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "deliverables": [
+      "Partner authentication with SSO and role-based access control",
+      "Configurable ticket intake forms and commenting threads",
+      "Operations dashboards with CSV export and saved filters"
+    ],
+    "delivery_urgency": "standard",
+    "data_sensitivity": "internal_business",
+    "detail_level": "medium",
+    "output_format": "phases_table"
+  }'
 ```
+
+**Migration:** the legacy `transcription`-only JSON body is removed. Clients must send the structured **`EstimationRequest`** shape (see OpenAPI at `/docs` and `app/schemas/estimation_request.py`).
 
 Optional JSON body fields (same `POST`):
 
@@ -277,7 +293,7 @@ With `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v6",
+  "prompt_version": "v7-guided-input",
   "examples_version": "file-mode-v4-estimator-layout",
   "score": 0.6125,
   "usage": {

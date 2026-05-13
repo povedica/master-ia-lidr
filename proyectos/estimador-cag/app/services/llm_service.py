@@ -33,7 +33,7 @@ from app.services.llm_types import (
 )
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "v6"
+PROMPT_VERSION = "v7-guided-input"
 EXAMPLES_VERSION = "file-mode-v4-estimator-layout"
 
 _EXTRACTION_MAX_TOKENS = 1500
@@ -180,6 +180,7 @@ class EstimationService:
         transcription: str,
         *,
         preprocessing: str = "none",
+        assessment_input: str | None = None,
     ) -> AsyncIterator[str]:
         """Yield SSE events for chunk, done, and error using native upstream streaming.
 
@@ -195,7 +196,11 @@ class EstimationService:
         """
 
         try:
-            prepared = await self._prepare_call(transcription, preprocessing=preprocessing)
+            prepared = await self._prepare_call(
+                transcription,
+                preprocessing=preprocessing,
+                assessment_input=assessment_input,
+            )
         except DomainGuardrailError as exc:
             yield self.serialize_sse_event(
                 "error",
@@ -352,24 +357,32 @@ class EstimationService:
         transcription: str,
         *,
         preprocessing: str = "none",
+        assessment_input: str | None = None,
     ) -> _PreparedCall:
         """Run the shared prelude (guardrail, mode, preprocessing) for both estimate paths.
 
         Raises `EstimationError` for invalid input or `DomainGuardrailError` for
         out-of-domain transcriptions.
+
+        ``transcription`` is the full user message sent to the model (after preprocessing).
+        When ``assessment_input`` is set, domain guardrail and adaptive mode selection run
+        on that narrower surface instead of the full templated message.
         """
 
         text = transcription.strip()
         if not text:
             raise EstimationError("Transcription must not be empty.")
 
+        surface_raw = assessment_input.strip() if assessment_input else ""
+        surface = surface_raw if surface_raw else text
+
         if self._settings.llm_domain_guardrail_enabled:
-            domain_decision = check_estimation_domain(text)
+            domain_decision = check_estimation_domain(surface)
             if not domain_decision.accepted:
                 logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
                 raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
-        raw_assessment, recommended_mode = assess_and_select_mode(text)
+        raw_assessment, recommended_mode = assess_and_select_mode(surface)
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
@@ -443,10 +456,20 @@ class EstimationService:
             "Two-phase preprocessing requires at least one live LLM provider before static fallback."
         )
 
-    async def estimate(self, transcription: str, *, preprocessing: str = "none") -> EstimationResult:
+    async def estimate(
+        self,
+        transcription: str,
+        *,
+        preprocessing: str = "none",
+        assessment_input: str | None = None,
+    ) -> EstimationResult:
         """Return generated estimation plus provider usage metadata."""
 
-        prepared = await self._prepare_call(transcription, preprocessing=preprocessing)
+        prepared = await self._prepare_call(
+            transcription,
+            preprocessing=preprocessing,
+            assessment_input=assessment_input,
+        )
         system_prompt = prepared.system_prompt
         user_text = prepared.user_text
         mode = prepared.mode

@@ -42,7 +42,7 @@ app = FastAPI(
     title="Estimador CAG",
     description=(
         "Minimal Context-Augmented Generation API: few-shot estimation examples "
-        "in the system prompt plus a meeting transcription from the client."
+        "in the system prompt plus structured project context from the client."
     ),
     version="0.1.0",
     lifespan=lifespan,

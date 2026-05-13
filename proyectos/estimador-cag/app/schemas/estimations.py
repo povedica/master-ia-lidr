@@ -4,42 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.services.estimation_engine import EstimationMode
-
-
-class EstimateRequest(BaseModel):
-    """Inbound meeting transcription to estimate."""
-
-    transcription: str = Field(..., min_length=1)
-    evaluate: bool = Field(
-        default=True,
-        description="When true, run ``evaluate_estimation_structure`` (same as ai-engineering/estimator) and include score, structure_evaluation, and mode-specific output_validation.",
-    )
-    preprocessing: str = Field(
-        default="none",
-        description="Input preprocessing: none | inline_cleaning | two_phase (see docs).",
-    )
-
-    @field_validator("transcription")
-    @classmethod
-    def strip_transcription(cls, value: str) -> str:
-        """Reject blank strings after trimming whitespace."""
-
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("transcription must not be empty")
-        return stripped
-
-    @field_validator("preprocessing")
-    @classmethod
-    def normalize_preprocessing(cls, value: str) -> str:
-        allowed = {"none", "inline_cleaning", "two_phase"}
-        key = value.strip().lower()
-        if key not in allowed:
-            raise ValueError(f"preprocessing must be one of {sorted(allowed)}")
-        return key
 
 
 class StructureCheckView(BaseModel):

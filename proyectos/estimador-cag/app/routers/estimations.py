@@ -10,8 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from app.config import Settings, get_settings
-from app.schemas.estimations import EstimateRequest, EstimateResponse, UsageView
+from app.schemas.estimation_request import EstimationRequest
+from app.schemas.estimations import EstimateResponse, UsageView
 from app.services.estimate_response_builder import assemble_estimate_response, estimate_cost_usd
+from app.services.estimation_request_render import (
+    render_estimation_assessment_surface,
+    render_estimation_user_message,
+)
 from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import DomainGuardrailError, EXAMPLES_VERSION, PROMPT_VERSION, EstimationError, EstimationService
 from app.services.estimation_stats_logger import (
@@ -41,16 +46,22 @@ def get_estimation_service(
     response_model_exclude_none=True,
 )
 async def create_estimate(
-    body: EstimateRequest,
+    body: EstimationRequest,
     service: Annotated[EstimationService, Depends(get_estimation_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EstimateResponse:
-    """Run CAG-style estimation for a single meeting transcription."""
+    """Run CAG-style estimation from a structured guided-form payload."""
 
     start = perf_counter()
     request_id = f"est_{uuid4().hex[:12]}"
+    user_message = render_estimation_user_message(body)
+    assessment_surface = render_estimation_assessment_surface(body)
     try:
-        result = await service.estimate(body.transcription, preprocessing=body.preprocessing)
+        result = await service.estimate(
+            user_message,
+            preprocessing=body.preprocessing,
+            assessment_input=assessment_surface,
+        )
     except DomainGuardrailError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -126,13 +137,19 @@ async def create_estimate(
 
 @router.post("/estimate/stream")
 async def create_estimate_stream(
-    body: EstimateRequest,
+    body: EstimationRequest,
     service: Annotated[EstimationService, Depends(get_estimation_service)],
 ) -> StreamingResponse:
     """Stream estimation output using SSE."""
 
+    user_message = render_estimation_user_message(body)
+    assessment_surface = render_estimation_assessment_surface(body)
     return StreamingResponse(
-        service.stream_estimation(body.transcription, preprocessing=body.preprocessing),
+        service.stream_estimation(
+            user_message,
+            preprocessing=body.preprocessing,
+            assessment_input=assessment_surface,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
