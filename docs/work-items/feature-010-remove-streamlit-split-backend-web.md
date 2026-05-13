@@ -189,21 +189,31 @@ project-root/
 - **Compose migration:** replacing `streamlit` with `web` is in scope because Compose is already part of the supported developer workflow. This should be treated as migration work, not as a broader deployment redesign.
 - **Scope creep risk:** this feature should not become a redesign of the estimation request, SSE protocol, LiteLLM integration, Langfuse observability, persistence, caching, visual design system, or production deployment.
 
+## Implementation progress
+
+- [x] Step 1–2: `FRONTEND_ORIGINS`, `app/cors.py`, `CORSMiddleware`, tests (`tests/test_cors.py`, `tests/test_config.py`).
+- [x] Step 3: `web/` scaffold (Vite, React, TS, Tailwind v4, Zod, Vitest).
+- [x] Step 4–5: `estimateApi.ts`, `useEstimateStream.ts`, `sseParser.ts` + tests.
+- [x] Step 6: `requestMapper.ts` + Zod + tests.
+- [x] Step 7: `EstimationWorkbench.tsx`, `fileToBase64.ts`, progressive markdown via `react-markdown`.
+- [x] Step 8: `Dockerfile.web`, `docker-compose.yml` `web` service, `docker-compose.dev.yml` Streamlit removed, `pyproject.toml` / `uv.lock` without Streamlit, deleted `app/streamlit_app.py` and Streamlit-only helpers/tests.
+- [x] Step 9: Docs (`README.md`, `docs/technical/README.md`, `.env.example`, `web/README.md`); `docker compose config -q`; `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` (151 passed).
+
 ## Acceptance Criteria
 
-- [ ] `streamlit` is removed from active project dependencies and no supported run command relies on Streamlit.
-- [ ] The backend still starts with `uv run uvicorn app.main:app --reload`.
-- [ ] A new `web/` application built with `React + Vite + TypeScript`, `Tailwind CSS`, and `Zod` starts independently and can submit estimation requests to the backend.
-- [ ] The browser UI displays successful estimation results without using Streamlit.
-- [ ] The browser UI uses `POST /api/v1/estimate/stream` and renders progressive output from `chunk` events.
-- [ ] The frontend works against the current `EstimationRequest` contract without incompatible changes to `POST /api/v1/estimate` or `POST /api/v1/estimate/stream`.
-- [ ] The backend remains the only place where estimation logic and provider orchestration live.
-- [ ] CORS is configured through typed settings and works for local frontend development.
-- [ ] `FRONTEND_ORIGINS` is documented in `.env.example`, and `VITE_API_BASE_URL` is documented for the frontend.
-- [ ] `docker-compose.yml` no longer starts Streamlit and instead supports the new `web` frontend.
-- [ ] `README.md` explains how to run backend and frontend separately.
-- [ ] Browser-visible validation/provider errors are rendered as readable UI feedback for at least invalid request and backend failure cases.
-- [ ] No Langfuse, PostgreSQL, Redis, or other evolutive platform work is required to consider this feature done.
+- [x] `streamlit` is removed from active project dependencies and no supported run command relies on Streamlit.
+- [x] The backend still starts with `uv run uvicorn app.main:app --reload`.
+- [x] A new `web/` application built with `React + Vite + TypeScript`, `Tailwind CSS`, and `Zod` starts independently and can submit estimation requests to the backend.
+- [x] The browser UI displays successful estimation results without using Streamlit.
+- [x] The browser UI uses `POST /api/v1/estimate/stream` and renders progressive output from `chunk` events.
+- [x] The frontend works against the current `EstimationRequest` contract without incompatible changes to `POST /api/v1/estimate` or `POST /api/v1/estimate/stream`.
+- [x] The backend remains the only place where estimation logic and provider orchestration live.
+- [x] CORS is configured through typed settings and works for local frontend development.
+- [x] `FRONTEND_ORIGINS` is documented in `.env.example`, and `VITE_API_BASE_URL` is documented for the frontend.
+- [x] `docker-compose.yml` no longer starts Streamlit and instead supports the new `web` frontend.
+- [x] `README.md` explains how to run backend and frontend separately.
+- [x] Browser-visible validation/provider errors are rendered as readable UI feedback for at least invalid request and backend failure cases.
+- [x] No Langfuse, PostgreSQL, Redis, or other evolutive platform work is required to consider this feature done.
 
 ## Test Plan
 
@@ -225,12 +235,9 @@ project-root/
 
 ## Verification
 
-- Pre-implementation: specification only; no code or runtime changes made in this work item.
-- Implementation-done evidence for the future task:
-  - focused automated checks for backend changes,
-  - manual backend + frontend smoke test,
-  - updated docs and `.env.example`,
-  - no Streamlit runtime left in the supported developer path.
+- **Automated:** `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` — 151 passed (CORS/settings module tests, existing API tests). `cd web && npm run test` — Vitest (`sseParser`, `requestMapper`). `cd web && npm run build`. `docker compose config -q`.
+- **Not verified in this session:** Full `docker compose up --build` image build and browser E2E smoke against live LLM keys; manual checklist in §Test Plan should be run locally before closing the PR.
+- **Residual risk:** Local pytest can be sensitive to unrelated exported env vars (e.g. `GEMINI_API_KEY`, `DEFAULT_LLM_PROVIDER`); CI should use a clean env. Compose `web` image bakes `VITE_API_BASE_URL` at build time — override build arg if the published API URL differs.
 
 ## Documentation Plan
 
@@ -243,15 +250,15 @@ project-root/
 
 ## Baby Steps
 
-1. Document the current Streamlit-coupled surface: dependency, Compose service, run commands, and docs references.
-2. Define backend `FRONTEND_ORIGINS` settings and wire `CORSMiddleware` in `app/main.py`.
-3. Scaffold `web/` with `React + Vite + TypeScript`, without routing or global state libraries.
-4. Implement a minimal frontend API client using `VITE_API_BASE_URL`.
-5. Implement a reusable SSE parser for `chunk`, `done`, and `error`.
-6. Implement the minimum guided form and map it to the current `EstimationRequest`.
-7. Recreate the essential Streamlit user flow in the web UI: submit, streaming output, loading, result, and error states.
-8. Replace Streamlit in active runtime pieces: dependency graph, Compose, and docs.
-9. Run focused verification and confirm the supported workflow is now backend + web in both local dev and Compose.
+1. ~~Document the current Streamlit-coupled surface~~ (superseded by implementation).
+2. ~~Define backend `FRONTEND_ORIGINS` settings and wire `CORSMiddleware` in `app/main.py`.~~
+3. ~~Scaffold `web/` with `React + Vite + TypeScript`, without routing or global state libraries.~~
+4. ~~Implement a minimal frontend API client using `VITE_API_BASE_URL`.~~
+5. ~~Implement a reusable SSE parser for `chunk`, `done`, and `error`.~~
+6. ~~Implement the minimum guided form and map it to the current `EstimationRequest`.~~
+7. ~~Recreate the essential Streamlit user flow in the web UI: submit, streaming output, loading, result, and error states.~~
+8. ~~Replace Streamlit in active runtime pieces: dependency graph, Compose, and docs.~~
+9. ~~Run focused verification and confirm the supported workflow is now backend + web in both local dev and Compose.~~ (Compose runtime smoke: operator checklist.)
 
 ---
 
@@ -261,3 +268,12 @@ project-root/
 |------------|---------|-----------------|
 | `e14e563` | `docs(estimador-cag): add feature-010 remove Streamlit work item` | Canonical spec for splitting Streamlit UI from FastAPI: React+Vite+TypeScript, Tailwind, Zod, REST+SSE; Langfuse, PostgreSQL, Redis, and LiteLLM redesign explicitly out of scope. |
 | `d5e1286` | `docs(estimador-cag): backfill commit hash in feature-010 work item` | Replace the `pending` placeholder in the commit log with the short hash of the work item document commit. |
+| `c444e37` | `feat(api): add configurable CORS for frontend origins` | `Settings.frontend_origins` / `frontend_origins_list()`, `app/cors.py`, wire in `app/main.py`, `.env.example`, tests. |
+| `fe31491` | `chore(web): scaffold React Vite TS app with Tailwind and Zod` | `web/` Vite template, Tailwind v4, Vitest config, minimal `App`. |
+| `0601b71` | `test(web): add Vitest and SSE stream parser tests` | `sseParser.ts` + tests mirroring Streamlit SSE framing. |
+| `9f4b514` | `feat(web): map guided form state to estimation request payload` | Zod `estimationFormSchema`, `mapEstimationFormToRequestBody`, unit tests. |
+| `1358ad4` | `feat(web): add estimation streaming UI and API client` | `EstimationWorkbench`, `useEstimateStream`, `estimateApi`, `fileToBase64`, `react-markdown`, `web/nginx/default.conf`. |
+| `3e4bfe5` | `chore(docker): serve static web UI and replace Streamlit in compose` | `Dockerfile.web`, `docker-compose.yml` / `docker-compose.dev.yml`, root `Dockerfile` EXPOSE. |
+| `472d55e` | `chore!: remove streamlit dependency and demo entrypoint` | Drop `streamlit` from `pyproject.toml` / `uv.lock`; remove `app/streamlit_app.py`, `app/streamlit_error_messages.py`, `tests/test_streamlit_error_messages.py`. |
+| `ea6315b` | `docs: document backend-web workflow and CORS settings` | `README.md`, `docs/technical/README.md`, `.env.example`. |
+| `858aab4` | `docs(estimador-cag): mark feature-010 implemented and log commits` | Canonical work item: acceptance, verification, implementation progress, repository commit table. |
