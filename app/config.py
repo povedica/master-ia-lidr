@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     app_env: str = "local"
     dev_mode: bool = False
     log_level: str = "INFO"
+    frontend_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        description="Comma-separated browser origins allowed for CORS (local Vite defaults).",
+    )
     anthropic_api_key: str = ""
     # Claude 3.5 Haiku snapshots were retired (see SDK ``DEPRECATED_MODELS``); use current Haiku 4.5 id.
     anthropic_model: str = "claude-haiku-4-5-20251001"
@@ -67,6 +71,12 @@ class Settings(BaseSettings):
         if "/" in raw:
             return raw
         return f"anthropic/{raw}"
+
+    def frontend_origins_list(self) -> list[str]:
+        """Return trimmed non-empty origins from ``frontend_origins``."""
+
+        parts = [part.strip() for part in self.frontend_origins.split(",")]
+        return [part for part in parts if part]
 
     def completion_token_cap_for_mode(self, mode: EstimationMode) -> int:
         """Upper bound passed to providers as max output tokens for this mode."""

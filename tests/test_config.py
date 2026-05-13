@@ -145,6 +145,31 @@ def test_openai_litellm_model_id_prefixes_short_model_names() -> None:
     assert settings.openai_litellm_model_id() == "openai/gpt-4o-mini"
 
 
+def test_frontend_origins_list_default_includes_local_vite_dev_servers() -> None:
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.frontend_origins_list() == [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
+def test_frontend_origins_list_parses_comma_separated_env_style_string() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="sk-test",
+        frontend_origins="http://a.example:3000, http://b.example:3000 ,",
+    )
+    assert settings.frontend_origins_list() == [
+        "http://a.example:3000",
+        "http://b.example:3000",
+    ]
+
+
+def test_frontend_origins_list_empty_when_blank() -> None:
+    settings = Settings(_env_file=None, openai_api_key="sk-test", frontend_origins="  ,  ")
+    assert settings.frontend_origins_list() == []
+
+
 def test_openai_litellm_model_id_passthrough_when_already_prefixed() -> None:
     settings = Settings(
         _env_file=None,
