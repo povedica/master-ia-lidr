@@ -259,4 +259,4 @@ project-root/
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| `pending` | `docs(estimador-cag): add feature-010 remove Streamlit work item` | Canonical spec for splitting Streamlit UI from FastAPI: React+Vite+TypeScript, Tailwind, Zod, REST+SSE; Langfuse, PostgreSQL, Redis, and LiteLLM redesign explicitly out of scope. |
+| `e14e563` | `docs(estimador-cag): add feature-010 remove Streamlit work item` | Canonical spec for splitting Streamlit UI from FastAPI: React+Vite+TypeScript, Tailwind, Zod, REST+SSE; Langfuse, PostgreSQL, Redis, and LiteLLM redesign explicitly out of scope. |
