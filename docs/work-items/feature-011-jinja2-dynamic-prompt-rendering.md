@@ -1383,3 +1383,4 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `3497d74` | `docs(work-items): add feature-011 Jinja2 and structured output spec` | Track the full feature-011 specification in the versioned `docs/work-items/` mirror so it ships with the repository. |
+| `05c841a` | `docs(work-items): fix repository commit log hash in feature-011` | Replace the incorrect short hash in the commit log row with `3497d74` for the initial mirror commit. |
