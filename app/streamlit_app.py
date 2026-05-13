@@ -39,6 +39,13 @@ logger = logging.getLogger(__name__)
 
 _PREPROCESSING_OPTIONS: tuple[str, ...] = ("none", "inline_cleaning", "two_phase")
 _DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
+
+
+def _api_base_url_from_env() -> str:
+    """Resolve default API base URL; empty ``ESTIMATOR_API_BASE_URL`` falls back to localhost."""
+
+    raw = (os.environ.get("ESTIMATOR_API_BASE_URL") or "").strip()
+    return raw if raw else _DEFAULT_API_BASE_URL
 _STREAM_TIMEOUT_SECONDS = 120.0
 _INDUSTRY_NONE = "(none)"
 
@@ -194,9 +201,12 @@ def _iter_stream_events(
     except httpx.ConnectError as exc:
         raise EstimationError(
             "Cannot reach the FastAPI backend (connection refused). "
-            "Start it from the repository root with "
-            "`uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`, "
-            "and ensure the FastAPI base URL matches."
+            "In the left sidebar under **Backend**, set **FastAPI base URL** to a URL this "
+            "Streamlit process can reach (API on this machine: http://127.0.0.1:8000; "
+            "Streamlit inside Docker with API on host port 8000: http://host.docker.internal:8000). "
+            "Start the API with `docker compose up --build` (service `app` on port 8000) "
+            "or from the repository root with "
+            "`uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`."
         ) from exc
 
 
@@ -232,6 +242,28 @@ def main() -> None:
         "Fill in the guided form (product context). The app streams markdown from "
         "`POST /api/v1/estimate/stream` using the same JSON body as the REST API."
     )
+
+    _env_api = (os.environ.get("ESTIMATOR_API_BASE_URL") or "").strip()
+    _compose_injected = _env_api.startswith(("http://app:", "https://app:")) or (
+        "host.docker.internal" in _env_api
+    )
+    if _compose_injected and _env_api:
+        st.session_state["fastapi_base_url"] = _env_api
+    elif "fastapi_base_url" not in st.session_state:
+        st.session_state["fastapi_base_url"] = _api_base_url_from_env()
+
+    with st.sidebar:
+        st.subheader("Backend")
+        api_base_url = st.text_input(
+            "FastAPI base URL",
+            key="fastapi_base_url",
+            help=(
+                "URL this Streamlit process uses to reach FastAPI (server-side HTTP, not your browser). "
+                "Local API on this machine: http://127.0.0.1:8000. "
+                "Streamlit in Docker (API published on host port 8000): http://host.docker.internal:8000 "
+                "(set via ESTIMATOR_API_BASE_URL in compose)."
+            ),
+        )
 
     def _enum_values(enum_cls: type) -> list[str]:
         return [m.value for m in enum_cls]
@@ -338,11 +370,6 @@ def main() -> None:
             "Structure evaluation (`evaluate`)",
             value=True,
             help="Parity with REST default; does not change SSE chunks.",
-        )
-        api_base_url = st.text_input(
-            "FastAPI base URL",
-            value=os.environ.get("ESTIMATOR_API_BASE_URL", _DEFAULT_API_BASE_URL),
-            help="Base URL where FastAPI is running (example: http://127.0.0.1:8000).",
         )
 
     submit = st.button("Generate estimate", type="primary")
