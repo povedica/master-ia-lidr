@@ -9,8 +9,8 @@ Create or refine one canonical requirement document before implementation.
 - A bug, experiment, or case needs a documented source of truth.
 
 ## Default Destinations
-- Project work item: `second-brain-master-ia/proyectos/<project>/work-items/`
-- Session-scoped work: `second-brain-master-ia/proyectos/<project>/sesiones/`
+- Project work item: `learnings/second-brain-master-ia/proyectos/<project>/work-items/`
+- Session-scoped work: `learnings/second-brain-master-ia/proyectos/<project>/sesiones/`
 
 ## Document Types (filename prefix)
 - `feature-` user-facing capability, endpoint, or service behavior.

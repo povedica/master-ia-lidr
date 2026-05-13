@@ -9,12 +9,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock README.md ./
 COPY app ./app
 
-RUN uv sync --frozen --no-cache
+RUN uv sync --frozen --no-cache --no-group dev
 
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+EXPOSE 8000 8501
 
-EXPOSE 8000
-
-ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,62 @@
+# Merge with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Named volumes hide the host's `.venv` from the bind mount. Otherwise `uv sync`
+# inside the container conflicts with a macOS/Linux `.venv` (broken symlinks,
+# "Directory not empty" when recreating `lib/`).
+
+volumes:
+  app_uv_venv:
+  streamlit_uv_venv:
+
+services:
+  app:
+    volumes:
+      - .:/app
+      - app_uv_venv:/app/.venv
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint-dev.sh"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 180s
+    command:
+      - uv
+      - run
+      - uvicorn
+      - app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload
+
+  streamlit:
+    volumes:
+      - .:/app
+      - streamlit_uv_venv:/app/.venv
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint-dev.sh"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      ESTIMATOR_API_BASE_URL: http://host.docker.internal:8000
+    command:
+      - uv
+      - run
+      - streamlit
+      - run
+      - app/streamlit_app.py
+      - --server.address
+      - "0.0.0.0"
+      - --server.port
+      - "8501"

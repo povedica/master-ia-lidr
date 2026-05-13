@@ -1,25 +1,71 @@
-from fastapi import FastAPI, HTTPException
+"""FastAPI application entrypoint."""
 
-from app.llm_demo import openai_responses_demo
-from app.schemas_llm import ChatDemoRequest
+import logging
+import os
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Master IA")
+from fastapi import FastAPI
+
+from app.config import get_settings
+from app.routers import estimations
+from app.services.llm_chain import build_provider_chain
+
+_log_level = os.environ.get("LOG_LEVEL", "INFO")
+logging.basicConfig(
+    level=getattr(logging, _log_level.upper(), logging.INFO),
+    format="%(levelname)s %(name)s %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Log safe startup context (no secrets)."""
+
+    settings = get_settings()
+    providers = build_provider_chain(settings)
+    provider_names = [provider.name for provider in providers]
+    logging.getLogger(__name__).info(
+        "chain_built",
+        extra={
+            "providers": provider_names,
+            "static_fallback_enabled": settings.static_fallback_enabled,
+        },
+    )
+    logging.getLogger(__name__).info(
+        "app_startup",
+        extra={"app_env": settings.app_env, "providers": provider_names},
+    )
+    yield
+
+
+app = FastAPI(
+    title="Estimador CAG",
+    description=(
+        "Minimal Context-Augmented Generation API: few-shot estimation examples "
+        "in the system prompt plus structured project context from the client."
+    ),
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.include_router(estimations.router, prefix="/api/v1")
 
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"mensaje": "¡Hola desde FastAPI!"}
+    """Human-friendly entry when opening the base URL in a browser."""
+
+    return {
+        "service": "Estimador CAG",
+        "docs": "/docs",
+        "health": "/health",
+        "estimate": "POST /api/v1/estimate",
+        "estimate_stream": "POST /api/v1/estimate/stream",
+    }
 
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None) -> dict:
-    return {"item_id": item_id, "q": q}
+@app.get("/health")
+def health() -> dict[str, str]:
+    """Liveness probe for orchestrators and local checks."""
 
-
-@app.post("/llm/demo")
-def llm_demo(body: ChatDemoRequest) -> dict:
-    """Demo de OpenAI Responses API. Requiere OPENAI_API_KEY en el servidor."""
-    try:
-        return openai_responses_demo(body)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"status": "ok"}

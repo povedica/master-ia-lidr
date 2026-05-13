@@ -15,7 +15,7 @@ todos:
     content: "README.md: propósito, enlace, Docker, uv, comandos verificación host vs contenedor"
     status: completed
   - id: symlink
-    content: Crear second-brain-master-ia -> ruta Second Brain (comprobar destino)
+    content: Crear learnings/second-brain-master-ia -> ruta Second Brain (comprobar destino)
     status: completed
   - id: verify
     content: Build compose y validar docker/uv/python/fastapi según README
@@ -59,11 +59,11 @@ En [master-ia](.) solo existe [master-ia.code-workspace](master-ia.code-workspac
 
 `/Users/pablo.poveda/CodeProjects/ticktick/docs/second-brain/03 Projects/Trabajo/Master IA`
 
-- En la raíz del repo, crear un symlink con un nombre estable y claro, por ejemplo **`second-brain-master-ia`** (si prefieres otro nombre, se puede cambiar en un solo comando).
+- Bajo `learnings/`, crear un symlink con un nombre estable y claro, por ejemplo **`second-brain-master-ia`** (si prefieres otro nombre, se puede cambiar en un solo comando).
 
 - Comando tipo (a ejecutar al implementar, comprobando antes que el destino exista):
 
-`ln -s "/Users/pablo.poveda/CodeProjects/ticktick/docs/second-brain/03 Projects/Trabajo/Master IA" second-brain-master-ia`
+`ln -s "/Users/pablo.poveda/CodeProjects/ticktick/docs/second-brain/03 Projects/Trabajo/Master IA" learnings/second-brain-master-ia`
 
 - En README: documentar que es solo un acceso rápido a Obsidian/Second Brain y que no versiona el contenido del otro repo (el symlink puede romperse en otra máquina).
 
