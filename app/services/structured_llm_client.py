@@ -52,7 +52,9 @@ async def complete_structured(
 ) -> tuple[TModel, UsageInfo | None, str | None]:
     """Return a validated Pydantic instance, optional usage, and finish_reason."""
 
-    client = instructor.from_litellm(acompletion, max_retries=0)
+    # Do not pass max_retries here: Instructor forwards it into LiteLLM's ``acompletion``,
+    # which then collides with Instructor's own kwargs (``TypeError: multiple values for max_retries``).
+    client = instructor.from_litellm(acompletion)
     last_exc: BaseException | None = None
     for attempt in range(max(1, max_attempts)):
         try:
