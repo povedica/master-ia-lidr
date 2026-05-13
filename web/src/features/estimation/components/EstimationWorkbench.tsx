@@ -200,61 +200,78 @@ function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) 
     ? (data.line_items as Record<string, unknown>[])
     : []
 
+  const metricCards: { label: string; value: string }[] = [
+    { label: 'Total hours', value: hours !== null ? String(hours) : '—' },
+    { label: 'Total EUR', value: cost !== null ? cost.toLocaleString() : '—' },
+    { label: 'Duration (weeks)', value: duration },
+    { label: 'Confidence', value: confidence },
+  ]
+
   return (
-    <div className="mt-4 space-y-6 text-sm text-slate-800 dark:text-slate-200">
-      <div>
-        <h3 className="text-base font-medium text-slate-900 dark:text-white">{title}</h3>
-        {summary ? <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">{summary}</p> : null}
-      </div>
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
-          <dt className="text-xs uppercase text-slate-500">Total hours</dt>
-          <dd className="mt-1 font-semibold tabular-nums">{hours !== null ? hours : '—'}</dd>
-        </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
-          <dt className="text-xs uppercase text-slate-500">Total EUR</dt>
-          <dd className="mt-1 font-semibold tabular-nums">{cost !== null ? cost.toLocaleString() : '—'}</dd>
-        </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
-          <dt className="text-xs uppercase text-slate-500">Duration (weeks)</dt>
-          <dd className="mt-1 font-semibold tabular-nums">{duration}</dd>
-        </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
-          <dt className="text-xs uppercase text-slate-500">Confidence</dt>
-          <dd className="mt-1 font-semibold tabular-nums">{confidence}</dd>
-        </div>
-      </dl>
-      {lineItems.length > 0 ? (
+    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-6 sm:p-8 dark:border-slate-700 dark:bg-slate-900/35">
+      <div className="space-y-8">
         <div>
-          <h4 className="mb-2 font-medium text-slate-900 dark:text-white">Line items</h4>
-          <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full border-collapse text-left text-xs">
-              <thead className="bg-slate-100 dark:bg-slate-900">
-                <tr>
-                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">Name</th>
-                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">Hours</th>
-                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">EUR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((row, i) => (
-                  <tr key={i} className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-950 dark:even:bg-slate-900/50">
-                    <td className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
-                      {String(row.name ?? '')}
-                    </td>
-                    <td className="border-b border-slate-100 px-3 py-2 tabular-nums dark:border-slate-800">
-                      {typeof row.hours === 'number' ? row.hours : '—'}
-                    </td>
-                    <td className="border-b border-slate-100 px-3 py-2 tabular-nums dark:border-slate-800">
-                      {typeof row.cost_eur === 'number' ? row.cost_eur : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h3>
+          {summary ? (
+            <p className="mt-3 max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-300">{summary}</p>
+          ) : null}
         </div>
-      ) : null}
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {metricCards.map(({ label, value }) => (
+            <div
+              key={label}
+              className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-600 dark:bg-slate-950"
+            >
+              <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {label}
+              </dt>
+              <dd className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {lineItems.length > 0 ? (
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Line items</h4>
+            <div className="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-950">
+              <table className="min-w-full border-collapse text-left text-xs">
+                <thead className="bg-slate-100 dark:bg-slate-900">
+                  <tr>
+                    <th className="border-b border-slate-200 px-3 py-2 font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                      Name
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                      Hours
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                      EUR
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((row, i) => (
+                    <tr
+                      key={i}
+                      className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-950 dark:even:bg-slate-900/50"
+                    >
+                      <td className="border-b border-slate-100 px-3 py-2 text-slate-800 dark:border-slate-800 dark:text-slate-200">
+                        {String(row.name ?? '')}
+                      </td>
+                      <td className="border-b border-slate-100 px-3 py-2 tabular-nums text-slate-800 dark:border-slate-800 dark:text-slate-200">
+                        {typeof row.hours === 'number' ? row.hours : '—'}
+                      </td>
+                      <td className="border-b border-slate-100 px-3 py-2 tabular-nums text-slate-800 dark:border-slate-800 dark:text-slate-200">
+                        {typeof row.cost_eur === 'number' ? row.cost_eur : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -808,7 +825,7 @@ export function EstimationWorkbench() {
 
       {structuredResult ? (
         <section className="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Estimate (structured)</h2>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Estimate (structured)</h2>
           <StructuredEstimateSummary data={structuredResult} />
         </section>
       ) : markdown ? (
