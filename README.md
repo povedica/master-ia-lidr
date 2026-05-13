@@ -44,7 +44,24 @@ Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)** in
 
 Configuration reads **`.env` by absolute path** (next to the `app/` package), so variables such as `FORCED_ESTIMATION_MODE` still apply when you start Uvicorn from another working directory.
 
-## Run the API
+## Run with Docker (API + Streamlit)
+
+From the repository root, after `cp .env.example .env` and filling API keys:
+
+```bash
+docker compose up --build
+```
+
+- **FastAPI:** `http://127.0.0.1:8000` (health: `/health`, docs: `/docs`)
+- **Streamlit:** `http://127.0.0.1:8501` — Compose sets `ESTIMATOR_API_BASE_URL=http://host.docker.internal:8000` for the Streamlit container so server-side calls hit the same published API as `http://127.0.0.1:8000` in the browser.
+
+For bind-mounted code and `--reload` on the API (and the same Streamlit service), use:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+## Run the API (without Docker)
 
 ```bash
 
@@ -59,12 +76,15 @@ Browsers may request `/favicon.ico`; there is no favicon asset, so that request 
 
 ## Streamlit demo UI (manual testing)
 
-Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP with the same structured JSON as `POST /api/v1/estimate` and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event). You must run **FastAPI and Streamlit in two terminals** so the UI can reach the API.
+Internal browser UI; it calls **`POST /api/v1/estimate/stream`** over HTTP with the same structured JSON as `POST /api/v1/estimate` and renders text progressively with `st.write_stream`. After each run, when the API has **`DEV_MODE=true`** and the provider reports token counts, the UI shows **prompt / completion / total tokens**, preprocessing counters when present, and an approximate **USD cost** (same fields as the JSON `usage` object on the final SSE `done` event).
+
+**Docker (default):** `docker compose up --build` starts both the API and Streamlit (see [Run with Docker](#run-with-docker-api--streamlit)).
+
+**Local — two terminals** (if you are not using Docker for the UI):
 
 **Terminal 1 — API**
 
 ```bash
-
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 ```
@@ -72,19 +92,18 @@ uv run uvicorn app.main:app --reload
 **Terminal 2 — UI**
 
 ```bash
-
 uv run streamlit run app/streamlit_app.py
 ```
 
-Configure keys and models via `.env` as for the API (see [.env.example](.env.example)). Optional: set **`ESTIMATOR_API_BASE_URL`** (e.g. `http://127.0.0.1:8000`) so the default base URL in the sidebar matches your API; you can also edit **FastAPI base URL** in the app.
+Configure keys and models via `.env` as for the API (see [.env.example](.env.example)). For local Streamlit, set **`ESTIMATOR_API_BASE_URL`** (e.g. `http://127.0.0.1:8000`) or use the **FastAPI base URL** field in the sidebar.
 
 The app validates empty input locally. Domain guardrail, configuration, and provider failures show short messages intended for testers—no stack traces in the UI.
 
 For the full SSE contract and `curl` example, see [docs/technical/README.md §11.1](docs/technical/README.md#111-streaming-estimation-sse).
 
-## Docker
+## Docker (details)
 
-The `Dockerfile` and `docker-compose.yml` at the repository root build this FastAPI service.
+The root **`Dockerfile`** builds one image used by **`docker-compose.yml`** for two services: **`app`** (FastAPI on port 8000) and **`streamlit`** (port 8501). Both load `.env`; Compose injects `ESTIMATOR_API_BASE_URL=http://host.docker.internal:8000` for Streamlit so **HTTP from the Streamlit process** targets the API on the host-mapped port (same as opening **`http://127.0.0.1:8000`** in the browser). The Streamlit service adds **`extra_hosts: host.docker.internal:host-gateway`** for Linux; Docker Desktop already resolves `host.docker.internal`. The API exposes a **`healthcheck`** on `/health`; Streamlit **`depends_on`** the app with **`service_healthy`** so the UI container starts only after the API is reachable.
 
 ```bash
 cp .env.example .env
@@ -92,22 +111,19 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Service listens on `http://127.0.0.1:8000` (same routes as local `uv run`).
-
-Development compose (bind-mounts the project, runs `uv sync --frozen --group dev` on start, Uvicorn with `--reload`):
+**Development compose** bind-mounts the project, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`** and **Streamlit** against the mounted tree. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. **Streamlit starts only after the API passes its health check** (so the UI does not open before `/health` responds).
 
 ```bash
-
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Quick check after `up`:
+Quick checks after `up`:
 
 ```bash
 curl -s http://127.0.0.1:8000/health
 ```
 
-Optional: run tests in a one-off container (uses the dev override so the project — including `tests/` — is bind-mounted and dev dependencies are synced on start):
+Optional: run tests in a one-off container (dev override bind-mounts the project, including `tests/`):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
