@@ -1,5 +1,5 @@
 #!/bin/sh
 set -e
-/app
+cd /app
 uv sync --frozen --no-cache
 exec "$@"
