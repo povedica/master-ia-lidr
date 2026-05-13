@@ -11,6 +11,7 @@ Replace the current Streamlit demo with an independent `React + Vite + TypeScrip
 - `pyproject.toml` still includes `streamlit`, and `docker-compose.yml` still starts a `streamlit` service on port `8501`.
 - The backend does not currently configure CORS, so a browser frontend hosted on a different origin would fail without explicit origin handling.
 - The current public API contract is already centered on the guided-form `EstimationRequest`; this feature should not broaden scope by redesigning the estimation contract unless implementation discovers a blocking issue.
+- **Theme preference:** The web app must offer an explicit appearance control: **dark**, **light**, or **system** (follow OS/browser `prefers-color-scheme`). Default is **system**. Persist the user’s choice across sessions (for example `localStorage`) so it does not reset on reload.
 
 ## Scope
 
@@ -24,6 +25,7 @@ Replace the current Streamlit demo with an independent `React + Vite + TypeScrip
 - Preserve the current streaming UX using the existing SSE endpoint.
 - Update local run instructions so backend and frontend can be started independently.
 - Replace the supported Docker Compose workflow so it runs `app` + `web` instead of `app` + `streamlit`.
+- Theme appearance control in the web UI: **dark**, **light**, or **system**, default **system**, persisted client-side.
 
 ### Excludes
 
@@ -65,6 +67,13 @@ uv run uvicorn app.main:app --reload
 - The frontend must not import Python modules from `app/` or duplicate estimator business rules.
 - The first version should stay intentionally small: one main feature screen, no React Router, and no global state library unless implementation reveals a real need.
 - `Zod` should be used only for frontend form/input validation and request-shape assistance on the client side; canonical API validation remains in the backend with Pydantic.
+
+### FR-03a: Theme appearance (dark / light / system)
+
+- Provide a visible control (for example a toggle, segmented control, or select) to set appearance to **dark**, **light**, or **system**.
+- **Default:** **system** — when `system` is selected, the UI follows `prefers-color-scheme` and updates if the OS/browser theme changes while the app is open.
+- **Persistence:** Store the selected mode in client-side storage (for example `localStorage`) with a stable key; on first visit with no stored value, use **system**.
+- **Consistency:** Light and dark palettes must cover the main surfaces (background, text, inputs, focus states) so the estimation flow remains readable and accessible in both modes. Prefer **Tailwind** `dark:` variants or a root `class` / `data-theme` strategy consistent with v4.
 
 ### FR-04: Preserve and expose the current API contract cleanly
 
@@ -170,6 +179,7 @@ project-root/
 - Implement a reusable SSE parser for the `POST /api/v1/estimate/stream` response using browser `fetch` streaming.
 - Convert attachments to base64 in the browser before sending, while keeping frontend size/type validation only as UX help; canonical validation remains in the backend.
 - The frontend must run independently from the backend runtime and consume the backend over HTTP.
+- Theme: implement **dark** / **light** / **system** with default **system**; apply the active palette via one reusable mechanism (for example `dark` class on `document.documentElement`, `data-theme`, or Tailwind dark mode). Listen for `prefers-color-scheme` changes when mode is **system**. Persist the selected mode in client storage so returning users keep their preference.
 
 ### Data flow
 
@@ -198,6 +208,7 @@ project-root/
 - [x] Step 7: `EstimationWorkbench.tsx`, `fileToBase64.ts`, progressive markdown via `react-markdown`.
 - [x] Step 8: `Dockerfile.web`, `docker-compose.yml` `web` service, `docker-compose.dev.yml` Streamlit removed, `pyproject.toml` / `uv.lock` without Streamlit, deleted `app/streamlit_app.py` and Streamlit-only helpers/tests.
 - [x] Step 9: Docs (`README.md`, `docs/technical/README.md`, `.env.example`, `web/README.md`); `docker compose config -q`; `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` (151 passed).
+- [x] Step 10: Theme control — **dark** / **light** / **system** (default **system**), `prefers-color-scheme` when system, `localStorage` key `estimador-cag-appearance`, inline `index.html` bootstrap to reduce FOUC, `@custom-variant dark` (class on `html`), `web/src/theme/*`, `ThemeControl` in `App.tsx`, light/dark surfaces + focus rings in `EstimationWorkbench.tsx`.
 
 ## Acceptance Criteria
 
@@ -214,6 +225,9 @@ project-root/
 - [x] `README.md` explains how to run backend and frontend separately.
 - [x] Browser-visible validation/provider errors are rendered as readable UI feedback for at least invalid request and backend failure cases.
 - [x] No Langfuse, PostgreSQL, Redis, or other evolutive platform work is required to consider this feature done.
+- [x] The web UI exposes a theme control with **dark**, **light**, and **system**; first visit defaults to **system** (no prior storage) and follows OS light/dark until the user changes it.
+- [x] Choosing **dark** or **light** overrides `prefers-color-scheme`; choosing **system** tracks the OS/browser scheme again.
+- [x] The selected theme persists across full page reloads (client-side storage).
 
 ## Test Plan
 
@@ -232,11 +246,12 @@ project-root/
   - Confirm an invalid request shows readable frontend feedback and backend validation still behaves safely.
   - Confirm a backend/provider failure surfaces as a readable UI error.
   - Confirm the supported Compose workflow starts backend + web successfully.
+  - Theme: with no prior site data, confirm default is **system** and UI matches OS light/dark; switch to **dark** and **light** and confirm contrast; reload and confirm persistence; return to **system** and confirm it tracks a simulated OS theme change (devtools or OS toggle).
 
 ## Verification
 
-- **Automated:** `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` — 151 passed (CORS/settings module tests, existing API tests). `cd web && npm run test` — Vitest (`sseParser`, `requestMapper`). `cd web && npm run build`. `docker compose config -q`.
-- **Not verified in this session:** Full `docker compose up --build` image build and browser E2E smoke against live LLM keys; manual checklist in §Test Plan should be run locally before closing the PR.
+- **Automated:** `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` — 151 passed (CORS/settings module tests, existing API tests). `cd web && npm run test` — Vitest (`sseParser`, `requestMapper`, `appearance`). `cd web && npm run build`. `docker compose config -q`. `cd web && npm run lint` — clean.
+- **Not verified in this session:** Full `docker compose up --build` image build and browser E2E smoke against live LLM keys; **manual** theme checklist (devtools OS theme simulation, reload persistence) and rest of §Test Plan should be run locally before closing the PR.
 - **Residual risk:** Local pytest can be sensitive to unrelated exported env vars (e.g. `GEMINI_API_KEY`, `DEFAULT_LLM_PROVIDER`); CI should use a clean env. Compose `web` image bakes `VITE_API_BASE_URL` at build time — override build arg if the published API URL differs.
 
 ## Documentation Plan
@@ -246,6 +261,7 @@ project-root/
 - Add `web/.env.example` or equivalent frontend environment documentation for `VITE_API_BASE_URL`.
 - Update Docker/Compose documentation to replace Streamlit with the new `web` frontend.
 - Keep observability, persistence, and caching evolutives documented as future work, not as part of this feature's done criteria.
+- Optionally mention the theme control in `web/README.md` or root `README.md` if it helps developers or operators (not required for a small preference).
 - After implementation, sync the mirrored docs if this work item is authored in the Second Brain first.
 
 ## Baby Steps
@@ -259,6 +275,7 @@ project-root/
 7. ~~Recreate the essential Streamlit user flow in the web UI: submit, streaming output, loading, result, and error states.~~
 8. ~~Replace Streamlit in active runtime pieces: dependency graph, Compose, and docs.~~
 9. ~~Run focused verification and confirm the supported workflow is now backend + web in both local dev and Compose.~~ (Compose runtime smoke: operator checklist.)
+10. ~~Theme appearance (FR-03a): System / Light / Dark, `localStorage`, class-based Tailwind `dark:` palette for the estimation UI.~~
 
 ---
 
@@ -388,3 +405,4 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 | `3e4bfe5` | `chore(docker): serve static web UI and replace Streamlit in compose` | `Dockerfile.web`, `docker-compose.yml` / `docker-compose.dev.yml`, root `Dockerfile` EXPOSE. |
 | `472d55e` | `chore!: remove streamlit dependency and demo entrypoint` | Drop `streamlit` from `pyproject.toml` / `uv.lock`; remove `app/streamlit_app.py`, `app/streamlit_error_messages.py`, `tests/test_streamlit_error_messages.py`. |
 | `ea6315b` | `docs: document backend-web workflow and CORS settings` | `README.md`, `docs/technical/README.md`, `.env.example`. |
+| `2cba27e` | `feat(web): add appearance theme system light dark` | `web/src/theme/appearance.ts`, `useAppearance.ts`, `ThemeControl.tsx`, tests; `index.css` `@custom-variant dark`; `index.html` inline theme bootstrap; `App.tsx` toolbar; dual-theme styles + focus rings in `EstimationWorkbench.tsx`; `web/README.md` Appearance section. |

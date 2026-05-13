@@ -23,3 +23,7 @@ npm install
 - **`VITE_API_BASE_URL`** — FastAPI base URL (no trailing slash), e.g. `http://127.0.0.1:8000`. Documented in `.env.example`.
 
 The API must allow this UI’s origin via **`FRONTEND_ORIGINS`** (see repository root `.env.example`).
+
+## Appearance
+
+The header includes **System / Light / Dark** theme controls. The choice is stored in **`localStorage`** under key `estimador-cag-appearance` (default **system**, following `prefers-color-scheme`). A small inline script in `index.html` applies the class before the first paint to reduce flash.

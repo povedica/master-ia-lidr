@@ -182,7 +182,8 @@ const DETAILS_FIELD_KEYS = new Set<string>([
   'preprocessing',
 ])
 
-const CONTROL_ERR_RING = 'ring-2 ring-red-500/45 ring-offset-2 ring-offset-slate-950'
+const CONTROL_ERR_RING =
+  'ring-2 ring-red-500/45 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
 
 function zodIssuesToFieldErrors(issues: ZodError['issues']): Record<string, string> {
   const map: Record<string, string> = {}
@@ -293,22 +294,25 @@ export function EstimationWorkbench() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 text-left text-slate-100">
-      <header className="mb-8 border-b border-slate-800 pb-6">
-        <h1 className="text-2xl font-semibold text-white">Estimador CAG</h1>
-        <p className="mt-2 text-sm text-slate-400">
+    <div className="mx-auto max-w-3xl px-4 py-8 text-left text-slate-900 dark:text-slate-100">
+      <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Estimador CAG</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
           Guided estimation form. Output streams from{' '}
-          <code className="rounded bg-slate-800 px-1 py-0.5 text-xs">{estimateStreamUrl()}</code>.
+          <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+            {estimateStreamUrl()}
+          </code>
+          .
         </p>
       </header>
 
       {error ? (
         <div
           role="alert"
-          className="sticky top-2 z-20 mb-6 rounded-lg border border-red-800/80 bg-red-950/95 p-4 text-sm text-red-100 shadow-lg backdrop-blur-sm"
+          className="sticky top-2 z-20 mb-6 rounded-lg border border-red-300/90 bg-red-50/95 p-4 text-sm text-red-900 shadow-lg backdrop-blur-sm dark:border-red-800/80 dark:bg-red-950/95 dark:text-red-100"
         >
-          <p className="font-semibold text-red-50">Request failed</p>
-          <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-red-100/90">
+          <p className="font-semibold text-red-950 dark:text-red-50">Request failed</p>
+          <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-red-900/90 dark:text-red-100/90">
             {error}
           </p>
         </div>
@@ -327,7 +331,7 @@ export function EstimationWorkbench() {
       >
         <Field name="projectName" label="Project name (optional)" error={fieldErrors.projectName}>
           <input
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             maxLength={120}
             value={form.projectName}
             onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
@@ -336,7 +340,7 @@ export function EstimationWorkbench() {
 
         <Field name="projectSummary" label="One-line summary (20–200 chars)" error={fieldErrors.projectSummary}>
           <input
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.projectSummary}
             onChange={(e) => setForm((f) => ({ ...f, projectSummary: e.target.value }))}
           />
@@ -344,7 +348,7 @@ export function EstimationWorkbench() {
 
         <Field name="projectType" label="Project type" error={fieldErrors.projectType}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.projectType}
             onChange={(e) => setForm((f) => ({ ...f, projectType: e.target.value }))}
           >
@@ -359,7 +363,7 @@ export function EstimationWorkbench() {
 
         <Field name="targetAudience" label="Target audience" error={fieldErrors.targetAudience}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.targetAudience}
             onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value }))}
           >
@@ -379,7 +383,7 @@ export function EstimationWorkbench() {
             error={fieldErrors.targetAudienceOther}
           >
             <input
-              className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               maxLength={200}
               value={form.targetAudienceOther}
               onChange={(e) => setForm((f) => ({ ...f, targetAudienceOther: e.target.value }))}
@@ -393,7 +397,7 @@ export function EstimationWorkbench() {
           error={fieldErrors.projectDescription}
         >
           <textarea
-            className="min-h-[160px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="min-h-[160px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.projectDescription}
             onChange={(e) => setForm((f) => ({ ...f, projectDescription: e.target.value }))}
           />
@@ -401,7 +405,7 @@ export function EstimationWorkbench() {
 
         <Field name="deliverablesText" label="Deliverables (one per line, 3–8)" error={fieldErrors.deliverablesText}>
           <textarea
-            className="min-h-[120px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="min-h-[120px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.deliverablesText}
             onChange={(e) => setForm((f) => ({ ...f, deliverablesText: e.target.value }))}
           />
@@ -409,7 +413,7 @@ export function EstimationWorkbench() {
 
         <Field name="deliveryUrgency" label="Delivery urgency" error={fieldErrors.deliveryUrgency}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.deliveryUrgency}
             onChange={(e) => setForm((f) => ({ ...f, deliveryUrgency: e.target.value }))}
           >
@@ -426,7 +430,7 @@ export function EstimationWorkbench() {
           <Field name="targetDate" label="Target date" error={fieldErrors.targetDate}>
             <input
               type="date"
-              className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               value={form.targetDate}
               onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value }))}
             />
@@ -435,7 +439,7 @@ export function EstimationWorkbench() {
 
         <Field name="dataSensitivity" label="Data sensitivity" error={fieldErrors.dataSensitivity}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.dataSensitivity}
             onChange={(e) => setForm((f) => ({ ...f, dataSensitivity: e.target.value }))}
           >
@@ -450,7 +454,7 @@ export function EstimationWorkbench() {
 
         <Field name="detailLevel" label="Depth of estimate" error={fieldErrors.detailLevel}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.detailLevel}
             onChange={(e) => setForm((f) => ({ ...f, detailLevel: e.target.value }))}
           >
@@ -465,7 +469,7 @@ export function EstimationWorkbench() {
 
         <Field name="outputFormat" label="Output format" error={fieldErrors.outputFormat}>
           <select
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.outputFormat}
             onChange={(e) => setForm((f) => ({ ...f, outputFormat: e.target.value }))}
           >
@@ -483,21 +487,21 @@ export function EstimationWorkbench() {
             type="file"
             multiple
             accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
-            className="text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-slate-100"
+            className="text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-slate-900 file:hover:bg-slate-300 dark:file:bg-slate-700 dark:file:text-slate-100 dark:file:hover:bg-slate-600"
             onChange={(e) => setFileList(Array.from(e.target.files ?? []).slice(0, 3))}
           />
         </Field>
 
         <details
-          className="rounded border border-slate-800 bg-slate-900/40 p-4"
+          className="rounded border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/40"
           open={moreDetailsOpen}
           onToggle={(e) => setMoreDetailsOpen(e.currentTarget.open)}
         >
-          <summary className="cursor-pointer text-sm font-medium text-slate-200">More details</summary>
+          <summary className="cursor-pointer text-sm font-medium text-slate-800 dark:text-slate-200">More details</summary>
           <div className="mt-4 space-y-4">
             <Field name="outOfScopeText" label="Out of scope (optional, one per line)" error={fieldErrors.outOfScopeText}>
               <textarea
-                className="min-h-[80px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[80px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.outOfScopeText}
                 onChange={(e) => setForm((f) => ({ ...f, outOfScopeText: e.target.value }))}
               />
@@ -505,7 +509,7 @@ export function EstimationWorkbench() {
 
             <Field name="deliveryApproach" label="Delivery approach (optional)" error={fieldErrors.deliveryApproach}>
               <select
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.deliveryApproach}
                 onChange={(e) => setForm((f) => ({ ...f, deliveryApproach: e.target.value }))}
               >
@@ -524,7 +528,7 @@ export function EstimationWorkbench() {
             >
               <select
                 multiple
-                className="min-h-[120px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[120px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.integrationCategories}
                 onChange={(e) => {
                   const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
@@ -548,7 +552,7 @@ export function EstimationWorkbench() {
               error={fieldErrors.integrationCustomText}
             >
               <textarea
-                className="min-h-[60px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[60px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.integrationCustomText}
                 onChange={(e) => setForm((f) => ({ ...f, integrationCustomText: e.target.value }))}
               />
@@ -556,7 +560,7 @@ export function EstimationWorkbench() {
 
             <Field name="industry" label="Industry (optional)" error={fieldErrors.industry}>
               <select
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.industry}
                 onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
               >
@@ -571,7 +575,7 @@ export function EstimationWorkbench() {
             {form.industry === 'other' ? (
               <Field name="industryOther" label="Industry detail (required)" error={fieldErrors.industryOther}>
                 <input
-                  className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   maxLength={80}
                   value={form.industryOther}
                   onChange={(e) => setForm((f) => ({ ...f, industryOther: e.target.value }))}
@@ -582,7 +586,7 @@ export function EstimationWorkbench() {
             <Field name="hostingConstraints" label="Hosting constraints (optional)" error={fieldErrors.hostingConstraints}>
               <select
                 multiple
-                className="min-h-[100px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[100px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.hostingConstraints}
                 onChange={(e) => {
                   const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
@@ -602,7 +606,7 @@ export function EstimationWorkbench() {
 
             <Field name="hostingNotes" label="Hosting notes (optional)" error={fieldErrors.hostingNotes}>
               <input
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 maxLength={200}
                 value={form.hostingNotes}
                 onChange={(e) => setForm((f) => ({ ...f, hostingNotes: e.target.value }))}
@@ -611,7 +615,7 @@ export function EstimationWorkbench() {
 
             <Field name="teamContext" label="Team context (optional)" error={fieldErrors.teamContext}>
               <select
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.teamContext}
                 onChange={(e) => setForm((f) => ({ ...f, teamContext: e.target.value }))}
               >
@@ -626,7 +630,7 @@ export function EstimationWorkbench() {
             <Field name="uiLanguages" label="UI languages (optional, max 3)" error={fieldErrors.uiLanguages}>
               <select
                 multiple
-                className="min-h-[90px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[90px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.uiLanguages}
                 onChange={(e) => {
                   const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
@@ -646,7 +650,7 @@ export function EstimationWorkbench() {
 
             <Field name="riskLevel" label="Risk level (optional)" error={fieldErrors.riskLevel}>
               <select
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.riskLevel}
                 onChange={(e) => setForm((f) => ({ ...f, riskLevel: e.target.value }))}
               >
@@ -664,7 +668,7 @@ export function EstimationWorkbench() {
               error={fieldErrors.externalDependenciesText}
             >
               <textarea
-                className="min-h-[60px] w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="min-h-[60px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.externalDependenciesText}
                 onChange={(e) => setForm((f) => ({ ...f, externalDependenciesText: e.target.value }))}
               />
@@ -676,7 +680,7 @@ export function EstimationWorkbench() {
               error={fieldErrors.preprocessing}
             >
               <select
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={form.preprocessing}
                 onChange={(e) => setForm((f) => ({ ...f, preprocessing: e.target.value }))}
               >
@@ -689,7 +693,7 @@ export function EstimationWorkbench() {
               </select>
             </Field>
 
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={form.evaluate}
@@ -703,7 +707,7 @@ export function EstimationWorkbench() {
         {(clientError || fieldErrors._form) ? (
           <div
             role="alert"
-            className="rounded-lg border border-amber-800/70 bg-amber-950/50 px-4 py-3 text-sm text-amber-100"
+            className="rounded-lg border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 dark:border-amber-800/70 dark:bg-amber-950/50 dark:text-amber-100"
           >
             {clientError ? <p>{clientError}</p> : null}
             {fieldErrors._form ? <p className={clientError ? 'mt-2' : ''}>{fieldErrors._form}</p> : null}
@@ -721,7 +725,7 @@ export function EstimationWorkbench() {
           <button
             type="button"
             onClick={() => cancel()}
-            className="rounded border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Cancel stream
           </button>
@@ -729,16 +733,16 @@ export function EstimationWorkbench() {
       </form>
 
       {markdown ? (
-        <section className="mt-10 border-t border-slate-800 pt-8">
-          <h2 className="text-lg font-semibold text-white">Estimate</h2>
-          <article className="mt-4 max-w-none text-left text-sm leading-relaxed text-slate-200 [&_a]:text-violet-300 [&_code]:rounded [&_code]:bg-slate-800 [&_code]:px-1 [&_h1]:text-xl [&_h2]:text-lg [&_ul]:list-disc [&_ul]:pl-5">
+        <section className="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Estimate</h2>
+          <article className="mt-4 max-w-none text-left text-sm leading-relaxed text-slate-800 dark:text-slate-200 [&_a]:text-violet-700 [&_code]:rounded [&_code]:bg-slate-200 [&_code]:px-1 [&_code]:text-slate-900 [&_h1]:text-xl [&_h2]:text-lg [&_ul]:list-disc [&_ul]:pl-5 dark:[&_a]:text-violet-300 dark:[&_code]:bg-slate-800 dark:[&_code]:text-slate-100">
             <ReactMarkdown>{markdown}</ReactMarkdown>
           </article>
         </section>
       ) : null}
 
       {doneMeta && typeof doneMeta.usage === 'object' && doneMeta.usage !== null ? (
-        <p className="mt-4 text-xs text-slate-500">
+        <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">
           Tokens: {JSON.stringify(doneMeta.usage)}
         </p>
       ) : null}
@@ -770,12 +774,12 @@ function Field({
   } as Record<string, unknown>)
   return (
     <div className="space-y-0">
-      <label htmlFor={name} className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+      <label htmlFor={name} className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </label>
       {child}
       {error ? (
-        <p id={errId} role="alert" className="mt-1.5 text-sm text-red-400">
+        <p id={errId} role="alert" className="mt-1.5 text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
       ) : null}
