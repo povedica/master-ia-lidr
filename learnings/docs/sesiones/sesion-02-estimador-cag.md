@@ -2,8 +2,8 @@
 
 ## Enlaces
 
-- [Feature: configuración inicial CAG](../../../docs/work-items/feature-configuracion-inicial-cag.md) (arranque del subproyecto).
-- [Feature: persistir salidas de estimación (200)](../../../docs/work-items/feature-004-save-estimation-response-output.md) — entrega reciente en repo (`de912b8`).
+- [Feature: configuración inicial CAG](../decisiones/feature-configuracion-inicial-cag.md) (arranque del subproyecto).
+- [Feature: persistir salidas de estimación (200)](../work-items/feature-004-save-estimation-response-output.md) — entrega reciente en repo (`de912b8`).
 
 ## Avances y práctica
 
@@ -24,9 +24,9 @@
 
 ## Commits del repositorio (master-ia)
 
-La tabla canónica de hashes del feature de persistencia y ejemplos aleatorios está en [feature-004-save-estimation-response-output.md](../../../docs/work-items/feature-004-save-estimation-response-output.md) (`## Repository commits (master-ia)`).
+La tabla canónica de hashes del feature de persistencia y ejemplos aleatorios está en [feature-004-save-estimation-response-output.md](../work-items/feature-004-save-estimation-response-output.md) (`## Repository commits (master-ia)`).
 
 ## Dudas / seguimiento
 
 - Renombrado / reorganización de fixtures YAML bajo `api-collection/Estimador CAG/estimations/` (p. ej. `Detail` / `Small` / `Medium` / `Large`): si sigue en el árbol de trabajo sin commit, cerrar con un commit dedicado (`chore` o `docs`) y actualizar la tabla del work item si aplica.
-- Tras editar notas en este vault, desde la raíz de **master-ia**: `bash scripts/sync-estimador-cag-docs.sh` para refrescar `docs/` y las carpetas bajo `learnings/` (véase `learnings/README.md`).
+- Tras editar notas en este vault, desde la raíz de **master-ia**: `bash scripts/sync-estimador-cag-docs.sh` para refrescar `proyectos/estimador-cag/docs/`.

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Replace the current Streamlit demo with an independent `React + Vite + TypeScript` web frontend that consumes the existing FastAPI backend over HTTP. This feature is intentionally limited to separating the UI from the application logic: the backend remains the single owner of estimation logic, prompt construction, provider orchestration, and response shaping, while the new web layer owns only user interaction and presentation.
+Replace the current Streamlit demo with an independent web frontend that consumes the existing FastAPI backend over HTTP. The backend remains the single owner of estimation logic, prompt construction, provider orchestration, and response shaping; the new web layer owns only user interaction and presentation.
 
 ## Context
 
@@ -11,29 +11,25 @@ Replace the current Streamlit demo with an independent `React + Vite + TypeScrip
 - `pyproject.toml` still includes `streamlit`, and `docker-compose.yml` still starts a `streamlit` service on port `8501`.
 - The backend does not currently configure CORS, so a browser frontend hosted on a different origin would fail without explicit origin handling.
 - The current public API contract is already centered on the guided-form `EstimationRequest`; this feature should not broaden scope by redesigning the estimation contract unless implementation discovers a blocking issue.
-- **Theme preference:** The web app must offer an explicit appearance control: **dark**, **light**, or **system** (follow OS/browser `prefers-color-scheme`). Default is **system**. Persist the user’s choice across sessions (for example `localStorage`) so it does not reset on reload.
+- **Theme preference (this update):** The web app must offer an explicit appearance control: **dark**, **light**, or **system** (follow OS/browser `prefers-color-scheme`). Default is **system**. Persist the user’s choice across sessions (for example `localStorage`) so it does not reset on reload.
 
 ## Scope
 
 ### Includes
 
 - Remove Streamlit from the active runtime, dependencies, Compose wiring, and developer documentation.
-- Add a new independent frontend under `web/` built with `React + Vite + TypeScript`, `Tailwind CSS`, and `Zod`, talking to the FastAPI backend via HTTP only.
+- Add a new independent frontend under `web/` that talks to the FastAPI backend via HTTP only.
 - Keep the backend package under `app/`; do not move estimator logic into the frontend.
 - Add backend CORS configuration for local frontend development.
-- Preserve the current backend request contract and both estimation endpoints unless a blocking issue is discovered.
-- Preserve the current streaming UX using the existing SSE endpoint.
 - Update local run instructions so backend and frontend can be started independently.
-- Replace the supported Docker Compose workflow so it runs `app` + `web` instead of `app` + `streamlit`.
 - Theme appearance control in the web UI: **dark**, **light**, or **system**, default **system**, persisted client-side.
 
 ### Excludes
 
 - No authentication, user accounts, persistence, estimation history, or file storage changes.
-- No estimator business-logic redesign, scoring redesign, guardrail redesign, or prompt-contract redesign beyond the refactoring strictly required by the migration.
+- No estimator business-logic redesign beyond the extraction/refactoring strictly required by the migration.
 - No forced API route rename; keep existing endpoints such as `POST /api/v1/estimate` and `POST /api/v1/estimate/stream` unless a follow-up work item explicitly changes them.
-- No new alternative streaming endpoint just to support browser APIs; the web app must adapt to the current `POST` SSE contract.
-- No routing-heavy SPA architecture, global state framework, design-system rollout, background jobs, Langfuse rollout, LiteLLM redesign, PostgreSQL work, Redis work, or cloud deployment work in this feature.
+- No SSE redesign, background jobs, Langfuse rollout, or cloud deployment work in this feature.
 
 ## Functional Requirements
 
@@ -56,44 +52,34 @@ uv run uvicorn app.main:app --reload
 
 ### FR-03: Add an independent web presentation layer
 
-- Create a new `web/` application with `React + Vite + TypeScript`, `Tailwind CSS`, and `Zod`, with its own package metadata and standard scripts such as `dev`, `build`, and `preview`.
+- Create a new `web/` application with its own package manager metadata and dev server commands.
 - The frontend must support, at minimum:
   - entering the guided estimation data needed by the current backend contract,
   - submitting requests to the backend,
-  - streaming progressive output in the browser,
   - showing loading/submitting state,
   - rendering the estimation result,
   - rendering readable error states.
 - The frontend must not import Python modules from `app/` or duplicate estimator business rules.
-- The first version should stay intentionally small: one main feature screen, no React Router, and no global state library unless implementation reveals a real need.
-- `Zod` should be used only for frontend form/input validation and request-shape assistance on the client side; canonical API validation remains in the backend with Pydantic.
 
 ### FR-03a: Theme appearance (dark / light / system)
 
 - Provide a visible control (for example a toggle, segmented control, or select) to set appearance to **dark**, **light**, or **system**.
 - **Default:** **system** — when `system` is selected, the UI follows `prefers-color-scheme` and updates if the OS/browser theme changes while the app is open.
 - **Persistence:** Store the selected mode in client-side storage (for example `localStorage`) with a stable key; on first visit with no stored value, use **system**.
-- **Consistency:** Light and dark palettes must cover the main surfaces (background, text, inputs, focus states) so the estimation flow remains readable and accessible in both modes. Prefer **Tailwind** `dark:` variants or a root `class` / `data-theme` strategy consistent with v4.
+- **Consistency:** Light and dark palettes must cover the main surfaces (background, text, inputs, focus states) so the estimation flow remains readable and accessible in both modes.
 
 ### FR-04: Preserve and expose the current API contract cleanly
 
 - The migration should reuse the current structured estimation flow already exposed by FastAPI.
 - If the frontend uses a simpler form state internally, it must map that state into the backend request payload at the API boundary.
 - Validation remains a backend responsibility through Pydantic schemas; frontend validation is only a usability layer.
-- Keep both backend endpoints:
-  - `POST /api/v1/estimate` as the stable non-streaming contract for tests, non-interactive clients, and regression checks.
-  - `POST /api/v1/estimate/stream` as the primary UI path for progressive rendering.
-- The new web UI must work against the current `EstimationRequest` contract without introducing incompatible API changes in this feature.
 
 ### FR-05: Enable CORS for local development
 
 - Add `CORSMiddleware` to the FastAPI app.
 - Allowed origins must come from typed settings, not hardcoded ad hoc values inside route files.
-- Local development must support, at minimum:
-  - `http://localhost:5173`
-  - `http://127.0.0.1:5173`
+- Local development must support at least the frontend dev origin used by the new `web/` app.
 - Do not use unrestricted `"*"` origins in production-oriented defaults.
-- Default backend behavior should keep `allow_credentials=False` unless a later feature introduces cookie/session requirements.
 
 ### FR-06: Environment-based configuration
 
@@ -101,26 +87,14 @@ uv run uvicorn app.main:app --reload
 - Add the new variables to `.env.example` and document them in `README.md`.
 - Minimum expected configuration surface:
   - `APP_ENV`
-  - `FRONTEND_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
+  - `FRONTEND_ORIGINS` (or equivalent typed list setting)
   - existing provider/model settings already required by the backend
-- Add frontend environment documentation under `web/` as well:
-  - `VITE_API_BASE_URL=http://127.0.0.1:8000`
-- The frontend must not contain backend secrets, model identifiers, provider credentials, or duplicated backend settings.
-- No observability vendor configuration is introduced in this feature; Langfuse remains a future evolutive.
 
 ### FR-07: Update local developer workflows
 
 - Replace the current two-service (`app` + `streamlit`) local story with a backend + web workflow.
-- Docker Compose remains part of the supported workflow and must start the new web layer instead of Streamlit.
+- If Docker Compose remains part of the supported workflow, it must start the new web layer instead of Streamlit.
 - README commands must clearly separate backend startup from frontend startup.
-- The frontend must be runnable locally from `web/`, and the repository root workflow must remain documented for both local development and Compose.
-
-### FR-08: Preserve streaming behavior in the browser
-
-- The primary browser experience must use `POST /api/v1/estimate/stream`.
-- Because the backend stream uses `POST`, the frontend must consume the SSE response with `fetch`/`ReadableStream` parsing rather than `EventSource`.
-- The frontend must handle the existing stream event types `chunk`, `done`, and `error`.
-- `chunk` events append progressive markdown, `done` closes the loading state and captures final metadata, and `error` renders a readable failure message.
 
 ## Technical Approach
 
@@ -135,27 +109,7 @@ project-root/
 │   └── services/
 ├── web/
 │   ├── package.json
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── index.html
-│   ├── .env.example
-│   ├── tailwind.config.ts
-│   ├── postcss.config.js
 │   └── src/
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── features/
-│       │   └── estimation/
-│       │       ├── api/
-│       │       │   ├── estimateApi.ts
-│       │       │   └── sseParser.ts
-│       │       ├── components/
-│       │       ├── hooks/
-│       │       │   └── useEstimateStream.ts
-│       │       ├── lib/
-│       │       │   ├── requestMapper.ts
-│       │       │   └── fileToBase64.ts
-│       │       └── types/
 └── README.md
 ```
 
@@ -164,230 +118,70 @@ project-root/
 - Keep the current FastAPI application in `app/`.
 - Add CORS configuration in `app/main.py`, sourcing allowed origins from `app/config.py`.
 - Keep route orchestration in `app/routers/estimations.py` and estimation logic in services.
-- Keep `app/main.py` small; if origin parsing or normalization is needed, keep it in `app/config.py`, not embedded in bootstrap code.
 - Avoid changing the request/response contract unless the frontend migration reveals a concrete blocker.
-- Keep `POST /api/v1/estimate` and `POST /api/v1/estimate/stream` as-is in this feature.
 
 ### Frontend
 
-- Create a standalone `React + Vite + TypeScript` frontend in `web/`.
-- Use `Tailwind CSS` for styling the first version of the UI.
-- Use `Zod` for frontend-side validation and form schema support.
+- Create a standalone frontend in `web/` with its own dependencies and scripts.
 - Use a small API client module to centralize requests to the FastAPI backend.
 - Keep presentation concerns in frontend components/modules: form state, submit lifecycle, loading state, result rendering, and user-safe error messages.
-- Implement a reusable `requestMapper` that transforms UI state into the current backend `EstimationRequest` payload.
-- Implement a reusable SSE parser for the `POST /api/v1/estimate/stream` response using browser `fetch` streaming.
-- Convert attachments to base64 in the browser before sending, while keeping frontend size/type validation only as UX help; canonical validation remains in the backend.
-- The frontend must run independently from the backend runtime and consume the backend over HTTP.
-- Theme: implement **dark** / **light** / **system** with default **system**; apply the active palette via one reusable mechanism (for example `dark` class on `document.documentElement`, `data-theme`, or Tailwind dark mode). Listen for `prefers-color-scheme` changes when mode is **system**. Persist the selected mode in client storage so returning users keep their preference.
-
-### Data flow
-
-1. The user fills the React form with local component state.
-2. The frontend maps the form state into the current `EstimationRequest` payload.
-3. Optional attachments are converted to base64 in the browser and included in the request body.
-4. The UI sends `POST /api/v1/estimate/stream` to the FastAPI backend.
-5. The SSE parser handles `chunk`, `done`, and `error` events from the streamed response.
-6. The UI renders markdown progressively during streaming and final status/metadata once the stream completes.
-7. The non-streaming endpoint remains available for regression checks, curl usage, and non-interactive clients.
-
-## Risks and trade-offs
-
-- **Streaming over `POST`:** browser support requires `fetch` + manual SSE parsing instead of `EventSource`. This adds a small amount of frontend code but avoids redesigning the backend contract.
-- **Frontend option duplication:** select options and labels may need a frontend representation. That is acceptable as presentation data, but backend validation and domain rules must remain canonical in `app/`.
-- **Attachment handling:** converting files to base64 in the browser is straightforward, but the UI should surface file limits early to avoid poor UX.
-- **Compose migration:** replacing `streamlit` with `web` is in scope because Compose is already part of the supported developer workflow. This should be treated as migration work, not as a broader deployment redesign.
-- **Scope creep risk:** this feature should not become a redesign of the estimation request, SSE protocol, LiteLLM integration, Langfuse observability, persistence, caching, visual design system, or production deployment.
-
-## Implementation progress
-
-- [x] Step 1–2: `FRONTEND_ORIGINS`, `app/cors.py`, `CORSMiddleware`, tests (`tests/test_cors.py`, `tests/test_config.py`).
-- [x] Step 3: `web/` scaffold (Vite, React, TS, Tailwind v4, Zod, Vitest).
-- [x] Step 4–5: `estimateApi.ts`, `useEstimateStream.ts`, `sseParser.ts` + tests.
-- [x] Step 6: `requestMapper.ts` + Zod + tests.
-- [x] Step 7: `EstimationWorkbench.tsx`, `fileToBase64.ts`, progressive markdown via `react-markdown`.
-- [x] Step 8: `Dockerfile.web`, `docker-compose.yml` `web` service, `docker-compose.dev.yml` Streamlit removed, `pyproject.toml` / `uv.lock` without Streamlit, deleted `app/streamlit_app.py` and Streamlit-only helpers/tests.
-- [x] Step 9: Docs (`README.md`, `docs/technical/README.md`, `.env.example`, `web/README.md`); `docker compose config -q`; `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` (151 passed).
-- [x] Step 10: Theme control — **dark** / **light** / **system** (default **system**), `prefers-color-scheme` when system, `localStorage` key `estimador-cag-appearance`, inline `index.html` bootstrap to reduce FOUC, `@custom-variant dark` (class on `html`), `web/src/theme/*`, `ThemeControl` in `App.tsx`, light/dark surfaces + focus rings in `EstimationWorkbench.tsx`.
+- The exact UI framework is implementation detail, but the app must run independently from the backend runtime and consume the backend over HTTP.
+- Theme: implement **dark** / **light** / **system** with default **system**; apply the active palette via a single mechanism the app can reuse (for example a root `class`/`data-theme` attribute, CSS variables, or the stack’s built-in dark-mode support). Listen for `prefers-color-scheme` changes when mode is **system**. Persist non-default and default choices consistently so returning users keep their preference.
 
 ## Acceptance Criteria
 
-- [x] `streamlit` is removed from active project dependencies and no supported run command relies on Streamlit.
-- [x] The backend still starts with `uv run uvicorn app.main:app --reload`.
-- [x] A new `web/` application built with `React + Vite + TypeScript`, `Tailwind CSS`, and `Zod` starts independently and can submit estimation requests to the backend.
-- [x] The browser UI displays successful estimation results without using Streamlit.
-- [x] The browser UI uses `POST /api/v1/estimate/stream` and renders progressive output from `chunk` events.
-- [x] The frontend works against the current `EstimationRequest` contract without incompatible changes to `POST /api/v1/estimate` or `POST /api/v1/estimate/stream`.
-- [x] The backend remains the only place where estimation logic and provider orchestration live.
-- [x] CORS is configured through typed settings and works for local frontend development.
-- [x] `FRONTEND_ORIGINS` is documented in `.env.example`, and `VITE_API_BASE_URL` is documented for the frontend.
-- [x] `docker-compose.yml` no longer starts Streamlit and instead supports the new `web` frontend.
-- [x] `README.md` explains how to run backend and frontend separately.
-- [x] Browser-visible validation/provider errors are rendered as readable UI feedback for at least invalid request and backend failure cases.
-- [x] No Langfuse, PostgreSQL, Redis, or other evolutive platform work is required to consider this feature done.
-- [x] The web UI exposes a theme control with **dark**, **light**, and **system**; first visit defaults to **system** (no prior storage) and follows OS light/dark until the user changes it.
-- [x] Choosing **dark** or **light** overrides `prefers-color-scheme`; choosing **system** tracks the OS/browser scheme again.
-- [x] The selected theme persists across full page reloads (client-side storage).
+- [ ] `streamlit` is removed from active project dependencies and no supported run command relies on Streamlit.
+- [ ] The backend still starts with `uv run uvicorn app.main:app --reload`.
+- [ ] A new `web/` application starts independently and can submit estimation requests to the backend.
+- [ ] The browser UI displays successful estimation results without using Streamlit.
+- [ ] The backend remains the only place where estimation logic and provider orchestration live.
+- [ ] CORS is configured through typed settings and works for local frontend development.
+- [ ] `README.md` explains how to run backend and frontend separately.
+- [ ] `.env.example` documents any new frontend-origin or web-related backend settings.
+- [ ] The web UI exposes a theme control with **dark**, **light**, and **system**; first visit defaults to **system** (no stale storage) and follows OS light/dark until the user changes it.
+- [ ] Choosing **dark** or **light** overrides `prefers-color-scheme`; choosing **system** tracks the OS/browser scheme again.
+- [ ] The selected theme persists across full page reloads (client-side storage).
 
 ## Test Plan
 
 - **Backend unit/integration**
   - Add focused tests for CORS-related settings parsing if new parsing logic is introduced.
-  - Add or update a focused CORS check for preflight/headers on estimation routes.
-  - Keep or update API tests so `POST /api/v1/estimate` and `POST /api/v1/estimate/stream` still work after Streamlit removal.
+  - Keep or update API tests so the existing estimation endpoints still work after Streamlit removal.
 - **Frontend**
-  - Add focused unit tests for `sseParser.ts`.
-  - Add focused unit tests for `requestMapper.ts`, especially for lists, optional fields, and attachment mapping.
+  - Add frontend tests only if the chosen stack already supports lightweight component/unit testing without large setup overhead.
 - **Manual checks**
   - Start backend locally with `uv run uvicorn app.main:app --reload`.
   - Start frontend locally from `web/`.
-  - Submit a valid estimation request from the browser and confirm the result is streamed and rendered progressively.
+  - Submit a valid estimation request from the browser and confirm the result is rendered.
   - Confirm a browser-origin request succeeds without CORS errors.
   - Confirm an invalid request shows readable frontend feedback and backend validation still behaves safely.
-  - Confirm a backend/provider failure surfaces as a readable UI error.
-  - Confirm the supported Compose workflow starts backend + web successfully.
   - Theme: with no prior site data, confirm default is **system** and UI matches OS light/dark; switch to **dark** and **light** and confirm contrast; reload and confirm persistence; return to **system** and confirm it tracks a simulated OS theme change (devtools or OS toggle).
 
 ## Verification
 
-- **Automated:** `GEMINI_API_KEY= DEFAULT_LLM_PROVIDER=unset uv run pytest` — 151 passed (CORS/settings module tests, existing API tests). `cd web && npm run test` — Vitest (`sseParser`, `requestMapper`, `appearance`). `cd web && npm run build`. `docker compose config -q`. `cd web && npm run lint` — clean.
-- **Not verified in this session:** Full `docker compose up --build` image build and browser E2E smoke against live LLM keys; **manual** theme checklist (devtools OS theme simulation, reload persistence) and rest of §Test Plan should be run locally before closing the PR.
-- **Residual risk:** Local pytest can be sensitive to unrelated exported env vars (e.g. `GEMINI_API_KEY`, `DEFAULT_LLM_PROVIDER`); CI should use a clean env. Compose `web` image bakes `VITE_API_BASE_URL` at build time — override build arg if the published API URL differs.
+- Pre-implementation: specification only; no code or runtime changes made in this work item.
+- Implementation-done evidence for the future task:
+  - focused automated checks for backend changes,
+  - manual backend + frontend smoke test,
+  - updated docs and `.env.example`,
+  - no Streamlit runtime left in the supported developer path.
 
 ## Documentation Plan
 
 - Update `README.md` to replace Streamlit instructions with backend + web instructions.
 - Update `.env.example` with frontend-origin settings required by CORS.
-- Add `web/.env.example` or equivalent frontend environment documentation for `VITE_API_BASE_URL`.
-- Update Docker/Compose documentation to replace Streamlit with the new `web` frontend.
-- Keep observability, persistence, and caching evolutives documented as future work, not as part of this feature's done criteria.
-- Optionally mention the theme control in `web/README.md` or root `README.md` if it helps developers or operators (not required for a small preference).
+- If Docker workflow remains supported, update Compose documentation accordingly.
+- Optionally mention the theme control in README or in-app help only if it aids onboarding (no separate doc required for a small UI preference).
 - After implementation, sync the mirrored docs if this work item is authored in the Second Brain first.
 
 ## Baby Steps
 
-1. ~~Document the current Streamlit-coupled surface~~ (superseded by implementation).
-2. ~~Define backend `FRONTEND_ORIGINS` settings and wire `CORSMiddleware` in `app/main.py`.~~
-3. ~~Scaffold `web/` with `React + Vite + TypeScript`, without routing or global state libraries.~~
-4. ~~Implement a minimal frontend API client using `VITE_API_BASE_URL`.~~
-5. ~~Implement a reusable SSE parser for `chunk`, `done`, and `error`.~~
-6. ~~Implement the minimum guided form and map it to the current `EstimationRequest`.~~
-7. ~~Recreate the essential Streamlit user flow in the web UI: submit, streaming output, loading, result, and error states.~~
-8. ~~Replace Streamlit in active runtime pieces: dependency graph, Compose, and docs.~~
-9. ~~Run focused verification and confirm the supported workflow is now backend + web in both local dev and Compose.~~ (Compose runtime smoke: operator checklist.)
-10. ~~Theme appearance (FR-03a): System / Light / Dark, `localStorage`, class-based Tailwind `dark:` palette for the estimation UI.~~
-
----
-
-## Evolutivo: Validación guiada del formulario (web + API)
-
-> **Nota de contrato:** este evolutivo **cambia límites** respecto a `EstimationRequest` actual (`project_description` hasta 24_000, `project_summary` hasta 200, adjuntos sin imágenes, etc.). Implica **actualizar tests**, **OpenAPI** en `/docs`, y **cualquier cliente** (curl, colecciones) que enviara textos largos. Versionar en el mismo work item para trazabilidad.
-
-### Objective
-
-Endurecer y alinear la validación del formulario de estimación **en el navegador (UX inmediata)** y **en FastAPI (fuente de verdad)** para tipos, enumeraciones, longitudes y adjuntos, usando el patrón estándar **Pydantic en el backend + Zod en el frontend** con **las mismas reglas documentadas** (constantes compartidas por convención o módulo de límites único en Python replicado en TypeScript con pruebas de regresión cruzada donde aplique). Incluye **estado y feedback visual por campo** (Tailwind + accesibilidad) para que el usuario identifique rápidamente incompletos y errores.
-
-### Context
-
-- Contrato actual: `app/schemas/estimation_request.py` (`EstimationRequest`, `Attachment`, enums `StrEnum`).
-- Cliente actual: `web/src/features/estimation/lib/requestMapper.ts` (`estimationFormSchema`, `mapEstimationFormToRequestBody`), `EstimationWorkbench.tsx`, `fileToBase64.ts`.
-- Tests existentes: `tests/test_estimation_request.py`, Vitest en `web/src/features/estimation/**/*.test.ts`.
-
-### Scope
-
-#### Includes
-
-- **Selectores y enums:** cualquier campo que en JSON sea un enum / lista de enums debe validarse en cliente con `z.enum` / `z.array(z.enum(...))` **idéntico** al conjunto permitido por Pydantic (`ProjectType`, `DeliveryUrgency`, …); no aceptar strings arbitrarios antes del submit.
-- **`project_name`:** opcional; si viene, **longitud máxima 100** caracteres (trim); backend `Field(max_length=100)` y validador de trim coherente con el actual.
-- **`project_summary` (resumen de una línea):** **20–250** caracteres tras trim (sustituye el rango 20–200 actual en backend y Zod).
-- **`project_description`:** **100–1000** caracteres tras trim (sustituye 100–24_000 actual); el `<textarea>` debe mostrar contador o `maxLength` + validación Zod; backend `Field(min_length=100, max_length=1000)`.
-- **`deliverables` (textarea):** contenido completo tras trim con **100–500** caracteres (incluyendo saltos de línea si se cuentan en el límite — definir en implementación una regla única: recomendación **longitud del string completo**); sigue siendo obligatorio obtener **3–8 líneas** no vacías al partir por `\n`; **cada línea** ≤ **80** caracteres (mantener regla de ítem existente) y validar que la composición respeta 100–500 en total (ajustar mensajes de error si hay tensión entre líneas y total — si matemáticamente 8×80 > 500, el validador global 500 prevalece y se documenta).
-- **Adjuntos:** admitir **`image/jpeg`** y **`image/png`** además de los tipos actuales (`text/plain`, `text/markdown`, `application/pdf`), hasta **3** ficheros; validación **por MIME declarado** (`content_type` / tipo de fichero en input) y, de forma **recomendada**, comprobación **magic bytes** en backend tras decodificar base64 para reducir spoofing (JPEG/PNG firmas); rechazar extensión `.jpg` con `content_type` incorrecto.
-- **Resto de campos (criterio):** reutilizar límites ya definidos en Pydantic donde existan (`target_audience_other`, `industry_other`, listas máx., `hosting_notes`, fechas con `target_date` si urgencia lo exige, exclusividad `integration_categories` con `none`, etc.); reflejarlos en Zod y en mensajes de error legibles en UI.
-- **Errores API:** mapear `422` de FastAPI a feedback legible (lista de `detail` ya parcialmente soportado en `useEstimateStream`).
-- **Estado por campo y ayuda visual (UX):** cada control editable expone un **estado explícito** (`pristine` | `touched` | `valid` | `invalid` | `pending` opcional durante submit) derivado de interacción + validación Zod; el usuario ve **dónde falta información** o **qué falla** sin depender solo del bloque de error global.
-- **Estilos de inputs (Tailwind + Vite):** aplicar patrones **accesibles** y consistentes con **Tailwind CSS v4** (`@import "tailwindcss"` / `@tailwindcss/vite`): bordes, `ring`, foco `focus-visible:ring-*`, estados `aria-invalid`, texto de ayuda y error bajo el campo, **sin** CSS ad-hoc fuera del sistema de utilidades salvo tokens mínimos en `index.css` si hace falta.
-- **Resumen de progreso (opcional recomendado):** barra o texto tipo “X de Y secciones listas” / lista de campos incompletos **al intentar enviar** o en panel colapsable, para orientar al usuario.
-
-#### Excludes
-
-- No cambiar el contrato SSE ni las rutas `POST /api/v1/estimate` / `estimate/stream`.
-- No OCR ni tratamiento de píxeles más allá de validar tipo/tamaño.
-- No i18n completo de mensajes (inglés técnico en mensajes de validación es suficiente en v1).
-- No adopción obligatoria de librerías de componentes pesadas (p. ej. shadcn/ui) en v1: **Tailwind utility-first** primero; valorar extracción de subcomponentes locales (`FormField`, `FieldError`) en `web/src/features/estimation/components/`.
-
-### Functional Requirements
-
-| ID | Requisito |
-|----|-----------|
-| EV-01 | Los **select** / **multiselect** solo producen valores pertenecientes al enum o lista permitida; Zod rechaza cualquier otro valor antes del mapeo a JSON. |
-| EV-02 | `project_name`: máximo **100** caracteres (trim); opcional vacío → `null`. |
-| EV-03 | `project_summary`: **20–250** caracteres (trim). |
-| EV-04 | `project_description`: **100–1000** caracteres (trim). |
-| EV-05 | `deliverablesText`: **100–500** caracteres (trim del bloque); **3–8** líneas no vacías; cada línea ≤ **80** caracteres; validación coherente en `@field_validator` / `model_validator` en Pydantic y en Zod. |
-| EV-06 | Adjuntos: tipos MIME permitidos incluyen **`image/jpeg`**, **`image/png`**, más los existentes; tamaño máximo por fichero y total según constantes actuales (`_MAX_ATTACHMENT_BYTES`, `_MAX_ATTACHMENTS_TOTAL_BYTES`); input `accept` alineado. |
-| EV-07 | Backend: toda regla nueva o ajustada vive en **`app/schemas/estimation_request.py`** (o módulo `app/schemas/estimation_limits.py` extraído si reduce duplicación); sin lógica de negocio nueva en routers. |
-| EV-08 | Frontend: esquema Zod único (o módulo `limits.ts` importado por el schema) alineado con los números del backend; **contadores** opcionales pero recomendados en textareas críticos. |
-| EV-09 | Cada campo del formulario tiene un **estado de validación** explícito y estable (ver modelo de estados en §UX/UI); el estado se actualiza en `onBlur` / `onChange` según política acordada (recomendación: errores de longitud en **blur** o al superar límite, errores de obligatoriedad al **submit** o al marcar sección). |
-| EV-10 | **Ayuda visual:** borde/ring distintivo para `invalid` vs `valid` vs `focus`; mensaje de error **inline** bajo el control con `role="alert"` o `aria-describedby` enlazado al input (`id` + `aria-invalid={true}` cuando falle). |
-| EV-11 | **Completitud:** al enviar con faltantes, **scroll o foco** al primer campo inválido; opcional lista “Missing: …” agrupada por sección (principal vs “More details”). |
-| EV-12 | **Contadores** visibles donde hay límites de caracteres (resumen, descripción, deliverables, etc.) con formato `current / max` y color de advertencia al acercarse al límite (utilidades Tailwind `text-amber-*` / `text-red-*`). |
-| EV-13 | **Select / multiselect:** estilo coherente con inputs de texto (misma altura de label, mismos estados de error); en multiselect, indicar selección vacía inválida solo cuando las reglas Zod lo exijan. |
-| EV-14 | **Stack:** implementación en **Vite + React** existente; estilos solo vía **Tailwind** (`className`); sin estilos inline salvo dinámicos inevitables; respetar **prefers-reduced-motion** si hay transiciones en mensajes. |
-
-### UX / UI: modelo de estados y patrones Tailwind
-
-- **Modelo mínimo de estado por campo:** `pristine` (sin tocar), `touched`, `valid`, `invalid` (incluye mensaje `string | null`). Opcional `dirty` si se desea “reset” de borrador. Transiciones documentadas en código (comentario breve en el helper de estado).
-- **Clases Tailwind sugeridas (referencia, no exhaustiva):**
-  - Base: `rounded-md border bg-slate-900 px-3 py-2 text-sm text-slate-100 border-slate-700`.
-  - Foco: `focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:border-violet-500`.
-  - Inválido: `border-red-500/80 ring-1 ring-red-500/30` + `aria-invalid`.
-  - Válido tocado: `border-emerald-600/50` (opcional, sutil para no saturar).
-  - Texto de ayuda: `text-xs text-slate-500`; error: `text-xs text-red-400`.
-- **Vite:** sin cambios de configuración obligatorios; si se añaden assets estáticos, colocarlos bajo `web/public/` según convención Vite.
-- **Accesibilidad:** asociar `<label htmlFor>` con cada control; no basar el significado solo en color (icono o prefijo textual opcional en errores).
-
-### Technical Approach
-
-1. **Backend (fuente de verdad):** centralizar constantes (`_PROJECT_NAME_MAX = 100`, `_PROJECT_SUMMARY_MAX = 250`, `_PROJECT_DESCRIPTION_MAX = 1000`, límites del textarea de deliverables, `_ATTACHMENT_ALLOWED_TYPES` ampliado). Ajustar `Field` y validadores de `EstimationRequest` / `Attachment`; ampliar tests en `tests/test_estimation_request.py` y fixtures en `tests/estimation_fixtures.py` que asuman longitudes antiguas.
-2. **Frontend:** actualizar `estimationFormSchema` y `mapEstimationFormToRequestBody`; `fileToBase64.ts` / input `accept` para imágenes; `EstimationWorkbench` con `maxLength` / `pattern` HTML5 donde ayude sin contradecir Zod.
-3. **Frontend — UX:** extraer un helper o hook ligero (`useFieldMeta`, `fieldStyles(state)`) o componentes `FormField` / `LabeledInput` en `web/src/features/estimation/components/` para evitar duplicar clases Tailwind; centralizar mapa estado → clases.
-4. **Técnica estándar:** Pydantic v2 + Zod; sin generador de código obligatorio en v1; **tabla de límites** en este documento y en `docs/technical/README.md` / OpenAPI actualizados al cerrar.
-5. **Paridad:** añadir tests que fallen si el backend acepta lo que el frontend rechaza (payloads límite en pytest); Vitest para límites de strings y tipos MIME en el cliente.
-
-### Acceptance Criteria
-
-- [ ] Los enums del formulario web coinciden con los `StrEnum` del backend; valores inválidos no se envían.
-- [ ] `project_name`, `project_summary`, `project_description`, bloque `deliverables` cumplen los rangos indicados en backend y frontend.
-- [ ] Adjuntos JPEG/PNG aceptados por API y validados por MIME (y magic bytes si se implementa); rechazo claro si el tipo no coincide.
-- [ ] `POST /api/v1/estimate` y `POST /api/v1/estimate/stream` devuelven `422` con detalle Pydantic para cuerpos fuera de rango; la UI muestra el error de forma legible.
-- [ ] `uv run pytest` y `cd web && npm run test && npm run build` pasan tras los cambios.
-- [ ] Documentación técnica y ejemplo curl en README o `docs/technical` reflejan los nuevos límites.
-- [ ] Cada campo relevante muestra estado visual (default / foco / error / éxito sutil) con **Tailwind** y atributos **ARIA** adecuados.
-- [ ] Errores de validación cliente aparecen **junto al campo**; el submit con errores hace **focus** o **scroll** al primer fallo y, si aplica, lista de pendientes.
-- [ ] Contadores de caracteres visibles en campos con límite explícito (alineados con Zod / backend).
-
-### Test Plan
-
-- **Unit (Python):** límites de longitud, deliverables 100–500 + 3–8 líneas + 80 por línea, adjuntos image/jpeg y image/png válidos e inválidos (tipo incorrecto, tamaño).
-- **Unit (Vitest):** mismos casos límite en `requestMapper` / schema; ficheros mock con tipo MIME.
-- **Manual:** enviar formulario al límite superior/inferior; adjuntar PNG/JPEG; verificar 422 con payload antiguo (descripción > 1000 chars) rechazado.
-- **Manual UX:** teclado solo (Tab + Enter): foco visible; lector de pantalla anuncia `aria-invalid` en error; `prefers-reduced-motion` no rompe el flujo.
-
-### Documentation Plan
-
-- Actualizar `docs/technical/README.md` (contrato JSON / adjuntos).
-- Actualizar `README.md` si el ejemplo `curl` usa textos que ya no cumplen límites.
-- Actualizar colecciones bajo `api-collection/` si incluyen cuerpos desactualizados.
-- Opcional: captura o nota breve en el work item de **estados visuales** (referencia de diseño) tras implementar.
-
-### Baby Steps (implementación sugerida)
-
-1. Extraer o ajustar constantes y Pydantic en `app/schemas/estimation_request.py`; pytest en rojo/verde.
-2. Alinear `tests/estimation_fixtures.py` y tests API que construyan cuerpos.
-3. Alinear Zod + mapper + `fileToBase64`; Vitest.
-4. Implementar **estados de campo + estilos Tailwind + ayuda inline** en `EstimationWorkbench` (o subcomponentes); prueba manual UX.
-5. Documentación + smoke manual; fila en **Repository commits** cuando se fusione.
+1. Document the current Streamlit-coupled surface: dependency, Compose service, run commands, and docs references.
+2. Add backend CORS settings and wire them in `app/main.py`.
+3. Scaffold the independent `web/` app and a minimal API client to the existing estimation endpoint.
+4. Recreate the essential Streamlit user flow in the web UI: form, submit, loading, result, and error states; add theme control (**dark** / **light** / **system**, default **system**, persisted).
+5. Remove Streamlit runtime pieces and update README / `.env.example` / Compose.
+6. Run focused verification and confirm the supported local workflow is now backend + web.
 
 ---
 
@@ -407,6 +201,3 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 | `ea6315b` | `docs: document backend-web workflow and CORS settings` | `README.md`, `docs/technical/README.md`, `.env.example`. |
 | `f18801c` | `feat(web): add appearance theme system light dark` | `web/src/theme/appearance.ts`, `useAppearance.ts`, `ThemeControl.tsx`, tests; `index.css` `@custom-variant dark`; `index.html` inline theme bootstrap; `App.tsx` toolbar; dual-theme styles + focus rings in `EstimationWorkbench.tsx`; `web/README.md` Appearance section. |
 | `39af082` | `docs(cursor): add continue-task and update-feature commands` | Cursor slash commands for resuming implementation from an existing canonical feature doc and for refining `/write-feature` specs in place. |
-| `70dfccc` | `docs(estimador-cag): record cursor commands commit in feature-010 work item` | Append the `39af082` row to the versioned `docs/work-items/feature-010` commit log (Second Brain path is a symlink outside this repo). |
-| `e05036f` | `docs(cursor): default PR merge flow in finish-task command` | Make `/finish-task` run `gh pr merge` by default after Part A; add **Skip Part B** opt-out; fix work-item mirror path to `docs/work-items/`. |
-| `c7446f4` | `docs(estimador-cag): log finish-task default merge in feature-010` | Append `e05036f` to the feature-010 repository commit table in `docs/work-items/`. |

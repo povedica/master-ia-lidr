@@ -304,6 +304,7 @@ Each step must keep `uv run pytest` green before moving on.
 Run locally:
 
 ```bash
+cd proyectos/estimador-cag
 uv run uvicorn app.main:app --reload
 ```
 
@@ -370,7 +371,7 @@ Implemented end-to-end in the service and API layers:
 
 ## Verification Evidence
 
-Automated validation executed from the repository root:
+Automated validation executed from `proyectos/estimador-cag`:
 
 ```bash
 uv sync --group dev

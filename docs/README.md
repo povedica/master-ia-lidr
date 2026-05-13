@@ -6,11 +6,11 @@ Documentar el proyecto `estimador-cag`, un ejercicio de AI Engineering para cons
 
 ## Estructura documental
 
-- **Sesiones (réplica en git):** `learnings/docs/sesiones/` (sincronizar con `bash scripts/sync-estimador-cag-docs.sh`).
-- **Aprendizajes (réplica en git):** `learnings/aprendizajes/`.
-- **Retrospectivas (réplica en git):** `learnings/retrospectiva/` (origen en el vault: `retrospectivas/`).
-- `work-items/`, `examples/`: réplica bajo `docs/` desde el vault del proyecto.
-- `technical/`: base technical documentation for the project (English), as an extension of the root `README.md`.
+- `sesiones/`: seguimiento por sesión del máster.
+- `decisiones/`: decisiones técnicas y features canónicas.
+- `aprendizajes/`: conceptos reutilizables aprendidos durante el proyecto.
+- `retrospectivas/`: cierres de hitos o sesiones largas.
+- `technical/`: base technical documentation for the project (English), as an extension of the subproject `README.md`.
 
 ## Convenciones
 
@@ -22,10 +22,10 @@ Documentar el proyecto `estimador-cag`, un ejercicio de AI Engineering para cons
 
 ## Código y README operativo (repositorio master-ia)
 
-La implementación vive en la **raíz del repositorio git `master-ia`**: FastAPI, CAG con ejemplos few-shot cargados desde `app/context/examples/sample-standard-*.txt` (muestreo aleatorio en `app/context/examples.py`), prompts por modo bajo `app/context/prompts/`, y persistencia opcional de la estimación en `output-responses/` cuando `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`.
+La implementación vive en `proyectos/estimador-cag/`: FastAPI, CAG con ejemplos few-shot cargados desde `app/context/examples/sample-standard-*.txt` (muestreo aleatorio en `app/context/examples.py`), prompts por modo bajo `app/context/prompts/`, y persistencia opcional de la estimación en `output-responses/` cuando `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`.
 
-Para comandos, contrato HTTP y variables de entorno, usa el **`README.md` en la raíz del repositorio** (inglés) y la extensión **`technical/README.md`** (inglés, réplica bajo `docs/technical/` tras `bash scripts/sync-estimador-cag-docs.sh`).
+Para comandos, contrato HTTP y variables de entorno, usa el **`README.md` del subproyecto en git** (inglés) y la extensión **`technical/README.md`** (inglés, réplica bajo `docs/technical/` tras `bash scripts/sync-estimador-cag-docs.sh`).
 
 ## Sesión activa
 
-- `learnings/docs/sesiones/sesion-02-estimador-cag.md`
+- `sesiones/sesion-02-estimador-cag.md`
