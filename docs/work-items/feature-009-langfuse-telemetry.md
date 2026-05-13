@@ -186,3 +186,4 @@ export async function withEstimationTrace<T>(
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
+| `f750a4d` | `docs(work-items): add Langfuse telemetry MVP specification` | English MVP spec for Langfuse Cloud EU integration (scope, SDK vs OTEL, traces, env vars, security, roadmap); no application code. |
