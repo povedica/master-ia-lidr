@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+# Repository root: .../<repo>/app/services/<this file> → parents[2] == <repo>
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _OUTPUT_DIR = _REPO_ROOT / "output-responses"
 
 

@@ -12,8 +12,8 @@ from app.services.llm_service import EstimationResult
 
 logger = logging.getLogger(__name__)
 
-# Monorepo root (same resolution as response_output_writer).
-_MASTER_IA_ROOT = Path(__file__).resolve().parents[4]
+# Repository root: .../<repo>/app/services/<this file> → parents[2] == <repo>
+_MASTER_IA_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_STATS_LOG_PATH = _MASTER_IA_ROOT / "output-stats" / "estimation-stats.jsonl"
 
 
