@@ -12,3 +12,8 @@ export function getApiBaseUrl(): string {
 export function estimateStreamUrl(): string {
   return `${getApiBaseUrl()}/api/v1/estimate/stream`
 }
+
+/** Structured estimate: single terminal SSE ``done`` with ``result`` JSON (no token chunks). */
+export function estimateStructuredStreamUrl(): string {
+  return `${getApiBaseUrl()}/api/v2/estimate/stream`
+}

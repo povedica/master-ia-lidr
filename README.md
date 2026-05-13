@@ -96,7 +96,7 @@ Browsers may request `/favicon.ico`; there is no favicon asset, so that request 
 
 ## Web UI (Vite)
 
-The **`web/`** package is a **React + Vite + TypeScript** browser UI. It calls **`POST /api/v1/estimate/stream`** with the same structured JSON as `POST /api/v1/estimate` and renders markdown progressively from SSE `chunk` events. Client-side validation uses **Zod**; the API remains authoritative via Pydantic.
+The **`web/`** package is a **React + Vite + TypeScript** browser UI. It calls **`POST /api/v2/estimate/stream`** with the same structured JSON as **`POST /api/v2/estimate`** and renders the terminal **`done`** payload: the UI reads **`result`** (title, summary, totals, line items) for tables and cards—**no Markdown parsing** on the primary path. (The legacy **`/api/v1/estimate/stream`** path still streams Markdown `chunk` events for compatibility.) Client-side validation uses **Zod**; the API remains authoritative via Pydantic.
 
 **Docker:** you do not need Node locally — the **`web`** image builds the assets in CI/Docker and serves them with nginx (see [Run with Docker](#run-with-docker-api--web-ui)).
 
@@ -314,7 +314,7 @@ When `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`, each successful `POST /api/v1/est
 
 - `output-responses/response-YYYYmmdd-hhmmss.md` (UTC timestamp).
 
-When `ESTIMATION_STATS_LOG_ENABLED=true`, each successful `POST /api/v1/estimate` appends one NDJSON line (metadata only, no estimation body) for usage analytics. The default file is `output-stats/estimation-stats.jsonl` at the repository root; override with `ESTIMATION_STATS_LOG_PATH` (absolute path). Failures to write the log are logged as warnings and do not fail the request.
+When `ESTIMATION_STATS_LOG_ENABLED=true`, each successful `POST /api/v1/estimate` or `POST /api/v2/estimate` appends one NDJSON line (metadata only, no estimation body) for usage analytics. The default file is `output-stats/estimation-stats.jsonl` at the repository root; override with `ESTIMATION_STATS_LOG_PATH` (absolute path). Failures to write the log are logged as warnings and do not fail the request.
 
 ### Response examples by environment mode
 

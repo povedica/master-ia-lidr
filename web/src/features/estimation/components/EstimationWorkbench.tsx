@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown'
 import { ZodError } from 'zod'
 
 import { useEstimateStream } from '../hooks/useEstimateStream'
-import { estimateStreamUrl } from '../api/estimateApi'
+import { estimateStructuredStreamUrl } from '../api/estimateApi'
 import { filesToAttachments } from '../lib/fileToBase64'
 import {
   mapEstimationFormToRequestBody,
@@ -185,6 +185,80 @@ const DETAILS_FIELD_KEYS = new Set<string>([
 const CONTROL_ERR_RING =
   'ring-2 ring-red-500/45 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
 
+function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) {
+  const title = typeof data.title === 'string' ? data.title : '—'
+  const summary = typeof data.summary === 'string' ? data.summary : ''
+  const totals = data.totals as Record<string, unknown> | undefined
+  const hours = totals && typeof totals.hours === 'number' ? totals.hours : null
+  const cost = totals && typeof totals.cost_eur === 'number' ? totals.cost_eur : null
+  const duration =
+    typeof data.duration_weeks === 'number' ? data.duration_weeks.toFixed(1) : '—'
+  const confidence =
+    typeof data.confidence === 'number' ? (data.confidence * 100).toFixed(0) + '%' : '—'
+
+  const lineItems = Array.isArray(data.line_items)
+    ? (data.line_items as Record<string, unknown>[])
+    : []
+
+  return (
+    <div className="mt-4 space-y-6 text-sm text-slate-800 dark:text-slate-200">
+      <div>
+        <h3 className="text-base font-medium text-slate-900 dark:text-white">{title}</h3>
+        {summary ? <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">{summary}</p> : null}
+      </div>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+          <dt className="text-xs uppercase text-slate-500">Total hours</dt>
+          <dd className="mt-1 font-semibold tabular-nums">{hours !== null ? hours : '—'}</dd>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+          <dt className="text-xs uppercase text-slate-500">Total EUR</dt>
+          <dd className="mt-1 font-semibold tabular-nums">{cost !== null ? cost.toLocaleString() : '—'}</dd>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+          <dt className="text-xs uppercase text-slate-500">Duration (weeks)</dt>
+          <dd className="mt-1 font-semibold tabular-nums">{duration}</dd>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+          <dt className="text-xs uppercase text-slate-500">Confidence</dt>
+          <dd className="mt-1 font-semibold tabular-nums">{confidence}</dd>
+        </div>
+      </dl>
+      {lineItems.length > 0 ? (
+        <div>
+          <h4 className="mb-2 font-medium text-slate-900 dark:text-white">Line items</h4>
+          <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full border-collapse text-left text-xs">
+              <thead className="bg-slate-100 dark:bg-slate-900">
+                <tr>
+                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">Name</th>
+                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">Hours</th>
+                  <th className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">EUR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((row, i) => (
+                  <tr key={i} className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-950 dark:even:bg-slate-900/50">
+                    <td className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                      {String(row.name ?? '')}
+                    </td>
+                    <td className="border-b border-slate-100 px-3 py-2 tabular-nums dark:border-slate-800">
+                      {typeof row.hours === 'number' ? row.hours : '—'}
+                    </td>
+                    <td className="border-b border-slate-100 px-3 py-2 tabular-nums dark:border-slate-800">
+                      {typeof row.cost_eur === 'number' ? row.cost_eur : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function zodIssuesToFieldErrors(issues: ZodError['issues']): Record<string, string> {
   const map: Record<string, string> = {}
   for (const issue of issues) {
@@ -210,7 +284,7 @@ function firstOrderedFieldWithError(
 }
 
 export function EstimationWorkbench() {
-  const { markdown, loading, error, doneMeta, run, cancel } = useEstimateStream()
+  const { markdown, structuredResult, loading, error, doneMeta, run, cancel } = useEstimateStream()
   const [form, setForm] = useState<EstimationFormValues>(buildInitialForm)
   const [clientError, setClientError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -298,11 +372,11 @@ export function EstimationWorkbench() {
       <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Estimador CAG</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          Guided estimation form. Output streams from{' '}
+          Guided estimation form. Structured output streams from{' '}
           <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-            {estimateStreamUrl()}
-          </code>
-          .
+            {estimateStructuredStreamUrl()}
+          </code>{' '}
+          (v2: one terminal <code className="text-xs">done</code> event with JSON <code className="text-xs">result</code>).
         </p>
       </header>
 
@@ -720,19 +794,24 @@ export function EstimationWorkbench() {
             disabled={loading}
             className="rounded bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
           >
-            {loading ? 'Streaming…' : 'Generate estimate'}
+            {loading ? 'Running…' : 'Generate estimate'}
           </button>
           <button
             type="button"
             onClick={() => cancel()}
             className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            Cancel stream
+            Cancel request
           </button>
         </div>
       </form>
 
-      {markdown ? (
+      {structuredResult ? (
+        <section className="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Estimate (structured)</h2>
+          <StructuredEstimateSummary data={structuredResult} />
+        </section>
+      ) : markdown ? (
         <section className="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Estimate</h2>
           <article className="mt-4 max-w-none text-left text-sm leading-relaxed text-slate-800 dark:text-slate-200 [&_a]:text-violet-700 [&_code]:rounded [&_code]:bg-slate-200 [&_code]:px-1 [&_code]:text-slate-900 [&_h1]:text-xl [&_h2]:text-lg [&_ul]:list-disc [&_ul]:pl-5 dark:[&_a]:text-violet-300 dark:[&_code]:bg-slate-800 dark:[&_code]:text-slate-100">

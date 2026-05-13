@@ -19,7 +19,6 @@ The goal is documentation that supports development, debugging, and growth witho
 - [9. Estimation request flow](#9-estimation-request-flow)
 - [10. CAG design](#10-cag-design)
 - [11. API contract](#11-api-contract)
-  - [11.1 Streaming estimation (SSE)](#111-streaming-estimation-sse)
 - [12. Response metadata](#12-response-metadata)
 - [13. Logging](#13-logging)
 - [14. Error handling](#14-error-handling)
@@ -32,13 +31,13 @@ The goal is documentation that supports development, debugging, and growth witho
 
 ## 1. Overview
 
-`estimador-cag` is a FastAPI service that accepts **structured project context** (`EstimationRequest`) and returns a structured software estimate.
+`estimador-cag` is a FastAPI service that accepts a client meeting transcription and returns a structured software estimate.
 
 The project uses **Context-Augmented Generation (CAG)** in a deliberately small form:
 
 - Few-shot reference text lives under `app/context/examples/<basic|standard|professional|expert_review>/` as `*.txt` files; `app/context/examples.py` loads the pool for the active mode and returns a **random subset** (2–4 examples) per request, falling back to `standard` when a mode folder has no samples. Tests seed RNG where non-determinism would break assertions.
 - The app builds a `system prompt` with instructions and prior examples.
-- The router renders a deterministic Markdown **user message** from the structured payload and sends it as the `user` message.
+- The live transcription is sent as the `user` message.
 - A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
 - A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
@@ -88,6 +87,7 @@ Requirements:
 From the repository root:
 
 ```bash
+cd proyectos/estimador-cag
 uv sync --group dev
 cp .env.example .env
 ```
@@ -113,10 +113,7 @@ Useful URLs:
 - `GET http://127.0.0.1:8000/`
 - `GET http://127.0.0.1:8000/health`
 - `POST http://127.0.0.1:8000/api/v1/estimate`
-- `POST http://127.0.0.1:8000/api/v1/estimate/stream` (SSE, see §11.1)
 - `http://127.0.0.1:8000/docs`
-
-**Progressive UI (FastAPI + `web/` Vite app, two processes):** start the API in one terminal (`uv run uvicorn app.main:app --reload`), then from `web/` run `npm install` and `npm run dev`. The UI streams from `POST /api/v1/estimate/stream` using `VITE_API_BASE_URL` (default `http://127.0.0.1:8000` in `web/.env.example`). Ensure **`FRONTEND_ORIGINS`** on the API includes your Vite origin (defaults cover `http://localhost:5173` and `http://127.0.0.1:5173`). No extra LLM env vars are required for streaming; the browser UI uses the same provider settings as the non-streaming endpoint.
 
 ## 5. Environment variables
 
@@ -136,7 +133,6 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
 | `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
-| `FRONTEND_ORIGINS` | No | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated browser origins for CORS when the `web/` UI calls the API from another origin. |
 | `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
@@ -149,6 +145,7 @@ Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local
 Main subproject commands:
 
 ```bash
+cd proyectos/estimador-cag
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 uv run pytest
@@ -165,7 +162,7 @@ Sample estimate request:
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -H "Content-Type: application/json" \
-  -d '{"project_summary":"B2B portal for partners to submit requests and track SLA status.","project_type":"web_saas","target_audience":"b2b_smb","project_description":"The client needs a REST API for orders with idempotent POST. The service must validate inventory and expose admin reporting. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["REST API with idempotent POST for orders","Admin reporting dashboard","Inventory validation rules"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
+  -d '{"transcription":"The client needs a REST API for orders with idempotent POST."}'
 ```
 
 Documentation mirror sync from the repository root:
@@ -174,14 +171,14 @@ Documentation mirror sync from the repository root:
 bash scripts/sync-estimador-cag-docs.sh
 ```
 
-That script mirrors canonical notes from `learnings/second-brain-master-ia/proyectos/estimador-cag/` into `docs/` (excluding `sesiones/`, `aprendizajes/`, and `retrospectivas/`) and mirrors those three subtrees into `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/` respectively.
+That script mirrors canonical notes from `second-brain-master-ia/proyectos/estimador-cag/` into `proyectos/estimador-cag/docs/`.
 
 ## 7. Directory layout
 
-Current repository layout:
+Current subproject layout:
 
 ```text
-.
+proyectos/estimador-cag/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py
@@ -212,16 +209,9 @@ Current repository layout:
 │       └── response_output_writer.py
 ├── api-collection/
 │   └── Estimador CAG/
-├── learnings/
-│   ├── README.md
-│   ├── notebooks/
-│   ├── docs/
-│   │   └── sesiones/
-│   ├── aprendizajes/
-│   ├── retrospectiva/
-│   └── second-brain-master-ia -> (symlink to local vault)
 ├── docs/
 │   ├── README.md
+│   ├── sesiones/
 │   ├── work-items/
 │   └── technical/
 ├── tests/
@@ -251,13 +241,12 @@ Responsibilities:
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
 | `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
-| `app/services/llm_chain.py` | LiteLLM-backed provider chain and registry. |
+| `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
-| `docs/` | Versioned mirror of Second Brain project notes (work items, technical docs, examples) excluding folders mirrored under `learnings/`. |
-| `learnings/` | Course assets: `notebooks/`, symlink to vault (`second-brain-master-ia`), and versioned mirrors `docs/sesiones/`, `aprendizajes/`, `retrospectiva/`. |
+| `docs/` | Versioned mirror of Second Brain notes, sessions, work items, and technical docs. |
 
 ## 8. Technical architecture
 
@@ -298,9 +287,9 @@ sequenceDiagram
     participant Anthropic
     participant Static as static_fallback
 
-    Client->>Router: POST /api/v1/estimate { EstimationRequest JSON }
-    Router->>Router: Validate EstimationRequest, render user + assessment text
-    Router->>Service: estimate(user_message, assessment_input=surface)
+    Client->>Router: POST /api/v1/estimate { transcription }
+    Router->>Router: Validate EstimateRequest
+    Router->>Service: estimate(transcription)
     Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
     Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
     Service->>Service: route_mode_from_context_quality
@@ -377,7 +366,7 @@ Message pattern:
 
 ```text
 [system]    Instructions + reference estimation examples
-[user]      Composed project brief (from structured request)
+[user]      Meeting transcription
 [assistant] Generated estimate
 ```
 
@@ -388,11 +377,22 @@ Message pattern:
 
 Versioning:
 
-- `PROMPT_VERSION` in `app/services/llm_service.py` (currently `v7-guided-input`; bump when system prompt composition or guided user-message pipeline materially changes behavior).
-- `EXAMPLES_VERSION` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
-- `USER_MESSAGE_TEMPLATE_VERSION` (`guided-form-v1`) in `app/services/estimation_request_render.py` (bump when the Markdown mapping from `EstimationRequest` changes).
+- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
+- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
 
 ## 11. API contract
+
+### Structured v2 (`POST /api/v2/estimate`)
+
+The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 and v2.
+
+**v2 outbound:** `POST /api/v2/estimate` returns **`EstimationResponse`** with **`result: EstimationResult`** (Pydantic domain model in `app/schemas/estimation_result.py`). The LLM JSON contract is enforced via **Instructor** on top of **LiteLLM** `acompletion` (`app/services/structured_llm_client.py`); schema is derived from the model, not duplicated as hand-written JSON files.
+
+**Prompts:** Jinja2 templates live under `app/prompts/estimation/<version>/` (default `v1`). Rendering is centralized in **`render_estimation_prompt()`** (`app/services/estimation_prompt_rendering.py`) with **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`.
+
+**`POST /api/v2/estimate/stream`:** SSE does **not** stream partial model text. The service yields a **single** terminal `done` event whose JSON payload includes **`result`** (validated object) plus routing metadata (and optional `usage` when `DEV_MODE=true`), aligned with the non-streaming response body shape.
+
+**Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
 
 ### `GET /`
 
@@ -403,8 +403,7 @@ Minimal index for humans and browsers:
   "service": "Estimador CAG",
   "docs": "/docs",
   "health": "/health",
-  "estimate": "POST /api/v1/estimate",
-  "estimate_stream": "POST /api/v1/estimate/stream"
+  "estimate": "POST /api/v1/estimate"
 }
 ```
 
@@ -420,42 +419,20 @@ Liveness probe:
 
 ### `POST /api/v1/estimate`
 
-Request (structured `EstimationRequest`; see `/docs` for the full schema and enums):
+Request:
 
 ```json
 {
-  "project_summary": "B2B portal for partners to submit requests and track SLA status.",
-  "project_type": "web_saas",
-  "target_audience": "b2b_smb",
-  "project_description": "The client needs a responsive web application for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards. Integrations with existing CRM are out of scope for the first milestone. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "deliverables": [
-    "Partner authentication with SSO and role-based access control",
-    "Configurable ticket intake forms and commenting threads",
-    "Operations dashboards with CSV export and saved filters"
-  ],
-  "delivery_urgency": "standard",
-  "data_sensitivity": "internal_business",
-  "detail_level": "medium",
-  "output_format": "phases_table"
+  "transcription": "The client needs a REST API for orders with idempotent POST."
 }
 ```
 
-Validation (high level):
+Validation:
 
-- Required fields include `project_summary`, `project_type`, `target_audience`, `project_description`, `deliverables` (3–8 non-empty lines), `delivery_urgency`, `data_sensitivity`, `detail_level`, and `output_format` (see `app/schemas/estimation_request.py` for caps, conditional `target_date`, and attachment rules).
-- The **domain guardrail** and **adaptive mode** heuristics run on a **narrow assessment surface** (summary + description + scope lines), not the full Markdown template, so keyword metrics stay aligned with user intent (see **Guided form assessment surface** under §11).
-- The composed user message sent to the model is built server-side from the same payload (versioned template `guided-form-v1` in `app/services/estimation_request_render.py`).
-
-#### Guided form assessment surface
-
-`POST /api/v1/estimate` and `/estimate/stream` validate an `EstimationRequest` (`app/schemas/estimation_request.py`). The router builds:
-
-- **`user_message`**: `render_estimation_user_message(request)` — full Markdown for the LLM `user` role (Spanish section titles to reduce accidental keyword matches in the adaptive engine).
-- **`assessment_surface`**: `render_estimation_assessment_surface(request)` — summary, long description, deliverables, and optional out-of-scope lines only.
-
-`EstimationService._prepare_call` runs `check_estimation_domain` and `assess_and_select_mode` on **`assessment_surface`** when provided (non-empty after trim); otherwise it falls back to the full user message. **Two-phase** preprocessing still sends the **full** `user_message` into the phase-1 extraction call.
-
-**Attachments:** JSON body uses **base64** per file (`filename`, `content_type`, `content_base64`). Allowed types: `text/plain`, `text/markdown`, `application/pdf` (PDFs are referenced in the template without OCR). Limits: max **3** files, **256 KiB** decoded per file, **512 KiB** total decoded (see `app/schemas/estimation_request.py`).
+- `transcription` is required.
+- It must contain at least one character.
+- After `strip()`, it must not be empty.
+- It must be in the software/project estimation domain.
 
 Response with `DEV_MODE=false` (live provider):
 
@@ -496,8 +473,8 @@ Response with `DEV_MODE=true`:
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v7-guided-input",
-  "examples_version": "file-mode-v4-estimator-layout",
+  "prompt_version": "v5",
+  "examples_version": "file-mode-v3",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
@@ -505,38 +482,6 @@ Response with `DEV_MODE=true`:
     "estimated_cost_usd": 0.000384
   }
 }
-```
-
-### 11.1 Streaming estimation (SSE)
-
-`POST /api/v1/estimate/stream` returns a **Server-Sent Events** stream for progressive consumption (Streamlit demo, proxies, or `curl -N`).
-
-**Request body:** same structured **`EstimationRequest`** as `POST /api/v1/estimate` (including optional `evaluate` and `preprocessing`). The field `evaluate` is accepted for contract parity with the JSON endpoint; the stream carries **markdown text only** via `chunk` events—structural scoring and validation are not emitted on the wire (use `POST /api/v1/estimate` when you need `score` / `structure_evaluation` in one response).
-
-**Response:** `Content-Type: text/event-stream` with headers:
-
-| Header | Value |
-|--------|--------|
-| `Cache-Control` | `no-cache` |
-| `Connection` | `keep-alive` |
-| `X-Accel-Buffering` | `no` (disables buffering on common reverse proxies) |
-
-**Event framing** (each event is a block of lines ending with a blank line):
-
-| `event` | `data` JSON | When |
-|---------|----------------|------|
-| `chunk` | `{"content":"<partial text>"}` | Partial model output (one event per upstream delta when the live provider supports streaming; static fallback emits a single chunk). |
-| `done` | `{"status":"completed"}` and, when **`DEV_MODE=true`**, optional `model`, `provider`, and `usage` (same token fields as `POST /api/v1/estimate` when counts exist; `two_phase` preprocessing tokens are merged into `usage` like the JSON path). | Successful end of generation. |
-| `error` | `{"message":"<safe description>"}` | Domain guardrail, configuration/provider failure, or stream error; clients should stop reading after this. |
-
-When **`DEV_MODE=true`**, OpenAI streaming requests include LiteLLM **`stream_options.include_usage`** so the completion leg can surface token counts on the final `done` payload when the upstream returns them. Other providers may omit `usage` until they expose an equivalent signal.
-
-Example `curl` (reads until the connection closes):
-
-```bash
-curl -sN -X POST http://127.0.0.1:8000/api/v1/estimate/stream \
-  -H "Content-Type: application/json" \
-  -d '{"project_summary":"B2B portal for partners to submit requests and track SLA status.","project_type":"web_saas","target_audience":"b2b_smb","project_description":"The client needs a REST API for orders with idempotent POST. The service must validate inventory and expose admin reporting. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["REST API with idempotent POST for orders","Admin reporting dashboard","Inventory validation rules"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
 ```
 
 ## 12. Response metadata
@@ -589,7 +534,7 @@ Rules:
 
 - Do not log `OPENAI_API_KEY`.
 - Do not log full prompts by default.
-- Do not log full user briefs or attachment bodies when they may contain sensitive information.
+- Do not log full transcriptions when they may contain sensitive information.
 - Use stable keys in `extra` for search and correlation.
 
 ## 14. Error handling
@@ -597,7 +542,7 @@ Rules:
 Input errors:
 
 - FastAPI/Pydantic returns `422` for invalid requests.
-- `EstimationRequest` rejects invalid field combinations (see Pydantic `422` detail); domain guardrail rejects off-topic **assessment** text before providers run.
+- `EstimateRequest` rejects empty `transcription` after trim.
 
 Service errors:
 
@@ -624,18 +569,19 @@ This avoids leaking stack traces or internal details to API clients.
 Main command:
 
 ```bash
+cd proyectos/estimador-cag
 uv run pytest
 ```
 
 Current coverage:
 
 - `tests/test_config.py`: settings and environment overrides.
-- `tests/test_llm_service.py`: prompt construction, empty-input handling, timeout, mocked success path.
+- `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
 - `tests/test_examples.py`: example pool loading and sampling behavior.
 - `tests/test_estimation_engine.py`: adaptive routing and guardrails.
 - `tests/test_prompt_loader.py`: mode prompt file loading.
 - `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.
-- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence, SSE stream headers and `done` / `error` framing for `POST /api/v1/estimate/stream`.
+- `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence.
 
 Testing rules:
 
@@ -651,7 +597,7 @@ uv run uvicorn app.main:app --reload
 curl http://127.0.0.1:8000/health
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   -H "Content-Type: application/json" \
-  -d '{"project_summary":"Marketing site with HubSpot form and blog for launch.","project_type":"web_marketing_site","target_audience":"b2b_smb","project_description":"The client needs a landing page with HubSpot integration, lead capture, and a simple blog. Timeline is six weeks. Design exists in Figma. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","deliverables":["Responsive landing from Figma","HubSpot form and CRM sync","Blog with editor and basic SEO"],"delivery_urgency":"standard","data_sensitivity":"internal_business","detail_level":"medium","output_format":"phases_table"}'
+  -d '{"transcription":"The client needs a landing page with HubSpot integration."}'
 ```
 
 ## 16. API collection
@@ -674,16 +620,13 @@ The collection helps validate contracts without relying only on `curl`.
 Canonical source:
 
 ```text
-learnings/second-brain-master-ia/proyectos/estimador-cag/
+second-brain-master-ia/proyectos/estimador-cag/
 ```
 
-Versioned mirrors in git:
+Versioned mirror:
 
 ```text
-docs/
-learnings/docs/sesiones/
-learnings/aprendizajes/
-learnings/retrospectiva/
+proyectos/estimador-cag/docs/
 ```
 
 After editing notes in the Second Brain, sync from the repository root:
@@ -701,7 +644,7 @@ Project rules:
 - `.env` is local and must not be committed.
 - `.env.example` contains placeholders or non-sensitive defaults only.
 - API keys are read from environment variables.
-- Logs must not include credentials or full user payloads.
+- Logs must not include credentials or full transcriptions.
 - Tests must not require real keys.
 - Do not document real tokens in Second Brain notes that sync into the repository.
 
@@ -733,6 +676,7 @@ The app fails fast at startup when no provider can be built and static fallback 
 Check:
 
 ```bash
+cd proyectos/estimador-cag
 cp .env.example .env
 ```
 
@@ -744,7 +688,7 @@ By default, auth/configuration errors do not fallback silently. Check API keys a
 
 ### `422 Unprocessable Entity`
 
-The body failed Pydantic validation (missing required fields, invalid enums, list size limits, conditional `target_date`, or attachment rules). Inspect the `422` response `detail` from FastAPI.
+The body is missing `transcription`, or it is empty after `strip()`.
 
 ### `503 Service Unavailable`
 
@@ -754,7 +698,7 @@ The service could not produce an estimate. Typical causes: missing credentials, 
 
 Expected. There is no favicon asset; some browsers request it automatically.
 
-### Changes under `learnings/second-brain-master-ia` do not appear in `docs/`
+### Changes under `second-brain-master-ia` do not appear in `docs/`
 
 Run from the repository root:
 

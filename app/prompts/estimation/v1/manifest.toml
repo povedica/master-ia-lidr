@@ -1,0 +1,7 @@
+use_case = "estimation"
+version = "v1"
+description = "Guided-form estimation prompt rendered from EstimationRequest."
+system_template = "system.j2"
+user_template = "user.j2"
+examples_template = "examples.j2"
+structured_outputs_ready = true

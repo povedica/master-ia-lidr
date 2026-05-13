@@ -40,8 +40,10 @@ Routes must not branch on “OpenAI vs Anthropic” for the core estimate; a sin
 
 ## Open questions
 
-- **`/estimate/stream`:** structured output is often a **single final JSON object**, not token-by-token partial JSON. Decide one: (a) keep SSE but emit one structured `done` payload after full validation, (b) deprecate streaming for structured estimates until a supported incremental protocol exists, or (c) stream only **non-primary** events (progress) and structured body once. Document the chosen behavior in the implementation PR.
-- **Backward compatibility:** whether to version the HTTP response (`/api/v2/estimate`) or break `EstimateResponse` in place; default recommendation: explicit **v2 route** or response discriminator during transition so the web client can migrate cleanly.
+**Resolved (implementation, 2026-05-13):**
+
+- **`/estimate/stream` (structured path):** **(a)** — keep SSE and emit **one** terminal `done` event after validation, carrying the structured `result` object (no partial JSON token stream).
+- **Backward compatibility:** **Explicit v2 routes** — `POST /api/v2/estimate` and `POST /api/v2/estimate/stream` return `EstimationResponse` with typed `result`. **v1** (`POST /api/v1/estimate` and `/stream`) keep `EstimateResponse` with Markdown `estimation` unchanged.
 
 ## Motivation
 
@@ -1378,9 +1380,20 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 - Update OpenAPI-exposed schema descriptions for the new response type.
 - Keep technical prose in English.
 
+## Implementation progress
+
+- [x] Dependencies: `jinja2`, `instructor` (LiteLLM unchanged).
+- [x] Versioned prompts `app/prompts/estimation/v1/` + `prompt_versions`, `prompt_renderer`, `render_estimation_prompt`.
+- [x] Domain `EstimationResult` + transport `EstimationResponse`; `LlmEstimationCallOutcome` rename for legacy path.
+- [x] `structured_llm_client` (Instructor + LiteLLM, bounded retries via `STRUCTURED_OUTPUT_MAX_ATTEMPTS`).
+- [x] `EstimationService.estimate_structured` + `stream_structured_estimation` (single `done` SSE).
+- [x] Routers `POST /api/v2/estimate` and `POST /api/v2/estimate/stream`; web binds to `result` fields.
+- [x] Tests: prompt stack, schema, structured client mock, v2 API; `.env.example` + docs updated.
+
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `3497d74` | `docs(work-items): add feature-011 Jinja2 and structured output spec` | Track the full feature-011 specification in the versioned `docs/work-items/` mirror so it ships with the repository. |
 | `05c841a` | `docs(work-items): fix repository commit log hash in feature-011` | Replace the incorrect short hash in the commit log row with `3497d74` for the initial mirror commit. |
+| `cbd9bbc` | `feat(estimation): add v2 structured API with Jinja2 prompts and Instructor` | v2 routes, domain/transport schemas, prompt stack, web SSE consumer for single `done` with `result`, tests, env and technical docs. |

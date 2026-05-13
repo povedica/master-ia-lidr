@@ -9,12 +9,15 @@ from fastapi.testclient import TestClient
 from app.config import Settings, get_settings
 from app.main import app
 from app.routers.estimations import get_estimation_service
+from app.routers import estimations_v2
 from app.services import response_output_writer
-from app.services.estimation_engine import EstimationMode
+from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
+from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.llm_service import (
     DomainGuardrailError,
     EstimationError,
-    EstimationResult,
+    LlmEstimationCallOutcome,
+    StructuredEstimateBundle,
     UsageInfo,
 )
 from tests.estimation_fixtures import (
@@ -24,8 +27,8 @@ from tests.estimation_fixtures import (
 
 
 class _FakeEstimationService:
-    async def estimate(self, transcription: str, **_: object) -> EstimationResult:
-        return EstimationResult(
+    async def estimate(self, transcription: str, **_: object) -> LlmEstimationCallOutcome:
+        return LlmEstimationCallOutcome(
             estimation=(
                 "## Estimation: mocked output\n\n"
                 "### Assumptions\nx\n### Estimate\ny\n### Risks\nz\n"
@@ -46,8 +49,8 @@ class _FakeEstimationService:
 
 
 class _FakeStaticFallbackEstimationService:
-    async def estimate(self, transcription: str, **_: object) -> EstimationResult:
-        return EstimationResult(
+    async def estimate(self, transcription: str, **_: object) -> LlmEstimationCallOutcome:
+        return LlmEstimationCallOutcome(
             estimation="## Estimation: fallback output",
             provider="static_fallback",
             model="static-v1",
@@ -432,3 +435,100 @@ def test_estimate_stream_emits_error_event_on_service_failure() -> None:
     assert headers.get("x-accel-buffering") == "no"
     assert "event: error" in body
     assert "All providers failed." in body
+
+
+class _FakeStructuredEstimationService:
+    async def estimate_structured(self, request: object, *, assessment_surface: str) -> StructuredEstimateBundle:
+        del request, assessment_surface
+        li = EstimationLineItem(name="Task", hours=2.0, cost_eur=100.0)
+        totals = EstimationTotals(hours=2.0, cost_eur=100.0)
+        result = EstimationResult(
+            title="Structured v2 API test project",
+            summary="S" * 25,
+            phases=[],
+            line_items=[li],
+            totals=totals,
+            duration_weeks=1.0,
+            confidence=0.7,
+        )
+        assess = InputAssessment(
+            detail_level="medium",
+            recommended_mode=EstimationMode.STANDARD,
+            reason="fixture",
+        )
+        mel = ModeEligibility(
+            allowed_modes=(EstimationMode.STANDARD, EstimationMode.BASIC),
+            blocked_modes=(),
+            reason=None,
+        )
+        return StructuredEstimateBundle(
+            result=result,
+            prompt_version="estimation/v1",
+            examples_version="fixture-ex",
+            mode=EstimationMode.STANDARD,
+            model="gpt-4o-mini",
+            provider="openai",
+            usage=UsageInfo(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            degraded=False,
+            finish_reason="stop",
+            assessment=assess,
+            mode_eligibility=mel,
+        )
+
+    async def stream_structured_estimation(
+        self,
+        request: object,
+        *,
+        assessment_surface: str,
+    ):
+        from app.services.llm_service import EstimationService
+
+        bundle = await self.estimate_structured(request, assessment_surface=assessment_surface)
+        done_payload = {
+            "status": "completed",
+            "result": bundle.result.model_dump(mode="json"),
+            "prompt_version": bundle.prompt_version,
+            "examples_version": bundle.examples_version,
+            "mode": bundle.mode.value,
+            "provider": bundle.provider,
+            "model": bundle.model,
+        }
+        yield EstimationService.serialize_sse_event("done", done_payload)
+
+
+def test_v2_estimate_returns_structured_result() -> None:
+    app.dependency_overrides[estimations_v2.get_estimation_service] = (
+        lambda: _FakeStructuredEstimationService()  # type: ignore[return-value]
+    )
+    app.dependency_overrides[get_settings] = lambda: Settings(openai_api_key="sk-test", dev_mode=False)
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/v2/estimate", json=minimal_estimation_request_dict())
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    payload = response.json()
+    assert "result" in payload
+    assert payload["result"]["title"] == "Structured v2 API test project"
+    assert payload["prompt_version"] == "estimation/v1"
+
+
+def test_v2_estimate_stream_done_includes_result_json() -> None:
+    app.dependency_overrides[estimations_v2.get_estimation_service] = (
+        lambda: _FakeStructuredEstimationService()  # type: ignore[return-value]
+    )
+    app.dependency_overrides[get_settings] = lambda: Settings(openai_api_key="sk-test", dev_mode=False)
+    try:
+        with TestClient(app) as client:
+            with client.stream(
+                "POST",
+                "/api/v2/estimate/stream",
+                json=minimal_estimation_request_dict(),
+            ) as response:
+                body = response.read().decode("utf-8")
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert "event: done" in body
+    assert '"result":' in body
+    assert "Structured v2 API test project" in body

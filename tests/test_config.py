@@ -126,7 +126,11 @@ def test_completion_token_cap_can_be_overridden_from_env(
     assert settings.completion_token_cap_for_mode(EstimationMode.PROFESSIONAL) == 6000
 
 
-def test_default_llm_provider_and_model_have_documented_defaults() -> None:
+def test_default_llm_provider_and_model_have_documented_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DEFAULT_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     settings = Settings(_env_file=None, openai_api_key="sk-test")
     assert settings.default_llm_provider == "unset"
     assert settings.default_llm_model == "openai/gpt-4o-mini"

@@ -1,10 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 
-import { estimateStreamUrl } from '../api/estimateApi'
+import { estimateStructuredStreamUrl } from '../api/estimateApi'
 import { EstimationSseParser } from '../api/sseParser'
 
 export function useEstimateStream() {
   const [markdown, setMarkdown] = useState('')
+  const [structuredResult, setStructuredResult] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [doneMeta, setDoneMeta] = useState<Record<string, unknown> | null>(null)
@@ -12,6 +13,7 @@ export function useEstimateStream() {
 
   const reset = useCallback(() => {
     setMarkdown('')
+    setStructuredResult(null)
     setError(null)
     setDoneMeta(null)
   }, [])
@@ -29,7 +31,7 @@ export function useEstimateStream() {
       const parser = new EstimationSseParser()
       let lineBuffer = ''
       try {
-        const response = await fetch(estimateStreamUrl(), {
+        const response = await fetch(estimateStructuredStreamUrl(), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -67,6 +69,10 @@ export function useEstimateStream() {
                 setMarkdown((prev) => prev + event.text)
               } else if (event.kind === 'done') {
                 setDoneMeta(event.data)
+                const r = event.data['result']
+                if (r && typeof r === 'object' && !Array.isArray(r)) {
+                  setStructuredResult(r as Record<string, unknown>)
+                }
               } else if (event.kind === 'error') {
                 setError(event.message)
               }
@@ -79,6 +85,10 @@ export function useEstimateStream() {
             setMarkdown((prev) => prev + event.text)
           } else if (event.kind === 'done') {
             setDoneMeta(event.data)
+            const r = event.data['result']
+            if (r && typeof r === 'object' && !Array.isArray(r)) {
+              setStructuredResult(r as Record<string, unknown>)
+            }
           } else if (event.kind === 'error') {
             setError(event.message)
           }
@@ -97,7 +107,7 @@ export function useEstimateStream() {
     [reset],
   )
 
-  return { markdown, loading, error, doneMeta, run, cancel, reset }
+  return { markdown, structuredResult, loading, error, doneMeta, run, cancel, reset }
 }
 
 function formatHttpError(status: number, body: string): string {

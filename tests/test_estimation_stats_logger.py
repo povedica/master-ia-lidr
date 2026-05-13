@@ -14,7 +14,7 @@ from app.services.estimation_stats_logger import (
     build_estimation_stats_record,
     resolve_stats_log_path,
 )
-from app.services.llm_service import EstimationResult, UsageInfo
+from app.services.llm_service import LlmEstimationCallOutcome, UsageInfo
 
 
 def test_build_estimation_stats_record_omits_estimation_and_matches_shape() -> None:
@@ -28,7 +28,7 @@ def test_build_estimation_stats_record_omits_estimation_and_matches_shape() -> N
         blocked_modes=(EstimationMode.PROFESSIONAL, EstimationMode.EXPERT_REVIEW),
         reason="Input detail is insufficient.",
     )
-    result = EstimationResult(
+    result = LlmEstimationCallOutcome(
         estimation="## Estimation: secret body",
         provider="openai",
         model="gpt-4o-mini",

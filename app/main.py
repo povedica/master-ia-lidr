@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.cors import configure_cors
-from app.routers import estimations
+from app.routers import estimations, estimations_v2
 from app.services.llm_chain import build_provider_chain
 
 _log_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -52,6 +52,7 @@ app = FastAPI(
 configure_cors(app, get_settings())
 
 app.include_router(estimations.router, prefix="/api/v1")
+app.include_router(estimations_v2.router, prefix="/api/v2")
 
 
 @app.get("/")
@@ -64,6 +65,8 @@ def read_root() -> dict[str, str]:
         "health": "/health",
         "estimate": "POST /api/v1/estimate",
         "estimate_stream": "POST /api/v1/estimate/stream",
+        "estimate_structured": "POST /api/v2/estimate",
+        "estimate_structured_stream": "POST /api/v2/estimate/stream",
     }
 
 

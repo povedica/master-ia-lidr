@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     default_llm_model: str = "openai/gpt-4o-mini"
     gemini_api_key: str = ""
     forced_estimation_mode: EstimationMode | None = None
+    structured_output_max_attempts: int = Field(default=3, ge=1, le=10)
+    prompt_estimation_version: str = Field(
+        default="",
+        description="Optional prompt bundle version directory under app/prompts/estimation/ (e.g. v1).",
+    )
     # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.
     estimation_basic_output_tokens_max: int = Field(default=1024, ge=1)
     estimation_standard_output_tokens_max: int = Field(default=2048, ge=1)

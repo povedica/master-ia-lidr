@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from app.services.llm_service import EstimationResult
+from app.services.llm_service import LlmEstimationCallOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def resolve_stats_log_path(configured: str) -> Path:
 
 def build_estimation_stats_record(
     *,
-    result: EstimationResult,
+    result: LlmEstimationCallOutcome,
     structure_score: float,
     request_id: str,
     timestamp: datetime,
@@ -103,7 +103,7 @@ def append_estimation_stats_line(path: Path, record: dict[str, Any]) -> None:
 def try_append_estimation_stats(
     *,
     path: Path,
-    result: EstimationResult,
+    result: LlmEstimationCallOutcome,
     structure_score: float,
     request_id: str,
     timestamp: datetime,

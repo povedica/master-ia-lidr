@@ -80,6 +80,11 @@ class LitellmChainProvider:
         ):
             yield delta
 
+    def litellm_route(self) -> tuple[str, str, float]:
+        """LiteLLM model id, API key, and timeout for structured completions outside the chain."""
+
+        return self.model, self._api_key, self._timeout_seconds
+
 
 _DEGRADED_PREAMBLE = (
     "## Estimation: Temporary degraded mode\n\n"

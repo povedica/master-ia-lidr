@@ -12,6 +12,8 @@ from typing import Any
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
 from app.context.prompt_loader import load_mode_prompt
+from app.schemas.estimation_request import EstimationRequest
+from app.schemas.estimation_result import EstimationResult as DomainEstimationResult
 from app.services.estimation_engine import (
     EstimationMode,
     assess_and_select_mode,
@@ -23,6 +25,14 @@ from app.services.estimation_engine import (
     validate_mode_output,
 )
 from app.services.domain_guardrails import check_estimation_domain
+from app.services.estimation_prompt_rendering import render_estimation_prompt
+from app.services.estimation_request_render import render_estimation_user_message
+from app.services.inline_cleaning_prompt import INLINE_CLEANING_BLOCK
+from app.services.llm_chain import LitellmChainProvider
+from app.services.structured_llm_client import (
+    StructuredCompletionError,
+    complete_structured,
+)
 from app.services.llm_types import (
     LLMProvider,
     ProviderConfigError,
@@ -37,15 +47,6 @@ PROMPT_VERSION = "v7-guided-input"
 EXAMPLES_VERSION = "file-mode-v4-estimator-layout"
 
 _EXTRACTION_MAX_TOKENS = 1500
-
-INLINE_CLEANING_BLOCK = """\
-The transcription you receive is from a real meeting and may contain:
-- Informal small talk you must ignore
-- Implicit requirements you must surface explicitly
-- Contradictions where you must trust the most recent statement
-- Non-technical jargon you must interpret
-
-Extract ONLY the functional and technical requirements relevant to the estimation."""
 
 EXTRACTION_SYSTEM_PROMPT = (
     "You are an analyst. Read the meeting transcription and produce a clean, "
@@ -66,8 +67,8 @@ class DomainGuardrailError(Exception):
 
 
 @dataclass(frozen=True)
-class EstimationResult:
-    """Estimation text plus provider metadata used by the API layer."""
+class LlmEstimationCallOutcome:
+    """Markdown estimation text plus provider metadata (legacy / v1 path)."""
 
     estimation: str
     provider: str
@@ -92,6 +93,36 @@ class _PreparedCall:
     mode_eligibility: ModeEligibility
     phase1_prep_in: int
     phase1_prep_out: int
+
+
+@dataclass(frozen=True)
+class StructuredEstimateBundle:
+    """Validated domain result plus routing metadata for v2 transport assembly."""
+
+    result: DomainEstimationResult
+    prompt_version: str
+    examples_version: str
+    mode: EstimationMode
+    model: str
+    provider: str
+    usage: UsageInfo | None
+    degraded: bool
+    finish_reason: str | None
+    assessment: InputAssessment
+    mode_eligibility: ModeEligibility
+
+
+@dataclass(frozen=True)
+class _StructuredPrelude:
+    """Shared prelude for structured estimation (guardrail, mode, preprocessing)."""
+
+    preprocessed_markdown_for_template: str | None
+    mode: EstimationMode
+    assessment: InputAssessment
+    mode_eligibility: ModeEligibility
+    phase1_prep_in: int
+    phase1_prep_out: int
+    max_output_tokens: int
 
 
 def build_system_prompt(
@@ -462,7 +493,7 @@ class EstimationService:
         *,
         preprocessing: str = "none",
         assessment_input: str | None = None,
-    ) -> EstimationResult:
+    ) -> LlmEstimationCallOutcome:
         """Return generated estimation plus provider usage metadata."""
 
         prepared = await self._prepare_call(
@@ -569,7 +600,7 @@ class EstimationService:
 
             merged_usage = _merge_preprocessing_usage(result.usage, phase1_prep_in, phase1_prep_out)
 
-            return EstimationResult(
+            return LlmEstimationCallOutcome(
                 estimation=result.text,
                 provider=result.provider,
                 model=result.model,
@@ -585,3 +616,177 @@ class EstimationService:
         if isinstance(last_error, ProviderConfigError):
             raise EstimationError(str(last_error)) from last_error
         raise EstimationError("All providers failed.")
+
+    def _first_litellm_route(self) -> LitellmChainProvider | None:
+        for provider in self._providers:
+            if isinstance(provider, LitellmChainProvider):
+                return provider
+        return None
+
+    async def _prepare_structured_prelude(
+        self,
+        request: EstimationRequest,
+        assessment_surface: str,
+        preprocessing: str,
+    ) -> _StructuredPrelude:
+        guided = render_estimation_user_message(request).strip()
+        if not guided:
+            raise EstimationError("Transcription must not be empty.")
+
+        surface_raw = assessment_surface.strip()
+        surface = surface_raw if surface_raw else guided
+
+        if self._settings.llm_domain_guardrail_enabled:
+            domain_decision = check_estimation_domain(surface)
+            if not domain_decision.accepted:
+                logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
+                raise DomainGuardrailError("Only software/project estimation requests are supported.")
+
+        raw_assessment, recommended_mode = assess_and_select_mode(surface)
+        assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
+        mode_eligibility = evaluate_mode_eligibility(assessment_summary)
+        mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
+        if self._settings.forced_estimation_mode is not None:
+            mode = self._settings.forced_estimation_mode
+            logger.info(
+                "estimation_mode_forced",
+                extra={
+                    "mode": mode.value,
+                    "recommended_mode": recommended_mode.value,
+                },
+            )
+
+        if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
+            raise EstimationError("Invalid preprocessing mode.")
+
+        user_llm = guided
+        pre_md: str | None = None
+        phase1_prep_in = 0
+        phase1_prep_out = 0
+        if preprocessing == "two_phase":
+            user_llm, phase1_prep_in, phase1_prep_out = await self._extract_requirements_two_phase(guided)
+            pre_md = user_llm
+
+        max_output_tokens = self._settings.completion_token_cap_for_mode(mode)
+        return _StructuredPrelude(
+            preprocessed_markdown_for_template=pre_md,
+            mode=mode,
+            assessment=assessment_summary,
+            mode_eligibility=mode_eligibility,
+            phase1_prep_in=phase1_prep_in,
+            phase1_prep_out=phase1_prep_out,
+            max_output_tokens=max_output_tokens,
+        )
+
+    async def estimate_structured(
+        self,
+        request: EstimationRequest,
+        *,
+        assessment_surface: str,
+    ) -> StructuredEstimateBundle:
+        """Jinja prompts + Instructor structured completion (v2 API)."""
+
+        provider = self._first_litellm_route()
+        if provider is None:
+            raise EstimationError(
+                "Structured estimation requires a live LiteLLM provider (configure OpenAI or Anthropic)."
+            )
+
+        prelude = await self._prepare_structured_prelude(
+            request,
+            assessment_surface,
+            request.preprocessing,
+        )
+        examples = load_examples(prelude.mode)
+        version_override = self._settings.prompt_estimation_version.strip() or None
+        rendered = render_estimation_prompt(
+            request,
+            mode=prelude.mode,
+            examples=examples,
+            preprocessing=request.preprocessing,  # type: ignore[arg-type]
+            preprocessed_requirements=prelude.preprocessed_markdown_for_template,
+            version=version_override,
+            examples_version=EXAMPLES_VERSION,
+        )
+        litellm_model, api_key, timeout = provider.litellm_route()
+        try:
+            domain_result, raw_usage, finish = await complete_structured(
+                litellm_model=litellm_model,
+                api_key=api_key,
+                timeout_seconds=timeout,
+                system_prompt=rendered.system_prompt,
+                user_prompt=rendered.user_prompt,
+                max_output_tokens=prelude.max_output_tokens,
+                response_model=DomainEstimationResult,
+                max_attempts=self._settings.structured_output_max_attempts,
+            )
+        except StructuredCompletionError as exc:
+            raise EstimationError(str(exc)) from exc
+
+        merged_usage = _merge_preprocessing_usage(
+            raw_usage,
+            prelude.phase1_prep_in,
+            prelude.phase1_prep_out,
+        )
+
+        return StructuredEstimateBundle(
+            result=domain_result,
+            prompt_version=rendered.prompt_version,
+            examples_version=rendered.examples_version,
+            mode=prelude.mode,
+            model=provider.model,
+            provider=provider.name,
+            usage=merged_usage,
+            degraded=False,
+            finish_reason=finish,
+            assessment=prelude.assessment,
+            mode_eligibility=prelude.mode_eligibility,
+        )
+
+    async def stream_structured_estimation(
+        self,
+        request: EstimationRequest,
+        *,
+        assessment_surface: str,
+    ) -> AsyncIterator[str]:
+        """SSE v2: no token chunks; one ``done`` event with validated ``result`` JSON."""
+
+        try:
+            bundle = await self.estimate_structured(request, assessment_surface=assessment_surface)
+        except DomainGuardrailError as exc:
+            yield self.serialize_sse_event(
+                "error",
+                {"message": str(exc).strip() or "Out of domain."},
+            )
+            return
+        except EstimationError as exc:
+            yield self.serialize_sse_event(
+                "error",
+                {"message": str(exc).strip() or "Unable to complete structured estimation."},
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("stream_structured_prepare_failed")
+            yield self.serialize_sse_event(
+                "error",
+                {"message": str(exc).strip() or "Unable to complete structured estimation."},
+            )
+            return
+
+        merged_usage = bundle.usage
+        done_payload: dict[str, Any] = {
+            "status": "completed",
+            "result": bundle.result.model_dump(mode="json"),
+            "prompt_version": bundle.prompt_version,
+            "examples_version": bundle.examples_version,
+            "mode": bundle.mode.value,
+            "provider": bundle.provider,
+            "model": bundle.model,
+        }
+        if self._settings.dev_mode:
+            usage_blob = _usage_dict_for_dev_sse(bundle.model, merged_usage)
+            if usage_blob is not None:
+                done_payload["usage"] = usage_blob
+            if bundle.finish_reason:
+                done_payload["finish_reason"] = bundle.finish_reason
+        yield self.serialize_sse_event("done", done_payload)

@@ -14,7 +14,7 @@ from app.schemas.estimations import (
 )
 from app.services.evaluation import StructureCheck, evaluate_estimation_structure
 from app.services.estimation_output_validation import evaluate_estimation_output
-from app.services.llm_service import PROMPT_VERSION, EXAMPLES_VERSION, EstimationResult
+from app.services.llm_service import PROMPT_VERSION, EXAMPLES_VERSION, LlmEstimationCallOutcome
 
 
 _MODEL_COSTS_PER_1M_TOKENS: dict[str, tuple[float, float]] = {
@@ -39,7 +39,7 @@ def estimate_cost_usd(model: str, usage: UsageView | None) -> float | None:
 
 
 def assemble_estimate_response(
-    result: EstimationResult,
+    result: LlmEstimationCallOutcome,
     *,
     evaluate: bool,
     dev_mode: bool,

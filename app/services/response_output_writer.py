@@ -30,3 +30,17 @@ def persist_estimation_output(estimation: str) -> Path:
     except OSError as exc:
         raise ResponseOutputPersistError("failed to persist estimation output") from exc
     return destination
+
+
+def persist_estimation_json(payload: str) -> Path:
+    """Write structured JSON (pretty) to output-responses with a ``.json`` suffix."""
+
+    reference = datetime.now(UTC)
+    filename = f"response-{reference.strftime('%Y%m%d-%H%M%S')}.json"
+    destination = _OUTPUT_DIR / filename
+    try:
+        _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        destination.write_text(payload, encoding="utf-8")
+    except OSError as exc:
+        raise ResponseOutputPersistError("failed to persist estimation output") from exc
+    return destination

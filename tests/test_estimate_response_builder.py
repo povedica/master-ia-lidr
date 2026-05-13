@@ -4,11 +4,11 @@ from datetime import UTC, datetime
 
 from app.services.estimate_response_builder import assemble_estimate_response, dev_response_property_rows
 from app.services.estimation_engine import EstimationMode
-from app.services.llm_service import EstimationResult, UsageInfo
+from app.services.llm_service import LlmEstimationCallOutcome, UsageInfo
 
 
 def test_assemble_dev_mode_matches_expected_top_level_keys() -> None:
-    result = EstimationResult(
+    result = LlmEstimationCallOutcome(
         estimation="## Estimation: test\n\n### Assumptions\nx\n",
         provider="openai",
         model="gpt-4o-mini",
@@ -47,7 +47,7 @@ def test_assemble_dev_mode_matches_expected_top_level_keys() -> None:
 
 
 def test_dev_rows_sorted_by_field_name() -> None:
-    result = EstimationResult(
+    result = LlmEstimationCallOutcome(
         estimation="# short",
         provider="openai",
         model="gpt-4o-mini",
@@ -71,7 +71,7 @@ def test_dev_rows_sorted_by_field_name() -> None:
 
 
 def test_evaluate_false_omits_score_in_serialised_rows() -> None:
-    result = EstimationResult(
+    result = LlmEstimationCallOutcome(
         estimation="## Estimation: test\n\n### Assumptions\nx\n",
         provider="openai",
         model="gpt-4o-mini",
@@ -99,7 +99,7 @@ def test_evaluate_true_includes_score_and_nested_blocks() -> None:
         "### Assumptions\nx\n### Estimate\ny\n### Risks\nz\n"
         "| Task | Hours | Cost (EUR) |\n| --- | --- | --- |\n| a | 1 | 1 |\n"
     )
-    result = EstimationResult(
+    result = LlmEstimationCallOutcome(
         estimation=body,
         provider="openai",
         model="gpt-4o-mini",
