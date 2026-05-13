@@ -28,14 +28,22 @@ Requirements: valid `learnings/second-brain-master-ia` symlink and `rsync` on yo
 
 ## Requirements
 
-- Python 3.11
-- [uv](https://docs.astral.sh/uv/)
-- Node.js 20+ and npm (for the `web/` UI)
+- **Full stack in Docker:** [Docker](https://docs.docker.com/get-docker/) with Compose v2 only (no Python or Node on the host).
+- **Local development without Docker:** Python 3.11, [uv](https://docs.astral.sh/uv/), and Node.js 20+ with npm for `web/`.
 
 ## Setup
 
-```bash
+**Docker (minimal host setup):**
 
+```bash
+cp .env.example .env
+# Set OPENAI_API_KEY (and any other keys) in .env — never commit .env.
+docker compose up --build
+```
+
+**Local Python tooling (optional, for `uv run` / tests on the host):**
+
+```bash
 uv sync --group dev
 cp .env.example .env
 # Set OPENAI_API_KEY in .env (never commit .env).
@@ -47,22 +55,31 @@ Configuration reads **`.env` by absolute path** (next to the `app/` package), so
 
 ## Run with Docker (API + web UI)
 
-From the repository root, after `cp .env.example .env` and filling API keys:
+**Everything runs in containers** — this is the supported way to run API + browser UI without installing Python or Node locally.
+
+From the repository root, with `.env` configured (see [Setup](#setup)):
 
 ```bash
 docker compose up --build
 ```
 
 - **FastAPI:** `http://127.0.0.1:8000` (health: `/health`, docs: `/docs`)
-- **Web (static build):** `http://127.0.0.1:5175` — the UI is built with `VITE_API_BASE_URL=http://127.0.0.1:8000`, so the browser calls the API on the host. Compose sets **`FRONTEND_ORIGINS`** on the API service to allow `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5175`, and `http://127.0.0.1:5175`.
+- **Web (nginx, static Vite build):** `http://127.0.0.1:5175` — the bundle is built with `VITE_API_BASE_URL=http://127.0.0.1:8000`, so the **browser** on your machine calls the API at port 8000 on the host. Compose sets **`FRONTEND_ORIGINS`** on the API for the usual local origins (`localhost` / `127.0.0.1` on ports 5173 and 5175).
 
-For bind-mounted code and `--reload` on the API only, use:
+To rebuild the web image with a different API URL (advanced), override the build arg, for example:
+
+```bash
+docker compose build --build-arg VITE_API_BASE_URL=http://192.168.1.10:8000 web
+docker compose up
+```
+
+**Docker + live API reload** (still fully containerized; `web` unchanged — production static image from the base compose file):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Run the web app on the host with hot reload (second terminal): see [Web UI (Vite)](#web-ui-vite).
+The dev override bind-mounts the repo into **`app`** and runs Uvicorn with **`--reload`**. Service **`web`** is still the nginx container from `docker-compose.yml` (no `npm run dev` on the host required). For Vite hot reload on the host, see [Web UI (Vite)](#web-ui-vite).
 
 ## Run the API (without Docker)
 
@@ -81,7 +98,9 @@ Browsers may request `/favicon.ico`; there is no favicon asset, so that request 
 
 The **`web/`** package is a **React + Vite + TypeScript** browser UI. It calls **`POST /api/v1/estimate/stream`** with the same structured JSON as `POST /api/v1/estimate` and renders markdown progressively from SSE `chunk` events. Client-side validation uses **Zod**; the API remains authoritative via Pydantic.
 
-**Prerequisites:** Node.js 20+ and npm (or use your preferred package manager with the same scripts).
+**Docker:** you do not need Node locally — the **`web`** image builds the assets in CI/Docker and serves them with nginx (see [Run with Docker](#run-with-docker-api--web-ui)).
+
+**Local Vite dev server (optional):** Node.js 20+ and npm.
 
 **Terminal 1 — API**
 
@@ -124,7 +143,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-**Development compose** bind-mounts the project, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`** against the mounted tree. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. Run **`npm run dev`** from **`web/`** on the host when you need the browser UI with hot reload alongside the containerized API.
+**Development compose** bind-mounts the project into **`app`**, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`**. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. Service **`web`** is unchanged from the base file (static UI in Docker). Use **`npm run dev`** in **`web/`** on the host only if you want a separate Vite dev server with HMR (optional).
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
