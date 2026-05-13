@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest'
 
-import { mapEstimationFormToRequestBody, parseEstimationForm } from './requestMapper'
+import {
+  estimationFormSchema,
+  mapEstimationFormToRequestBody,
+  parseEstimationForm,
+} from './requestMapper'
+
+/** Valid raw payload except `projectType` left empty (unselected required `<select>`). */
+function validRawExceptProjectType(projectType: string) {
+  return {
+    projectName: '',
+    projectSummary: 'x'.repeat(20),
+    projectType,
+    targetAudience: 'b2b_enterprise',
+    targetAudienceOther: '',
+    industry: '',
+    industryOther: '',
+    projectDescription: 'y'.repeat(100),
+    deliverablesText: 'A\nB\nC',
+    outOfScopeText: '',
+    deliveryUrgency: 'standard',
+    targetDate: '',
+    deliveryApproach: '',
+    integrationCategories: [],
+    integrationCustomText: '',
+    dataSensitivity: 'internal_business',
+    hostingConstraints: [],
+    hostingNotes: '',
+    teamContext: '',
+    uiLanguages: [],
+    riskLevel: '',
+    externalDependenciesText: '',
+    detailLevel: 'medium',
+    outputFormat: 'phases_table',
+    attachments: [],
+    preprocessing: 'none',
+    evaluate: true,
+  }
+}
 
 describe('mapEstimationFormToRequestBody', () => {
   it('maps minimal valid guided form to API JSON shape', () => {
@@ -131,5 +168,31 @@ describe('mapEstimationFormToRequestBody', () => {
       }),
     )
     expect(body.target_date).toBe('2030-01-15')
+  })
+})
+
+describe('estimationFormSchema', () => {
+  it('rejects empty required select (project_type)', () => {
+    const result = estimationFormSchema.safeParse(validRawExceptProjectType(''))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message)
+      expect(messages.some((m) => m.includes('project_type'))).toBe(true)
+    }
+  })
+
+  it('accepts valid project_type after selection', () => {
+    const result = estimationFormSchema.safeParse(validRawExceptProjectType('web_saas'))
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts empty preprocessing (optional) and maps to none in API body', () => {
+    const parsed = parseEstimationForm({
+      ...validRawExceptProjectType('web_saas'),
+      preprocessing: '',
+    })
+    expect(parsed.preprocessing).toBe('')
+    const body = mapEstimationFormToRequestBody(parsed)
+    expect(body.preprocessing).toBe('none')
   })
 })

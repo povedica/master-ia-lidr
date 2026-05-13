@@ -65,6 +65,42 @@ const DETAIL_LEVEL = ['summary', 'medium', 'detailed'] as const
 
 const OUTPUT_FORMAT = ['phases_table', 'line_items', 'narrative'] as const
 
+/** Required `<select>`: empty string until the user picks a value. */
+
+function requiredChoice<const T extends readonly string[]>(allowed: T, fieldLabel: string) {
+  return z.string().superRefine((val, ctx) => {
+    if (val === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${fieldLabel} is required`,
+      })
+      return
+    }
+    if (!(allowed as readonly string[]).includes(val)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Invalid ${fieldLabel}`,
+      })
+    }
+  })
+}
+
+/** Optional `<select>` in “More details”: empty string means API default (`none` for preprocessing). */
+
+function optionalChoice<const T extends readonly string[]>(allowed: T, fieldLabel: string) {
+  return z.string().superRefine((val, ctx) => {
+    if (val === '') {
+      return
+    }
+    if (!(allowed as readonly string[]).includes(val)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Invalid ${fieldLabel}`,
+      })
+    }
+  })
+}
+
 const attachmentSchema = z.object({
   filename: z.string().min(1).max(255),
   content_type: z.enum(['text/plain', 'text/markdown', 'application/pdf']),
@@ -86,30 +122,30 @@ export const estimationFormSchema = z
   .object({
     projectName: z.string(),
     projectSummary: z.string().min(20).max(200),
-    projectType: z.enum(PROJECT_TYPES),
-    targetAudience: z.enum(TARGET_AUDIENCE),
+    projectType: requiredChoice(PROJECT_TYPES, 'project_type'),
+    targetAudience: requiredChoice(TARGET_AUDIENCE, 'target_audience'),
     targetAudienceOther: z.string(),
     industry: z.string(),
     industryOther: z.string(),
     projectDescription: z.string().min(100).max(24_000),
-    deliverablesText: z.string().min(1),
+    deliverablesText: z.string(),
     outOfScopeText: z.string(),
-    deliveryUrgency: z.enum(DELIVERY_URGENCY),
+    deliveryUrgency: requiredChoice(DELIVERY_URGENCY, 'delivery_urgency'),
     targetDate: z.string(),
     deliveryApproach: z.string(),
     integrationCategories: z.array(z.enum(INTEGRATION_CATEGORIES)),
     integrationCustomText: z.string(),
-    dataSensitivity: z.enum(DATA_SENSITIVITY),
+    dataSensitivity: requiredChoice(DATA_SENSITIVITY, 'data_sensitivity'),
     hostingConstraints: z.array(z.enum(HOSTING_CONSTRAINTS)),
     hostingNotes: z.string(),
     teamContext: z.string(),
     uiLanguages: z.array(z.enum(UI_LANGUAGES)).max(3),
     riskLevel: z.string(),
     externalDependenciesText: z.string(),
-    detailLevel: z.enum(DETAIL_LEVEL),
-    outputFormat: z.enum(OUTPUT_FORMAT),
+    detailLevel: requiredChoice(DETAIL_LEVEL, 'detail_level'),
+    outputFormat: requiredChoice(OUTPUT_FORMAT, 'output_format'),
     attachments: z.array(attachmentSchema).max(3),
-    preprocessing: z.enum(PREPROCESSING),
+    preprocessing: optionalChoice(PREPROCESSING, 'preprocessing'),
     evaluate: z.boolean(),
   })
   .superRefine((val, ctx) => {
@@ -216,7 +252,7 @@ export function mapEstimationFormToRequestBody(values: EstimationFormValues): Re
     detail_level: values.detailLevel,
     output_format: values.outputFormat,
     attachments: values.attachments,
-    preprocessing: values.preprocessing,
+    preprocessing: values.preprocessing.trim() === '' ? 'none' : values.preprocessing,
     evaluate: values.evaluate,
   }
 
