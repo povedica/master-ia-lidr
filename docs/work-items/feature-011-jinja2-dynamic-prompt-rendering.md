@@ -1382,4 +1382,4 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| `e6a4d8b` | `docs(work-items): add feature-011 Jinja2 and structured output spec` | Track the full feature-011 specification in the versioned `docs/work-items/` mirror so it ships with the repository. |
+| `3497d74` | `docs(work-items): add feature-011 Jinja2 and structured output spec` | Track the full feature-011 specification in the versioned `docs/work-items/` mirror so it ships with the repository. |
