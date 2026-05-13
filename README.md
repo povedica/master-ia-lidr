@@ -1,127 +1,115 @@
-# Estimador CAG (Master IA repository)
+# Estimador CAG
 
-This git repository is the **Estimador CAG** FastAPI application, with versioned documentation under `docs/` and learning assets under `learnings/` (see `learnings/README.md`).
-
-## Second Brain symlink
-
-The **`learnings/second-brain-master-ia`** symlink points at your Obsidian / Second Brain vault folder for the Master IA course. That vault content is **not** versioned here. On another machine the link may be broken until you recreate it with `ln -s` (see `learnings/README.md`).
+A FastAPI service that converts **structured project context** into a software estimate using **Context-Augmented Generation (CAG)**. Few-shot reference examples are injected per estimation mode into the system prompt; the composed project brief is sent as the user message to the configured LLM provider.
 
 ---
 
-# Estimador CAG
+## Table of contents
 
-FastAPI service that turns **structured project context** (guided form / JSON) into a structured software estimate using **Context-Augmented Generation (CAG)**: few-shot reference text is loaded per estimation mode from `app/context/examples/<basic|standard|professional|expert_review>/*.txt`, sampled in Python via `app/context/examples.py` (a random subset of 2–4 examples per request; modes without samples yet fall back to `standard`), and injected into the system prompt; the composed project brief is sent as the user message.
+1. [Requirements](#requirements)
+2. [Setup](#setup)
+3. [Running the application](#running-the-application)
+   - [Docker (recommended)](#docker-recommended)
+   - [Local development](#local-development)
+4. [Web UI](#web-ui)
+5. [API reference](#api-reference)
+6. [Configuration](#configuration)
+7. [Tests](#tests)
 
-## Documentation mirror
-
-Project notes (sessions, work items, learnings, retrospectives) are authored in **Obsidian** under `learnings/second-brain-master-ia/proyectos/estimador-cag/` (see `learnings/README.md` for the symlink). A **read-only replica** is kept in git under `docs/` (work items, technical docs, etc.) and under `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/` for the mirrored subtrees.
-
-For deeper technical documentation, see `docs/technical/README.md`. All prose under `docs/technical/` is **English** only.
-
-From the **repository root**:
-
-```bash
-bash scripts/sync-estimador-cag-docs.sh
-```
-
-Requirements: valid `learnings/second-brain-master-ia` symlink and `rsync` on your machine. The script uses `rsync --delete`: files removed in the vault are removed from `docs/` and the mirrored folders under `learnings/`. Never put real API keys or secrets in vault notes that will be mirrored here.
+---
 
 ## Requirements
 
-- **Full stack in Docker:** [Docker](https://docs.docker.com/get-docker/) with Compose v2 only (no Python or Node on the host).
-- **Local development without Docker:** Python 3.11, [uv](https://docs.astral.sh/uv/), and Node.js 20+ with npm for `web/`.
+| Path | Requirements |
+|------|-------------|
+| Docker (full stack) | [Docker](https://docs.docker.com/get-docker/) with Compose v2 — no Python or Node needed on the host |
+| Local development | Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 20+ with npm (for `web/`) |
+
+---
 
 ## Setup
 
-**Docker (minimal host setup):**
+1. Copy the environment template and fill in your credentials:
 
 ```bash
 cp .env.example .env
-# Set OPENAI_API_KEY (and any other keys) in .env — never commit .env.
-docker compose up --build
+# Set OPENAI_API_KEY (and any other provider keys) in .env — never commit .env.
 ```
 
-**Local Python tooling (optional, for `uv run` / tests on the host):**
+2. At least one LLM provider key is required (`OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`). See [Configuration](#configuration) for all available variables.
 
-```bash
-uv sync --group dev
-cp .env.example .env
-# Set OPENAI_API_KEY in .env (never commit .env).
-```
+---
 
-Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)** in `app/services/ai_model_service.py`. Use `OPENAI_MODEL` / `ANTHROPIC_MODEL` with short ids (defaults add the `openai/` and `anthropic/` prefixes automatically) or paste a fully qualified LiteLLM id that already contains `provider/model`. `.env.example` also documents **`DEFAULT_LLM_MODEL`** (`openai/gpt-4o-mini` default) as the canonical LiteLLM-style reference for operators; **`GEMINI_API_KEY`** is optional for future `gemini/...` routes.
+## Running the application
 
-Configuration reads **`.env` by absolute path** (next to the `app/` package), so variables such as `FORCED_ESTIMATION_MODE` still apply when you start Uvicorn from another working directory.
+### Docker (recommended)
 
-## Run with Docker (API + web UI)
+Runs the API and the web UI in containers without installing Python or Node locally.
 
-**Everything runs in containers** — this is the supported way to run API + browser UI without installing Python or Node locally.
-
-From the repository root, with `.env` configured (see [Setup](#setup)):
+**Production mode:**
 
 ```bash
 docker compose up --build
 ```
 
-- **FastAPI:** `http://127.0.0.1:8000` (health: `/health`, docs: `/docs`)
-- **Web (nginx, static Vite build):** `http://127.0.0.1:5175` — the bundle is built with `VITE_API_BASE_URL=http://127.0.0.1:8000`, so the **browser** on your machine calls the API at port 8000 on the host. Compose sets **`FRONTEND_ORIGINS`** on the API for the usual local origins (`localhost` / `127.0.0.1` on ports 5173 and 5175).
+| Service | URL |
+|---------|-----|
+| FastAPI API | `http://127.0.0.1:8000` |
+| OpenAPI docs | `http://127.0.0.1:8000/docs` |
+| Web UI (nginx) | `http://127.0.0.1:5175` |
 
-To rebuild the web image with a different API URL (advanced), override the build arg, for example:
+**Development mode** (API live-reload via Uvicorn `--reload`, bind-mounted source):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+The dev override bind-mounts the repo into the container and restarts the API on code changes. The `web` service remains the same static nginx container.
+
+Quick health check:
+
+```bash
+curl -s http://127.0.0.1:8000/health
+```
+
+To build the web image with a custom API URL:
 
 ```bash
 docker compose build --build-arg VITE_API_BASE_URL=http://192.168.1.10:8000 web
 docker compose up
 ```
 
-**Docker + live API reload** (still fully containerized; `web` unchanged — production static image from the base compose file):
+### Local development
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-The dev override bind-mounts the repo into **`app`** and runs Uvicorn with **`--reload`**. Service **`web`** is still the nginx container from `docker-compose.yml` (no `npm run dev` on the host required). For Vite hot reload on the host, see [Web UI (Vite)](#web-ui-vite).
-
-## Run the API (without Docker)
-
-```bash
-
-uv run uvicorn app.main:app --reload
-```
-
-- Root: `GET http://127.0.0.1:8000/` (JSON pointers to docs and routes)
-- Health: `GET http://127.0.0.1:8000/health`
-- OpenAPI: `http://127.0.0.1:8000/docs`
-
-Browsers may request `/favicon.ico`; there is no favicon asset, so that request may return 404 and can be ignored.
-
-## Web UI (Vite)
-
-The **`web/`** package is a **React + Vite + TypeScript** browser UI. It calls **`POST /api/v2/estimate/stream`** with the same structured JSON as **`POST /api/v2/estimate`** and renders the terminal **`done`** payload: the UI reads **`result`** (title, summary, totals, line items) for tables and cards—**no Markdown parsing** on the primary path. (The legacy **`/api/v1/estimate/stream`** path still streams Markdown `chunk` events for compatibility.) Client-side validation uses **Zod**; the API remains authoritative via Pydantic.
-
-**Docker:** you do not need Node locally — the **`web`** image builds the assets in CI/Docker and serves them with nginx (see [Run with Docker](#run-with-docker-api--web-ui)).
-
-**Local Vite dev server (optional):** Node.js 20+ and npm.
-
-**Terminal 1 — API**
+**Terminal 1 — API:**
 
 ```bash
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 ```
 
-**Terminal 2 — web**
+The API is available at `http://127.0.0.1:8000`.
+
+**Terminal 2 — Web UI (optional, for Vite HMR):**
 
 ```bash
 cd web
 cp .env.example .env.local
-# Optionally edit VITE_API_BASE_URL (default http://127.0.0.1:8000)
+# Optionally edit VITE_API_BASE_URL (default: http://127.0.0.1:8000)
 npm install
 npm run dev
 ```
 
-Open the URL Vite prints (default `http://127.0.0.1:5173`). The API must list that origin in **`FRONTEND_ORIGINS`** (see [.env.example](.env.example)); defaults already include the usual Vite dev URLs.
+Open the URL Vite prints (default `http://127.0.0.1:5173`). Ensure that origin is listed in `FRONTEND_ORIGINS` in your `.env` (defaults already include standard Vite dev URLs).
 
-**Production build (smoke check):**
+---
+
+## Web UI
+
+The `web/` package is a **React + Vite + TypeScript** browser UI. It calls `POST /api/v2/estimate/stream` and renders the structured result (title, summary, totals, line items) as tables and cards — no Markdown parsing on the primary path.
+
+- **Docker:** the `web` image builds assets at container build time and serves them with nginx. No Node needed on the host.
+- **Production build smoke check:**
 
 ```bash
 cd web
@@ -129,39 +117,25 @@ npm run build
 npm run preview
 ```
 
-When **`DEV_MODE=true`** on the API and the provider reports usage, the final SSE `done` event may include a `usage` object; the web UI prints a short JSON line when present.
+For the full SSE contract and streaming details, see [docs/technical/README.md](docs/technical/README.md).
 
-For the full SSE contract and `curl` example, see [docs/technical/README.md §11.1](docs/technical/README.md#111-streaming-estimation-sse).
+---
 
-## Docker (details)
+## API reference
 
-The root **`Dockerfile`** builds the **FastAPI** image for **`docker-compose.yml`** service **`app`** (port 8000). **`Dockerfile.web`** builds the static **`web`** UI served by **nginx** (mapped to host port **5175**). Both stacks load `.env`; Compose sets **`FRONTEND_ORIGINS`** on the API so browsers hitting the published web port can call the API from another origin. The API **`healthcheck`** gates **`web`** via **`depends_on: service_healthy`**.
+### Endpoints
 
-```bash
-cp .env.example .env
-# Edit .env (API keys, etc.); never commit .env.
-docker compose up --build
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/` | Root — links to docs and routes |
+| `POST` | `/api/v1/estimate` | Synchronous estimation |
+| `POST` | `/api/v2/estimate` | Structured synchronous estimation |
+| `POST` | `/api/v2/estimate/stream` | Streaming estimation (SSE) |
 
-**Development compose** bind-mounts the project into **`app`**, runs `uv sync --frozen --group dev` on start via `docker/entrypoint-dev.sh`, and starts **Uvicorn with `--reload`**. Named volumes mask **`/app/.venv`** so `uv` does not clash with a host `.venv` from macOS or another Python layout. Service **`web`** is unchanged from the base file (static UI in Docker). Use **`npm run dev`** in **`web/`** on the host only if you want a separate Vite dev server with HMR (optional).
+Full schema available at `http://127.0.0.1:8000/docs`.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-Quick checks after `up`:
-
-```bash
-curl -s http://127.0.0.1:8000/health
-```
-
-Optional: run tests in a one-off container (dev override bind-mounts the project, including `tests/`):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
-```
-
-## Example request
+### Example request
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
@@ -170,7 +144,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
     "project_summary": "B2B portal for partners to submit requests and track SLA status.",
     "project_type": "web_saas",
     "target_audience": "b2b_smb",
-    "project_description": "The client needs a responsive web application for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards. Integrations with existing CRM are out of scope for the first milestone. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "project_description": "Responsive web app for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards.",
     "deliverables": [
       "Partner authentication with SSO and role-based access control",
       "Configurable ticket intake forms and commenting threads",
@@ -183,27 +157,42 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
   }'
 ```
 
-**Migration:** the legacy `transcription`-only JSON body is removed. Clients must send the structured **`EstimationRequest`** shape (see OpenAPI at `/docs` and `app/schemas/estimation_request.py`).
+See `app/schemas/estimation_request.py` for the full request shape.
 
-Optional JSON body fields (same `POST`):
+### Notable request fields
 
-- **`evaluate`** (`bool`, default `true`, same as `ai-engineering/estimator`): when `true`, runs `evaluate_estimation_structure` in the router and returns `score`, `structure_evaluation`, and `output_validation` (mode-specific section checks). Set `false` to omit those fields. See [docs/technical/output-validation-and-input-score.md](docs/technical/output-validation-and-input-score.md).
-- **`preprocessing`** (`none` | `inline_cleaning` | `two_phase`, default `none`): `inline_cleaning` adds meeting-cleaning instructions to the system prompt; `two_phase` runs an extraction LLM call before the main estimate and merges phase-one tokens into `usage.preprocessing_*` (requires a live provider before static fallback).
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `evaluate` | `bool` | `true` | Include structural score and output validation in the response |
+| `preprocessing` | `none` \| `inline_cleaning` \| `two_phase` | `none` | Pre-processing strategy before the main estimate |
 
-Response fields:
+### Response fields
 
-- **Always:** `estimation` (the markdown estimate).
-- **When `evaluate` is true (default):** **`score`** and **`structure_evaluation`** (Level-1 structural metric, same formula as `ai-engineering/estimator`) plus **`output_validation`** (mode-specific section checks).
-- **When static fallback is used and `DEV_MODE=false`:** `degraded` is also present (`true`) so clients can tell the response is not from a live model.
-- **When `DEV_MODE=true`:** `mode`, `model`, `provider`, `request_id`, `timestamp`, `latency_ms`, `prompt_version`, `examples_version`, `finish_reason`, optional `assessment`, optional `mode_eligibility`, optional `degraded`, and optional `usage` (tokens + `estimated_cost_usd` when usage is available).
+| Field | When present | Description |
+|-------|-------------|-------------|
+| `estimation` | Always | The estimate text |
+| `score` | When `evaluate=true` | Structural quality score in `[0, 1]` |
+| `structure_evaluation` | When `evaluate=true` | Section-level structural checks |
+| `output_validation` | When `evaluate=true` | Mode-specific section checks |
+| `degraded` | When static fallback used | `true` if the response is not from a live model |
+| `mode`, `model`, `provider`, `request_id`, `timestamp`, `latency_ms`, `prompt_version`, `examples_version`, `usage` | `DEV_MODE=true` only | Operational and debugging metadata |
 
-## Estimation domain guardrail
+### Estimation modes
 
-The API is restricted to software/project estimation requests.
+The service routes each request to one of four depth modes based on decision context:
 
-- In-domain requests continue through the provider chain as usual.
-- Out-of-domain prompts are rejected before provider calls.
-- Out-of-domain responses return `422` with:
+| Mode | Primary use |
+|------|------------|
+| `basic` | Quick sizing, early discovery |
+| `standard` | Internal planning (default) |
+| `professional` | Presales and client-facing proposals |
+| `expert_review` | High-stakes validation and risk surfacing |
+
+Mode-specific system instructions live in `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording without changing Python code.
+
+### Domain guardrail
+
+Requests outside the software estimation domain are rejected before reaching the LLM provider:
 
 ```json
 {
@@ -214,158 +203,51 @@ The API is restricted to software/project estimation requests.
 }
 ```
 
-Guardrail toggle:
-
-- `LLM_DOMAIN_GUARDRAIL_ENABLED=true` (default): enforce out-of-domain rejection.
-- `LLM_DOMAIN_GUARDRAIL_ENABLED=false`: bypass guardrail checks (the request still goes through prompt instructions and providers).
-
-## Adaptive estimation mode
-
-**Main idea:** choose the mode by **decision context**, not only by transcript length.
-
-| Mode | Primary purpose |
-|------|------------------|
-| `basic` | Quick sizing, initial discovery |
-| `standard` | Internal planning (default when the engine does not downgrade) |
-| `professional` | Presales and client-facing proposals |
-| `expert_review` | Validation, risk surfacing, and high-stakes decisions (same idea as an **EXPERT** review pass) |
-
-The service classifies each request and routes it to one output depth mode (`basic`, `standard`, `professional`, or `expert_review`). With `DEV_MODE=true`, the selected mode is returned in the `mode` field together with routing metadata (`assessment`, `mode_eligibility`). Routing is deterministic and service-level (not an extra endpoint, and not a second classifier model call in v1).
-
-Mode-specific system instructions live as plain text files under `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Edit those files to tune wording and output contracts without changing Python code.
-
-Mode intent and expected output (reference):
-
-| Mode | Use case | Input quality | Typical output |
-|------|----------|---------------|----------------|
-| `basic` | very early idea | low | MVP scope, assumptions, effort range, key risks |
-| `standard` | default product estimation | medium | scope by areas, task table, risks, sprint-oriented plan |
-| `professional` | presales / client proposal | high | in/out of scope, modules, dependencies, effort scenarios |
-| `expert_review` | high-stakes decision | expert | gaps, scenarios, cost drivers, recommendations, confidence |
-
-Business rule: mode escalation is based on context quality, not only on input length.
-
-If the request lacks enough context, premium modes should be downgraded with an explicit warning rather than returning false precision.
-
-### Response metadata (detailed)
-
-With **`DEV_MODE=false`** (default), the JSON body is minimal: **`estimation`**, a deterministic **`score`** in `[0, 1]` from the **generated markdown** (estimator-compatible structural checks), plus **`degraded`** when the static fallback path produced the text (so callers are not misled into treating it as a live model output).
-
-With **`DEV_MODE=true`**, the response additionally includes operational and debugging fields:
-
-- **Routing and provider:** `mode`, `model`, `provider`, optional `assessment`, optional `mode_eligibility`
-- **Request correlation:** `request_id`, `timestamp`, `latency_ms`
-- **Reproducibility:** `prompt_version`, `examples_version` (trace prompt/example changes vs model or infra changes)
-- **Usage (when the provider returns token counts):** `usage` with `prompt_tokens`, `completion_tokens`, `total_tokens`, `preprocessing_input_tokens`, `preprocessing_output_tokens` (from the provider when present, otherwise `0`), and optional `estimated_cost_usd`
-
-`degraded` may appear in either mode when static fallback is used.
-
-#### Cost estimation notes
-
-- Cost is an approximation (not billing source of truth).
-- Cost appears only if:
-  - `DEV_MODE=true`
-  - provider returns token usage
-  - model pricing is configured in the API
-- If any of the above is missing, `usage.estimated_cost_usd` is `null`.
-
-#### Versioning guidelines
-
-`prompt_version` and `examples_version` are returned in the API body only when `DEV_MODE=true` (they still exist in code for observability and future use).
-
-Update metadata versions whenever behavior-affecting inputs change:
-
-- Bump `prompt_version` when prompt instructions/format/constraints change.
-- Bump `examples_version` when the few-shot pool, per-mode layout, or sampling rules change (`app/context/examples/<mode>/` files or `app/context/examples.py`).
-
-Suggested convention:
-
-- `v1`, `v2`, `v3`, `v4`, … for major behavioral changes
-- `v1.1`, `v1.2` for incremental tuning
-
-## Tests
-
-```bash
-
-uv run pytest
-```
-
-No real OpenAI calls: the suite mocks the provider client.
-
-## Configuration
-
-See `.env.example` for variable names.
-
-Provider chain behavior:
-
-- `LLM_PROVIDERS` defines the ordered fallback chain (default `openai,anthropic`).
-- Providers without credentials are skipped with structured logs.
-- `STATIC_FALLBACK_ENABLED=true` appends a deterministic local fallback response (`provider="static_fallback"` and `degraded=true`).
-- `LLM_AUTH_FALLBACK=false` keeps auth/config failures explicit by default (returns `503` instead of silently falling back).
-- `LLM_DOMAIN_GUARDRAIL_ENABLED=true` enables pre-provider domain rejection for non-estimation prompts.
-
-Required for at least one live provider:
-
-- `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`
-
-Optional overrides include `OPENAI_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT_SECONDS`, per-mode `ESTIMATION_<MODE>_OUTPUT_TOKENS_MAX` (completion length cap; see `.env.example`), `DEV_MODE` (set `true` to include mode, provider, timing, versions, routing assessment, token usage, and approximate cost), `FORCED_ESTIMATION_MODE` (set to `basic`, `standard`, `professional`, or `expert_review` to skip adaptive routing; leave empty for default behavior), and `ESTIMATION_OUTPUT_PERSIST_ENABLED` (set `true` to persist successful `200` estimate outputs to markdown files under `output-responses/`).
-
-When `ESTIMATION_OUTPUT_PERSIST_ENABLED=true`, each successful `POST /api/v1/estimate` writes the `estimation` field into:
-
-- `output-responses/response-YYYYmmdd-hhmmss.md` (UTC timestamp).
-
-When `ESTIMATION_STATS_LOG_ENABLED=true`, each successful `POST /api/v1/estimate` or `POST /api/v2/estimate` appends one NDJSON line (metadata only, no estimation body) for usage analytics. The default file is `output-stats/estimation-stats.jsonl` at the repository root; override with `ESTIMATION_STATS_LOG_PATH` (absolute path). Failures to write the log are logged as warnings and do not fail the request.
-
-### Response examples by environment mode
-
-With `DEV_MODE=false` (live provider):
-
-```json
-{
-  "estimation": "## Estimation: ...",
-  "score": 0.6125
-}
-```
-
-With `DEV_MODE=false` and static fallback (`degraded`):
-
-```json
-{
-  "estimation": "## Estimation: ...",
-  "score": 0.35,
-  "degraded": true
-}
-```
-
-With `DEV_MODE=true`:
-
-```json
-{
-  "estimation": "## Estimation: ...",
-  "mode": "standard",
-  "model": "gpt-4o-mini",
-  "provider": "openai",
-  "request_id": "est_abc123def456",
-  "timestamp": "2026-04-27T10:00:00Z",
-  "latency_ms": 1800,
-  "prompt_version": "v7-guided-input",
-  "examples_version": "file-mode-v4-estimator-layout",
-  "score": 0.6125,
-  "usage": {
-    "prompt_tokens": 920,
-    "completion_tokens": 410,
-    "total_tokens": 1330,
-    "preprocessing_input_tokens": 0,
-    "preprocessing_output_tokens": 0,
-    "estimated_cost_usd": 0.000384
-  }
-}
-```
+Disable with `LLM_DOMAIN_GUARDRAIL_ENABLED=false` (see [Configuration](#configuration)).
 
 ---
 
-## Master IA course assets
+## Configuration
 
-- `learnings/notebooks/plantilla_ejercicios.ipynb` — introductory exercises (OpenAI, Anthropic, Gemini, tokens).
-- `.cursor/commands/`, `.cursor/rules/`, `.cursor/skills/` — Cursor automation for this repo.
+Copy `.env.example` for the full list of available variables. Key settings:
 
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | — | Required for OpenAI provider |
+| `ANTHROPIC_API_KEY` | — | Required for Anthropic provider |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model id |
+| `ANTHROPIC_MODEL` | — | Anthropic model id |
+| `DEFAULT_LLM_MODEL` | `openai/gpt-4o-mini` | LiteLLM-style canonical model reference |
+| `LLM_PROVIDERS` | `openai,anthropic` | Ordered fallback chain |
+| `LLM_AUTH_FALLBACK` | `false` | Treat auth failures as fallback instead of `503` |
+| `STATIC_FALLBACK_ENABLED` | `false` | Append deterministic local fallback when all providers fail |
+| `LLM_DOMAIN_GUARDRAIL_ENABLED` | `true` | Reject out-of-domain requests before provider calls |
+| `FORCED_ESTIMATION_MODE` | — | Override adaptive routing (`basic`, `standard`, `professional`, `expert_review`) |
+| `DEV_MODE` | `false` | Include provider, routing, timing, versions, and usage in the response |
+| `ESTIMATION_OUTPUT_PERSIST_ENABLED` | `false` | Save successful estimate outputs to `output-responses/` |
+| `ESTIMATION_STATS_LOG_ENABLED` | `false` | Append NDJSON usage metadata to `output-stats/estimation-stats.jsonl` |
+| `FRONTEND_ORIGINS` | *(local defaults)* | Comma-separated allowed CORS origins |
+
+Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (the `openai/` and `anthropic/` prefixes are added automatically), or set a fully qualified LiteLLM id in `DEFAULT_LLM_MODEL`.
+
+---
+
+## Tests
+
+Run the full test suite (no real API calls — all provider clients are mocked):
+
+```bash
+uv run pytest
+```
+
+Run with verbose output:
+
+```bash
+uv run pytest -v
+```
+
+Run in a Docker dev container:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
+```
