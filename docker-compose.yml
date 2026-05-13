@@ -1,15 +1,9 @@
 services:
   app:
-    build: .
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
-      - master_ia_venv:/app/.venv
-    environment:
-      UV_LINK_MODE: copy
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-
-volumes:
-  master_ia_venv:
+    env_file:
+      - .env

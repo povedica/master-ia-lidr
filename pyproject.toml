@@ -1,16 +1,26 @@
 [project]
-name = "master-ia"
+name = "estimador-cag"
 version = "0.1.0"
-description = "Proyecto y entorno del Máster en IA"
+description = "Context-augmented generation API for software meeting estimates."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "anthropic>=0.45.0",
     "fastapi[standard]>=0.115.0",
-    "google-genai>=1.0.0",
-    "openai>=1.60.0",
-    "tiktoken>=0.7.0",
     "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.0",
+    "openai>=1.60.0",
+    "python-dotenv>=1.0.0",
+    "anthropic>=0.97.0",
+    "streamlit>=1.57.0",
+    "litellm>=1.83.14",
+    "logfire>=4.32.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
 ]
 
 [build-system]
@@ -19,3 +29,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
