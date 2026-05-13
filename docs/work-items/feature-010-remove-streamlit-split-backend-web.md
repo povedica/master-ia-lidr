@@ -276,4 +276,3 @@ project-root/
 | `3e4bfe5` | `chore(docker): serve static web UI and replace Streamlit in compose` | `Dockerfile.web`, `docker-compose.yml` / `docker-compose.dev.yml`, root `Dockerfile` EXPOSE. |
 | `472d55e` | `chore!: remove streamlit dependency and demo entrypoint` | Drop `streamlit` from `pyproject.toml` / `uv.lock`; remove `app/streamlit_app.py`, `app/streamlit_error_messages.py`, `tests/test_streamlit_error_messages.py`. |
 | `ea6315b` | `docs: document backend-web workflow and CORS settings` | `README.md`, `docs/technical/README.md`, `.env.example`. |
-| `858aab4` | `docs(estimador-cag): mark feature-010 implemented and log commits` | Canonical work item: acceptance, verification, implementation progress, repository commit table. |
