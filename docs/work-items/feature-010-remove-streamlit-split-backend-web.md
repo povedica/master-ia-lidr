@@ -260,3 +260,4 @@ project-root/
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `e14e563` | `docs(estimador-cag): add feature-010 remove Streamlit work item` | Canonical spec for splitting Streamlit UI from FastAPI: React+Vite+TypeScript, Tailwind, Zod, REST+SSE; Langfuse, PostgreSQL, Redis, and LiteLLM redesign explicitly out of scope. |
+| `d5e1286` | `docs(estimador-cag): backfill commit hash in feature-010 work item` | Replace the `pending` placeholder in the commit log with the short hash of the work item document commit. |
