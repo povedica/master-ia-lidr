@@ -1,0 +1,788 @@
+import {
+  cloneElement,
+  type FormEvent,
+  type ReactElement,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react'
+import ReactMarkdown from 'react-markdown'
+import { ZodError } from 'zod'
+
+import { useEstimateStream } from '../hooks/useEstimateStream'
+import { estimateStreamUrl } from '../api/estimateApi'
+import { filesToAttachments } from '../lib/fileToBase64'
+import {
+  mapEstimationFormToRequestBody,
+  parseEstimationForm,
+  type EstimationFormValues,
+} from '../lib/requestMapper'
+
+const REQUIRED_SELECT_PLACEHOLDER = '— Select —'
+
+function buildInitialForm(): EstimationFormValues {
+  return {
+    projectName: '',
+    projectSummary: '',
+    projectType: '',
+    targetAudience: '',
+    targetAudienceOther: '',
+    industry: '',
+    industryOther: '',
+    projectDescription: '',
+    deliverablesText: '',
+    outOfScopeText: '',
+    deliveryUrgency: '',
+    targetDate: '',
+    deliveryApproach: '',
+    integrationCategories: [],
+    integrationCustomText: '',
+    dataSensitivity: '',
+    hostingConstraints: [],
+    hostingNotes: '',
+    teamContext: '',
+    uiLanguages: [],
+    riskLevel: '',
+    externalDependenciesText: '',
+    detailLevel: '',
+    outputFormat: '',
+    attachments: [],
+    preprocessing: '',
+    evaluate: false,
+  }
+}
+
+const PROJECT_TYPES = [
+  'web_saas',
+  'web_marketing_site',
+  'mobile_app',
+  'internal_tool',
+  'data_pipeline_etl',
+  'api_platform',
+  'desktop_app',
+  'extension_plugin',
+  'migration_modernization',
+  'other',
+] as const
+
+const TARGET_AUDIENCES = [
+  'b2c_consumers',
+  'b2b_smb',
+  'b2b_enterprise',
+  'internal_employees',
+  'mixed',
+  'other',
+] as const
+
+const INDUSTRIES = [
+  '',
+  'fintech',
+  'health',
+  'ecommerce',
+  'education',
+  'public_sector',
+  'industrial',
+  'generic_b2b',
+  'other',
+] as const
+
+const DELIVERY_URGENCY = ['flexible', 'standard', 'fixed_date', 'critical'] as const
+
+const DELIVERY_APPROACH = ['', 'mvp_then_iterate', 'single_release', 'phased_roadmap', 'unknown'] as const
+
+const INTEGRATION_ALL = [
+  'none',
+  'payments',
+  'crm',
+  'erp',
+  'identity_sso',
+  'email_notifications',
+  'file_storage',
+  'analytics_bi',
+  'maps_geo',
+  'messaging_chat',
+  'legacy_db',
+  'third_party_api_unknown',
+  'other',
+] as const
+
+const HOSTING_ALL = [
+  'no_preference',
+  'cloud_managed',
+  'customer_cloud_only',
+  'on_prem',
+  'air_gapped',
+  'hybrid',
+] as const
+
+const TEAM_CONTEXT = ['', 'client_only', 'vendor_led', 'mixed_team', 'unknown'] as const
+
+const UI_LANG = ['en', 'es', 'pt', 'fr', 'de', 'other'] as const
+
+const RISK = ['', 'low', 'medium', 'high', 'unknown'] as const
+
+const DATA_SENS = [
+  'public_only',
+  'internal_business',
+  'pii_light',
+  'pii_heavy',
+  'regulated_unknown',
+] as const
+
+const DETAIL = ['summary', 'medium', 'detailed'] as const
+
+const OUTPUT = ['phases_table', 'line_items', 'narrative'] as const
+
+const PREPROCESSING = ['none', 'inline_cleaning', 'two_phase'] as const
+
+/** DOM order for scrolling to the first invalid field (top → bottom). */
+const FORM_FIELD_ORDER: readonly string[] = [
+  'projectName',
+  'projectSummary',
+  'projectType',
+  'targetAudience',
+  'targetAudienceOther',
+  'projectDescription',
+  'deliverablesText',
+  'deliveryUrgency',
+  'targetDate',
+  'dataSensitivity',
+  'detailLevel',
+  'outputFormat',
+  'attachments',
+  'outOfScopeText',
+  'deliveryApproach',
+  'integrationCategories',
+  'integrationCustomText',
+  'industry',
+  'industryOther',
+  'hostingConstraints',
+  'hostingNotes',
+  'teamContext',
+  'uiLanguages',
+  'riskLevel',
+  'externalDependenciesText',
+  'preprocessing',
+]
+
+const DETAILS_FIELD_KEYS = new Set<string>([
+  'outOfScopeText',
+  'deliveryApproach',
+  'integrationCategories',
+  'integrationCustomText',
+  'industry',
+  'industryOther',
+  'hostingConstraints',
+  'hostingNotes',
+  'teamContext',
+  'uiLanguages',
+  'riskLevel',
+  'externalDependenciesText',
+  'preprocessing',
+])
+
+const CONTROL_ERR_RING =
+  'ring-2 ring-red-500/45 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+
+function zodIssuesToFieldErrors(issues: ZodError['issues']): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const issue of issues) {
+    const key = issue.path.length > 0 ? String(issue.path[0]) : '_form'
+    if (!map[key]) {
+      map[key] = issue.message
+    }
+  }
+  return map
+}
+
+function firstOrderedFieldWithError(
+  fieldErrors: Record<string, string>,
+  order: readonly string[],
+): string | null {
+  for (const k of order) {
+    if (fieldErrors[k]) {
+      return k
+    }
+  }
+  const rest = Object.keys(fieldErrors).filter((k) => k !== '_form')
+  return rest[0] ?? null
+}
+
+export function EstimationWorkbench() {
+  const { markdown, loading, error, doneMeta, run, cancel } = useEstimateStream()
+  const [form, setForm] = useState<EstimationFormValues>(buildInitialForm)
+  const [clientError, setClientError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
+  const [fileList, setFileList] = useState<File[]>([])
+  const hadFieldErrorsRef = useRef(false)
+
+  useEffect(() => {
+    const empty = Object.keys(fieldErrors).length === 0
+    if (empty) {
+      hadFieldErrorsRef.current = false
+      return
+    }
+    if (hadFieldErrorsRef.current) {
+      return
+    }
+    hadFieldErrorsRef.current = true
+
+    const first = firstOrderedFieldWithError(fieldErrors, FORM_FIELD_ORDER)
+    if (!first) {
+      return
+    }
+    if (DETAILS_FIELD_KEYS.has(first)) {
+      setMoreDetailsOpen(true)
+    }
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(first)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (el instanceof HTMLElement && typeof el.focus === 'function') {
+        el.focus()
+      }
+    }, 100)
+    return () => window.clearTimeout(t)
+  }, [fieldErrors])
+
+  const needsTargetDate = useMemo(
+    () => form.deliveryUrgency === 'fixed_date' || form.deliveryUrgency === 'critical',
+    [form.deliveryUrgency],
+  )
+
+  async function onSubmit(ev: FormEvent) {
+    ev.preventDefault()
+    setClientError(null)
+    setFieldErrors({})
+    let attachments = form.attachments
+    try {
+      if (fileList.length > 0) {
+        attachments = await filesToAttachments(fileList)
+      }
+    } catch (exc) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        attachments: exc instanceof Error ? exc.message : 'Invalid attachments.',
+      }))
+      return
+    }
+
+    const raw = { ...form, attachments }
+    try {
+      const parsed = parseEstimationForm(raw)
+      const body = mapEstimationFormToRequestBody(parsed)
+      void run(body)
+    } catch (exc) {
+      if (exc instanceof ZodError) {
+        setFieldErrors(zodIssuesToFieldErrors(exc.issues))
+        return
+      }
+      setClientError(exc instanceof Error ? exc.message : 'Validation failed.')
+    }
+  }
+
+  function clearFieldErrorByName(name: string) {
+    setFieldErrors((prev) => {
+      if (!prev[name]) {
+        return prev
+      }
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8 text-left text-slate-900 dark:text-slate-100">
+      <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Estimador CAG</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          Guided estimation form. Output streams from{' '}
+          <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+            {estimateStreamUrl()}
+          </code>
+          .
+        </p>
+      </header>
+
+      {error ? (
+        <div
+          role="alert"
+          className="sticky top-2 z-20 mb-6 rounded-lg border border-red-300/90 bg-red-50/95 p-4 text-sm text-red-900 shadow-lg backdrop-blur-sm dark:border-red-800/80 dark:bg-red-950/95 dark:text-red-100"
+        >
+          <p className="font-semibold text-red-950 dark:text-red-50">Request failed</p>
+          <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-red-900/90 dark:text-red-100/90">
+            {error}
+          </p>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={onSubmit}
+        className="space-y-6"
+        onChange={(ev) => {
+          const el = ev.target as HTMLElement
+          const name = el.getAttribute('name')
+          if (name) {
+            clearFieldErrorByName(name)
+          }
+        }}
+      >
+        <Field name="projectName" label="Project name (optional)" error={fieldErrors.projectName}>
+          <input
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            maxLength={120}
+            value={form.projectName}
+            onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
+          />
+        </Field>
+
+        <Field name="projectSummary" label="One-line summary (20–200 chars)" error={fieldErrors.projectSummary}>
+          <input
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.projectSummary}
+            onChange={(e) => setForm((f) => ({ ...f, projectSummary: e.target.value }))}
+          />
+        </Field>
+
+        <Field name="projectType" label="Project type" error={fieldErrors.projectType}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.projectType}
+            onChange={(e) => setForm((f) => ({ ...f, projectType: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {PROJECT_TYPES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field name="targetAudience" label="Target audience" error={fieldErrors.targetAudience}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.targetAudience}
+            onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {TARGET_AUDIENCES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {form.targetAudience === 'other' ? (
+          <Field
+            name="targetAudienceOther"
+            label="Audience detail (required)"
+            error={fieldErrors.targetAudienceOther}
+          >
+            <input
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              maxLength={200}
+              value={form.targetAudienceOther}
+              onChange={(e) => setForm((f) => ({ ...f, targetAudienceOther: e.target.value }))}
+            />
+          </Field>
+        ) : null}
+
+        <Field
+          name="projectDescription"
+          label="Project description (min 100 chars)"
+          error={fieldErrors.projectDescription}
+        >
+          <textarea
+            className="min-h-[160px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.projectDescription}
+            onChange={(e) => setForm((f) => ({ ...f, projectDescription: e.target.value }))}
+          />
+        </Field>
+
+        <Field name="deliverablesText" label="Deliverables (one per line, 3–8)" error={fieldErrors.deliverablesText}>
+          <textarea
+            className="min-h-[120px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.deliverablesText}
+            onChange={(e) => setForm((f) => ({ ...f, deliverablesText: e.target.value }))}
+          />
+        </Field>
+
+        <Field name="deliveryUrgency" label="Delivery urgency" error={fieldErrors.deliveryUrgency}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.deliveryUrgency}
+            onChange={(e) => setForm((f) => ({ ...f, deliveryUrgency: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {DELIVERY_URGENCY.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {needsTargetDate ? (
+          <Field name="targetDate" label="Target date" error={fieldErrors.targetDate}>
+            <input
+              type="date"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              value={form.targetDate}
+              onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value }))}
+            />
+          </Field>
+        ) : null}
+
+        <Field name="dataSensitivity" label="Data sensitivity" error={fieldErrors.dataSensitivity}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.dataSensitivity}
+            onChange={(e) => setForm((f) => ({ ...f, dataSensitivity: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {DATA_SENS.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field name="detailLevel" label="Depth of estimate" error={fieldErrors.detailLevel}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.detailLevel}
+            onChange={(e) => setForm((f) => ({ ...f, detailLevel: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {DETAIL.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field name="outputFormat" label="Output format" error={fieldErrors.outputFormat}>
+          <select
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={form.outputFormat}
+            onChange={(e) => setForm((f) => ({ ...f, outputFormat: e.target.value }))}
+          >
+            <option value="">{REQUIRED_SELECT_PLACEHOLDER}</option>
+            {OUTPUT.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field name="attachments" label="Attachments (optional, max 3, .txt / .md / .pdf)" error={fieldErrors.attachments}>
+          <input
+            type="file"
+            multiple
+            accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
+            className="text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-slate-900 file:hover:bg-slate-300 dark:file:bg-slate-700 dark:file:text-slate-100 dark:file:hover:bg-slate-600"
+            onChange={(e) => setFileList(Array.from(e.target.files ?? []).slice(0, 3))}
+          />
+        </Field>
+
+        <details
+          className="rounded border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/40"
+          open={moreDetailsOpen}
+          onToggle={(e) => setMoreDetailsOpen(e.currentTarget.open)}
+        >
+          <summary className="cursor-pointer text-sm font-medium text-slate-800 dark:text-slate-200">More details</summary>
+          <div className="mt-4 space-y-4">
+            <Field name="outOfScopeText" label="Out of scope (optional, one per line)" error={fieldErrors.outOfScopeText}>
+              <textarea
+                className="min-h-[80px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.outOfScopeText}
+                onChange={(e) => setForm((f) => ({ ...f, outOfScopeText: e.target.value }))}
+              />
+            </Field>
+
+            <Field name="deliveryApproach" label="Delivery approach (optional)" error={fieldErrors.deliveryApproach}>
+              <select
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.deliveryApproach}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryApproach: e.target.value }))}
+              >
+                {DELIVERY_APPROACH.map((v) => (
+                  <option key={v || 'none'} value={v}>
+                    {v || '(none)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              name="integrationCategories"
+              label="Integration categories (hold Cmd/Ctrl)"
+              error={fieldErrors.integrationCategories}
+            >
+              <select
+                multiple
+                className="min-h-[120px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.integrationCategories}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
+                  setForm((f) => ({
+                    ...f,
+                    integrationCategories: selected as typeof f.integrationCategories,
+                  }))
+                }}
+              >
+                {INTEGRATION_ALL.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              name="integrationCustomText"
+              label="Custom integrations (optional, one per line)"
+              error={fieldErrors.integrationCustomText}
+            >
+              <textarea
+                className="min-h-[60px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.integrationCustomText}
+                onChange={(e) => setForm((f) => ({ ...f, integrationCustomText: e.target.value }))}
+              />
+            </Field>
+
+            <Field name="industry" label="Industry (optional)" error={fieldErrors.industry}>
+              <select
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.industry}
+                onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
+              >
+                {INDUSTRIES.map((v) => (
+                  <option key={v || 'none'} value={v}>
+                    {v || '(none)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {form.industry === 'other' ? (
+              <Field name="industryOther" label="Industry detail (required)" error={fieldErrors.industryOther}>
+                <input
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  maxLength={80}
+                  value={form.industryOther}
+                  onChange={(e) => setForm((f) => ({ ...f, industryOther: e.target.value }))}
+                />
+              </Field>
+            ) : null}
+
+            <Field name="hostingConstraints" label="Hosting constraints (optional)" error={fieldErrors.hostingConstraints}>
+              <select
+                multiple
+                className="min-h-[100px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.hostingConstraints}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
+                  setForm((f) => ({
+                    ...f,
+                    hostingConstraints: selected as typeof f.hostingConstraints,
+                  }))
+                }}
+              >
+                {HOSTING_ALL.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field name="hostingNotes" label="Hosting notes (optional)" error={fieldErrors.hostingNotes}>
+              <input
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                maxLength={200}
+                value={form.hostingNotes}
+                onChange={(e) => setForm((f) => ({ ...f, hostingNotes: e.target.value }))}
+              />
+            </Field>
+
+            <Field name="teamContext" label="Team context (optional)" error={fieldErrors.teamContext}>
+              <select
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.teamContext}
+                onChange={(e) => setForm((f) => ({ ...f, teamContext: e.target.value }))}
+              >
+                {TEAM_CONTEXT.map((v) => (
+                  <option key={v || 'none'} value={v}>
+                    {v || '(none)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field name="uiLanguages" label="UI languages (optional, max 3)" error={fieldErrors.uiLanguages}>
+              <select
+                multiple
+                className="min-h-[90px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.uiLanguages}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
+                  setForm((f) => ({
+                    ...f,
+                    uiLanguages: selected.slice(0, 3) as typeof f.uiLanguages,
+                  }))
+                }}
+              >
+                {UI_LANG.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field name="riskLevel" label="Risk level (optional)" error={fieldErrors.riskLevel}>
+              <select
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.riskLevel}
+                onChange={(e) => setForm((f) => ({ ...f, riskLevel: e.target.value }))}
+              >
+                {RISK.map((v) => (
+                  <option key={v || 'none'} value={v}>
+                    {v || '(none)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              name="externalDependenciesText"
+              label="External dependencies (optional)"
+              error={fieldErrors.externalDependenciesText}
+            >
+              <textarea
+                className="min-h-[60px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.externalDependenciesText}
+                onChange={(e) => setForm((f) => ({ ...f, externalDependenciesText: e.target.value }))}
+              />
+            </Field>
+
+            <Field
+              name="preprocessing"
+              label="Preprocessing (optional, default none)"
+              error={fieldErrors.preprocessing}
+            >
+              <select
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                value={form.preprocessing}
+                onChange={(e) => setForm((f) => ({ ...f, preprocessing: e.target.value }))}
+              >
+                <option value="">Use default (none)</option>
+                {PREPROCESSING.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={form.evaluate}
+                onChange={(e) => setForm((f) => ({ ...f, evaluate: e.target.checked }))}
+              />
+              Structure evaluation (evaluate)
+            </label>
+          </div>
+        </details>
+
+        {(clientError || fieldErrors._form) ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 dark:border-amber-800/70 dark:bg-amber-950/50 dark:text-amber-100"
+          >
+            {clientError ? <p>{clientError}</p> : null}
+            {fieldErrors._form ? <p className={clientError ? 'mt-2' : ''}>{fieldErrors._form}</p> : null}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+          >
+            {loading ? 'Streaming…' : 'Generate estimate'}
+          </button>
+          <button
+            type="button"
+            onClick={() => cancel()}
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Cancel stream
+          </button>
+        </div>
+      </form>
+
+      {markdown ? (
+        <section className="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Estimate</h2>
+          <article className="mt-4 max-w-none text-left text-sm leading-relaxed text-slate-800 dark:text-slate-200 [&_a]:text-violet-700 [&_code]:rounded [&_code]:bg-slate-200 [&_code]:px-1 [&_code]:text-slate-900 [&_h1]:text-xl [&_h2]:text-lg [&_ul]:list-disc [&_ul]:pl-5 dark:[&_a]:text-violet-300 dark:[&_code]:bg-slate-800 dark:[&_code]:text-slate-100">
+            <ReactMarkdown>{markdown}</ReactMarkdown>
+          </article>
+        </section>
+      ) : null}
+
+      {doneMeta && typeof doneMeta.usage === 'object' && doneMeta.usage !== null ? (
+        <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">
+          Tokens: {JSON.stringify(doneMeta.usage)}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({
+  name,
+  label,
+  error,
+  children,
+}: {
+  name: string
+  label: string
+  error?: string
+  children: ReactElement<Record<string, unknown>>
+}) {
+  const errId = `${name}-error`
+  const invalid = Boolean(error)
+  const childProps = children.props as { className?: string }
+  const childClass = childProps.className
+  const child = cloneElement(children, {
+    id: name,
+    name,
+    'aria-invalid': invalid ? true : undefined,
+    'aria-describedby': invalid ? errId : undefined,
+    className: invalid ? [childClass, CONTROL_ERR_RING].filter(Boolean).join(' ') : childClass,
+  } as Record<string, unknown>)
+  return (
+    <div className="space-y-0">
+      <label htmlFor={name} className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {label}
+      </label>
+      {child}
+      {error ? (
+        <p id={errId} role="alert" className="mt-1.5 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}

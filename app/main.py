@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.cors import configure_cors
 from app.routers import estimations
 from app.services.llm_chain import build_provider_chain
 
@@ -47,6 +48,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+configure_cors(app, get_settings())
 
 app.include_router(estimations.router, prefix="/api/v1")
 

@@ -116,7 +116,7 @@ Useful URLs:
 - `POST http://127.0.0.1:8000/api/v1/estimate/stream` (SSE, see §11.1)
 - `http://127.0.0.1:8000/docs`
 
-**Progressive UI (FastAPI + Streamlit, two processes):** start the API in one terminal (`uv run uvicorn app.main:app --reload`), then run the demo UI in another (`uv run streamlit run app/streamlit_app.py`). The UI streams from `POST /api/v1/estimate/stream` by default at `http://127.0.0.1:8000`. Override the base URL with the **FastAPI base URL** field in the app or set optional environment variable `ESTIMATOR_API_BASE_URL` for the default field value. No extra LLM env vars are required for streaming; uses the same provider settings as the non-streaming endpoint.
+**Progressive UI (FastAPI + `web/` Vite app, two processes):** start the API in one terminal (`uv run uvicorn app.main:app --reload`), then from `web/` run `npm install` and `npm run dev`. The UI streams from `POST /api/v1/estimate/stream` using `VITE_API_BASE_URL` (default `http://127.0.0.1:8000` in `web/.env.example`). Ensure **`FRONTEND_ORIGINS`** on the API includes your Vite origin (defaults cover `http://localhost:5173` and `http://127.0.0.1:5173`). No extra LLM env vars are required for streaming; the browser UI uses the same provider settings as the non-streaming endpoint.
 
 ## 5. Environment variables
 
@@ -136,6 +136,7 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
 | `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
+| `FRONTEND_ORIGINS` | No | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated browser origins for CORS when the `web/` UI calls the API from another origin. |
 | `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |

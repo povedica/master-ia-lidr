@@ -7,7 +7,6 @@
 
 volumes:
   app_uv_venv:
-  streamlit_uv_venv:
 
 services:
   app:
@@ -37,26 +36,3 @@ services:
       - --port
       - "8000"
       - --reload
-
-  streamlit:
-    volumes:
-      - .:/app
-      - streamlit_uv_venv:/app/.venv
-    entrypoint: ["/bin/sh", "/app/docker/entrypoint-dev.sh"]
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      app:
-        condition: service_healthy
-    environment:
-      ESTIMATOR_API_BASE_URL: http://host.docker.internal:8000
-    command:
-      - uv
-      - run
-      - streamlit
-      - run
-      - app/streamlit_app.py
-      - --server.address
-      - "0.0.0.0"
-      - --server.port
-      - "8501"
