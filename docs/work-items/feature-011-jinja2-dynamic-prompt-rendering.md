@@ -1390,10 +1390,19 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 - [x] Routers `POST /api/v2/estimate` and `POST /api/v2/estimate/stream`; web binds to `result` fields.
 - [x] Tests: prompt stack, schema, structured client mock, v2 API; `.env.example` + docs updated.
 
+### Regression: duplicate `max_retries` (Instructor + LiteLLM)
+
+- **Symptom:** v2 structured estimation (`POST /api/v2/estimate`, `POST /api/v2/estimate/stream`) logged repeated `structured_output_call_failed` warnings; the HTTP stream could end with a generic structured-estimation error without a successful `done` payload.
+- **Runtime error:** `TypeError: litellm.main.acompletion() got multiple values for keyword argument 'max_retries'`.
+- **Root cause:** `instructor.from_litellm(acompletion, max_retries=0)` fixed `max_retries` on the patched client while Instructor also forwarded `max_retries` into LiteLLM’s `acompletion`, so the same keyword was supplied twice (observed with `instructor==1.15.1` and the project’s LiteLLM stack).
+- **Fix:** Use `instructor.from_litellm(acompletion)` with **no** `max_retries` argument. Retry limits for structured output remain enforced by the existing `complete_structured` loop over `STRUCTURED_OUTPUT_MAX_ATTEMPTS` / settings.
+- **Fixing commit:** `2a1f32df492450b59ce5d85c173b49e381e5f581` (short `2a1f32d`); see **Repository commits** below.
+
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `3497d74` | `docs(work-items): add feature-011 Jinja2 and structured output spec` | Track the full feature-011 specification in the versioned `docs/work-items/` mirror so it ships with the repository. |
 | `05c841a` | `docs(work-items): fix repository commit log hash in feature-011` | Replace the incorrect short hash in the commit log row with `3497d74` for the initial mirror commit. |
-| `cbd9bbc` | `feat(estimation): add v2 structured API with Jinja2 prompts and Instructor` | v2 routes, domain/transport schemas, prompt stack, web SSE consumer for single `done` with `result`, tests, env and technical docs. |
+| `e8985e4` | `feat(estimation): add v2 structured API with Jinja2 prompts and Instructor` | v2 routes, domain/transport schemas, prompt stack, web SSE consumer for single `done` with `result`, tests, env and technical docs. |
+| `2a1f32d` | `fix(estimation): avoid duplicate max_retries in Instructor LiteLLM client` | `app/services/structured_llm_client.py`: remove `max_retries` from `from_litellm` to stop `TypeError` on `acompletion`; document regression in this work item. |
