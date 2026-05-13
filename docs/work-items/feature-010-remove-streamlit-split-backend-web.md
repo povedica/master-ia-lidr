@@ -262,6 +262,89 @@ project-root/
 
 ---
 
+## Evolutivo: Validación guiada del formulario (web + API)
+
+> **Nota de contrato:** este evolutivo **cambia límites** respecto a `EstimationRequest` actual (`project_description` hasta 24_000, `project_summary` hasta 200, adjuntos sin imágenes, etc.). Implica **actualizar tests**, **OpenAPI** en `/docs`, y **cualquier cliente** (curl, colecciones) que enviara textos largos. Versionar en el mismo work item para trazabilidad.
+
+### Objective
+
+Endurecer y alinear la validación del formulario de estimación **en el navegador (UX inmediata)** y **en FastAPI (fuente de verdad)** para tipos, enumeraciones, longitudes y adjuntos, usando el patrón estándar **Pydantic en el backend + Zod en el frontend** con **las mismas reglas documentadas** (constantes compartidas por convención o módulo de límites único en Python replicado en TypeScript con pruebas de regresión cruzada donde aplique).
+
+### Context
+
+- Contrato actual: `app/schemas/estimation_request.py` (`EstimationRequest`, `Attachment`, enums `StrEnum`).
+- Cliente actual: `web/src/features/estimation/lib/requestMapper.ts` (`estimationFormSchema`, `mapEstimationFormToRequestBody`), `EstimationWorkbench.tsx`, `fileToBase64.ts`.
+- Tests existentes: `tests/test_estimation_request.py`, Vitest en `web/src/features/estimation/**/*.test.ts`.
+
+### Scope
+
+#### Includes
+
+- **Selectores y enums:** cualquier campo que en JSON sea un enum / lista de enums debe validarse en cliente con `z.enum` / `z.array(z.enum(...))` **idéntico** al conjunto permitido por Pydantic (`ProjectType`, `DeliveryUrgency`, …); no aceptar strings arbitrarios antes del submit.
+- **`project_name`:** opcional; si viene, **longitud máxima 100** caracteres (trim); backend `Field(max_length=100)` y validador de trim coherente con el actual.
+- **`project_summary` (resumen de una línea):** **20–250** caracteres tras trim (sustituye el rango 20–200 actual en backend y Zod).
+- **`project_description`:** **100–1000** caracteres tras trim (sustituye 100–24_000 actual); el `<textarea>` debe mostrar contador o `maxLength` + validación Zod; backend `Field(min_length=100, max_length=1000)`.
+- **`deliverables` (textarea):** contenido completo tras trim con **100–500** caracteres (incluyendo saltos de línea si se cuentan en el límite — definir en implementación una regla única: recomendación **longitud del string completo**); sigue siendo obligatorio obtener **3–8 líneas** no vacías al partir por `\n`; **cada línea** ≤ **80** caracteres (mantener regla de ítem existente) y validar que la composición respeta 100–500 en total (ajustar mensajes de error si hay tensión entre líneas y total — si matemáticamente 8×80 > 500, el validador global 500 prevalece y se documenta).
+- **Adjuntos:** admitir **`image/jpeg`** y **`image/png`** además de los tipos actuales (`text/plain`, `text/markdown`, `application/pdf`), hasta **3** ficheros; validación **por MIME declarado** (`content_type` / tipo de fichero en input) y, de forma **recomendada**, comprobación **magic bytes** en backend tras decodificar base64 para reducir spoofing (JPEG/PNG firmas); rechazar extensión `.jpg` con `content_type` incorrecto.
+- **Resto de campos (criterio):** reutilizar límites ya definidos en Pydantic donde existan (`target_audience_other`, `industry_other`, listas máx., `hosting_notes`, fechas con `target_date` si urgencia lo exige, exclusividad `integration_categories` con `none`, etc.); reflejarlos en Zod y en mensajes de error legibles en UI.
+- **Errores API:** mapear `422` de FastAPI a feedback legible (lista de `detail` ya parcialmente soportado en `useEstimateStream`).
+
+#### Excludes
+
+- No cambiar el contrato SSE ni las rutas `POST /api/v1/estimate` / `estimate/stream`.
+- No OCR ni tratamiento de píxeles más allá de validar tipo/tamaño.
+- No i18n completo de mensajes (inglés técnico en mensajes de validación es suficiente en v1).
+
+### Functional Requirements
+
+| ID | Requisito |
+|----|-----------|
+| EV-01 | Los **select** / **multiselect** solo producen valores pertenecientes al enum o lista permitida; Zod rechaza cualquier otro valor antes del mapeo a JSON. |
+| EV-02 | `project_name`: máximo **100** caracteres (trim); opcional vacío → `null`. |
+| EV-03 | `project_summary`: **20–250** caracteres (trim). |
+| EV-04 | `project_description`: **100–1000** caracteres (trim). |
+| EV-05 | `deliverablesText`: **100–500** caracteres (trim del bloque); **3–8** líneas no vacías; cada línea ≤ **80** caracteres; validación coherente en `@field_validator` / `model_validator` en Pydantic y en Zod. |
+| EV-06 | Adjuntos: tipos MIME permitidos incluyen **`image/jpeg`**, **`image/png`**, más los existentes; tamaño máximo por fichero y total según constantes actuales (`_MAX_ATTACHMENT_BYTES`, `_MAX_ATTACHMENTS_TOTAL_BYTES`); input `accept` alineado. |
+| EV-07 | Backend: toda regla nueva o ajustada vive en **`app/schemas/estimation_request.py`** (o módulo `app/schemas/estimation_limits.py` extraído si reduce duplicación); sin lógica de negocio nueva en routers. |
+| EV-08 | Frontend: esquema Zod único (o módulo `limits.ts` importado por el schema) alineado con los números del backend; **contadores** opcionales pero recomendados en textareas críticos. |
+
+### Technical Approach
+
+1. **Backend (fuente de verdad):** centralizar constantes (`_PROJECT_NAME_MAX = 100`, `_PROJECT_SUMMARY_MAX = 250`, `_PROJECT_DESCRIPTION_MAX = 1000`, límites del textarea de deliverables, `_ATTACHMENT_ALLOWED_TYPES` ampliado). Ajustar `Field` y validadores de `EstimationRequest` / `Attachment`; ampliar tests en `tests/test_estimation_request.py` y fixtures en `tests/estimation_fixtures.py` que asuman longitudes antiguas.
+2. **Frontend:** actualizar `estimationFormSchema` y `mapEstimationFormToRequestBody`; `fileToBase64.ts` / input `accept` para imágenes; `EstimationWorkbench` con `maxLength` / `pattern` HTML5 donde ayude sin contradecir Zod.
+3. **Técnica estándar:** Pydantic v2 + Zod; sin generador de código obligatorio en v1; **tabla de límites** en este documento y en `docs/technical/README.md` / OpenAPI actualizados al cerrar.
+4. **Paridad:** añadir tests que fallen si el backend acepta lo que el frontend rechaza (payloads límite en pytest); Vitest para límites de strings y tipos MIME en el cliente.
+
+### Acceptance Criteria
+
+- [ ] Los enums del formulario web coinciden con los `StrEnum` del backend; valores inválidos no se envían.
+- [ ] `project_name`, `project_summary`, `project_description`, bloque `deliverables` cumplen los rangos indicados en backend y frontend.
+- [ ] Adjuntos JPEG/PNG aceptados por API y validados por MIME (y magic bytes si se implementa); rechazo claro si el tipo no coincide.
+- [ ] `POST /api/v1/estimate` y `POST /api/v1/estimate/stream` devuelven `422` con detalle Pydantic para cuerpos fuera de rango; la UI muestra el error de forma legible.
+- [ ] `uv run pytest` y `cd web && npm run test && npm run build` pasan tras los cambios.
+- [ ] Documentación técnica y ejemplo curl en README o `docs/technical` reflejan los nuevos límites.
+
+### Test Plan
+
+- **Unit (Python):** límites de longitud, deliverables 100–500 + 3–8 líneas + 80 por línea, adjuntos image/jpeg y image/png válidos e inválidos (tipo incorrecto, tamaño).
+- **Unit (Vitest):** mismos casos límite en `requestMapper` / schema; ficheros mock con tipo MIME.
+- **Manual:** enviar formulario al límite superior/inferior; adjuntar PNG/JPEG; verificar 422 con payload antiguo (descripción > 1000 chars) rechazado.
+
+### Documentation Plan
+
+- Actualizar `docs/technical/README.md` (contrato JSON / adjuntos).
+- Actualizar `README.md` si el ejemplo `curl` usa textos que ya no cumplen límites.
+- Actualizar colecciones bajo `api-collection/` si incluyen cuerpos desactualizados.
+
+### Baby Steps (implementación sugerida)
+
+1. Extraer o ajustar constantes y Pydantic en `app/schemas/estimation_request.py`; pytest en rojo/verde.
+2. Alinear `tests/estimation_fixtures.py` y tests API que construyan cuerpos.
+3. Alinear Zod + mapper + `fileToBase64` + UI (`EstimationWorkbench`); Vitest.
+4. Documentación + smoke manual; fila en **Repository commits** cuando se fusione.
+
+---
+
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
