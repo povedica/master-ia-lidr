@@ -409,3 +409,4 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 | `39af082` | `docs(cursor): add continue-task and update-feature commands` | Cursor slash commands for resuming implementation from an existing canonical feature doc and for refining `/write-feature` specs in place. |
 | `70dfccc` | `docs(estimador-cag): record cursor commands commit in feature-010 work item` | Append the `39af082` row to the versioned `docs/work-items/feature-010` commit log (Second Brain path is a symlink outside this repo). |
 | `e05036f` | `docs(cursor): default PR merge flow in finish-task command` | Make `/finish-task` run `gh pr merge` by default after Part A; add **Skip Part B** opt-out; fix work-item mirror path to `docs/work-items/`. |
+| `c7446f4` | `docs(estimador-cag): log finish-task default merge in feature-010` | Append `e05036f` to the feature-010 repository commit table in `docs/work-items/`. |
