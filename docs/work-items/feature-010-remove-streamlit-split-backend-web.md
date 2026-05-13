@@ -268,7 +268,7 @@ project-root/
 
 ### Objective
 
-Endurecer y alinear la validación del formulario de estimación **en el navegador (UX inmediata)** y **en FastAPI (fuente de verdad)** para tipos, enumeraciones, longitudes y adjuntos, usando el patrón estándar **Pydantic en el backend + Zod en el frontend** con **las mismas reglas documentadas** (constantes compartidas por convención o módulo de límites único en Python replicado en TypeScript con pruebas de regresión cruzada donde aplique).
+Endurecer y alinear la validación del formulario de estimación **en el navegador (UX inmediata)** y **en FastAPI (fuente de verdad)** para tipos, enumeraciones, longitudes y adjuntos, usando el patrón estándar **Pydantic en el backend + Zod en el frontend** con **las mismas reglas documentadas** (constantes compartidas por convención o módulo de límites único en Python replicado en TypeScript con pruebas de regresión cruzada donde aplique). Incluye **estado y feedback visual por campo** (Tailwind + accesibilidad) para que el usuario identifique rápidamente incompletos y errores.
 
 ### Context
 
@@ -288,12 +288,16 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 - **Adjuntos:** admitir **`image/jpeg`** y **`image/png`** además de los tipos actuales (`text/plain`, `text/markdown`, `application/pdf`), hasta **3** ficheros; validación **por MIME declarado** (`content_type` / tipo de fichero en input) y, de forma **recomendada**, comprobación **magic bytes** en backend tras decodificar base64 para reducir spoofing (JPEG/PNG firmas); rechazar extensión `.jpg` con `content_type` incorrecto.
 - **Resto de campos (criterio):** reutilizar límites ya definidos en Pydantic donde existan (`target_audience_other`, `industry_other`, listas máx., `hosting_notes`, fechas con `target_date` si urgencia lo exige, exclusividad `integration_categories` con `none`, etc.); reflejarlos en Zod y en mensajes de error legibles en UI.
 - **Errores API:** mapear `422` de FastAPI a feedback legible (lista de `detail` ya parcialmente soportado en `useEstimateStream`).
+- **Estado por campo y ayuda visual (UX):** cada control editable expone un **estado explícito** (`pristine` | `touched` | `valid` | `invalid` | `pending` opcional durante submit) derivado de interacción + validación Zod; el usuario ve **dónde falta información** o **qué falla** sin depender solo del bloque de error global.
+- **Estilos de inputs (Tailwind + Vite):** aplicar patrones **accesibles** y consistentes con **Tailwind CSS v4** (`@import "tailwindcss"` / `@tailwindcss/vite`): bordes, `ring`, foco `focus-visible:ring-*`, estados `aria-invalid`, texto de ayuda y error bajo el campo, **sin** CSS ad-hoc fuera del sistema de utilidades salvo tokens mínimos en `index.css` si hace falta.
+- **Resumen de progreso (opcional recomendado):** barra o texto tipo “X de Y secciones listas” / lista de campos incompletos **al intentar enviar** o en panel colapsable, para orientar al usuario.
 
 #### Excludes
 
 - No cambiar el contrato SSE ni las rutas `POST /api/v1/estimate` / `estimate/stream`.
 - No OCR ni tratamiento de píxeles más allá de validar tipo/tamaño.
 - No i18n completo de mensajes (inglés técnico en mensajes de validación es suficiente en v1).
+- No adopción obligatoria de librerías de componentes pesadas (p. ej. shadcn/ui) en v1: **Tailwind utility-first** primero; valorar extracción de subcomponentes locales (`FormField`, `FieldError`) en `web/src/features/estimation/components/`.
 
 ### Functional Requirements
 
@@ -307,13 +311,32 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 | EV-06 | Adjuntos: tipos MIME permitidos incluyen **`image/jpeg`**, **`image/png`**, más los existentes; tamaño máximo por fichero y total según constantes actuales (`_MAX_ATTACHMENT_BYTES`, `_MAX_ATTACHMENTS_TOTAL_BYTES`); input `accept` alineado. |
 | EV-07 | Backend: toda regla nueva o ajustada vive en **`app/schemas/estimation_request.py`** (o módulo `app/schemas/estimation_limits.py` extraído si reduce duplicación); sin lógica de negocio nueva en routers. |
 | EV-08 | Frontend: esquema Zod único (o módulo `limits.ts` importado por el schema) alineado con los números del backend; **contadores** opcionales pero recomendados en textareas críticos. |
+| EV-09 | Cada campo del formulario tiene un **estado de validación** explícito y estable (ver modelo de estados en §UX/UI); el estado se actualiza en `onBlur` / `onChange` según política acordada (recomendación: errores de longitud en **blur** o al superar límite, errores de obligatoriedad al **submit** o al marcar sección). |
+| EV-10 | **Ayuda visual:** borde/ring distintivo para `invalid` vs `valid` vs `focus`; mensaje de error **inline** bajo el control con `role="alert"` o `aria-describedby` enlazado al input (`id` + `aria-invalid={true}` cuando falle). |
+| EV-11 | **Completitud:** al enviar con faltantes, **scroll o foco** al primer campo inválido; opcional lista “Missing: …” agrupada por sección (principal vs “More details”). |
+| EV-12 | **Contadores** visibles donde hay límites de caracteres (resumen, descripción, deliverables, etc.) con formato `current / max` y color de advertencia al acercarse al límite (utilidades Tailwind `text-amber-*` / `text-red-*`). |
+| EV-13 | **Select / multiselect:** estilo coherente con inputs de texto (misma altura de label, mismos estados de error); en multiselect, indicar selección vacía inválida solo cuando las reglas Zod lo exijan. |
+| EV-14 | **Stack:** implementación en **Vite + React** existente; estilos solo vía **Tailwind** (`className`); sin estilos inline salvo dinámicos inevitables; respetar **prefers-reduced-motion** si hay transiciones en mensajes. |
+
+### UX / UI: modelo de estados y patrones Tailwind
+
+- **Modelo mínimo de estado por campo:** `pristine` (sin tocar), `touched`, `valid`, `invalid` (incluye mensaje `string | null`). Opcional `dirty` si se desea “reset” de borrador. Transiciones documentadas en código (comentario breve en el helper de estado).
+- **Clases Tailwind sugeridas (referencia, no exhaustiva):**
+  - Base: `rounded-md border bg-slate-900 px-3 py-2 text-sm text-slate-100 border-slate-700`.
+  - Foco: `focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:border-violet-500`.
+  - Inválido: `border-red-500/80 ring-1 ring-red-500/30` + `aria-invalid`.
+  - Válido tocado: `border-emerald-600/50` (opcional, sutil para no saturar).
+  - Texto de ayuda: `text-xs text-slate-500`; error: `text-xs text-red-400`.
+- **Vite:** sin cambios de configuración obligatorios; si se añaden assets estáticos, colocarlos bajo `web/public/` según convención Vite.
+- **Accesibilidad:** asociar `<label htmlFor>` con cada control; no basar el significado solo en color (icono o prefijo textual opcional en errores).
 
 ### Technical Approach
 
 1. **Backend (fuente de verdad):** centralizar constantes (`_PROJECT_NAME_MAX = 100`, `_PROJECT_SUMMARY_MAX = 250`, `_PROJECT_DESCRIPTION_MAX = 1000`, límites del textarea de deliverables, `_ATTACHMENT_ALLOWED_TYPES` ampliado). Ajustar `Field` y validadores de `EstimationRequest` / `Attachment`; ampliar tests en `tests/test_estimation_request.py` y fixtures en `tests/estimation_fixtures.py` que asuman longitudes antiguas.
 2. **Frontend:** actualizar `estimationFormSchema` y `mapEstimationFormToRequestBody`; `fileToBase64.ts` / input `accept` para imágenes; `EstimationWorkbench` con `maxLength` / `pattern` HTML5 donde ayude sin contradecir Zod.
-3. **Técnica estándar:** Pydantic v2 + Zod; sin generador de código obligatorio en v1; **tabla de límites** en este documento y en `docs/technical/README.md` / OpenAPI actualizados al cerrar.
-4. **Paridad:** añadir tests que fallen si el backend acepta lo que el frontend rechaza (payloads límite en pytest); Vitest para límites de strings y tipos MIME en el cliente.
+3. **Frontend — UX:** extraer un helper o hook ligero (`useFieldMeta`, `fieldStyles(state)`) o componentes `FormField` / `LabeledInput` en `web/src/features/estimation/components/` para evitar duplicar clases Tailwind; centralizar mapa estado → clases.
+4. **Técnica estándar:** Pydantic v2 + Zod; sin generador de código obligatorio en v1; **tabla de límites** en este documento y en `docs/technical/README.md` / OpenAPI actualizados al cerrar.
+5. **Paridad:** añadir tests que fallen si el backend acepta lo que el frontend rechaza (payloads límite en pytest); Vitest para límites de strings y tipos MIME en el cliente.
 
 ### Acceptance Criteria
 
@@ -323,25 +346,31 @@ Endurecer y alinear la validación del formulario de estimación **en el navegad
 - [ ] `POST /api/v1/estimate` y `POST /api/v1/estimate/stream` devuelven `422` con detalle Pydantic para cuerpos fuera de rango; la UI muestra el error de forma legible.
 - [ ] `uv run pytest` y `cd web && npm run test && npm run build` pasan tras los cambios.
 - [ ] Documentación técnica y ejemplo curl en README o `docs/technical` reflejan los nuevos límites.
+- [ ] Cada campo relevante muestra estado visual (default / foco / error / éxito sutil) con **Tailwind** y atributos **ARIA** adecuados.
+- [ ] Errores de validación cliente aparecen **junto al campo**; el submit con errores hace **focus** o **scroll** al primer fallo y, si aplica, lista de pendientes.
+- [ ] Contadores de caracteres visibles en campos con límite explícito (alineados con Zod / backend).
 
 ### Test Plan
 
 - **Unit (Python):** límites de longitud, deliverables 100–500 + 3–8 líneas + 80 por línea, adjuntos image/jpeg y image/png válidos e inválidos (tipo incorrecto, tamaño).
 - **Unit (Vitest):** mismos casos límite en `requestMapper` / schema; ficheros mock con tipo MIME.
 - **Manual:** enviar formulario al límite superior/inferior; adjuntar PNG/JPEG; verificar 422 con payload antiguo (descripción > 1000 chars) rechazado.
+- **Manual UX:** teclado solo (Tab + Enter): foco visible; lector de pantalla anuncia `aria-invalid` en error; `prefers-reduced-motion` no rompe el flujo.
 
 ### Documentation Plan
 
 - Actualizar `docs/technical/README.md` (contrato JSON / adjuntos).
 - Actualizar `README.md` si el ejemplo `curl` usa textos que ya no cumplen límites.
 - Actualizar colecciones bajo `api-collection/` si incluyen cuerpos desactualizados.
+- Opcional: captura o nota breve en el work item de **estados visuales** (referencia de diseño) tras implementar.
 
 ### Baby Steps (implementación sugerida)
 
 1. Extraer o ajustar constantes y Pydantic en `app/schemas/estimation_request.py`; pytest en rojo/verde.
 2. Alinear `tests/estimation_fixtures.py` y tests API que construyan cuerpos.
-3. Alinear Zod + mapper + `fileToBase64` + UI (`EstimationWorkbench`); Vitest.
-4. Documentación + smoke manual; fila en **Repository commits** cuando se fusione.
+3. Alinear Zod + mapper + `fileToBase64`; Vitest.
+4. Implementar **estados de campo + estilos Tailwind + ayuda inline** en `EstimationWorkbench` (o subcomponentes); prueba manual UX.
+5. Documentación + smoke manual; fila en **Repository commits** cuando se fusione.
 
 ---
 
