@@ -1,8 +1,5 @@
 """Domain ``EstimationResult`` schema and validators."""
 
-import pytest
-from pydantic import ValidationError
-
 from app.schemas.estimation_result import (
     EstimationLineItem,
     EstimationPhase,
@@ -31,19 +28,20 @@ def test_model_json_schema_has_title_and_totals() -> None:
     assert "totals" in schema.get("properties", {})
 
 
-def test_totals_mismatch_raises() -> None:
+def test_totals_mismatch_normalized_from_line_items() -> None:
     li = EstimationLineItem(name="Task A", hours=10.0, cost_eur=500.0)
-    bad_totals = EstimationTotals(hours=1.0, cost_eur=500.0)
-    with pytest.raises(ValidationError, match="totals.hours"):
-        EstimationResult(
-            title="Project title for schema test",
-            summary="S" * 25,
-            phases=[EstimationPhase(name="Phase 1", items=[li])],
-            line_items=[],
-            totals=bad_totals,
-            duration_weeks=2.0,
-            confidence=0.5,
-        )
+    bad_totals = EstimationTotals(hours=1.0, cost_eur=999.0)
+    result = EstimationResult(
+        title="Project title for schema test",
+        summary="S" * 25,
+        phases=[EstimationPhase(name="Phase 1", items=[li])],
+        line_items=[],
+        totals=bad_totals,
+        duration_weeks=2.0,
+        confidence=0.5,
+    )
+    assert result.totals.hours == 10.0
+    assert result.totals.cost_eur == 500.0
 
 
 def test_round_trip_valid_payload() -> None:

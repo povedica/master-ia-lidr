@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -29,7 +31,7 @@ class EstimationPhase(BaseModel):
 
 
 class EstimationTotals(MoneyAndHours):
-    """Roll-up totals; validators may cross-check sum(items)."""
+    """Roll-up totals; when line items exist, the server aligns totals to their sums."""
 
 
 class EstimationResult(BaseModel):
@@ -58,18 +60,27 @@ class EstimationResult(BaseModel):
         description="Optional UI hints; same top-level schema for all output_format values.",
     )
 
-    @model_validator(mode="after")
-    def coherent_totals(self) -> EstimationResult:
-        flat = [li for ph in self.phases for li in ph.items] + self.line_items
-        if not flat:
-            return self
-        sum_hours = sum(x.hours for x in flat)
-        sum_cost = sum(x.cost_eur for x in flat)
-        if abs(sum_hours - self.totals.hours) > 0.51:
-            raise ValueError("totals.hours must match sum of line items (within tolerance)")
-        if abs(sum_cost - self.totals.cost_eur) > 1.0:
-            raise ValueError("totals.cost_eur must match sum of line items (within tolerance)")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def align_totals_to_line_items(cls, data: Any) -> Any:
+        """When line items exist, overwrite totals with their sums (LLM roll-ups often drift)."""
+
+        if not isinstance(data, dict):
+            return data
+        sums = _sum_hours_and_cost_from_phases_and_line_items(
+            data.get("phases"),
+            data.get("line_items"),
+        )
+        if sums is None:
+            return data
+        sum_h, sum_c = sums
+        out = dict(data)
+        totals_val = out.get("totals")
+        if isinstance(totals_val, dict):
+            out["totals"] = {**totals_val, "hours": sum_h, "cost_eur": sum_c}
+        else:
+            out["totals"] = {"hours": sum_h, "cost_eur": sum_c}
+        return out
 
     @field_validator("assumptions", "risks")
     @classmethod
@@ -78,3 +89,47 @@ class EstimationResult(BaseModel):
             if not s.strip():
                 raise ValueError("list items must be non-empty strings")
         return v
+
+
+def _sum_hours_and_cost_from_phases_and_line_items(
+    phases: object,
+    line_items: object,
+) -> tuple[float, float] | None:
+    """Return (sum_hours, sum_cost) when at least one line item exists; else None."""
+
+    sum_h = 0.0
+    sum_c = 0.0
+    count = 0
+    if isinstance(phases, list):
+        for ph in phases:
+            items: object
+            if isinstance(ph, EstimationPhase):
+                items = ph.items
+            elif isinstance(ph, dict):
+                items = ph.get("items") or []
+            else:
+                continue
+            if not isinstance(items, list):
+                continue
+            for li in items:
+                if isinstance(li, EstimationLineItem):
+                    sum_h += li.hours
+                    sum_c += li.cost_eur
+                    count += 1
+                elif isinstance(li, dict):
+                    sum_h += float(li.get("hours", 0) or 0)
+                    sum_c += float(li.get("cost_eur", 0) or 0)
+                    count += 1
+    if isinstance(line_items, list):
+        for li in line_items:
+            if isinstance(li, EstimationLineItem):
+                sum_h += li.hours
+                sum_c += li.cost_eur
+                count += 1
+            elif isinstance(li, dict):
+                sum_h += float(li.get("hours", 0) or 0)
+                sum_c += float(li.get("cost_eur", 0) or 0)
+                count += 1
+    if count == 0:
+        return None
+    return sum_h, sum_c

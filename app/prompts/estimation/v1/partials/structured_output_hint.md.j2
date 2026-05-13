@@ -1,3 +1,13 @@
 ## Structured output contract
 
 Respond with **one JSON object only** (no Markdown fences, no commentary) that validates as server **EstimationResult** schema version **{{ schema_version }}**. Include numeric totals and optional `presentation` hints when useful.
+
+Hard rules enforced **after** JSON parsing (they are not obvious from field types alone):
+
+- If you include any line items under `phases` or `line_items`, the server **recomputes** `totals` from those sums; still provide plausible `totals` in JSON for readability.
+- If there are **no** line items anywhere, `totals` is your roll-up estimate and is kept as sent.
+- **`summary`**: at least **20** characters; **`title`**: at least **3** characters.
+- **`duration_weeks`**: must be a number **strictly greater than 0**.
+- **`confidence`**: number between **0.0** and **1.0** inclusive.
+- **`assumptions`** and **`risks`**: if you include entries, each string must be non-whitespace (no `""` or `"   "`).
+- Do not add unknown top-level keys; only fields defined by **EstimationResult** are allowed.

@@ -232,8 +232,7 @@ Document briefly the three underlying mechanisms (for operators, not for branchi
 
 `EstimationResult` must include **`model_validator` / `field_validator`** rules beyond JSON shape, for example:
 
-- `sum(line_item.hours) ≈ total_hours` within tolerance, or exact equality if the schema mandates line items always present.
-- `total_cost_eur` consistent with line items when both are required.
+- When **line items exist**, **`totals` is aligned server-side** to the exact sum of `hours` / `cost_eur` over `phases[].items` and `line_items` (so the pipeline does not depend on the LLM copying roll-ups correctly into `totals`). When **no** line items are present, `totals` remains the model-supplied roll-up.
 - `confidence` in `[0, 1]` or allowed enum.
 - `duration_weeks` > 0; hours ≥ 0.
 - Cross-check `phases` vs `line_items` when both populated.
@@ -544,7 +543,7 @@ Use nested models with **numeric types** the frontend can chart or tabulate. Fie
 ```python
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class MoneyAndHours(BaseModel):
@@ -565,7 +564,7 @@ class EstimationPhase(BaseModel):
 
 
 class EstimationTotals(MoneyAndHours):
-    """Roll-up totals; validators may cross-check sum(items)."""
+    """Roll-up totals; when line items exist, the server aligns totals to their sums."""
 
 
 class EstimationResult(BaseModel):
@@ -586,17 +585,11 @@ class EstimationResult(BaseModel):
         description="Optional UI hints derived from request.output_format; not a second schema.",
     )
 
-    @model_validator(mode="after")
-    def coherent_totals(self) -> EstimationResult:
-        flat = [li for ph in self.phases for li in ph.items] + self.line_items
-        if flat:
-            sum_hours = sum(x.hours for x in flat)
-            sum_cost = sum(x.cost_eur for x in flat)
-            if abs(sum_hours - self.totals.hours) > 0.51:
-                raise ValueError("totals.hours must match sum of line items (within tolerance)")
-            if abs(sum_cost - self.totals.cost_eur) > 1.0:
-                raise ValueError("totals.cost_eur must match sum of line items (within tolerance)")
-        return self
+    # Normative implementation: ``app/schemas/estimation_result.py``.
+    # ``model_validator(mode="before")`` ``align_totals_to_line_items``:
+    # if at least one line item exists under ``phases[].items`` or ``line_items``,
+    # ``totals.hours`` and ``totals.cost_eur`` are overwritten with the exact sums
+    # so Instructor + Pydantic do not fail on LLM roll-up drift (see regression note below).
 
     @field_validator("assumptions", "risks")
     @classmethod
@@ -1389,6 +1382,7 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 - [x] `EstimationService.estimate_structured` + `stream_structured_estimation` (single `done` SSE).
 - [x] Routers `POST /api/v2/estimate` and `POST /api/v2/estimate/stream`; web binds to `result` fields.
 - [x] Tests: prompt stack, schema, structured client mock, v2 API; `.env.example` + docs updated.
+- [x] Production hardening: `EstimationResult` aligns `totals` from line items when items exist; prompt hint + regression documented below (totals vs Instructor retries).
 
 ### Regression: duplicate `max_retries` (Instructor + LiteLLM)
 
@@ -1398,6 +1392,17 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 - **Fix:** Use `instructor.from_litellm(acompletion)` with **no** `max_retries` argument. Retry limits for structured output remain enforced by the existing `complete_structured` loop over `STRUCTURED_OUTPUT_MAX_ATTEMPTS` / settings.
 - **Fixing commit:** `2a1f32df492450b59ce5d85c173b49e381e5f581` (short `2a1f32d`); see **Repository commits** below.
 
+### Regression: structured output — `totals` vs line items (Instructor retries)
+
+- **Symptom:** `POST /api/v2/estimate/stream` (and structured paths using `complete_structured`) returned HTTP 200 with SSE `event: error` and body `{"message":"The model did not return a response matching the required schema."}` even though the model returned plausible JSON (e.g. real project payloads from the guided form).
+- **Observed runtime:** NDJSON debug logs (session-local) showed repeated `InstructorRetryException` wrapping a **`ValueError`** from Pydantic: **`totals.hours must match sum of line items (within tolerance)`** (same class of failure for `cost_eur`). The generic `ValidationError` branch in `complete_structured` often did **not** run because **Instructor wraps** validation failures in **`InstructorRetryException`**, so failures were classified under the broad `Exception` path until retries were exhausted.
+- **Root cause:** An **`@model_validator(mode="after")`** required `totals` to match summed line items within tolerance. The JSON Schema sent to the model does **not** encode that cross-field rule; the LLM frequently returned inconsistent roll-ups, causing every attempt to fail validation.
+- **Operational note (debugging):** Instrumentation that wrote to a **host-only absolute path** did not create logs when the API ran **inside Docker** (repo mounted at `/app`). Logs were fixed to **`{repo_root}/.cursor/debug-<session>.log`** resolved from `__file__` so bind mounts record NDJSON on the host; that instrumentation was **removed** after the issue was confirmed fixed.
+- **Mitigations applied:**
+  - **Code:** Replace strict “raise on mismatch” with **`model_validator(mode="before")`** **`align_totals_to_line_items`** in `app/schemas/estimation_result.py`: when at least one line item exists, **`totals.hours` and `totals.cost_eur` are set to the exact sums** of those items before the rest of the model is built. Empty item lists still use model-supplied `totals`. Unit test updated from “mismatch raises” to “mismatch is normalized”.
+  - **Prompt:** `app/prompts/estimation/v1/partials/structured_output_hint.md.j2` updated to state that the server recomputes `totals` from line items when items are present (and to keep other hard rules: summary length, `duration_weeks` > 0, non-empty assumption/risk strings, no extra keys).
+- **Fixing commit:** `1c7a629461f273a20033f79c0fb60b21ea9e1e9e` (short `1c7a629`); see **Repository commits** below.
+
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
@@ -1406,3 +1411,4 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 | `05c841a` | `docs(work-items): fix repository commit log hash in feature-011` | Replace the incorrect short hash in the commit log row with `3497d74` for the initial mirror commit. |
 | `e8985e4` | `feat(estimation): add v2 structured API with Jinja2 prompts and Instructor` | v2 routes, domain/transport schemas, prompt stack, web SSE consumer for single `done` with `result`, tests, env and technical docs. |
 | `2a1f32d` | `fix(estimation): avoid duplicate max_retries in Instructor LiteLLM client` | `app/services/structured_llm_client.py`: remove `max_retries` from `from_litellm` to stop `TypeError` on `acompletion`; document regression in this work item. |
+| `1c7a629` | `fix(estimation): align totals to line items before validation` | `align_totals_to_line_items` (`mode="before"`) in `app/schemas/estimation_result.py`; structured-output hint and unit tests; feature-011 spec and regression note for Instructor retries on roll-up drift. See **Regression: structured output — `totals` vs line items** above. |
