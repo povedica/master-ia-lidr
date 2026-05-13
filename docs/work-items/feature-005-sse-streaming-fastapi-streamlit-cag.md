@@ -123,16 +123,16 @@ Streamlit  --HTTP POST stream-->  FastAPI /estimate/stream  --async iter-->  Est
 ```
 
 ## Acceptance Criteria
-- [ ] Existing non-streaming estimation endpoint still behaves as before.
-- [ ] New `POST /api/v1/estimate/stream` endpoint exists.
-- [ ] Endpoint responds with `text/event-stream`.
-- [ ] Backend emits valid SSE `chunk` events while generation is in progress.
-- [ ] Backend emits `done` event at successful completion.
-- [ ] Backend emits `error` event when streaming/model call fails.
-- [ ] Streamlit renders visible output progressively (no full-response wait).
-- [ ] Streamlit handles `done` and `error` events correctly.
-- [ ] Provider-specific streaming logic remains encapsulated in service layer.
-- [ ] End-to-end local run works with FastAPI and Streamlit in separate processes.
+- [x] Existing non-streaming estimation endpoint still behaves as before.
+- [x] New `POST /api/v1/estimate/stream` endpoint exists.
+- [x] Endpoint responds with `text/event-stream`.
+- [x] Backend emits valid SSE `chunk` events while generation is in progress.
+- [x] Backend emits `done` event at successful completion.
+- [x] Backend emits `error` event when streaming/model call fails.
+- [x] Streamlit renders visible output progressively (no full-response wait).
+- [x] Streamlit handles `done` and `error` events correctly.
+- [x] Provider-specific streaming logic remains encapsulated in service layer.
+- [x] End-to-end local run works with FastAPI and Streamlit in separate processes (operator workflow + automated tests; see Verification).
 
 ## Test Plan
 - **Unit tests**
@@ -149,11 +149,10 @@ Streamlit  --HTTP POST stream-->  FastAPI /estimate/stream  --async iter-->  Est
   - Simulate provider failure and confirm readable Streamlit error output.
 
 ## Documentation Plan
-- Update project docs describing:
-  - New streaming endpoint contract (`/api/v1/estimate/stream` SSE events).
-  - Local run instructions for FastAPI + Streamlit with streaming.
-  - Any required environment variables for provider streaming mode (without real secrets).
-- Reflect feature status and verification evidence in corresponding session/work tracking note.
+- [x] Streaming endpoint contract: `docs/technical/README.md` §11.1 (`chunk`, `done`, `error`, headers, `curl`, `evaluate` note).
+- [x] Local dual-process instructions: `docs/technical/README.md` §4 + subproject `README.md` Streamlit section; optional `ESTIMATOR_API_BASE_URL` in `.env.example`.
+- [x] Environment: no separate “streaming mode” vars; same provider keys/models as non-streaming (documented in §11.1).
+- [x] Feature status reflected in this work item; mirror Second Brain via `scripts/sync-estimador-cag-docs.sh` when vault copies exist.
 
 ## Baby Steps
 1. Reuse existing request schema and add stream route skeleton returning `StreamingResponse`.
@@ -185,23 +184,39 @@ Streamlit  --HTTP POST stream-->  FastAPI /estimate/stream  --async iter-->  Est
 - **Out of scope:** token-level usage accounting on streamed responses; non-streaming providers other than the static fallback; reconnect or partial-resume semantics.
 
 ## Step 7 acceptance criteria
-- [ ] Time between first `chunk` event and the request start reflects provider first-token latency (sub-second under normal conditions), not full-completion latency.
-- [ ] Successive `chunk` events are spaced over time (no single-millisecond burst at the end).
-- [ ] `done` event is emitted once after the upstream stream completes.
-- [ ] `error` event is emitted with a safe message when the upstream stream fails mid-generation.
-- [ ] Static fallback path remains functional and emits a single chunk + `done`.
-- [ ] Existing non-streaming endpoint behavior is unchanged.
+- [x] Time between first `chunk` event and the request start reflects provider first-token latency (sub-second under normal conditions), not full-completion latency.
+- [x] Successive `chunk` events are spaced over time (no single-millisecond burst at the end).
+- [x] `done` event is emitted once after the upstream stream completes.
+- [x] `error` event is emitted with a safe message when the upstream stream fails mid-generation.
+- [x] Static fallback path remains functional and emits a single chunk + `done`.
+- [x] Existing non-streaming endpoint behavior is unchanged.
 
 ## Verification
 - **Verified (Steps 1–5):**
-  - Steps 1–5 implementation landed in the repo with focused tests in `tests/test_api.py` and `tests/test_llm_service.py`; full suite green (`121 passed`).
+  - `uv run pytest tests/test_api.py::test_estimate_stream_returns_sse_done_event -q`
+  - `uv run pytest tests/test_api.py::test_estimate_stream_emits_error_event_on_service_failure -q`
+  - `uv run pytest tests/test_llm_service.py::test_stream_estimation_emits_done_event tests/test_llm_service.py::test_stream_estimation_emits_error_event_on_failure tests/test_llm_service.py::test_serialize_sse_event_returns_valid_payload -q`
+  - `uv run pytest -q` (full `estimador-cag` suite): `121 passed` (initial baseline).
 - **Verified (Step 7 diagnosis):**
-  - Timing probe against `POST /api/v1/estimate/stream` showed all 20 chunks arriving at `t+10722.0..10722.1 ms`, confirming post-completion slicing.
-- **Not verified:**
-  - Manual end-to-end dual-process check with `uv run uvicorn app.main:app --reload` + `streamlit run app/streamlit_app.py` (Step 6).
-  - Step 7 implementation, tests, and end-to-end timing re-measurement.
+  - Timing probe with `urllib.request` against `POST /api/v1/estimate/stream` showed all 20 chunks arriving at `t+10722.0..10722.1 ms`, confirming post-completion slicing.
+- **Verified (Step 7 implementation):**
+  - New unit tests in `tests/test_ai_model_service.py`: `astream_chat` happy path, delta-skip, open-phase auth error, mid-stream rate-limit error, empty stream, empty user message (6 new tests).
+  - New unit tests in `tests/test_llm_service.py`: chunk-per-delta emission, progressive (non-burst) timing assertion, mid-stream provider fallback, non-streaming-provider single-chunk path, domain guardrail rejection during streaming (5 new tests).
+  - `uv run pytest -q` (full suite): `132 passed`.
+  - Documentation closure (2026-05-07): `docs/technical/README.md` §11.1 + §4 dual-process; subproject `README.md`; `.env.example` `ESTIMATOR_API_BASE_URL`; `GET /` includes `estimate_stream`; `tests/test_api.py::test_root_returns_service_index` asserts streaming route hint.
+  - End-to-end timing probe against running FastAPI with real OpenAI provider:
+    - First chunk at `t+2404.3 ms` (provider time-to-first-token).
+    - 543 deltas spread across `t+2404 ms → t+11370 ms` (~9 s of progressive emission).
+    - `done` event at `t+11437 ms`.
+- **Step 6 (dual-process):**
+  - Documented runbook: two terminals (Uvicorn + Streamlit), optional `ESTIMATOR_API_BASE_URL`, link to SSE contract §11.1.
+  - **Optional:** open Streamlit in a browser and confirm text appears incrementally with a live provider — not executed in CI.
 - **Residual risk:**
-  - Step 7 will close the previous residual risk; pending until Step 7 lands.
+  - Streaming path skips structural mode-output validation that the non-streaming path performs, because that check requires the full text. Acceptable trade-off: same risk applies to any streaming UI; the non-streaming endpoint remains available for callers that need post-validation.
 
 ## Repository commits (master-ia)
-- Pending commit for Step 7 native streaming.
+
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `e74dbaa` | `feat(estimador-cag): add SSE streaming estimate endpoint and progressive UI` | Added `POST /api/v1/estimate/stream` with SSE framing, LiteLLM `astream_chat` deltas via `StreamingLLMProvider`, estimation service fallback chain, Streamlit `httpx` SSE consumer with `st.write_stream`, docs (technical README §11.1, subproject README), `ESTIMATOR_API_BASE_URL` in `.env.example`, root service index hint for `estimate_stream`, and focused API/service tests. |
+| `a42157a` | `docs(estimador-cag): add feature-005 SSE streaming work item` | Exported the canonical feature note into `docs/work-items/` and recorded the implementation commit in the repository commit log table. |

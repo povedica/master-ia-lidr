@@ -74,14 +74,14 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
   - `200` with toggle disabled writes no file.
   - Non-200 responses do not create files.
 - Manual checks:
-  - `cd proyectos/estimador-cag && uv run pytest tests/test_api.py tests/test_config.py`
+  - `cd . && uv run pytest tests/test_api.py tests/test_config.py`
   - Optional API run and `curl` verification:
     - `uv run uvicorn app.main:app --reload`
     - POST estimate and confirm file appears in `output-responses/`.
 
 ## Documentation Plan
-- Update `proyectos/estimador-cag/.env.example` with `ESTIMATION_OUTPUT_PERSIST_ENABLED=false`.
-- Update `proyectos/estimador-cag/README.md` configuration section with:
+- Update `.env.example` with `ESTIMATION_OUTPUT_PERSIST_ENABLED=false`.
+- Update `README.md` configuration section with:
   - Purpose of the toggle.
   - Output folder and filename convention.
 - If implemented, sync project docs mirror:
@@ -119,7 +119,7 @@ Persist the model estimation text returned by `POST /api/v1/estimate` into markd
 - Updated docs in `.env.example` and `README.md`.
 
 ## Verification Results
-- Command: `cd proyectos/estimador-cag && uv run pytest tests/test_config.py tests/test_response_output_writer.py tests/test_api.py`
+- Command: `cd . && uv run pytest tests/test_config.py tests/test_response_output_writer.py tests/test_api.py`
 - Result: `26 passed`.
-- Command: `cd proyectos/estimador-cag && uv run pytest tests/test_config.py tests/test_response_output_writer.py tests/test_examples.py tests/test_llm_service.py tests/test_api.py`
+- Command: `cd . && uv run pytest tests/test_config.py tests/test_response_output_writer.py tests/test_examples.py tests/test_llm_service.py tests/test_api.py`
 - Result: `43 passed`.

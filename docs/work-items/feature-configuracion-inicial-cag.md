@@ -8,10 +8,15 @@ The goal is to build a minimal but well-organized learning project where HTTP ro
 
 ## Context
 
-This project belongs to session 02 of the AI Engineering master work. It will be created under:
+This project belongs to session 02 of the AI Engineering master work. It lives at the **git repository root** (`master-ia`):
 
 ```text
-proyectos/estimador-cag/
+.
+├── app/
+├── tests/
+├── docs/
+├── pyproject.toml
+└── uv.lock
 ```
 
 The project will use:
@@ -39,7 +44,7 @@ Cursor only loads project configuration from **the workspace root**. The shared 
 - Create the initial application structure:
 
 ```text
-estimador-cag/
+.
 ├── app/
 │   ├── __init__.py
 │   ├── main.py
@@ -308,7 +313,7 @@ Logs must not include API keys or sensitive transcriptions unless intentionally 
 
 ### Functional
 
-- [x] `uv run uvicorn app.main:app --reload` starts the API without errors (from `proyectos/estimador-cag/`).
+- [x] `uv run uvicorn app.main:app --reload` starts the API without errors (from the repository root).
 - [x] `GET /health` returns status 200.
 - [x] `POST /api/v1/estimate` accepts a `transcription` field.
 - [x] `POST /api/v1/estimate` returns `estimation`, `model`, `provider`, and technical metadata (`request_id`, `timestamp`, `latency_ms`, prompt/context version, usage when available).
@@ -388,28 +393,29 @@ Run the server, call health, call estimate endpoint, and check Swagger.
 ## Documentation Plan
 
 - Update project `README.md` with setup, `.env.example`, and runtime commands.
-- Record implementation progress in `second-brain-master-ia/proyectos/estimador-cag/sesiones/sesion-02-estimador-cag.md`.
+- Record implementation progress in `learnings/second-brain-master-ia/proyectos/estimador-cag/sesiones/sesion-02-estimador-cag.md`.
 - Promote reusable learnings about CAG, few-shot context, or provider boundaries to `aprendizajes/` if they become useful beyond this feature.
 
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| `b8e737c` | `docs(cursor): add estimador-cag project rules and commands` | Adds Python/FastAPI/AI Cursor rules and commands; first under `proyectos/estimador-cag/.cursor/` (see following `refactor(cursor)` commit). |
+| `b8e737c` | `docs(cursor): add estimador-cag project rules and commands` | Adds Python/FastAPI/AI Cursor rules and commands; first under `.cursor/` (see following `refactor(cursor)` commit). |
 | `d1f3c57` | `docs(cursor): align commit-pending with feature commit reporting` | Commit log favors the feature doc; if unclear, ask and suggest destination before `git commit`. |
 | `9c8c325` | `refactor(cursor): colocate project rules and commands at repo root` | Moves estimator rules/commands to repo-root `.cursor/` so Cursor loads them. |
 | `0320098` | `docs(cursor): English commit workflow and cursor standards` | Translates `commit-pending` to English; English commit-log column; expands `start-task` and language rule in `00-base-standards`. |
-| `d8a5a8e` | `feat(estimador-cag): add CAG estimator FastAPI subproject` | Adds `proyectos/estimador-cag` with FastAPI, pydantic-settings, static few-shot examples, isolated OpenAI service, `POST /api/v1/estimate`, `GET /health`, pytest suite (no live API calls), and `uv.lock`. |
+| `d8a5a8e` | `feat(estimador-cag): add CAG estimator FastAPI subproject` | Adds the estimator app with FastAPI, pydantic-settings, static few-shot examples, isolated OpenAI service, `POST /api/v1/estimate`, `GET /health`, pytest suite (no live API calls), and `uv.lock`. |
 | `3e6e4b6` | `feat(estimador-cag): add root URL with API pointers` | Adds `GET /` JSON index for browser visits; README note on optional `/favicon.ico` 404; test coverage. |
 | `b17ad30` | `feat(estimador-cag): add DEV_MODE-gated usage telemetry and cost estimate` | Extends `/api/v1/estimate` metadata, gates `usage` in `DEV_MODE`, adds token-based `estimated_cost_usd` inside `usage`, and updates tests/docs. |
 | `ad7084a` | `feat(cursor): add lightweight workflow commands, skills, and subagents` | Adds DSM-inspired Cursor workflow pieces adapted to `master-ia`: requirement commands, validation rules, reusable skills, and lightweight technical subagents. |
-| `c313d27` | `docs(estimador-cag): add Second Brain mirror and sync script` | Adds `scripts/sync-estimador-cag-docs.sh`, versioned `proyectos/estimador-cag/docs/` mirror (excludes `.obsidian`/`.trash`), and updates Cursor commands, spec rule 11, and READMEs. |
+| `c313d27` | `docs(estimador-cag): add Second Brain mirror and sync script` | Adds `scripts/sync-estimador-cag-docs.sh`, versioned `docs/` mirror (excludes `.obsidian`/`.trash`), and updates Cursor commands, spec rule 11, and READMEs. |
 | `e87f524` | `docs(cursor): require push at end of commit-pending workflow` | Makes Phase 7 push mandatory for agent runs; clarifies Purpose and checklist when push cannot complete. |
 | `8c57a87` | `docs(estimador-cag): add technical docs base and sync mirror` | Adds `docs/technical/README.md` (TOC, architecture, API, logging), links from project README, session note, and docs index; syncs work item commit log. |
 | `9fb7dba` | `docs(estimador-cag): log docs commit in feature work item` | Appends `8c57a87` to the repository commits table in the canonical work item and synced mirror. |
 | `680cbab` | `docs(estimador-cag): append work-item log for meta commit` | Appends `9fb7dba` to the repository commits table in the canonical work item and synced mirror. |
 | `cab0389` | `docs(estimador-cag): translate technical docs to English` | Rewrites `docs/technical/README.md` in English; documents English-only rule for `technical/` in docs index, session note, and subproject README. |
 | `ee0f4e6` | `docs(estimador-cag): log English technical docs commit in work item` | Appends `cab0389` to the repository commits table in the canonical work item and synced mirror. |
+| `b325a88` | `chore(estimador-cag): add httpx stress helper with random estimation pool` | Adds `dev-tools/stress_api.py`: parallel HTTP load via `httpx` and `asyncio`, CLI for URL/method/concurrency, optional `--random-estimation-request` over built-in `ESTIMATION_REQUESTS` for POST `/api/v1/estimate` stress. |
 
 ## Notes
 

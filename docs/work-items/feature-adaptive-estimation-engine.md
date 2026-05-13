@@ -413,7 +413,6 @@ For the first implementation slice, the repo may represent this configuration in
 Run locally:
 
 ```bash
-cd proyectos/estimador-cag
 uv run uvicorn app.main:app --reload
 ```
 
@@ -427,7 +426,6 @@ Then verify at least these cases:
 Validation command:
 
 ```bash
-cd proyectos/estimador-cag
 uv run pytest
 ```
 
@@ -524,3 +522,6 @@ Before considering the exercise complete, verify:
 | `8486b8e` | `chore(estimador-cag): bump PROMPT_VERSION to v4 after prompt rewrite` | Raised `PROMPT_VERSION` to `v4` and synced README, technical docs, work-item JSON examples, and API test expectations. |
 | `8dd4e9a` | `feat(estimador-cag): improve adaptive outputs and fallback contract` | Added forced mode override parsing, richer mode-specific budget guidance in prompts/fallback output, DEV_MODE-aware response contract updates, refreshed API collection samples, and expanded tests/docs for the new behavior. |
 | `fa40242` | `docs(cursor): add save-response command for local markdown exports` | Added a local `/save-response` command guide and updated `.gitignore` so generated `output-responses/` markdown files stay out of version control by default. |
+| `ac9b64a` | `chore(repo): ignore local estimation stats NDJSON directory` | Extended root `.gitignore` with `output-stats/` so optional NDJSON usage logs from `ESTIMATION_STATS_LOG_ENABLED` stay local, mirroring the existing `output-responses/` policy. |
+| `7605950` | `feat(estimador-cag): structural scoring, mode output validation, and stats` | Added `evaluation`, `estimation_output_validation`, and `estimation_stats_logger` services; router-level `evaluate` flag with `score` / `structure_evaluation` / `output_validation`; stats settings; provider `finish_reason` and usage fields; refreshed prompts and few-shot examples; tests and technical docs including `output-validation-and-input-score.md`. |
+| `146266b` | `chore(estimador-cag): add Docker image, compose, and provider ping scripts` | Added production-style `Dockerfile`, `.dockerignore`, base and dev `docker-compose` overrides with `docker/entrypoint-dev.sh`, plus optional `dev-tools` OpenAI and Anthropic connectivity ping scripts. |
