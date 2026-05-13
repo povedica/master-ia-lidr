@@ -1401,7 +1401,7 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 - **Mitigations applied:**
   - **Code:** Replace strict “raise on mismatch” with **`model_validator(mode="before")`** **`align_totals_to_line_items`** in `app/schemas/estimation_result.py`: when at least one line item exists, **`totals.hours` and `totals.cost_eur` are set to the exact sums** of those items before the rest of the model is built. Empty item lists still use model-supplied `totals`. Unit test updated from “mismatch raises” to “mismatch is normalized”.
   - **Prompt:** `app/prompts/estimation/v1/partials/structured_output_hint.md.j2` updated to state that the server recomputes `totals` from line items when items are present (and to keep other hard rules: summary length, `duration_weeks` > 0, non-empty assumption/risk strings, no extra keys).
-- **Fixing commit:** `1c7a629461f273a20033f79c0fb60b21ea9e1e9e` (short `1c7a629`); see **Repository commits** below.
+- **Fixing commit:** `b7bcbb1bf9136c4b0af4c2db2a2114004e80cb4c` (short `b7bcbb1`); see **Repository commits** below.
 
 ## Repository commits (master-ia)
 
@@ -1411,6 +1411,6 @@ Decision: only create a new version for meaningful behavior changes. Use shared 
 | `05c841a` | `docs(work-items): fix repository commit log hash in feature-011` | Replace the incorrect short hash in the commit log row with `3497d74` for the initial mirror commit. |
 | `e8985e4` | `feat(estimation): add v2 structured API with Jinja2 prompts and Instructor` | v2 routes, domain/transport schemas, prompt stack, web SSE consumer for single `done` with `result`, tests, env and technical docs. |
 | `2a1f32d` | `fix(estimation): avoid duplicate max_retries in Instructor LiteLLM client` | `app/services/structured_llm_client.py`: remove `max_retries` from `from_litellm` to stop `TypeError` on `acompletion`; document regression in this work item. |
-| `1c7a629` | `fix(estimation): align totals to line items before validation` | `align_totals_to_line_items` (`mode="before"`) in `app/schemas/estimation_result.py`; structured-output hint and unit tests; feature-011 spec and regression note for Instructor retries on roll-up drift. See **Regression: structured output — `totals` vs line items** above. |
+| `b7bcbb1` | `fix(estimation): align totals to line items before validation` | `align_totals_to_line_items` (`mode="before"`) in `app/schemas/estimation_result.py`; structured-output hint and unit tests; feature-011 spec and regression note for Instructor retries on roll-up drift. See **Regression: structured output — `totals` vs line items** above. |
 | `4e89015` | `feat(web): polish structured estimate summary layout` | Refined metric cards and line-items presentation in `web/src/features/estimation/components/EstimationWorkbench.tsx`. |
-| `1cb918f` | `docs(estimador-cag): refresh work-items mirror and session notes` | Work-items mirror cleanup, new feature-001 and feature-012 stubs, README updates, session-02 note, and removal of empty learnings gitkeep placeholders. |
+| `9b63b3a` | `docs(estimador-cag): refresh work-items mirror and session notes` | Work-items mirror cleanup, new feature-001 and feature-012 stubs, README updates, session-02 note, and removal of empty learnings gitkeep placeholders. |
