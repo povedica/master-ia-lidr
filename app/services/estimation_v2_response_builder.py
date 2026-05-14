@@ -26,6 +26,10 @@ def assemble_estimation_v2_response(
     pipeline_audit_id: str | None = None,
     pipeline_safe_to_cache: bool | None = None,
     pipeline_safe_to_display: bool | None = None,
+    pipeline_cached: bool = False,
+    pipeline_cache_score: float | None = None,
+    pipeline_cache_bucket: str | None = None,
+    pipeline_cache_miss_reason: str | None = None,
 ) -> EstimationResponse:
     """Build the HTTP envelope from a structured estimation bundle."""
 
@@ -50,6 +54,10 @@ def assemble_estimation_v2_response(
         audit_id=pipeline_audit_id,
         safe_to_cache=pipeline_safe_to_cache,
         safe_to_display=pipeline_safe_to_display,
+        cached=pipeline_cached,
+        cache_score=pipeline_cache_score,
+        cache_bucket=pipeline_cache_bucket,
+        cache_miss_reason=pipeline_cache_miss_reason,
     )
 
     if not dev_mode:

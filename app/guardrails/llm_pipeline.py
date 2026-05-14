@@ -28,7 +28,26 @@ from app.services.estimation_engine import (
     summarize_assessment,
 )
 from app.services.estimation_request_render import render_estimation_user_message
-from app.services.llm_service import EstimationError, EstimationService, StructuredEstimateBundle
+from app.services.llm_service import (
+    EXAMPLES_VERSION,
+    EstimationError,
+    EstimationService,
+    StructuredEstimateBundle,
+)
+from app.services.prompt_versions import resolve_prompt_template_set
+from app.services.semantic_cache.bucket import (
+    build_semantic_cache_bucket,
+    build_vector_text_surface,
+    input_fingerprint_for_vector_text,
+)
+from app.services.semantic_cache.contracts import (
+    CachedEstimationArtifact,
+    CacheDecisionStatus,
+    SemanticCacheLookupRequest,
+)
+from app.services.semantic_cache.factory import build_semantic_cache_service
+from app.services.semantic_cache.artifacts import structured_bundle_to_artifact_fields
+from app.services.semantic_cache.service import SemanticCacheService
 
 
 @dataclass(frozen=True)
@@ -46,14 +65,25 @@ class StructuredPipelineOutcome:
     input_guardrail_results: tuple[GuardrailResult, ...] = ()
     output_guardrail_results: tuple[GuardrailResult, ...] = ()
     policy_outcomes: tuple[PolicyOutcome, ...] = ()
+    cached: bool = False
+    cache_score: float | None = None
+    cache_bucket: str | None = None
+    cache_miss_reason: str | None = None
 
 
 class LLMPipeline:
     """Coordinates input guardrails, provider call, and output semantic validation."""
 
-    def __init__(self, service: EstimationService, settings: Settings) -> None:
+    def __init__(
+        self,
+        service: EstimationService,
+        settings: Settings,
+        *,
+        semantic_cache: SemanticCacheService | None = None,
+    ) -> None:
         self._service = service
         self._settings = settings
+        self._semantic_cache = semantic_cache if semantic_cache is not None else build_semantic_cache_service(settings)
 
     async def run_structured(
         self,
@@ -137,6 +167,84 @@ class LLMPipeline:
                 policy_outcomes=combined_policies,
             )
 
+        semantic_lookup: SemanticCacheLookupRequest | None = None
+        cache_embedding: list[float] | None = None
+        vector_text_cache = ""
+        cache_score_out: float | None = None
+        cache_bucket_out: str | None = None
+        cache_miss_out: str | None = None
+
+        if self._semantic_cache is not None and hasattr(self._service, "prepare_structured_prelude"):
+            prelude = await self._service.prepare_structured_prelude(
+                request,
+                assessment_surface=assessment_surface,
+                skip_domain_guardrail=True,
+            )
+            version_override = self._settings.prompt_estimation_version.strip() or None
+            template_set = resolve_prompt_template_set("estimation", version_override)
+            prompt_version = f"{template_set.use_case}/{template_set.version}"
+            examples_version = EXAMPLES_VERSION
+            bucket = build_semantic_cache_bucket(
+                request=request,
+                settings=self._settings,
+                prompt_version=prompt_version,
+                examples_version=examples_version,
+                output_schema_version="1",
+                guardrail_rules_version=rules_version,
+                operation="estimation_v2",
+                tenant_id="default",
+                estimation_mode=prelude.mode.value,
+            )
+            vector_text_cache = build_vector_text_surface(
+                request=request,
+                assessment_surface=assessment_surface,
+            )
+            lookup = SemanticCacheLookupRequest(
+                operation="estimation_v2",
+                endpoint="api_v2_estimate",
+                tenant_id="default",
+                bucket=bucket,
+                vector_text=vector_text_cache,
+                request_id=request_id,
+            )
+            semantic_lookup = lookup
+            cache_result, cache_embedding = await self._semantic_cache.evaluate_lookup(lookup)
+            if ctx.cache_metadata is not None:
+                ctx.cache_metadata.looked_up = True
+            cache_score_out = cache_result.top_score
+            cache_bucket_out = bucket.display_key
+            if cache_result.miss_reason is not None:
+                cache_miss_out = cache_result.miss_reason.value
+            if cache_result.status == CacheDecisionStatus.hit:
+                hit_bundle = self._semantic_cache.bundle_from_hit(cache_result)
+                if hit_bundle is not None:
+                    if ctx.cache_metadata is not None:
+                        ctx.cache_metadata.hit = True
+                        ctx.cache_metadata.safe_to_cache = True
+                    ctx.prompt_version = hit_bundle.prompt_version
+                    ctx.output_schema_version = hit_bundle.result.schema_version
+                    ctx.rendered_prompt = RenderedPromptRef(
+                        prompt_version=hit_bundle.prompt_version,
+                        examples_version=hit_bundle.examples_version,
+                    )
+                    return StructuredPipelineOutcome(
+                        bundle=hit_bundle,
+                        final_status=FinalResponseStatus.SUCCESS,
+                        reason_code=None,
+                        user_message=None,
+                        technical_message=None,
+                        audit_id=audit_id,
+                        safe_to_cache=True,
+                        safe_to_display=True,
+                        input_guardrail_results=input_phase.results,
+                        output_guardrail_results=(),
+                        policy_outcomes=tuple(policy_parts),
+                        cached=True,
+                        cache_score=cache_score_out,
+                        cache_bucket=cache_bucket_out,
+                        cache_miss_reason=None,
+                    )
+
         try:
             bundle = await self._service.estimate_structured(
                 request,
@@ -155,6 +263,9 @@ class LLMPipeline:
                 safe_to_display=False,
                 input_guardrail_results=input_phase.results,
                 policy_outcomes=tuple(policy_parts),
+                cache_score=cache_score_out,
+                cache_bucket=cache_bucket_out,
+                cache_miss_reason=cache_miss_out,
             )
 
         ctx.prompt_version = bundle.prompt_version
@@ -227,10 +338,53 @@ class LLMPipeline:
                 input_guardrail_results=input_phase.results,
                 output_guardrail_results=tuple(out_results),
                 policy_outcomes=tuple(policy_parts),
+                cache_score=cache_score_out,
+                cache_bucket=cache_bucket_out,
+                cache_miss_reason=cache_miss_out,
             )
 
         if ctx.cache_metadata is not None:
             ctx.cache_metadata.safe_to_cache = True
+
+        if self._semantic_cache is not None and semantic_lookup is not None:
+            write_vector = cache_embedding
+            if write_vector is None and vector_text_cache.strip():
+                try:
+                    write_vector = await self._semantic_cache.embed_for_request(vector_text_cache)
+                except Exception:
+                    write_vector = None
+            if write_vector is not None:
+                fields = structured_bundle_to_artifact_fields(final_bundle)
+                artifact = CachedEstimationArtifact(
+                    cache_schema_version=self._settings.semantic_cache_cache_schema_version,
+                    bucket_hash=semantic_lookup.bucket.bucket_hash,
+                    input_fingerprint=input_fingerprint_for_vector_text(vector_text_cache),
+                    embedding_model=self._settings.semantic_cache_embedding_model,
+                    embedding_model_version=self._settings.semantic_cache_embedding_model_version,
+                    prompt_version=final_bundle.prompt_version,
+                    examples_version=final_bundle.examples_version,
+                    output_schema_version=final_bundle.result.schema_version,
+                    guardrail_rules_version=rules_version,
+                    provider=final_bundle.provider,
+                    model=final_bundle.model,
+                    mode=final_bundle.mode.value,
+                    result=fields["result"],
+                    assessment=fields["assessment"],
+                    mode_eligibility=fields["mode_eligibility"],
+                    usage=fields["usage"],
+                    finish_reason=fields.get("finish_reason"),
+                    safe_to_cache=True,
+                    safe_to_display=True,
+                    degraded=bool(fields.get("degraded", False)),
+                )
+                await self._semantic_cache.maybe_write_validated(
+                    lookup=semantic_lookup,
+                    embedding=write_vector,
+                    artifact=artifact,
+                    safe_to_cache=True,
+                    safe_to_display=True,
+                    success=True,
+                )
 
         return StructuredPipelineOutcome(
             bundle=final_bundle,
@@ -244,4 +398,8 @@ class LLMPipeline:
             input_guardrail_results=input_phase.results,
             output_guardrail_results=tuple(out_results),
             policy_outcomes=tuple(policy_parts),
+            cached=False,
+            cache_score=cache_score_out,
+            cache_bucket=cache_bucket_out,
+            cache_miss_reason=cache_miss_out,
         )

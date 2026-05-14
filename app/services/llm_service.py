@@ -126,6 +126,9 @@ class _StructuredPrelude:
     max_output_tokens: int
 
 
+StructuredPrelude = _StructuredPrelude
+
+
 def build_system_prompt(
     examples: list[EstimationExample],
     mode: EstimationMode,
@@ -684,6 +687,22 @@ class EstimationService:
             max_output_tokens=max_output_tokens,
         )
 
+    async def prepare_structured_prelude(
+        self,
+        request: EstimationRequest,
+        *,
+        assessment_surface: str,
+        skip_domain_guardrail: bool = False,
+    ) -> StructuredPrelude:
+        """Resolve mode and preprocessing the same way as ``estimate_structured``."""
+
+        return await self._prepare_structured_prelude(
+            request,
+            assessment_surface,
+            request.preprocessing,
+            skip_domain_guardrail=skip_domain_guardrail,
+        )
+
     async def estimate_structured(
         self,
         request: EstimationRequest,
@@ -816,7 +835,14 @@ class EstimationService:
             "mode": bundle.mode.value,
             "provider": bundle.provider,
             "model": bundle.model,
+            "cached": outcome.cached,
         }
+        if outcome.cache_score is not None:
+            done_payload["cache_score"] = outcome.cache_score
+        if outcome.cache_bucket is not None:
+            done_payload["cache_bucket"] = outcome.cache_bucket
+        if outcome.cache_miss_reason is not None:
+            done_payload["cache_miss_reason"] = outcome.cache_miss_reason
         if outcome.final_status == FinalResponseStatus.DEGRADED:
             done_payload["pipeline_status"] = outcome.final_status.value
             done_payload["reason_code"] = outcome.reason_code

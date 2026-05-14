@@ -67,6 +67,7 @@ Runtime dependencies declared in `pyproject.toml`:
 - `openai`: official SDK for OpenAI.
 - `anthropic`: official SDK for Anthropic.
 - `python-dotenv`: load `.env` in local development.
+- `redis`: async Redis client used by the optional Redis Stack / RediSearch semantic cache adapter.
 
 Development dependencies:
 
@@ -137,6 +138,11 @@ Variables documented in `.env.example`:
 | `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
+| `SEMANTIC_CACHE_ENABLED` | No | `false` | Allows serving validated semantic cache hits when the store and rollout allow it. |
+| `SEMANTIC_CACHE_LOG_ONLY` | No | `true` | Runs semantic cache diagnostics without bypassing the LLM. |
+| `SEMANTIC_CACHE_REDIS_URL` | No | empty | Redis Stack DSN for RediSearch vector storage when memory store is off. |
+| `SEMANTIC_CACHE_USE_MEMORY_STORE` | No | `false` | Uses the single-process in-memory repository for local experiments/tests. |
+| `SEMANTIC_CACHE_SIMILARITY_THRESHOLD` | No | `0.92` | Minimum similarity score for serving a cached response. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
 
@@ -394,6 +400,10 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 
 **Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
 
+### Semantic cache (v2, optional)
+
+The guarded pipeline in `app/guardrails/llm_pipeline.py` can run a **semantic cache** after input guardrails: deterministic **bucket** hash (prompt, schema, guardrail, and structured request fields) plus **embedding** similarity over free-text surfaces (`app/services/semantic_cache/`). **Serving** hits requires `SEMANTIC_CACHE_ENABLED=true` and a configured store; with `SEMANTIC_CACHE_LOG_ONLY=true` (default), embeddings and lookup run for telemetry but the LLM is **never** skipped. When both `SEMANTIC_CACHE_ENABLED` and `SEMANTIC_CACHE_LOG_ONLY` are `false`, no embedding or store I/O runs. For local experiments without Redis, `SEMANTIC_CACHE_USE_MEMORY_STORE=true` enables an in-process store (single worker only). When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the app uses `RedisSemanticCacheRepository` with Redis Stack / RediSearch vector KNN over entries in the same deterministic bucket.
+
 ### `GET /`
 
 Minimal index for humans and browsers:
@@ -502,6 +512,8 @@ When `DEV_MODE=true`, the following are included in addition to `estimation`:
 - `degraded`: only present when static fallback is used.
 - `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
 
+**Structured v2 (`EstimationResponse`):** when semantic cache is active, responses may include `cached`, `cache_score`, `cache_bucket`, and `cache_miss_reason` (stable string; no raw embeddings or Redis keys).
+
 Cost is not a billing source of truth. It supports learning, tuning, and cost awareness.
 
 ## 13. Logging
@@ -529,6 +541,7 @@ Current events:
 | `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
 | `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
 | `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
+| `semantic_cache.*` | `INFO` / `WARNING` | `app.services.semantic_cache` | `request_id`, bucket display key, scores, thresholds, latencies; no user text or embeddings |
 
 Rules:
 
@@ -587,6 +600,7 @@ Testing rules:
 
 - Do not use real API keys in tests.
 - Mock provider SDK clients.
+- Mock Redis clients for semantic cache tests; the default suite must not require a live Redis Stack instance.
 - Test project-owned logic: prompts, minimal parsing, metadata, errors, settings.
 - Keep tests fast and deterministic.
 
