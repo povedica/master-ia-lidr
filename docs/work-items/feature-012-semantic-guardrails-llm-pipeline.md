@@ -642,6 +642,121 @@ uv run pytest
 13. Add rollout settings and `.env.example`/docs updates.
 14. Run full tests and complete the validation pass.
 
+## Macro implementation plan (start-task)
+
+Tracked implementation waves (each wave ends with tests green and a focused commit). TDD: add or extend a failing test first for any new logic unless noted.
+
+### Implementation progress
+
+- [x] Step 1: Contracts, enums, central guardrail declarations, and policy registry tests.
+- [x] Step 2: `PipelineContext`, cache metadata, and audit-field safety tests.
+- [x] Step 3: Deterministic prompt-injection guardrail and tests.
+- [x] Step 4: Basic PII guardrail, safe audit payloads, and tests.
+- [x] Step 5: Domain guardrail mapped to `GuardrailResult` (v2 domain mismatch returns degraded HTTP 200; v1 unchanged).
+- [x] Step 6: Input semantic composition, `PolicyExecutor`, rollout modes (`disabled` / `log_only` / `enforce`).
+- [x] Step 7: `LLMPipeline` wired for `/api/v2` and SSE with `skip_domain_guardrail` service hook.
+- [x] Step 8 (core): Output semantic checks, degraded fallback `EstimationResult`, transport fields on `EstimationResponse`, settings + `.env.example` + README, starter adversarial JSONL fixture. **Follow-up:** pipeline-level `fix_retry` beyond Instructor structured retries, LLM-as-judge, real moderation provider, response cache store + invalidation, full JSONL-driven regression harness.
+
+### Step 1: Contracts and policy registry
+
+**Goal:** Typed `GuardrailResult`, `PolicyOutcome`, enums, and a single registry source for `on_fail`, rollout, and rules version metadata.
+
+**TDD:** RED in `tests/test_guardrails_policies.py` (imports + registry invariants); GREEN in `app/guardrails/contracts.py` and `app/guardrails/policy_registry.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_policies.py -q`
+
+**Suggested commit:** `feat(guardrails): add contracts and policy registry`
+
+### Step 2: Pipeline context and cache metadata
+
+**Goal:** `PipelineContext`, cache compatibility metadata, version fields; no raw sensitive blobs in audit-oriented fields.
+
+**TDD:** RED in `tests/test_pipeline_context.py`.
+
+**Verification:** `uv run pytest tests/test_pipeline_context.py -q`
+
+**Suggested commit:** `feat(guardrails): add pipeline context and cache metadata`
+
+### Step 3: Prompt injection guardrail
+
+**Goal:** Deterministic patterns and normalized `GuardrailResult`.
+
+**TDD:** RED in `tests/test_guardrails_prompt_injection.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_prompt_injection.py -q`
+
+**Suggested commit:** `feat(guardrails): add prompt injection detection`
+
+### Step 4: PII guardrail
+
+**Goal:** Email, phone, DNI/NIE, IBAN, card-like sequences; redacted or hashed audit fields.
+
+**TDD:** RED in `tests/test_guardrails_pii.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_pii.py -q`
+
+**Suggested commit:** `feat(guardrails): add basic PII detection`
+
+### Step 5: Domain guardrail adapter
+
+**Goal:** Wrap `domain_guardrails` as a composable guardrail preserving current API outcomes until the pipeline owns policies.
+
+**TDD:** RED in `tests/test_guardrails_input_semantic.py` (domain-focused cases) or a dedicated adapter test module.
+
+**Verification:** `uv run pytest tests/test_guardrails_input_semantic.py -q` (narrowed by marker or file scope as added)
+
+**Suggested commit:** `refactor(guardrails): adapt domain check to shared contracts`
+
+### Step 6: Input composition and policy execution
+
+**Goal:** Ordered execution (cheap checks first), structured `PolicyOutcome`, rollout semantics.
+
+**TDD:** RED in `tests/test_guardrails_input_semantic.py` and `tests/test_guardrails_policies.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_input_semantic.py tests/test_guardrails_policies.py -q`
+
+**Suggested commit:** `feat(guardrails): compose input semantic checks and apply policies`
+
+### Step 7: LLM pipeline shell (v2)
+
+**Goal:** `LLMPipeline.run` orchestrates context, pre-LLM guardrails, and delegates to existing structured estimation flow without forking provider logic per route.
+
+**TDD:** RED in `tests/test_llm_pipeline.py` with mocked provider or service boundary.
+
+**Verification:** `uv run pytest tests/test_llm_pipeline.py tests/test_api.py -q` (adjust to existing API test layout)
+
+**Suggested commit:** `feat(estimations): add LLM pipeline orchestration for v2`
+
+### Step 8: Output semantics, retries, envelope, docs
+
+**Goal:** Output semantic layer, bounded `fix_retry`, `FinalResponseStatus` / reason codes, metrics and audit hooks, `.env.example` and README updates, adversarial fixtures, full suite.
+
+**TDD:** RED in `tests/test_guardrails_output_semantic.py`, `tests/test_estimation_result.py`, integration tests per the work item test plan.
+
+**Verification:** `uv run pytest`
+
+**Suggested commit:** Split as needed, for example `feat(guardrails): add output semantic validation`, `feat(config): document guardrail settings`, `test(guardrails): add adversarial fixtures`.
+
+### Pull request
+
+- Branch: `feature/012-semantic-guardrails-llm-pipeline`
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/5
+- Open a **draft** PR against `main` before substantive application changes; keep the canonical document and commit log updated in the same PR.
+
+## Tuning: structured totals vs web UI (post-manual QA)
+
+**Problem observed:** The structured estimate view showed **total hours / EUR** that did not match the sum of visible table rows (example: cards showed 118h and 6556 EUR while only four `line_items` summed to 60h and 3192 EUR).
+
+**Root cause:** `EstimationResult` recomputes `totals` from **all** `phases[].items` **plus** all top-level `line_items` (see `app/schemas/estimation_result.py` `align_totals_to_line_items`). The web UI (`StructuredEstimateSummary` in `web/src/features/estimation/components/EstimationWorkbench.tsx`) previously rendered **only** `line_items`, hiding phase-nested tasks while still displaying API totals.
+
+**Fix (this iteration):**
+
+1. **UI:** Flatten `phases[].items` and `line_items` into a single **Work items** table; optional **Phase** column when phase rows exist; top-level-only rows labeled **Other**. Short note under the heading explains that totals match the union of displayed rows.
+2. **Prompt:** Clarify in `app/prompts/estimation/v1/partials/structured_output_hint.md.j2` that the model must **not** duplicate the same scope across phases and top-level `line_items` unless the extra lines are genuinely additive.
+3. **Tests:** `tests/test_estimation_result_schema.py::test_totals_combine_phases_and_top_level_line_items` documents the server sum rule.
+
+**Verification:** `uv run pytest tests/test_estimation_result_schema.py -q`; manual: run structured estimate in the web UI and confirm card totals equal the sum of all visible rows (including phase-nested lines).
+
 ## Risks and Defaults
 
 - Risk: high false positives in prompt injection and PII detection. Default to `log_only` for new checks except clearly dangerous cases once tested.
@@ -653,4 +768,12 @@ uv run pytest
 
 ## Repository commits (master-ia)
 
-- Pending.
+| Commit   | Summary |
+|----------|---------|
+| ea47052 | `docs(work-items): add macro implementation plan for feature 012` |
+| 50b9e4d | `feat(guardrails): add contracts and policy registry` |
+| 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
+| 74aec14 | `docs(work-items): fix repository commits table for feature 012` |
+| 0c501d8 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
+| 89bfdfd | `fix(web): show phase items in structured estimate table` |
+| 3fde485 | `docs(work-items): fix commit hash for structured UI tuning` |

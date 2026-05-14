@@ -60,6 +60,52 @@ class Settings(BaseSettings):
     estimation_standard_output_tokens_max: int = Field(default=2048, ge=1)
     estimation_professional_output_tokens_max: int = Field(default=4096, ge=1)
     estimation_expert_review_output_tokens_max: int = Field(default=8192, ge=1)
+    guardrail_rules_version: str = Field(
+        default="",
+        max_length=64,
+        description="Optional override for guardrail rules version metadata (empty uses registry default).",
+    )
+    estimation_min_output_confidence: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Minimum structured-result confidence before output semantic downgrade.",
+    )
+    guardrail_rollout_pii_basic: str = Field(
+        default="",
+        max_length=16,
+        description="When set to disabled|log_only|enforce overrides registry rollout for pii_basic.",
+    )
+    guardrail_rollout_prompt_injection_patterns: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for prompt_injection_patterns when non-empty.",
+    )
+    guardrail_rollout_estimation_domain_relevance: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for estimation_domain_relevance when non-empty.",
+    )
+    guardrail_rollout_moderation_toxicity: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for moderation_toxicity when non-empty.",
+    )
+    guardrail_rollout_output_confidence_floor: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for output_confidence_floor when non-empty.",
+    )
+    guardrail_rollout_output_sensitive_leakage: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for output_sensitive_leakage when non-empty.",
+    )
+    guardrail_rollout_output_useless_placeholder: str = Field(
+        default="",
+        max_length=16,
+        description="Overrides registry rollout for output_useless_placeholder when non-empty.",
+    )
 
     def openai_litellm_model_id(self) -> str:
         """Return a LiteLLM chat model id for the OpenAI chain entry."""

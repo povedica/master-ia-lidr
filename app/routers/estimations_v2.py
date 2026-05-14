@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from app.config import Settings, get_settings
+from app.guardrails.exceptions import GuardrailViolationError
+from app.guardrails.llm_pipeline import LLMPipeline
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_response import EstimationResponse
 from app.schemas.estimations import UsageView
@@ -24,8 +26,6 @@ from app.services.estimation_v2_response_builder import assemble_estimation_v2_r
 from app.services.estimate_response_builder import estimate_cost_usd
 from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import (
-    DomainGuardrailError,
-    EstimationError,
     EstimationService,
     LlmEstimationCallOutcome,
 )
@@ -59,19 +59,34 @@ async def create_estimate_structured(
     start = perf_counter()
     request_id = f"est_{uuid4().hex[:12]}"
     assessment_surface = render_estimation_assessment_surface(body)
+    pipeline = LLMPipeline(service, settings)
     try:
-        bundle = await service.estimate_structured(body, assessment_surface=assessment_surface)
-    except DomainGuardrailError as exc:
+        outcome = await pipeline.run_structured(
+            body,
+            assessment_surface=assessment_surface,
+            request_id=request_id,
+        )
+    except GuardrailViolationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={"code": exc.code, "message": str(exc)},
-        ) from exc
-    except EstimationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(exc),
+            detail={
+                "code": exc.reason_code,
+                "message": exc.user_message,
+                "audit_id": exc.audit_id,
+            },
         ) from exc
 
+    if outcome.bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": outcome.reason_code or "error",
+                "message": outcome.user_message or "Unable to complete structured estimation.",
+                "audit_id": outcome.audit_id,
+            },
+        )
+
+    bundle = outcome.bundle
     if settings.estimation_output_persist_enabled:
         try:
             destination = persist_estimation_json(bundle.result.model_dump_json(indent=2))
@@ -93,6 +108,13 @@ async def create_estimate_structured(
         request_id=request_id,
         finished_at=finished_at,
         latency_ms=latency_ms,
+        pipeline_final_status=outcome.final_status,
+        pipeline_reason_code=outcome.reason_code,
+        pipeline_user_message=outcome.user_message,
+        pipeline_technical_message=outcome.technical_message,
+        pipeline_audit_id=outcome.audit_id,
+        pipeline_safe_to_cache=outcome.safe_to_cache,
+        pipeline_safe_to_display=outcome.safe_to_display,
     )
 
     if settings.estimation_stats_log_enabled:

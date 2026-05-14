@@ -44,6 +44,25 @@ def test_totals_mismatch_normalized_from_line_items() -> None:
     assert result.totals.cost_eur == 500.0
 
 
+def test_totals_combine_phases_and_top_level_line_items() -> None:
+    """Server totals are the sum of phase items plus top-level line_items (UI must list both)."""
+
+    li_phase = EstimationLineItem(name="In phase", hours=10.0, cost_eur=500.0)
+    li_top = EstimationLineItem(name="Top level", hours=5.0, cost_eur=250.0)
+    bad_totals = EstimationTotals(hours=1.0, cost_eur=1.0)
+    result = EstimationResult(
+        title="Project title for schema test",
+        summary="S" * 25,
+        phases=[EstimationPhase(name="Build", items=[li_phase])],
+        line_items=[li_top],
+        totals=bad_totals,
+        duration_weeks=2.0,
+        confidence=0.5,
+    )
+    assert result.totals.hours == 15.0
+    assert result.totals.cost_eur == 750.0
+
+
 def test_round_trip_valid_payload() -> None:
     original = _valid_result()
     data = original.model_dump(mode="json")

@@ -6,6 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.guardrails.contracts import FinalResponseStatus
 from app.schemas.estimation_result import EstimationResult
 from app.schemas.estimations import AssessmentView, ModeEligibilityView, UsageView
 from app.services.estimation_engine import EstimationMode
@@ -44,4 +45,32 @@ class EstimationResponse(BaseModel):
     quality: EstimationQualityView | None = Field(
         default=None,
         description="Present when evaluate=true.",
+    )
+    final_status: FinalResponseStatus | None = Field(
+        default=None,
+        description="Guarded pipeline status; omitted on legacy responses.",
+    )
+    reason_code: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Stable machine-readable reason when final_status is set.",
+    )
+    user_message: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Safe user-facing explanation when the pipeline degrades or rejects.",
+    )
+    technical_message: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional diagnostic text; not intended for direct UI display.",
+    )
+    audit_id: str | None = Field(default=None, max_length=128)
+    safe_to_cache: bool | None = Field(
+        default=None,
+        description="Whether a cached representation would be considered safe.",
+    )
+    safe_to_display: bool | None = Field(
+        default=None,
+        description="Whether the structured result is safe to render without redaction.",
     )
