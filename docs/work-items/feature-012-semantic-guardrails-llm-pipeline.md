@@ -760,4 +760,4 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 | 50b9e4d | `feat(guardrails): add contracts and policy registry` |
 | 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
 | 74aec14 | `docs(work-items): fix repository commits table for feature 012` |
-| f662a16 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
+| 0c501d8 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
