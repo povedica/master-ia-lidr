@@ -2,6 +2,7 @@
 
 from app.guardrails.contracts import (
     ConfidenceAssessment,
+    FinalResponseStatus,
     GuardrailLayer,
     GuardrailPolicy,
     GuardrailResult,
@@ -15,6 +16,7 @@ from app.guardrails.policy_registry import iter_guardrail_declarations
 
 __all__ = [
     "ConfidenceAssessment",
+    "FinalResponseStatus",
     "GuardrailLayer",
     "GuardrailPolicy",
     "GuardrailResult",

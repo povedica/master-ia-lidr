@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from collections.abc import AsyncIterator
 from time import perf_counter
 from typing import Any
+from uuid import uuid4
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
@@ -628,6 +629,8 @@ class EstimationService:
         request: EstimationRequest,
         assessment_surface: str,
         preprocessing: str,
+        *,
+        skip_domain_guardrail: bool = False,
     ) -> _StructuredPrelude:
         guided = render_estimation_user_message(request).strip()
         if not guided:
@@ -636,7 +639,10 @@ class EstimationService:
         surface_raw = assessment_surface.strip()
         surface = surface_raw if surface_raw else guided
 
-        if self._settings.llm_domain_guardrail_enabled:
+        if (
+            not skip_domain_guardrail
+            and self._settings.llm_domain_guardrail_enabled
+        ):
             domain_decision = check_estimation_domain(surface)
             if not domain_decision.accepted:
                 logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
@@ -683,6 +689,7 @@ class EstimationService:
         request: EstimationRequest,
         *,
         assessment_surface: str,
+        skip_domain_guardrail: bool = False,
     ) -> StructuredEstimateBundle:
         """Jinja prompts + Instructor structured completion (v2 API)."""
 
@@ -696,6 +703,7 @@ class EstimationService:
             request,
             assessment_surface,
             request.preprocessing,
+            skip_domain_guardrail=skip_domain_guardrail,
         )
         examples = load_examples(prelude.mode)
         version_override = self._settings.prompt_estimation_version.strip() or None
@@ -751,12 +759,26 @@ class EstimationService:
     ) -> AsyncIterator[str]:
         """SSE v2: no token chunks; one ``done`` event with validated ``result`` JSON."""
 
+        from app.guardrails.contracts import FinalResponseStatus
+        from app.guardrails.exceptions import GuardrailViolationError
+        from app.guardrails.llm_pipeline import LLMPipeline
+
+        request_id = f"est_{uuid4().hex[:12]}"
+        pipeline = LLMPipeline(self, self._settings)
         try:
-            bundle = await self.estimate_structured(request, assessment_surface=assessment_surface)
-        except DomainGuardrailError as exc:
+            outcome = await pipeline.run_structured(
+                request,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+            )
+        except GuardrailViolationError as exc:
             yield self.serialize_sse_event(
                 "error",
-                {"message": str(exc).strip() or "Out of domain."},
+                {
+                    "message": exc.user_message,
+                    "code": exc.reason_code,
+                    "audit_id": exc.audit_id,
+                },
             )
             return
         except EstimationError as exc:
@@ -773,6 +795,18 @@ class EstimationService:
             )
             return
 
+        if outcome.bundle is None:
+            yield self.serialize_sse_event(
+                "error",
+                {
+                    "message": outcome.user_message or "Unable to complete structured estimation.",
+                    "code": outcome.reason_code or "error",
+                    "audit_id": outcome.audit_id,
+                },
+            )
+            return
+
+        bundle = outcome.bundle
         merged_usage = bundle.usage
         done_payload: dict[str, Any] = {
             "status": "completed",
@@ -783,6 +817,13 @@ class EstimationService:
             "provider": bundle.provider,
             "model": bundle.model,
         }
+        if outcome.final_status == FinalResponseStatus.DEGRADED:
+            done_payload["pipeline_status"] = outcome.final_status.value
+            done_payload["reason_code"] = outcome.reason_code
+            done_payload["user_message"] = outcome.user_message
+            done_payload["audit_id"] = outcome.audit_id
+            done_payload["safe_to_cache"] = outcome.safe_to_cache
+            done_payload["safe_to_display"] = outcome.safe_to_display
         if self._settings.dev_mode:
             usage_blob = _usage_dict_for_dev_sse(bundle.model, merged_usage)
             if usage_blob is not None:

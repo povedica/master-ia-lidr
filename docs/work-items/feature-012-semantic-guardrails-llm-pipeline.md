@@ -649,13 +649,13 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 ### Implementation progress
 
 - [x] Step 1: Contracts, enums, central guardrail declarations, and policy registry tests.
-- [ ] Step 2: `PipelineContext`, cache metadata, and audit-field safety tests.
-- [ ] Step 3: Deterministic prompt-injection guardrail and tests.
-- [ ] Step 4: Basic PII guardrail, safe audit payloads, and tests.
-- [ ] Step 5: Adapt existing domain guardrail to `GuardrailResult` while preserving current HTTP behavior.
-- [ ] Step 6: Input semantic composition, `PolicyExecutor`, rollout modes (`disabled` / `log_only` / `enforce`).
-- [ ] Step 7: `LLMPipeline` shell wired for `/api/v2` with mocked provider paths.
-- [ ] Step 8: Output semantic validation, bounded `fix_retry`, degraded response envelope, settings, fixtures, full `pytest`.
+- [x] Step 2: `PipelineContext`, cache metadata, and audit-field safety tests.
+- [x] Step 3: Deterministic prompt-injection guardrail and tests.
+- [x] Step 4: Basic PII guardrail, safe audit payloads, and tests.
+- [x] Step 5: Domain guardrail mapped to `GuardrailResult` (v2 domain mismatch returns degraded HTTP 200; v1 unchanged).
+- [x] Step 6: Input semantic composition, `PolicyExecutor`, rollout modes (`disabled` / `log_only` / `enforce`).
+- [x] Step 7: `LLMPipeline` wired for `/api/v2` and SSE with `skip_domain_guardrail` service hook.
+- [x] Step 8 (core): Output semantic checks, degraded fallback `EstimationResult`, transport fields on `EstimationResponse`, settings + `.env.example` + README, starter adversarial JSONL fixture. **Follow-up:** pipeline-level `fix_retry` beyond Instructor structured retries, LLM-as-judge, real moderation provider, response cache store + invalidation, full JSONL-driven regression harness.
 
 ### Step 1: Contracts and policy registry
 
@@ -759,3 +759,5 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 | ea47052 | `docs(work-items): add macro implementation plan for feature 012` |
 | 50b9e4d | `feat(guardrails): add contracts and policy registry` |
 | 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
+| 74aec14 | `docs(work-items): fix repository commits table for feature 012` |
+| f662a16 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |

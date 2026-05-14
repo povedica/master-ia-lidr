@@ -205,6 +205,10 @@ Requests outside the software estimation domain are rejected before reaching the
 
 Disable with `LLM_DOMAIN_GUARDRAIL_ENABLED=false` (see [Configuration](#configuration)).
 
+### Structured API (v2) guardrails
+
+`POST /api/v2/estimate` runs the guarded pipeline: deterministic input checks (prompt injection, basic PII, domain relevance, optional moderation placeholder), a structured LLM call, then lightweight output semantic checks (confidence floor, leakage heuristics). Domain mismatches return HTTP `200` with `final_status="degraded"`, `reason_code`, `audit_id`, and `safe_to_cache=false` instead of a silent success. Enforced unsafe-input policies still return HTTP `422` with the same stable `code` / `audit_id` shape. Rollout overrides per guardrail use the `GUARDRAIL_ROLLOUT_*` keys documented in `.env.example`.
+
 ---
 
 ## Configuration
@@ -227,6 +231,9 @@ Copy `.env.example` for the full list of available variables. Key settings:
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | `false` | Save successful estimate outputs to `output-responses/` |
 | `ESTIMATION_STATS_LOG_ENABLED` | `false` | Append NDJSON usage metadata to `output-stats/estimation-stats.jsonl` |
 | `FRONTEND_ORIGINS` | *(local defaults)* | Comma-separated allowed CORS origins |
+| `GUARDRAIL_RULES_VERSION` | *(empty)* | Optional label stored with pipeline metadata |
+| `ESTIMATION_MIN_OUTPUT_CONFIDENCE` | `0.05` | Minimum structured-result confidence before v2 output downgrade |
+| `GUARDRAIL_ROLLOUT_*` | *(empty)* | Optional per-guardrail rollout override (`disabled`, `log_only`, `enforce`) |
 
 Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (the `openai/` and `anthropic/` prefixes are added automatically), or set a fully qualified LiteLLM id in `DEFAULT_LLM_MODEL`.
 

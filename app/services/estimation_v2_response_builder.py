@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from app.guardrails.contracts import FinalResponseStatus
 from app.schemas.estimation_response import EstimationQualityView, EstimationResponse
 from app.schemas.estimations import AssessmentView, ModeEligibilityView, UsageView
 from app.services.estimate_response_builder import estimate_cost_usd
@@ -18,14 +19,38 @@ def assemble_estimation_v2_response(
     request_id: str,
     finished_at: datetime,
     latency_ms: int,
+    pipeline_final_status: FinalResponseStatus | None = None,
+    pipeline_reason_code: str | None = None,
+    pipeline_user_message: str | None = None,
+    pipeline_technical_message: str | None = None,
+    pipeline_audit_id: str | None = None,
+    pipeline_safe_to_cache: bool | None = None,
+    pipeline_safe_to_display: bool | None = None,
 ) -> EstimationResponse:
     """Build the HTTP envelope from a structured estimation bundle."""
 
     quality: EstimationQualityView | None = None
     score: float | None = None
     if evaluate:
-        quality = EstimationQualityView(passed=True, issues=[])
-        score = 1.0
+        if pipeline_final_status == FinalResponseStatus.DEGRADED:
+            quality = EstimationQualityView(
+                passed=False,
+                issues=[pipeline_reason_code or "degraded"],
+            )
+            score = 0.0
+        else:
+            quality = EstimationQualityView(passed=True, issues=[])
+            score = 1.0
+
+    pipeline_kwargs = dict(
+        final_status=pipeline_final_status,
+        reason_code=pipeline_reason_code,
+        user_message=pipeline_user_message,
+        technical_message=pipeline_technical_message,
+        audit_id=pipeline_audit_id,
+        safe_to_cache=pipeline_safe_to_cache,
+        safe_to_display=pipeline_safe_to_display,
+    )
 
     if not dev_mode:
         return EstimationResponse(
@@ -35,6 +60,7 @@ def assemble_estimation_v2_response(
             mode=bundle.mode,
             score=score,
             quality=quality,
+            **pipeline_kwargs,
         )
 
     usage_view: UsageView | None = None
@@ -73,4 +99,5 @@ def assemble_estimation_v2_response(
             reason=bundle.mode_eligibility.reason,
         ),
         quality=quality,
+        **pipeline_kwargs,
     )

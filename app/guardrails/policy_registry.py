@@ -57,6 +57,39 @@ _RAW_DECLARATIONS: tuple[GuardrailDeclaration, ...] = (
         rules_version=_RULES_VERSION,
         metrics_event_name="guardrail_prompt_injection",
     ),
+    GuardrailDeclaration(
+        id="output_confidence_floor",
+        description="Structured output confidence must meet configured minimum.",
+        layer=GuardrailLayer.OUTPUT_SEMANTIC,
+        severity=GuardrailSeverity.MEDIUM,
+        on_fail=GuardrailPolicy.FILTER,
+        retry_max=0,
+        rollout=RolloutMode.ENFORCE,
+        rules_version=_RULES_VERSION,
+        metrics_event_name="guardrail_output_confidence",
+    ),
+    GuardrailDeclaration(
+        id="output_sensitive_leakage",
+        description="Detect obvious sensitive patterns echoed into estimation output.",
+        layer=GuardrailLayer.OUTPUT_SEMANTIC,
+        severity=GuardrailSeverity.HIGH,
+        on_fail=GuardrailPolicy.FILTER,
+        retry_max=0,
+        rollout=RolloutMode.ENFORCE,
+        rules_version=_RULES_VERSION,
+        metrics_event_name="guardrail_output_leakage",
+    ),
+    GuardrailDeclaration(
+        id="output_useless_placeholder",
+        description="Detect generic or empty-looking structured answers that pass schema.",
+        layer=GuardrailLayer.OUTPUT_SEMANTIC,
+        severity=GuardrailSeverity.LOW,
+        on_fail=GuardrailPolicy.FILTER,
+        retry_max=0,
+        rollout=RolloutMode.LOG_ONLY,
+        rules_version=_RULES_VERSION,
+        metrics_event_name="guardrail_output_useless",
+    ),
 )
 
 GUARDRAIL_DECLARATIONS: tuple[GuardrailDeclaration, ...] = tuple(
@@ -68,3 +101,18 @@ def iter_guardrail_declarations() -> tuple[GuardrailDeclaration, ...]:
     """Return all guardrail declarations sorted by id."""
 
     return GUARDRAIL_DECLARATIONS
+
+
+def guardrail_declaration_by_id(guardrail_id: str) -> GuardrailDeclaration | None:
+    """Lookup a declaration by id, or None when unknown."""
+
+    for decl in GUARDRAIL_DECLARATIONS:
+        if decl.id == guardrail_id:
+            return decl
+    return None
+
+
+def guardrail_declarations_map() -> dict[str, GuardrailDeclaration]:
+    """Map guardrail id to declaration (registry source of truth)."""
+
+    return {d.id: d for d in GUARDRAIL_DECLARATIONS}

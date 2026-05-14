@@ -38,6 +38,15 @@ class RolloutMode(StrEnum):
     ENFORCE = "enforce"
 
 
+class FinalResponseStatus(StrEnum):
+    """End-state for the guarded estimation pipeline (transport contract)."""
+
+    SUCCESS = "success"
+    DEGRADED = "degraded"
+    REJECTED = "rejected"
+    ERROR = "error"
+
+
 class PolicyOutcomeStatus(StrEnum):
     """What happened when a policy was evaluated for a guardrail result."""
 
