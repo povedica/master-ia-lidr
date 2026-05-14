@@ -642,6 +642,106 @@ uv run pytest
 13. Add rollout settings and `.env.example`/docs updates.
 14. Run full tests and complete the validation pass.
 
+## Macro implementation plan (start-task)
+
+Tracked implementation waves (each wave ends with tests green and a focused commit). TDD: add or extend a failing test first for any new logic unless noted.
+
+### Implementation progress
+
+- [ ] Step 1: Contracts, enums, central guardrail declarations, and policy registry tests.
+- [ ] Step 2: `PipelineContext`, cache metadata, and audit-field safety tests.
+- [ ] Step 3: Deterministic prompt-injection guardrail and tests.
+- [ ] Step 4: Basic PII guardrail, safe audit payloads, and tests.
+- [ ] Step 5: Adapt existing domain guardrail to `GuardrailResult` while preserving current HTTP behavior.
+- [ ] Step 6: Input semantic composition, `PolicyExecutor`, rollout modes (`disabled` / `log_only` / `enforce`).
+- [ ] Step 7: `LLMPipeline` shell wired for `/api/v2` with mocked provider paths.
+- [ ] Step 8: Output semantic validation, bounded `fix_retry`, degraded response envelope, settings, fixtures, full `pytest`.
+
+### Step 1: Contracts and policy registry
+
+**Goal:** Typed `GuardrailResult`, `PolicyOutcome`, enums, and a single registry source for `on_fail`, rollout, and rules version metadata.
+
+**TDD:** RED in `tests/test_guardrails_policies.py` (imports + registry invariants); GREEN in `app/guardrails/contracts.py` and `app/guardrails/policy_registry.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_policies.py -q`
+
+**Suggested commit:** `feat(guardrails): add contracts and policy registry`
+
+### Step 2: Pipeline context and cache metadata
+
+**Goal:** `PipelineContext`, cache compatibility metadata, version fields; no raw sensitive blobs in audit-oriented fields.
+
+**TDD:** RED in `tests/test_pipeline_context.py`.
+
+**Verification:** `uv run pytest tests/test_pipeline_context.py -q`
+
+**Suggested commit:** `feat(guardrails): add pipeline context and cache metadata`
+
+### Step 3: Prompt injection guardrail
+
+**Goal:** Deterministic patterns and normalized `GuardrailResult`.
+
+**TDD:** RED in `tests/test_guardrails_prompt_injection.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_prompt_injection.py -q`
+
+**Suggested commit:** `feat(guardrails): add prompt injection detection`
+
+### Step 4: PII guardrail
+
+**Goal:** Email, phone, DNI/NIE, IBAN, card-like sequences; redacted or hashed audit fields.
+
+**TDD:** RED in `tests/test_guardrails_pii.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_pii.py -q`
+
+**Suggested commit:** `feat(guardrails): add basic PII detection`
+
+### Step 5: Domain guardrail adapter
+
+**Goal:** Wrap `domain_guardrails` as a composable guardrail preserving current API outcomes until the pipeline owns policies.
+
+**TDD:** RED in `tests/test_guardrails_input_semantic.py` (domain-focused cases) or a dedicated adapter test module.
+
+**Verification:** `uv run pytest tests/test_guardrails_input_semantic.py -q` (narrowed by marker or file scope as added)
+
+**Suggested commit:** `refactor(guardrails): adapt domain check to shared contracts`
+
+### Step 6: Input composition and policy execution
+
+**Goal:** Ordered execution (cheap checks first), structured `PolicyOutcome`, rollout semantics.
+
+**TDD:** RED in `tests/test_guardrails_input_semantic.py` and `tests/test_guardrails_policies.py`.
+
+**Verification:** `uv run pytest tests/test_guardrails_input_semantic.py tests/test_guardrails_policies.py -q`
+
+**Suggested commit:** `feat(guardrails): compose input semantic checks and apply policies`
+
+### Step 7: LLM pipeline shell (v2)
+
+**Goal:** `LLMPipeline.run` orchestrates context, pre-LLM guardrails, and delegates to existing structured estimation flow without forking provider logic per route.
+
+**TDD:** RED in `tests/test_llm_pipeline.py` with mocked provider or service boundary.
+
+**Verification:** `uv run pytest tests/test_llm_pipeline.py tests/test_api.py -q` (adjust to existing API test layout)
+
+**Suggested commit:** `feat(estimations): add LLM pipeline orchestration for v2`
+
+### Step 8: Output semantics, retries, envelope, docs
+
+**Goal:** Output semantic layer, bounded `fix_retry`, `FinalResponseStatus` / reason codes, metrics and audit hooks, `.env.example` and README updates, adversarial fixtures, full suite.
+
+**TDD:** RED in `tests/test_guardrails_output_semantic.py`, `tests/test_estimation_result.py`, integration tests per the work item test plan.
+
+**Verification:** `uv run pytest`
+
+**Suggested commit:** Split as needed, for example `feat(guardrails): add output semantic validation`, `feat(config): document guardrail settings`, `test(guardrails): add adversarial fixtures`.
+
+### Pull request
+
+- Branch: `feature/012-semantic-guardrails-llm-pipeline`
+- Open a **draft** PR against `main` before substantive application changes; keep the canonical document and commit log updated in the same PR.
+
 ## Risks and Defaults
 
 - Risk: high false positives in prompt injection and PII detection. Default to `log_only` for new checks except clearly dangerous cases once tested.
@@ -653,4 +753,7 @@ uv run pytest
 
 ## Repository commits (master-ia)
 
-- Pending.
+| Commit   | Summary |
+|----------|---------|
+| (planned) | `docs(work-items): add macro implementation plan for feature 012` |
+| (planned) | `feat(guardrails): add contracts and policy registry` |
