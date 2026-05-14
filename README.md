@@ -234,6 +234,7 @@ Copy `.env.example` for the full list of available variables. Key settings:
 | `GUARDRAIL_RULES_VERSION` | *(empty)* | Optional label stored with pipeline metadata |
 | `ESTIMATION_MIN_OUTPUT_CONFIDENCE` | `0.05` | Minimum structured-result confidence before v2 output downgrade |
 | `GUARDRAIL_ROLLOUT_*` | *(empty)* | Optional per-guardrail rollout override (`disabled`, `log_only`, `enforce`) |
+| `SEMANTIC_CACHE_*` | see `.env.example` | Optional semantic cache for `POST /api/v2/estimate` (defaults: off / log-only; Redis adapter pending) |
 
 Chat completions go through **[LiteLLM](https://github.com/BerriAI/litellm)**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (the `openai/` and `anthropic/` prefixes are added automatically), or set a fully qualified LiteLLM id in `DEFAULT_LLM_MODEL`.
 

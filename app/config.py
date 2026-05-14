@@ -106,6 +106,93 @@ class Settings(BaseSettings):
         max_length=16,
         description="Overrides registry rollout for output_useless_placeholder when non-empty.",
     )
+    # --- Semantic cache (feature 013): guarded inference reuse ---
+    semantic_cache_enabled: bool = Field(
+        default=False,
+        description="When true, allow serving validated semantic cache hits (not log-only).",
+    )
+    semantic_cache_log_only: bool = Field(
+        default=True,
+        description="When true, run lookup diagnostics but never bypass the LLM.",
+    )
+    semantic_cache_redis_url: str = Field(
+        default="",
+        description="Redis DSN for vector cache; empty disables remote store unless memory store is on.",
+    )
+    semantic_cache_namespace: str = Field(
+        default="semantic:estimation",
+        max_length=128,
+        description="Key/index namespace prefix for semantic cache entries.",
+    )
+    semantic_cache_ttl_seconds: int = Field(
+        default=86_400,
+        ge=60,
+        le=86_400 * 120,
+        description="TTL for validated semantic cache entries.",
+    )
+    semantic_cache_similarity_threshold: float = Field(
+        default=0.92,
+        ge=0.0,
+        le=1.0,
+        description="Minimum cosine similarity to serve a cache hit when enabled.",
+    )
+    semantic_cache_max_candidates: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Max neighbors retrieved within a bucket for diagnostics.",
+    )
+    semantic_cache_embedding_provider: str = Field(
+        default="openai",
+        max_length=32,
+        description="Embedding provider label (implementation may still be fake in tests).",
+    )
+    semantic_cache_embedding_model: str = Field(
+        default="text-embedding-3-small",
+        max_length=128,
+        description="Embedding model id for metadata and future OpenAI calls.",
+    )
+    semantic_cache_embedding_model_version: str = Field(
+        default="text-embedding-3-small:default",
+        max_length=128,
+        description="Version label included in the deterministic bucket.",
+    )
+    semantic_cache_embedding_timeout_seconds: float = Field(
+        default=10.0,
+        ge=1.0,
+        le=120.0,
+        description="Timeout for embedding provider calls when implemented.",
+    )
+    semantic_cache_max_payload_bytes: int = Field(
+        default=262_144,
+        ge=4096,
+        le=8_388_608,
+        description="Maximum serialized cache entry size.",
+    )
+    semantic_cache_enabled_endpoints: str = Field(
+        default="api_v2_estimate",
+        max_length=512,
+        description="Comma-separated endpoint allowlist (e.g. api_v2_estimate).",
+    )
+    semantic_cache_enabled_tenants: str = Field(
+        default="",
+        max_length=1024,
+        description="Optional comma-separated tenant allowlist; empty means no tenant filter.",
+    )
+    semantic_cache_enabled_operations: str = Field(
+        default="estimation_v2",
+        max_length=512,
+        description="Comma-separated operation allowlist.",
+    )
+    semantic_cache_cache_schema_version: str = Field(
+        default="1",
+        max_length=16,
+        description="Semantic cache artifact schema version (bucket component).",
+    )
+    semantic_cache_use_memory_store: bool = Field(
+        default=False,
+        description="When true and redis URL empty, use in-process store (single worker only).",
+    )
 
     def openai_litellm_model_id(self) -> str:
         """Return a LiteLLM chat model id for the OpenAI chain entry."""
@@ -128,6 +215,36 @@ class Settings(BaseSettings):
 
         parts = [part.strip() for part in self.frontend_origins.split(",")]
         return [part for part in parts if part]
+
+    def semantic_cache_feature_active(self) -> bool:
+        """True when semantic cache diagnostics or serving may run."""
+
+        return self.semantic_cache_enabled or self.semantic_cache_log_only
+
+    def semantic_cache_fully_off(self) -> bool:
+        """True when the app must skip embeddings, vector lookup, and remote cache I/O."""
+
+        return not self.semantic_cache_enabled and not self.semantic_cache_log_only
+
+    def semantic_cache_store_available(self) -> bool:
+        """True when a backing store is configured (Redis URL or explicit memory store)."""
+
+        return bool(self.semantic_cache_redis_url.strip()) or self.semantic_cache_use_memory_store
+
+    def semantic_cache_allowed_endpoint(self, endpoint: str) -> bool:
+        allowed = {p.strip() for p in self.semantic_cache_enabled_endpoints.split(",") if p.strip()}
+        return endpoint.strip() in allowed if allowed else False
+
+    def semantic_cache_allowed_operation(self, operation: str) -> bool:
+        allowed = {p.strip() for p in self.semantic_cache_enabled_operations.split(",") if p.strip()}
+        return operation.strip() in allowed if allowed else False
+
+    def semantic_cache_allowed_tenant(self, tenant_id: str) -> bool:
+        raw = self.semantic_cache_enabled_tenants.strip()
+        if not raw:
+            return True
+        allowed = {p.strip() for p in raw.split(",") if p.strip()}
+        return tenant_id.strip() in allowed
 
     def completion_token_cap_for_mode(self, mode: EstimationMode) -> int:
         """Upper bound passed to providers as max output tokens for this mode."""

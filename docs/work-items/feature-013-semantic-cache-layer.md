@@ -664,6 +664,34 @@ uv run pytest tests/guardrails tests/services
 uv run uvicorn app.main:app --reload
 ```
 
+## Implementation plan (agent, 2026-05-14)
+
+Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: failing test first for logic; verification with `uv run pytest` scoped to the touched files, then broader suite before merge.
+
+| Step | Goal | TDD / verification |
+|------|------|--------------------|
+| 1 | Typed `Settings` + `.env.example` + Pydantic contracts (`CacheMissReason`, lookup/write/decision models) | `tests/test_semantic_cache_settings.py`, `tests/test_semantic_cache_contracts.py` |
+| 2 | `CacheBucketBuilder`: canonical JSON + SHA-256 bucket hash; vector text surface from free-text fields | `tests/test_semantic_cache_bucket.py` |
+| 3 | `EmbeddingProvider` + `FakeEmbeddingProvider` (deterministic unit vector); no calls when cache fully off | `tests/test_semantic_cache_embeddings.py` |
+| 4 | `SemanticCacheRepository` protocol + `InMemorySemanticCacheRepository` + `NullSemanticCacheRepository` | `tests/test_semantic_cache_repository.py` |
+| 5 | `SemanticCacheService`: disabled / log-only / threshold / write policy + cosine nearest-neighbor in bucket | `tests/test_semantic_cache_service.py` |
+| 6 | `LLMPipeline`: after input guardrails → lookup; serve hit only when enabled and not log-only; write after safe output; `prepare_structured_prelude` on service | `tests/test_llm_pipeline.py` + new cases |
+| 7 | `EstimationResponse` + `assemble_estimation_v2_response` + router: `cached`, `cache_score`, `cache_bucket`, `cache_miss_reason` | API / schema tests |
+| 8 | Structured logs (`semantic_cache.*`), `README.md` + `docs/technical/README.md` | Log smoke via unit tests where practical |
+
+**Open WIP note:** Redis + `redisvl` vector index adapter is deferred behind the repository interface; this PR ships in-memory + null backends and optional `SEMANTIC_CACHE_USE_MEMORY_STORE` for local calibration without Redis.
+
+## Implementation progress
+
+- [x] Step 1: Settings and contracts
+- [x] Step 2: Bucket builder
+- [x] Step 3: Embedding boundary
+- [x] Step 4: Repository adapters
+- [x] Step 5: Semantic cache service
+- [x] Step 6: `LLMPipeline` integration
+- [x] Step 7: API response metadata
+- [x] Step 8: Observability and documentation
+
 ## Implementation Tasks
 
 ### Task 1: Define contracts and settings
@@ -789,3 +817,5 @@ bash scripts/sync-estimador-cag-docs.sh
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `d8138a4` | `docs(work-items): add feature-013 semantic cache layer spec` | Add canonical work item for semantic cache (bucket + vector, log-only rollout, API metadata, tests, security). |
+| `a8003d4` | `docs(work-items): fix feature-013 repository commit log short hash` | Align the commits table short hash with the amended spec commit. |
+| `28a7bab` | `feat(semantic-cache): add guarded semantic cache for v2 estimation` | Settings, contracts, bucket, embeddings, in-memory repo, pipeline integration, API metadata, tests, docs; work item plan/progress; Redis/redisvl adapter deferred. |

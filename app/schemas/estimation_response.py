@@ -74,3 +74,18 @@ class EstimationResponse(BaseModel):
         default=None,
         description="Whether the structured result is safe to render without redaction.",
     )
+    cached: bool = Field(default=False, description="True when the response was served from semantic cache.")
+    cache_score: float | None = Field(
+        default=None,
+        description="Top cosine similarity when semantic cache ran; null on full miss paths.",
+    )
+    cache_bucket: str | None = Field(
+        default=None,
+        max_length=256,
+        description="Opaque semantic cache bucket label (no raw user text).",
+    )
+    cache_miss_reason: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Stable miss reason when semantic cache did not serve a hit.",
+    )

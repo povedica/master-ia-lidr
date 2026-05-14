@@ -126,6 +126,9 @@ class _StructuredPrelude:
     max_output_tokens: int
 
 
+StructuredPrelude = _StructuredPrelude
+
+
 def build_system_prompt(
     examples: list[EstimationExample],
     mode: EstimationMode,
@@ -682,6 +685,22 @@ class EstimationService:
             phase1_prep_in=phase1_prep_in,
             phase1_prep_out=phase1_prep_out,
             max_output_tokens=max_output_tokens,
+        )
+
+    async def prepare_structured_prelude(
+        self,
+        request: EstimationRequest,
+        *,
+        assessment_surface: str,
+        skip_domain_guardrail: bool = False,
+    ) -> StructuredPrelude:
+        """Resolve mode and preprocessing the same way as ``estimate_structured``."""
+
+        return await self._prepare_structured_prelude(
+            request,
+            assessment_surface,
+            request.preprocessing,
+            skip_domain_guardrail=skip_domain_guardrail,
         )
 
     async def estimate_structured(

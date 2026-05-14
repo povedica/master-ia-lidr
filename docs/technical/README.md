@@ -394,6 +394,10 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 
 **Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
 
+### Semantic cache (v2, optional)
+
+The guarded pipeline in `app/guardrails/llm_pipeline.py` can run a **semantic cache** after input guardrails: deterministic **bucket** hash (prompt, schema, guardrail, and structured request fields) plus **embedding** similarity over free-text surfaces (`app/services/semantic_cache/`). **Serving** hits requires `SEMANTIC_CACHE_ENABLED=true` and a configured store; with `SEMANTIC_CACHE_LOG_ONLY=true` (default), embeddings and lookup run for telemetry but the LLM is **never** skipped. When both `SEMANTIC_CACHE_ENABLED` and `SEMANTIC_CACHE_LOG_ONLY` are `false`, no embedding or store I/O runs. For local experiments without Redis, `SEMANTIC_CACHE_USE_MEMORY_STORE=true` enables an in-process store (single worker only). A Redis + `redisvl` adapter is planned behind the repository interface.
+
 ### `GET /`
 
 Minimal index for humans and browsers:
@@ -502,6 +506,8 @@ When `DEV_MODE=true`, the following are included in addition to `estimation`:
 - `degraded`: only present when static fallback is used.
 - `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
 
+**Structured v2 (`EstimationResponse`):** when semantic cache is active, responses may include `cached`, `cache_score`, `cache_bucket`, and `cache_miss_reason` (stable string; no raw embeddings or Redis keys).
+
 Cost is not a billing source of truth. It supports learning, tuning, and cost awareness.
 
 ## 13. Logging
@@ -529,6 +535,7 @@ Current events:
 | `provider_unknown` | `WARNING` | `app.services.providers` | `provider` |
 | `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
 | `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
+| `semantic_cache.*` | `INFO` / `WARNING` | `app.services.semantic_cache` | `request_id`, bucket display key, scores, thresholds, latencies; no user text or embeddings |
 
 Rules:
 

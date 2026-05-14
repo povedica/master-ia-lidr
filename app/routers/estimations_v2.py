@@ -115,6 +115,10 @@ async def create_estimate_structured(
         pipeline_audit_id=outcome.audit_id,
         pipeline_safe_to_cache=outcome.safe_to_cache,
         pipeline_safe_to_display=outcome.safe_to_display,
+        pipeline_cached=outcome.cached,
+        pipeline_cache_score=outcome.cache_score,
+        pipeline_cache_bucket=outcome.cache_bucket,
+        pipeline_cache_miss_reason=outcome.cache_miss_reason,
     )
 
     if settings.estimation_stats_log_enabled:
