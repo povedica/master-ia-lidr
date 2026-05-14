@@ -758,3 +758,4 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 |----------|---------|
 | ea47052 | `docs(work-items): add macro implementation plan for feature 012` |
 | 50b9e4d | `feat(guardrails): add contracts and policy registry` |
+| 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
