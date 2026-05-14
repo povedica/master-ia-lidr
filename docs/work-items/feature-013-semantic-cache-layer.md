@@ -681,6 +681,8 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 
 **Open WIP note:** Redis + `redisvl` vector index adapter is deferred behind the repository interface; this PR ships in-memory + null backends and optional `SEMANTIC_CACHE_USE_MEMORY_STORE` for local calibration without Redis.
 
+**Open WIP PR:** https://github.com/povedica/master-ia-lidr/pull/6
+
 ## Implementation progress
 
 - [x] Step 1: Settings and contracts
