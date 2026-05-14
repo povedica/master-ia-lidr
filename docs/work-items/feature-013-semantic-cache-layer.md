@@ -820,4 +820,5 @@ bash scripts/sync-estimador-cag-docs.sh
 |------------|---------|-----------------|
 | `d8138a4` | `docs(work-items): add feature-013 semantic cache layer spec` | Add canonical work item for semantic cache (bucket + vector, log-only rollout, API metadata, tests, security). |
 | `a8003d4` | `docs(work-items): fix feature-013 repository commit log short hash` | Align the commits table short hash with the amended spec commit. |
-| `28a7bab` | `feat(semantic-cache): add guarded semantic cache for v2 estimation` | Settings, contracts, bucket, embeddings, in-memory repo, pipeline integration, API metadata, tests, docs; work item plan/progress; Redis/redisvl adapter deferred. |
+| `014246b` | `feat(semantic-cache): add guarded semantic cache for v2 estimation` | Settings, contracts, bucket, embeddings, in-memory repo, pipeline integration, API metadata, tests, docs; work item plan/progress; Redis/redisvl adapter deferred. |
+| `a676d6a` | `docs(work-items): link draft PR for feature-013 semantic cache` | Add WIP PR link to canonical work item. |
