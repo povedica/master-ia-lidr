@@ -648,7 +648,7 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 
 ### Implementation progress
 
-- [ ] Step 1: Contracts, enums, central guardrail declarations, and policy registry tests.
+- [x] Step 1: Contracts, enums, central guardrail declarations, and policy registry tests.
 - [ ] Step 2: `PipelineContext`, cache metadata, and audit-field safety tests.
 - [ ] Step 3: Deterministic prompt-injection guardrail and tests.
 - [ ] Step 4: Basic PII guardrail, safe audit payloads, and tests.
@@ -740,6 +740,7 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 ### Pull request
 
 - Branch: `feature/012-semantic-guardrails-llm-pipeline`
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/5
 - Open a **draft** PR against `main` before substantive application changes; keep the canonical document and commit log updated in the same PR.
 
 ## Risks and Defaults
@@ -755,5 +756,5 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 
 | Commit   | Summary |
 |----------|---------|
-| (planned) | `docs(work-items): add macro implementation plan for feature 012` |
-| (planned) | `feat(guardrails): add contracts and policy registry` |
+| ea47052 | `docs(work-items): add macro implementation plan for feature 012` |
+| 50b9e4d | `feat(guardrails): add contracts and policy registry` |
