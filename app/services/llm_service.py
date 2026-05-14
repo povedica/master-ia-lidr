@@ -835,7 +835,14 @@ class EstimationService:
             "mode": bundle.mode.value,
             "provider": bundle.provider,
             "model": bundle.model,
+            "cached": outcome.cached,
         }
+        if outcome.cache_score is not None:
+            done_payload["cache_score"] = outcome.cache_score
+        if outcome.cache_bucket is not None:
+            done_payload["cache_bucket"] = outcome.cache_bucket
+        if outcome.cache_miss_reason is not None:
+            done_payload["cache_miss_reason"] = outcome.cache_miss_reason
         if outcome.final_status == FinalResponseStatus.DEGRADED:
             done_payload["pipeline_status"] = outcome.final_status.value
             done_payload["reason_code"] = outcome.reason_code
