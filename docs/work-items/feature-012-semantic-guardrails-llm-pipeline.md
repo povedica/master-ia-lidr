@@ -777,3 +777,12 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 | 0c501d8 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
 | 89bfdfd | `fix(web): show phase items in structured estimate table` |
 | 3fde485 | `docs(work-items): fix commit hash for structured UI tuning` |
+| 6c0d695 | `docs(work-items): align feature 012 commit hash in log table` |
+| 2598f44 | `docs(work-items): log docs commit for feature 012 table` |
+| — | `PR #5 merged to main (GitHub); remote feature branch deleted` |
+
+## Closure (finish-task, 2026-05-14)
+
+- **Verified:** `uv run pytest` (184 passed on `main` after merge); working tree clean; `git push origin main` (up to date).
+- **Not verified:** Additional CI beyond GitHub merge (PR had empty `statusCheckRollup`); full manual UI smoke in production; Docker image rebuild for deploy.
+- **Residual risk:** Moderation remains a stub; pipeline-level output `fix_retry` beyond Instructor; no persistent response cache yet; LLM may still duplicate scope until prompt behavior stabilizes.
