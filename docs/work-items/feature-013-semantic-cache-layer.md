@@ -55,7 +55,7 @@ The first production rollout must therefore run in log-only mode to measure pote
 - Semantic cache lookup for the structured estimation v2 path.
 - Deterministic bucket construction from prompt-affecting structured fields.
 - Embedding generation for free-text request surface after input guardrails.
-- Vector lookup in Redis using Redis vector search, preferably through `redisvl` or equivalent.
+- Vector lookup in Redis Stack using RediSearch vector commands through the official `redis` Python client.
 - Infrastructure abstraction so the domain/application layer does not depend on Redis-specific APIs.
 - Configurable similarity threshold, TTL, namespace, rollout flags, endpoint/operation enablement, and log-only mode.
 - Response metadata for cache observability and frontend UX.
@@ -132,6 +132,10 @@ The cache belongs in the inference service layer, not in frontend code or generi
 ### AD-06: Infrastructure is replaceable
 
 Start with Redis vector search because Redis is a realistic cache store and can support TTL plus vector lookup. Keep the domain and application layers behind interfaces so a future migration to `pgvector`, Qdrant, Pinecone, or another vector store does not rewrite the pipeline.
+
+### AD-07: Redis adapter uses the official `redis` client first
+
+The first Redis-backed adapter should use `redis` with direct `FT.CREATE`, `FT.SEARCH`, `HSET`, and `EXPIRE` commands instead of adding `redisvl`. This keeps the dependency surface small, avoids a second abstraction layer while the repository contract is still simple, and matches the minimum scope: read/write plus bucket-scoped KNN. `redisvl` can be introduced later if index management or query composition grows beyond the current adapter.
 
 ## Functional Requirements
 
@@ -361,8 +365,15 @@ Recommended variables:
 | `SEMANTIC_CACHE_ENABLED_ENDPOINTS` | `api_v2_estimate` | Comma-separated endpoint/operation allowlist. |
 | `SEMANTIC_CACHE_ENABLED_TENANTS` | empty | Optional tenant allowlist; empty means use global rollout rules. |
 | `SEMANTIC_CACHE_ENABLED_OPERATIONS` | `estimation_v2` | Optional operation allowlist. |
+| `SEMANTIC_CACHE_USE_MEMORY_STORE` | `false` | Uses the in-process repository only for local experiments/tests. |
 
 If `SEMANTIC_CACHE_ENABLED=false` and `SEMANTIC_CACHE_LOG_ONLY=false`, the app should avoid Redis and embedding provider calls.
+
+Repository selection:
+
+- If `SEMANTIC_CACHE_USE_MEMORY_STORE=true`, use `InMemorySemanticCacheRepository` regardless of `SEMANTIC_CACHE_REDIS_URL`.
+- If `SEMANTIC_CACHE_USE_MEMORY_STORE=false` and `SEMANTIC_CACHE_REDIS_URL` is set, use `RedisSemanticCacheRepository`.
+- If `SEMANTIC_CACHE_USE_MEMORY_STORE=false` and no Redis URL is set, use `NullSemanticCacheRepository`.
 
 ## Module and Class Naming Proposal
 
@@ -404,9 +415,20 @@ Avoid Redis-specific imports outside the infrastructure adapter.
 Initial stack:
 
 - Redis as cache and vector search engine.
-- `redisvl` or equivalent Redis vector-search helper.
-- `redis` Python client for lower-level operations where needed.
+- Redis Stack / RediSearch for vector indexing and KNN lookup.
+- `redis` Python client for commands and async I/O.
 - OpenAI embeddings by default through an `EmbeddingProvider` interface.
+
+Redis repository minimum behavior:
+
+- Implement `SemanticCacheRepository` as `RedisSemanticCacheRepository`.
+- Store each cache entry as a Redis hash under `SEMANTIC_CACHE_NAMESPACE`.
+- Keep the deterministic bucket as a tag/filterable field.
+- Store embeddings as `FLOAT32` byte vectors using the configured embedding dimension.
+- Create or verify a RediSearch index for bucket filtering plus vector KNN.
+- On lookup, run KNN only inside the requested bucket and return up to `SEMANTIC_CACHE_MAX_CANDIDATES`.
+- On write, persist the validated serialized entry and set TTL with `EXPIRE`.
+- Treat Redis/index errors as repository errors that the service converts to a miss, preserving normal LLM flow.
 
 Future-compatible alternatives:
 
@@ -630,7 +652,8 @@ Hit rate alone is not sufficient.
 
 ### Integration Tests
 
-- Use fake or mocked `SemanticCacheRepository`; use fakeredis or testcontainers only if the project explicitly accepts that dependency.
+- Use fake or mocked `SemanticCacheRepository` and mocked Redis clients by default; the CI suite must not require a real Redis instance.
+- An optional Docker Redis Stack smoke test can be added later behind an explicit opt-in marker, but it is out of scope for the default automated suite.
 - First request writes validated cache entry; second semantically equivalent request in same bucket hits.
 - Semantically similar but materially different requests do not hit when bucket differs.
 - Top candidate below threshold logs low-score miss.
@@ -678,8 +701,9 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 | 6 | `LLMPipeline`: after input guardrails → lookup; serve hit only when enabled and not log-only; write after safe output; `prepare_structured_prelude` on service | `tests/test_llm_pipeline.py` + new cases |
 | 7 | `EstimationResponse` + `assemble_estimation_v2_response` + router: `cached`, `cache_score`, `cache_bucket`, `cache_miss_reason` | API / schema tests |
 | 8 | Structured logs (`semantic_cache.*`), `README.md` + `docs/technical/README.md` | Log smoke via unit tests where practical |
+| 9 | Redis Stack adapter: `RedisSemanticCacheRepository`, RediSearch index setup, bucket-scoped KNN, TTL writes, factory wiring | Mocked Redis tests; no real Redis in CI |
 
-**Open WIP note:** Redis + `redisvl` vector index adapter is deferred behind the repository interface; this PR ships in-memory + null backends and optional `SEMANTIC_CACHE_USE_MEMORY_STORE` for local calibration without Redis.
+**Current increment:** Implement the Redis Stack adapter behind the existing repository interface. Use `redis` directly for RediSearch/vector commands; do not change the HTTP contract. When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the factory should select Redis instead of falling back to the null store.
 
 **Open WIP PR:** https://github.com/povedica/master-ia-lidr/pull/6
 
@@ -721,10 +745,10 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 ### Task 4: Build semantic cache repository boundary
 
 - Define `SemanticCacheRepository`.
-- Implement Redis vector repository using `redisvl` or equivalent.
+- Implement `RedisSemanticCacheRepository` using `redis.asyncio` and RediSearch vector commands.
 - Add index initialization or migration strategy.
 - Add TTL and namespace handling.
-- Add fake repository tests.
+- Add fake repository tests and mocked Redis adapter tests.
 
 ### Task 5: Build `SemanticCacheService`
 
@@ -770,13 +794,14 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 Runtime candidate dependencies:
 
 - `redis`
-- `redisvl` or equivalent Redis vector search helper
+- `redisvl` only if direct RediSearch commands become too complex; not needed for the current minimum Redis adapter.
 - provider SDK already used for embeddings, or an additional embedding client if needed
 
 Development/testing candidate dependencies:
 
-- `fakeredis` only if it supports the needed behavior and does not create false confidence for vector search
-- otherwise, prefer fake repository interfaces for deterministic tests
+- Prefer fake repository interfaces and mocked `redis.asyncio.Redis` clients for deterministic tests.
+- `fakeredis` is not required for the first Redis vector adapter because vector search support can create false confidence when it diverges from Redis Stack.
+- Testcontainers or Docker Redis Stack smoke tests are optional and must be opt-in, not part of default CI.
 
 External dependencies:
 
