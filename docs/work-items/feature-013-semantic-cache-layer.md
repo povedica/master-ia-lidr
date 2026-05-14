@@ -703,7 +703,7 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 | 8 | Structured logs (`semantic_cache.*`), `README.md` + `docs/technical/README.md` | Log smoke via unit tests where practical |
 | 9 | Redis Stack adapter: `RedisSemanticCacheRepository`, RediSearch index setup, bucket-scoped KNN, TTL writes, factory wiring | Mocked Redis tests; no real Redis in CI |
 
-**Current increment:** Implement the Redis Stack adapter behind the existing repository interface. Use `redis` directly for RediSearch/vector commands; do not change the HTTP contract. When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the factory should select Redis instead of falling back to the null store.
+**Current increment:** Redis Stack adapter shipped behind `SEMANTIC_CACHE_REDIS_URL` + factory wiring; follow-up work is calibration, optional smoke tests against real Redis Stack, and tightening acceptance checks as needed.
 
 **Open WIP PR:** https://github.com/povedica/master-ia-lidr/pull/6
 
@@ -717,6 +717,7 @@ Numbered baby-steps (one reviewer-friendly commit each where practical). TDD: fa
 - [x] Step 6: `LLMPipeline` integration
 - [x] Step 7: API response metadata
 - [x] Step 8: Observability and documentation
+- [x] Step 9: Redis Stack adapter
 
 ## Implementation Tasks
 
@@ -847,3 +848,8 @@ bash scripts/sync-estimador-cag-docs.sh
 | `a8003d4` | `docs(work-items): fix feature-013 repository commit log short hash` | Align the commits table short hash with the amended spec commit. |
 | `014246b` | `feat(semantic-cache): add guarded semantic cache for v2 estimation` | Settings, contracts, bucket, embeddings, in-memory repo, pipeline integration, API metadata, tests, docs; work item plan/progress; Redis/redisvl adapter deferred. |
 | `a676d6a` | `docs(work-items): link draft PR for feature-013 semantic cache` | Add WIP PR link to canonical work item. |
+| `b60a8b4` | `feat(semantic-cache): add Redis Stack repository adapter and factory wiring` | Redis-backed repository with RediSearch vector KNN, TTL writes, factory selection when URL is set, and `llm_service` integration hooks. |
+| `d2f277e` | `test(semantic-cache): add Redis repository tests and extend settings coverage` | Mocked async Redis tests for index/search/write paths; settings and API test adjustments. |
+| `b04a9e2` | `chore(docker): add Redis Stack service for semantic cache dev` | Optional Redis Stack service in compose for local semantic cache development. |
+| `1412661` | `docs(semantic-cache): document Redis env, README, and work item progress` | Env examples, README and technical docs for Redis semantic cache; work item progress updates. |
+| `6b11d36` | `docs(agent-outputs): add semantic cache product strategy note` | Product strategy analyst output for semantic cache rollout framing. |
