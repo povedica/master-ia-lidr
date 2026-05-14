@@ -743,6 +743,20 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 - Draft PR: https://github.com/povedica/master-ia-lidr/pull/5
 - Open a **draft** PR against `main` before substantive application changes; keep the canonical document and commit log updated in the same PR.
 
+## Tuning: structured totals vs web UI (post-manual QA)
+
+**Problem observed:** The structured estimate view showed **total hours / EUR** that did not match the sum of visible table rows (example: cards showed 118h and 6556 EUR while only four `line_items` summed to 60h and 3192 EUR).
+
+**Root cause:** `EstimationResult` recomputes `totals` from **all** `phases[].items` **plus** all top-level `line_items` (see `app/schemas/estimation_result.py` `align_totals_to_line_items`). The web UI (`StructuredEstimateSummary` in `web/src/features/estimation/components/EstimationWorkbench.tsx`) previously rendered **only** `line_items`, hiding phase-nested tasks while still displaying API totals.
+
+**Fix (this iteration):**
+
+1. **UI:** Flatten `phases[].items` and `line_items` into a single **Work items** table; optional **Phase** column when phase rows exist; top-level-only rows labeled **Other**. Short note under the heading explains that totals match the union of displayed rows.
+2. **Prompt:** Clarify in `app/prompts/estimation/v1/partials/structured_output_hint.md.j2` that the model must **not** duplicate the same scope across phases and top-level `line_items` unless the extra lines are genuinely additive.
+3. **Tests:** `tests/test_estimation_result_schema.py::test_totals_combine_phases_and_top_level_line_items` documents the server sum rule.
+
+**Verification:** `uv run pytest tests/test_estimation_result_schema.py -q`; manual: run structured estimate in the web UI and confirm card totals equal the sum of all visible rows (including phase-nested lines).
+
 ## Risks and Defaults
 
 - Risk: high false positives in prompt injection and PII detection. Default to `log_only` for new checks except clearly dangerous cases once tested.
@@ -761,3 +775,4 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 | 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
 | 74aec14 | `docs(work-items): fix repository commits table for feature 012` |
 | 0c501d8 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
+| e0dbd37 | `fix(web): show phase items in structured estimate table` |

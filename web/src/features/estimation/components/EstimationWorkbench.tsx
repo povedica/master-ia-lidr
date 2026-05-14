@@ -185,6 +185,46 @@ const DETAILS_FIELD_KEYS = new Set<string>([
 const CONTROL_ERR_RING =
   'ring-2 ring-red-500/45 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
 
+type StructuredWorkRow = {
+  key: string
+  phaseLabel: string | null
+  name: string
+  hours: number
+  cost_eur: number
+}
+
+function collectStructuredWorkRows(data: Record<string, unknown>): StructuredWorkRow[] {
+  const rows: StructuredWorkRow[] = []
+  let seq = 0
+  const phasesRaw = Array.isArray(data.phases) ? (data.phases as Record<string, unknown>[]) : []
+  for (const ph of phasesRaw) {
+    const phaseName = typeof ph.name === 'string' ? ph.name.trim() : ''
+    const items = Array.isArray(ph.items) ? (ph.items as Record<string, unknown>[]) : []
+    for (const it of items) {
+      rows.push({
+        key: `p-${seq++}`,
+        phaseLabel: phaseName.length > 0 ? phaseName : null,
+        name: String(it.name ?? ''),
+        hours: typeof it.hours === 'number' ? it.hours : 0,
+        cost_eur: typeof it.cost_eur === 'number' ? it.cost_eur : 0,
+      })
+    }
+  }
+  const lineItemsRaw = Array.isArray(data.line_items)
+    ? (data.line_items as Record<string, unknown>[])
+    : []
+  for (const it of lineItemsRaw) {
+    rows.push({
+      key: `l-${seq++}`,
+      phaseLabel: null,
+      name: String(it.name ?? ''),
+      hours: typeof it.hours === 'number' ? it.hours : 0,
+      cost_eur: typeof it.cost_eur === 'number' ? it.cost_eur : 0,
+    })
+  }
+  return rows
+}
+
 function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) {
   const title = typeof data.title === 'string' ? data.title : '—'
   const summary = typeof data.summary === 'string' ? data.summary : ''
@@ -196,9 +236,8 @@ function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) 
   const confidence =
     typeof data.confidence === 'number' ? (data.confidence * 100).toFixed(0) + '%' : '—'
 
-  const lineItems = Array.isArray(data.line_items)
-    ? (data.line_items as Record<string, unknown>[])
-    : []
+  const workRows = collectStructuredWorkRows(data)
+  const showPhaseColumn = workRows.some((r) => r.phaseLabel !== null)
 
   const metricCards: { label: string; value: string }[] = [
     { label: 'Total hours', value: hours !== null ? String(hours) : '—' },
@@ -231,13 +270,22 @@ function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) 
             </div>
           ))}
         </dl>
-        {lineItems.length > 0 ? (
+        {workRows.length > 0 ? (
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Line items</h4>
+            <h4 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Work items</h4>
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+              Rows include tasks inside <code className="text-xs">phases</code> and any top-level{' '}
+              <code className="text-xs">line_items</code>; totals match the sum of all rows shown.
+            </p>
             <div className="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-950">
               <table className="min-w-full border-collapse text-left text-xs">
                 <thead className="bg-slate-100 dark:bg-slate-900">
                   <tr>
+                    {showPhaseColumn ? (
+                      <th className="border-b border-slate-200 px-3 py-2 font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                        Phase
+                      </th>
+                    ) : null}
                     <th className="border-b border-slate-200 px-3 py-2 font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
                       Name
                     </th>
@@ -250,19 +298,24 @@ function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) 
                   </tr>
                 </thead>
                 <tbody>
-                  {lineItems.map((row, i) => (
+                  {workRows.map((row) => (
                     <tr
-                      key={i}
+                      key={row.key}
                       className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-950 dark:even:bg-slate-900/50"
                     >
+                      {showPhaseColumn ? (
+                        <td className="border-b border-slate-100 px-3 py-2 text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                          {row.phaseLabel ?? (row.key.startsWith('l-') ? 'Other' : '—')}
+                        </td>
+                      ) : null}
                       <td className="border-b border-slate-100 px-3 py-2 text-slate-800 dark:border-slate-800 dark:text-slate-200">
-                        {String(row.name ?? '')}
+                        {row.name}
                       </td>
                       <td className="border-b border-slate-100 px-3 py-2 tabular-nums text-slate-800 dark:border-slate-800 dark:text-slate-200">
-                        {typeof row.hours === 'number' ? row.hours : '—'}
+                        {row.hours}
                       </td>
                       <td className="border-b border-slate-100 px-3 py-2 tabular-nums text-slate-800 dark:border-slate-800 dark:text-slate-200">
-                        {typeof row.cost_eur === 'number' ? row.cost_eur : '—'}
+                        {row.cost_eur}
                       </td>
                     </tr>
                   ))}
