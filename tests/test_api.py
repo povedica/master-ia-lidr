@@ -498,6 +498,7 @@ class _FakeStructuredEstimationService:
             "mode": bundle.mode.value,
             "provider": bundle.provider,
             "model": bundle.model,
+            "cached": False,
         }
         yield EstimationService.serialize_sse_event("done", done_payload)
 
@@ -537,6 +538,7 @@ def test_v2_estimate_stream_done_includes_result_json() -> None:
     assert response.status_code == 200
     assert "event: done" in body
     assert '"result":' in body
+    assert '"cached":false' in body
     assert "Structured v2 API test project" in body
 
 
