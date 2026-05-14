@@ -788,4 +788,4 @@ bash scripts/sync-estimador-cag-docs.sh
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| `41b4949` | `docs(work-items): add feature-013 semantic cache layer spec` | Add canonical work item for semantic cache (bucket + vector, log-only rollout, API metadata, tests, security). |
+| `d8138a4` | `docs(work-items): add feature-013 semantic cache layer spec` | Add canonical work item for semantic cache (bucket + vector, log-only rollout, API metadata, tests, security). |
