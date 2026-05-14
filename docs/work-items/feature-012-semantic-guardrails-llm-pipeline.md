@@ -775,4 +775,4 @@ Tracked implementation waves (each wave ends with tests green and a focused comm
 | 2e0f08b | `docs(work-items): track step 1 progress and PR link for feature 012` |
 | 74aec14 | `docs(work-items): fix repository commits table for feature 012` |
 | 0c501d8 | `feat(guardrails): semantic pipeline, v2 integration, tests, and docs` |
-| e0dbd37 | `fix(web): show phase items in structured estimate table` |
+| 89bfdfd | `fix(web): show phase items in structured estimate table` |
