@@ -64,6 +64,9 @@ const TARGET_AUDIENCE = [
 const DETAIL_LEVEL = ['summary', 'medium', 'detailed'] as const
 
 const OUTPUT_FORMAT = ['phases_table', 'line_items', 'narrative'] as const
+export const CUSTOM_INTEGRATION_MAX_CHARS = 40
+export const CUSTOM_INTEGRATIONS_MESSAGE =
+  'Cada integración debe ocupar una línea y tener como máximo 40 caracteres.'
 
 /** Required `<select>`: empty string until the user picks a value. */
 
@@ -116,6 +119,14 @@ function nonEmptyLines(blob: string, maxLines?: number): string[] {
     return lines.slice(0, maxLines)
   }
   return lines
+}
+
+export function findInvalidCustomIntegrationLines(value: string): number[] {
+  return value
+    .split('\n')
+    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
+    .filter(({ line }) => line.length > CUSTOM_INTEGRATION_MAX_CHARS)
+    .map(({ lineNumber }) => lineNumber)
 }
 
 export const estimationFormSchema = z
@@ -189,6 +200,13 @@ export const estimationFormSchema = z
         code: z.ZodIssueCode.custom,
         message: 'target_date is required when delivery_urgency is fixed_date or critical',
         path: ['targetDate'],
+      })
+    }
+    if (findInvalidCustomIntegrationLines(val.integrationCustomText).length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: CUSTOM_INTEGRATIONS_MESSAGE,
+        path: ['integrationCustomText'],
       })
     }
   })

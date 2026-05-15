@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   estimationFormSchema,
+  findInvalidCustomIntegrationLines,
   mapEstimationFormToRequestBody,
   parseEstimationForm,
 } from './requestMapper'
@@ -194,5 +195,30 @@ describe('estimationFormSchema', () => {
     expect(parsed.preprocessing).toBe('')
     const body = mapEstimationFormToRequestBody(parsed)
     expect(body.preprocessing).toBe('none')
+  })
+
+  it('rejects custom integration lines longer than 40 characters', () => {
+    const result = estimationFormSchema.safeParse({
+      ...validRawExceptProjectType('web_saas'),
+      integrationCustomText: `Valid integration\n${'x'.repeat(41)}`,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: ['integrationCustomText'],
+            message: 'Cada integración debe ocupar una línea y tener como máximo 40 caracteres.',
+          }),
+        ]),
+      )
+    }
+  })
+
+  it('reports invalid custom integration line numbers', () => {
+    expect(
+      findInvalidCustomIntegrationLines(`  ${'x'.repeat(41)}  \n\nValid\n${'y'.repeat(42)}`),
+    ).toEqual([1, 4])
   })
 })
