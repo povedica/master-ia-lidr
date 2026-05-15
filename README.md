@@ -112,7 +112,7 @@ Open the URL Vite prints (default `http://127.0.0.1:5173`). Ensure that origin i
 
 ## Web UI
 
-The `web/` package is a **React + Vite + TypeScript** browser UI. It calls `POST /api/v2/estimate/stream` and renders the structured result (title, summary, totals, line items) as tables and cards — no Markdown parsing on the primary path.
+The `web/` package is a **React + Vite + TypeScript** browser UI. It calls `POST /api/v2/estimate` and renders the structured `result` (title, summary, totals, line items) as tables and cards — no Markdown parsing on the primary path.
 
 - **Docker:** the `web` image builds assets at container build time and serves them with nginx. No Node needed on the host.
 - **Production build smoke check:**
@@ -123,7 +123,7 @@ npm run build
 npm run preview
 ```
 
-For the full SSE contract and streaming details, see [docs/technical/README.md](docs/technical/README.md).
+For the v1 Markdown + SSE contract (optional), see [docs/technical/README.md](docs/technical/README.md).
 
 ---
 
@@ -136,8 +136,8 @@ For the full SSE contract and streaming details, see [docs/technical/README.md](
 | `GET` | `/health` | Health check |
 | `GET` | `/` | Root — links to docs and routes |
 | `POST` | `/api/v1/estimate` | Synchronous estimation |
+| `POST` | `/api/v1/estimate/stream` | Markdown estimation with SSE (`chunk` / `done` / `error`) |
 | `POST` | `/api/v2/estimate` | Structured synchronous estimation |
-| `POST` | `/api/v2/estimate/stream` | Streaming estimation (SSE) |
 
 Full schema available at `http://127.0.0.1:8000/docs`.
 

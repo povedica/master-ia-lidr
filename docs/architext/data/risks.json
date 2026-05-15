@@ -74,7 +74,7 @@
         "tests/test_cors.py"
       ],
       "relatedNodes": ["web-ui", "fastapi-api", "public-trust-boundary"],
-      "relatedFlows": ["v2-estimate-stream", "docker-local-stack"]
+      "relatedFlows": ["v2-estimate-structured", "docker-local-stack"]
     },
     {
       "id": "architext-model-drift",

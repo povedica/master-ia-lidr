@@ -111,45 +111,6 @@
       ]
     },
     {
-      "id": "v2-estimate-stream",
-      "name": "Structured estimate stream (SSE)",
-      "status": "implemented",
-      "summary": "Web UI streams estimation progress and result over Server-Sent Events.",
-      "trigger": "POST /api/v2/estimate/stream from web workbench.",
-      "actors": ["developer"],
-      "steps": [
-        {
-          "id": "ui-submit",
-          "from": "developer",
-          "to": "web-ui",
-          "action": "submitWorkbench",
-          "summary": "React maps form fields to EstimationRequest JSON.",
-          "data": ["client-project-brief"]
-        },
-        {
-          "id": "sse-request",
-          "from": "web-ui",
-          "to": "estimations-v2-router",
-          "action": "openEventStream",
-          "summary": "Browser opens SSE connection to streaming endpoint.",
-          "data": ["client-project-brief"]
-        },
-        {
-          "id": "pipeline-stream",
-          "from": "estimations-v2-router",
-          "to": "llm-pipeline",
-          "action": "runStructuredStream",
-          "summary": "Same guarded pipeline with streaming response chunks to client.",
-          "data": ["estimation-output", "operational-telemetry"]
-        }
-      ],
-      "guarantees": ["Same guardrail semantics as sync v2"],
-      "failureBehavior": ["SSE connection ends with error event on guardrail block"],
-      "observability": ["Browser network tab", "API logs"],
-      "verification": ["web/src/features/estimation/api/sseParser.test.ts"],
-      "knownGaps": []
-    },
-    {
       "id": "v1-estimate-sync",
       "name": "Markdown estimate (v1)",
       "status": "implemented",
