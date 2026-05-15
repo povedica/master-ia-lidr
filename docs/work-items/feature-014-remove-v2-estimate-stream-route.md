@@ -375,3 +375,5 @@ Keep `POST /api/v2/estimate/stream` as a **temporary deprecated alias** during a
 | `a05fb51` | `feat(api)`: remove `POST /api/v2/estimate/stream` |
 | `d9011cb` | `feat(web)`: use JSON `POST /api/v2/estimate` for structured estimation |
 | `c4de2f8` | `docs`: align product docs with v2 non-streaming estimate API |
+| `46531d5` | `docs(work-items)`: record commits for feature-014 v2 stream removal |
+| `5f19a7f` | `docs(cursor)`: default branch and remote PR in `start-task` |
