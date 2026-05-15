@@ -854,3 +854,5 @@ bash scripts/sync-estimador-cag-docs.sh
 | `1412661` | `docs(semantic-cache): document Redis env, README, and work item progress` | Env examples, README and technical docs for Redis semantic cache; work item progress updates. |
 | `6b11d36` | `docs(agent-outputs): add semantic cache product strategy note` | Product strategy analyst output for semantic cache rollout framing. |
 | `60aad36` | `chore(docker): add Redis Insight for local Redis inspection` | Add `redisinsight` Compose service on port 5540 and document connection to the `redis` service in README. |
+| `ea1c1d7` | `fix(semantic-cache): cast async Redis hset for pyright` | Narrow redis-py `hset` union typing with `cast(Awaitable[int], ...)` so async awaits type-check cleanly. |
+| `9a2f41b` | `chore(pyright): add workspace config for uv virtualenv` | Add `pyrightconfig.json` pointing analyzers at `.venv` for consistent third-party import resolution. |
