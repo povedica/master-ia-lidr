@@ -12,6 +12,8 @@ Create small, clear, traceable commits for `master-ia`, tied to the **master ses
 
 ## Project rules
 
+- **Canonical work item + branch (mandatory for `/start-task` driven work):** the active work item is the **same Markdown file** passed to `/start-task` (mirror: `docs/work-items/<type>-<NNN>-<slug>.md`). The current git branch **must** match `/start-task` Phase 4.1 (e.g. `feature-014-remove-v2-estimate-stream-route.md` → `feature/014-remove-v2-estimate-stream-route`). If `git branch --show-current` does not match, **rename** (`git branch -m …`) or recreate the branch from `main` and cherry-pick—do not leave ad-hoc names (`feature/remove-…`, `feature/015-…` for a 014 doc, etc.).
+- **Single commit log until the feature is closed:** append **every** new commit row to **`## Repository commits (master-ia)`** in **that** canonical file only. **Do not** record this feature’s commits in a different work item’s table unless the operator explicitly switches the active canonical document and branch.
 - **Work item document (priority):** append the commit log to the active work item document when it exists and is clear (by convention: `learnings/second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-*.md` or an explicit path you give).
 - **Master session:** keep a link to the session (`learnings/second-brain-master-ia/sesiones/sesion-NN-*.md` or equivalent) for context and a duplicate table or summary **when** it applies; if work is feature-only, the main table may live **only** in the feature doc.
 - **If the log destination is unclear:** **do not run `git commit` until you ask** where to record the report. Always give an **explicit default suggestion**, for example:
@@ -38,7 +40,7 @@ Create small, clear, traceable commits for `master-ia`, tied to the **master ses
 
 ### Phase 0. Identify where to log (work item + session)
 
-1. **Active work item:** find the canonical document (e.g. under `learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/`). That is the default place for `## Repository commits (master-ia)` (or the existing Spanish heading `## Commits del repositorio (master-ia)`—normalize to English when you next edit that section).
+1. **Active work item:** find the canonical document (e.g. under `learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/` or `docs/work-items/`). That is the **only** default place for `## Repository commits (master-ia)` for this feature (or the existing Spanish heading `## Commits del repositorio (master-ia)`—normalize to English when you next edit that section). Confirm the current branch matches Phase 4.1 of `/start-task` for that filename.
 2. **Session:** locate `learnings/second-brain-master-ia/sesiones/sesion-NN-*.md` if it applies.
 3. **If the work item doc is missing or ambiguous:** stop, **ask** where to log the report, and always include a **concrete suggestion**. Do not run `git commit` until the destination is confirmed.
 
@@ -163,12 +165,14 @@ If the remote rejects the push, sync with `git pull --rebase` and push again. If
 
 | Situation | Action |
 |-----------|--------|
-| Known work item | Always update `## Repository commits (master-ia)` (or normalize an existing Spanish-titled section) in that work item `.md`. |
+| Branch mismatch vs `/start-task` Phase 4.1 | **Rename** the branch (`git branch -m …`) or recreate from `main` and cherry-pick; do not commit on ad-hoc names. |
+| Known work item | Always update `## Repository commits (master-ia)` (or normalize an existing Spanish-titled section) in **that** work item `.md` only for this feature’s commits. |
 | Unknown work item | **Ask** where to log; **suggest** `work-items/<type>-<NNN>-<name>.md` under the project in Second Brain, or `sesiones/sesion-NN-*.md` as secondary. |
 | Mixed work (master-ia + notes outside the repo) | Commit only what lives in the repo; the log table may live in Second Brain even when those files are not in `git`. |
 
 ## Checklist
 
+- [ ] Canonical branch name matches the work item file (`feature/NNN-slug` per `/start-task` Phase 4.1).
 - [ ] Commit log destination agreed (feature doc by default, or ask + suggest).
 - [ ] No secrets or local artifacts in staging.
 - [ ] Each commit has a single reasonable focus.
@@ -182,4 +186,4 @@ If the remote rejects the push, sync with `git pull --rebase` and push again. If
 - [`session-review`](session-review.md)
 - [`master-tutor`](master-tutor.md)
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-05-15

@@ -202,11 +202,34 @@ If the user uses Linear or another tracker, **they** update it; `start-task` doe
 
 ## Phase 4. Environment and Git setup
 
-### 4.1 Branch and PR policy (`master-ia`)
+### 4.1 Branch name, single branch until close, and PR policy (`master-ia`)
 
-- **Default**: create a **new branch** from up-to-date `main` (`feature/…`, `fix/…`, or `chore/…` aligned with the work item), land **baby-step commits** on that branch, **`git push -u`** to the remote, and open a **PR** with `gh pr create` (draft is fine for early traceability). Link the PR in the canonical document when there is a sensible place (e.g. progress or commits section).
-- **Exception**: only skip branching, push, or PR when the user **explicitly** asks for a local-only flow (e.g. spike, draft exploration, no remote). State in chat and the canonical doc what was skipped.
-- **WIP hygiene**: do not open a PR that bundles **unrelated** dirty work; resolve mixed-task trees in Phase 0 first (separate branches or agreed scope).
+**Canonical branch name (mandatory for document-driven work):**
+
+Derive the git branch from the **work item filename** (`<type>-<NNN>-<kebab-slug>.md`), not from a shortened nickname:
+
+| Type prefix (in filename) | Git branch pattern | Example filename | Example branch |
+|----------------------------|--------------------|------------------|----------------|
+| `feature-` | `feature/<NNN>-<kebab-slug>` | `feature-014-remove-v2-estimate-stream-route.md` | `feature/014-remove-v2-estimate-stream-route` |
+| `bugfix-` | `fix/<NNN>-<kebab-slug>` | `bugfix-003-cors-preflight.md` | `fix/003-cors-preflight` |
+| `spec-` | `spec/<NNN>-<kebab-slug>` | — | — |
+| `exp-` | `exp/<NNN>-<kebab-slug>` | — | — |
+
+Create this branch from up-to-date **`main`** as soon as Phase 0–3 are satisfied (before or immediately after the first production change).
+
+**One branch, one doc, until closure:**
+
+- All implementation, tests, and **repository commit log rows** for this work item stay on **this branch** and in **`## Repository commits (master-ia)` inside the same canonical file** until the PR is merged (or the user explicitly splits/abandons the item).
+- **Do not** route commits for this feature into another `feature-NNN-*.md` commit table. If the working tree contains unrelated changes, **stash or branch off** per Phase 0 WIP rules—never “park” feature A’s log in feature B’s document.
+
+**PR (default):**
+
+- Land **baby-step commits** on the canonical branch, **`git push -u`** to the remote, and open a **PR** with `gh pr create` (draft is fine early). Link the PR URL in the canonical document when helpful (progress or commits section).
+
+**Exceptions:**
+
+- **Local-only**: only skip branching, push, or PR when the user **explicitly** asks (spike, no remote). State what was skipped in chat and the canonical doc.
+- **WIP hygiene**: do not open a PR that bundles **unrelated** dirty work; resolve mixed-task trees in Phase 0 first.
 
 Follow the repository’s PR workflow (title/body, test plan): use `gh` from a clean, task-scoped branch.
 
@@ -383,6 +406,7 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ## Changelog
 
+- **2026-05-15 (b)**: **Canonical branch name** from work item filename (`feature/NNN-slug`); **one branch + one doc** until merge; forbid logging feature A commits in feature B’s table.
 - **2026-05-15**: **Default branch + remote PR** for `start-task` (Phase 4.1, Phase 5.2, Phase 6, success criteria); explicit **opt-out** when the user requests local-only work; WIP hygiene for PR scope.
 - **2026-05-06**: Integrated **`a-currar`**-style phased flow and **strict** TDD + baby-steps commit cadence for `master-ia`; Phase 0 WIP replaces Linear intake; tooling mapped to **`uv`** / **`pytest`** / Second Brain paths; strengthened hard stop and documentation lag rule.
 

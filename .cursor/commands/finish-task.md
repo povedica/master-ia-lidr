@@ -44,8 +44,9 @@ Do **not** merge a PR and defer documentation.
 1. Confirm the **canonical work-item** (single source of truth) is up to date:
    - Vault path: `learnings/second-brain-master-ia/proyectos/<project>/work-items/<type>-<NNN>-<slug>.md`
    - Mirror in this repo: `docs/work-items/` (see `11-spec-system.mdc` and `/start-task` for naming).
-2. Ensure **acceptance**, **verification**, **`Repository commits (master-ia)`**, and any **retrospective / learnings** are reflected in that document (or a note explicitly linked from it), per **Phase 6–7** of `/start-task`.
-3. If a learning should become repo policy, capture it in `.cursor/rules/` in a follow-up when appropriate — not as a substitute for updating the canonical doc.
+2. Confirm the **current git branch** matches `/start-task` Phase 4.1 for that file (e.g. `feature-014-remove-v2-estimate-stream-route.md` → `feature/014-remove-v2-estimate-stream-route`). If the PR was opened from a misnamed branch, rename and update the remote **before** merge, or document the exception in the canonical doc and follow user direction.
+3. Ensure **acceptance**, **verification**, **`Repository commits (master-ia)`**, and any **retrospective / learnings** are reflected in that document (or a note explicitly linked from it), per **Phase 6–7** of `/start-task`.
+4. If a learning should become repo policy, capture it in `.cursor/rules/` in a follow-up when appropriate — not as a substitute for updating the canonical doc.
 
 ```bash
 git status
