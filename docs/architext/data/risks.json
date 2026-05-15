@@ -1,0 +1,95 @@
+{
+  "risks": [
+    {
+      "id": "api-key-misconfiguration",
+      "title": "Missing or invalid LLM API keys",
+      "category": "security",
+      "severity": "high",
+      "status": "mitigating",
+      "summary": "Provider calls fail at runtime if .env keys are empty or wrong; errors must not leak secrets to clients.",
+      "mitigations": [
+        "Document keys in .env.example",
+        "ProviderConfigError handled at provider boundary",
+        "Never log API keys"
+      ],
+      "relatedNodes": ["provider-chain", "docker-app-container", "openai-provider", "anthropic-provider"],
+      "relatedFlows": ["v2-estimate-structured", "docker-local-stack"]
+    },
+    {
+      "id": "llm-provider-outage",
+      "title": "LLM provider outage or timeout",
+      "category": "operational",
+      "severity": "high",
+      "status": "mitigating",
+      "summary": "External APIs may rate-limit, time out, or return invalid structured JSON.",
+      "mitigations": [
+        "Ordered provider failover via LLM_PROVIDERS",
+        "STATIC_FALLBACK_ENABLED degraded response",
+        "structured_output_max_attempts retries"
+      ],
+      "relatedNodes": ["provider-chain", "estimation-service", "openai-provider", "anthropic-provider"],
+      "relatedFlows": ["v2-estimate-structured", "v1-estimate-sync"]
+    },
+    {
+      "id": "semantic-cache-false-hit",
+      "title": "Semantic cache false positive hit",
+      "category": "technical",
+      "severity": "medium",
+      "status": "mitigating",
+      "summary": "Similar but not equivalent project briefs could return a prior estimate when cache enforce mode is on.",
+      "mitigations": [
+        "Default log-only rollout",
+        "Bucket includes mode and prompt versions",
+        "safe_to_cache false on degraded or guardrail outcomes",
+        "Similarity threshold configuration"
+      ],
+      "relatedNodes": ["semantic-cache-service", "redis-semantic-cache"],
+      "relatedFlows": ["semantic-cache-lookup"]
+    },
+    {
+      "id": "guardrail-false-positive",
+      "title": "Guardrail blocks or degrades valid estimates",
+      "category": "technical",
+      "severity": "medium",
+      "status": "open",
+      "summary": "Heuristic input/output policies may reject legitimate presales or highly technical briefs.",
+      "mitigations": [
+        "Per-policy rollout env overrides (log_only vs enforce)",
+        "audit_id in API errors for support",
+        "Domain guardrail can be disabled via LLM_DOMAIN_GUARDRAIL_ENABLED"
+      ],
+      "relatedNodes": ["guardrails-registry", "llm-pipeline"],
+      "relatedFlows": ["v2-estimate-structured"]
+    },
+    {
+      "id": "cors-misconfiguration",
+      "title": "CORS blocks browser UI",
+      "category": "operational",
+      "severity": "medium",
+      "status": "mitigating",
+      "summary": "Web UI on Vite or nginx origin must appear in FRONTEND_ORIGINS or browser calls fail.",
+      "mitigations": [
+        "Document default origins in README and .env.example",
+        "Compose sets FRONTEND_ORIGINS for common local URLs",
+        "tests/test_cors.py"
+      ],
+      "relatedNodes": ["web-ui", "fastapi-api", "public-trust-boundary"],
+      "relatedFlows": ["v2-estimate-stream", "docker-local-stack"]
+    },
+    {
+      "id": "architext-model-drift",
+      "title": "Architext JSON drifts from codebase",
+      "category": "technical",
+      "severity": "low",
+      "status": "open",
+      "summary": "Architecture JSON may become stale as features land unless updated with changes.",
+      "mitigations": [
+        "architext validate in CI or before merge",
+        "Update docs/architext/data on architectural changes",
+        "Known gaps marked in flows"
+      ],
+      "relatedNodes": ["estimador-cag"],
+      "relatedFlows": []
+    }
+  ]
+}

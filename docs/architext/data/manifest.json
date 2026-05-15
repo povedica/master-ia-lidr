@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.1.1",
+  "project": {
+    "id": "master-ia",
+    "name": "Estimador CAG (master-ia)",
+    "summary": "FastAPI service and React web UI that produce software project estimates using Context-Augmented Generation, optional semantic cache, and guarded LLM calls."
+  },
+  "generatedAt": "2026-05-15T16:10:00.000Z",
+  "defaultViewId": "system-map",
+  "files": {
+    "nodes": "nodes.json",
+    "flows": "flows.json",
+    "views": "views.json",
+    "dataClassification": "data-classification.json",
+    "decisions": "decisions.json",
+    "risks": "risks.json",
+    "glossary": "glossary.json"
+  },
+  "notes": [
+    "Architecture model derived from app/, web/, docker-compose.yml, and README.",
+    "LLM providers are reached via LiteLLM; credentials live in environment variables only."
+  ]
+}

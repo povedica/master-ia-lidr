@@ -1,0 +1,278 @@
+{
+  "flows": [
+    {
+      "id": "v2-estimate-structured",
+      "name": "Structured estimate (v2 sync)",
+      "status": "implemented",
+      "summary": "Primary path: guarded pipeline returns validated EstimationResult JSON.",
+      "trigger": "POST /api/v2/estimate with EstimationRequest body.",
+      "actors": ["developer"],
+      "steps": [
+        {
+          "id": "submit-request",
+          "from": "developer",
+          "to": "estimations-v2-router",
+          "action": "postEstimate",
+          "summary": "Client sends structured project brief; FastAPI validates Pydantic schema.",
+          "data": ["client-project-brief"]
+        },
+        {
+          "id": "run-pipeline",
+          "from": "estimations-v2-router",
+          "to": "llm-pipeline",
+          "action": "runStructured",
+          "summary": "LLMPipeline runs input guardrails, optional cache lookup, and orchestrates provider call.",
+          "data": ["client-project-brief", "operational-telemetry"]
+        },
+        {
+          "id": "input-guardrails",
+          "from": "llm-pipeline",
+          "to": "guardrails-registry",
+          "action": "executeInputPolicies",
+          "summary": "Deterministic and semantic input checks (injection, PII, domain, moderation placeholder).",
+          "data": ["client-project-brief"]
+        },
+        {
+          "id": "cache-lookup",
+          "from": "llm-pipeline",
+          "to": "semantic-cache-service",
+          "action": "evaluateLookup",
+          "summary": "When enabled, embed assessment surface and search Redis for similar prior estimates.",
+          "data": ["semantic-cache-payload", "client-project-brief"]
+        },
+        {
+          "id": "build-prompt",
+          "from": "llm-pipeline",
+          "to": "estimation-service",
+          "action": "prepareStructuredCall",
+          "summary": "Select mode, load few-shot examples and Jinja prompts, render user message.",
+          "data": ["static-cag-examples", "client-project-brief"]
+        },
+        {
+          "id": "call-llm",
+          "from": "estimation-service",
+          "to": "provider-chain",
+          "action": "completeStructured",
+          "summary": "LiteLLM calls OpenAI then Anthropic on failure; structured JSON parsed and validated.",
+          "data": ["client-project-brief", "estimation-output", "llm-provider-credentials"]
+        },
+        {
+          "id": "external-openai",
+          "from": "provider-chain",
+          "to": "openai-provider",
+          "action": "chatCompletion",
+          "summary": "HTTPS request to OpenAI when first in LLM_PROVIDERS chain.",
+          "data": ["client-project-brief", "estimation-output"]
+        },
+        {
+          "id": "output-guardrails",
+          "from": "llm-pipeline",
+          "to": "guardrails-registry",
+          "action": "evaluateOutputSemantic",
+          "summary": "Confidence floor, leakage heuristics; may downgrade without 422.",
+          "data": ["estimation-output"]
+        },
+        {
+          "id": "cache-write",
+          "from": "llm-pipeline",
+          "to": "semantic-cache-service",
+          "action": "maybeWrite",
+          "summary": "Persist artifact when safe_to_cache and rollout allows (not log-only).",
+          "data": ["semantic-cache-payload", "estimation-output"]
+        },
+        {
+          "id": "respond",
+          "from": "estimations-v2-router",
+          "to": "developer",
+          "action": "returnEstimationResponse",
+          "summary": "Assemble EstimationResponse with optional evaluate metadata.",
+          "data": ["estimation-output"]
+        }
+      ],
+      "guarantees": [
+        "Enforced unsafe input returns HTTP 422 with audit_id",
+        "Structured output validated before success response"
+      ],
+      "failureBehavior": [
+        "Provider chain exhaustion may use static fallback when enabled",
+        "Out-of-domain may return degraded 200 with reason_code",
+        "Cache miss continues to live LLM call"
+      ],
+      "observability": [
+        "Structured logs with request_id",
+        "DEV_MODE exposes provider and usage fields"
+      ],
+      "verification": [
+        "uv run pytest tests/test_llm_pipeline.py",
+        "curl POST /api/v2/estimate"
+      ],
+      "knownGaps": [
+        "Gemini provider configured in settings but not in default chain factories"
+      ]
+    },
+    {
+      "id": "v2-estimate-stream",
+      "name": "Structured estimate stream (SSE)",
+      "status": "implemented",
+      "summary": "Web UI streams estimation progress and result over Server-Sent Events.",
+      "trigger": "POST /api/v2/estimate/stream from web workbench.",
+      "actors": ["developer"],
+      "steps": [
+        {
+          "id": "ui-submit",
+          "from": "developer",
+          "to": "web-ui",
+          "action": "submitWorkbench",
+          "summary": "React maps form fields to EstimationRequest JSON.",
+          "data": ["client-project-brief"]
+        },
+        {
+          "id": "sse-request",
+          "from": "web-ui",
+          "to": "estimations-v2-router",
+          "action": "openEventStream",
+          "summary": "Browser opens SSE connection to streaming endpoint.",
+          "data": ["client-project-brief"]
+        },
+        {
+          "id": "pipeline-stream",
+          "from": "estimations-v2-router",
+          "to": "llm-pipeline",
+          "action": "runStructuredStream",
+          "summary": "Same guarded pipeline with streaming response chunks to client.",
+          "data": ["estimation-output", "operational-telemetry"]
+        }
+      ],
+      "guarantees": ["Same guardrail semantics as sync v2"],
+      "failureBehavior": ["SSE connection ends with error event on guardrail block"],
+      "observability": ["Browser network tab", "API logs"],
+      "verification": ["web/src/features/estimation/api/sseParser.test.ts"],
+      "knownGaps": []
+    },
+    {
+      "id": "v1-estimate-sync",
+      "name": "Markdown estimate (v1)",
+      "status": "implemented",
+      "summary": "Legacy synchronous path returning Markdown estimation text.",
+      "trigger": "POST /api/v1/estimate.",
+      "actors": ["developer"],
+      "steps": [
+        {
+          "id": "v1-route",
+          "from": "developer",
+          "to": "estimations-v1-router",
+          "action": "postEstimate",
+          "summary": "v1 router delegates to EstimationService markdown estimate.",
+          "data": ["client-project-brief"]
+        },
+        {
+          "id": "v1-service",
+          "from": "estimations-v1-router",
+          "to": "estimation-service",
+          "action": "estimate",
+          "summary": "CAG prompt with file examples; provider chain streaming or complete.",
+          "data": ["static-cag-examples", "client-project-brief"]
+        },
+        {
+          "id": "v1-provider",
+          "from": "estimation-service",
+          "to": "provider-chain",
+          "action": "completeMarkdown",
+          "summary": "Returns Markdown string and usage metadata.",
+          "data": ["estimation-output"]
+        }
+      ],
+      "guarantees": ["Domain guardrail when LLM_DOMAIN_GUARDRAIL_ENABLED"],
+      "failureBehavior": ["HTTP errors mapped to safe EstimationError messages"],
+      "observability": ["Provider logs"],
+      "verification": ["curl POST /api/v1/estimate"],
+      "knownGaps": ["v1 does not use full v2 guardrail pipeline"]
+    },
+    {
+      "id": "semantic-cache-lookup",
+      "name": "Semantic cache lookup",
+      "status": "implemented",
+      "summary": "Optional vector lookup before LLM call when semantic cache feature is active.",
+      "trigger": "v2 pipeline start with SEMANTIC_CACHE feature flags enabled.",
+      "actors": [],
+      "steps": [
+        {
+          "id": "embed",
+          "from": "semantic-cache-service",
+          "to": "openai-provider",
+          "action": "createEmbedding",
+          "summary": "OpenAI embeddings API produces query vector.",
+          "data": ["semantic-cache-payload"]
+        },
+        {
+          "id": "search-redis",
+          "from": "semantic-cache-service",
+          "to": "redis-semantic-cache",
+          "action": "vectorSearch",
+          "summary": "RediSearch KNN against indexed cache entries in bucket.",
+          "data": ["semantic-cache-payload"]
+        },
+        {
+          "id": "hit-short-circuit",
+          "from": "semantic-cache-service",
+          "to": "llm-pipeline",
+          "action": "returnCachedBundle",
+          "summary": "On score above threshold and not log-only, skip provider call.",
+          "data": ["estimation-output"]
+        }
+      ],
+      "guarantees": ["log-only mode never bypasses LLM"],
+      "failureBehavior": ["Miss or disabled continues to live LLM"],
+      "observability": ["semantic_cache.hit and semantic_cache.miss logs"],
+      "verification": ["tests/test_llm_pipeline_semantic_cache.py"],
+      "knownGaps": ["Cache correctness depends on bucket and prompt version alignment"]
+    },
+    {
+      "id": "docker-local-stack",
+      "name": "Docker Compose local stack",
+      "status": "implemented",
+      "summary": "Run API, web, Redis, and Redis Insight together for local demos.",
+      "trigger": "docker compose up --build",
+      "actors": ["developer"],
+      "steps": [
+        {
+          "id": "start-redis",
+          "from": "developer",
+          "to": "redis-semantic-cache",
+          "action": "composeUpRedis",
+          "summary": "Redis Stack starts with healthcheck on 6379.",
+          "data": []
+        },
+        {
+          "id": "start-api",
+          "from": "developer",
+          "to": "docker-app-container",
+          "action": "composeUpApp",
+          "summary": "API container waits for Redis and passes healthcheck on /health.",
+          "data": ["llm-provider-credentials"]
+        },
+        {
+          "id": "start-web",
+          "from": "developer",
+          "to": "docker-web-container",
+          "action": "composeUpWeb",
+          "summary": "Web nginx serves built UI after API healthy.",
+          "data": []
+        },
+        {
+          "id": "browse",
+          "from": "developer",
+          "to": "web-ui",
+          "action": "openBrowser",
+          "summary": "User opens http://127.0.0.1:5175 and calls API on 8000.",
+          "data": []
+        }
+      ],
+      "guarantees": ["Documented ports 8000, 5175, 6379, 5540"],
+      "failureBehavior": ["Missing .env keys fail at provider call time"],
+      "observability": ["Compose healthchecks"],
+      "verification": ["docker compose up", "curl /health"],
+      "knownGaps": ["Production deployment topology not defined in repo"]
+    }
+  ]
+}

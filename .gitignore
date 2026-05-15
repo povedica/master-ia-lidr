@@ -37,3 +37,6 @@ docker-compose.override.yml
 # LLM / estimation output samples (local only)
 output-responses/
 output-stats/
+
+# Architext generated static builds.
+docs/architext/dist/

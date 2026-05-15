@@ -1,0 +1,108 @@
+{
+  "views": [
+    {
+      "id": "system-map",
+      "name": "System Map",
+      "type": "system-map",
+      "summary": "Estimador CAG: web client, FastAPI API, Redis cache, and external LLM providers.",
+      "lanes": [
+        { "id": "users", "name": "Users", "nodeIds": ["developer"] },
+        { "id": "clients", "name": "Clients", "nodeIds": ["web-ui"] },
+        { "id": "core", "name": "Application", "nodeIds": ["fastapi-api", "llm-pipeline", "estimation-service", "semantic-cache-service"] },
+        { "id": "data", "name": "Data", "nodeIds": ["cag-examples-store", "prompt-templates", "redis-semantic-cache"] },
+        { "id": "external", "name": "External", "nodeIds": ["openai-provider", "anthropic-provider"] }
+      ]
+    },
+    {
+      "id": "dataflow",
+      "name": "Dataflow",
+      "type": "dataflow",
+      "summary": "Project brief in, estimation JSON out; optional cache and provider egress.",
+      "lanes": [
+        { "id": "ingress", "name": "Ingress", "nodeIds": ["developer", "web-ui", "estimations-v2-router"] },
+        { "id": "processing", "name": "Processing", "nodeIds": ["llm-pipeline", "estimation-service", "guardrails-registry"] },
+        { "id": "stores", "name": "Stores", "nodeIds": ["cag-examples-store", "prompt-templates", "redis-semantic-cache"] },
+        { "id": "egress", "name": "Egress", "nodeIds": ["openai-provider", "anthropic-provider", "developer"] }
+      ]
+    },
+    {
+      "id": "sequence",
+      "name": "Sequence",
+      "type": "sequence",
+      "summary": "Ordered v2 structured estimate interactions.",
+      "lanes": [
+        {
+          "id": "participants",
+          "name": "Participants",
+          "nodeIds": [
+            "developer",
+            "estimations-v2-router",
+            "llm-pipeline",
+            "semantic-cache-service",
+            "estimation-service",
+            "provider-chain",
+            "openai-provider",
+            "redis-semantic-cache"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deployment",
+      "name": "Deployment",
+      "type": "deployment",
+      "summary": "Docker Compose services and host-published ports.",
+      "lanes": [
+        { "id": "host", "name": "Host", "nodeIds": ["developer", "public-trust-boundary"] },
+        { "id": "compose", "name": "Docker Compose", "nodeIds": ["docker-app-container", "docker-web-container", "redis-semantic-cache"] },
+        { "id": "saas", "name": "SaaS", "nodeIds": ["openai-provider", "anthropic-provider"] }
+      ]
+    },
+    {
+      "id": "c4-context",
+      "name": "C4 Context",
+      "type": "c4-context",
+      "summary": "Developer uses Estimador CAG which calls external LLM APIs.",
+      "lanes": [
+        { "id": "people", "name": "People", "nodeIds": ["developer"] },
+        { "id": "system", "name": "Software System", "nodeIds": ["estimador-cag"] },
+        { "id": "external", "name": "External Systems", "nodeIds": ["openai-provider", "anthropic-provider"] }
+      ]
+    },
+    {
+      "id": "c4-container",
+      "name": "C4 Container",
+      "type": "c4-container",
+      "summary": "Containers: FastAPI API, Web UI, Redis; external providers.",
+      "lanes": [
+        { "id": "actors", "name": "Actors", "nodeIds": ["developer"] },
+        { "id": "containers", "name": "Containers", "nodeIds": ["fastapi-api", "web-ui", "redis-semantic-cache"] },
+        { "id": "external", "name": "External", "nodeIds": ["openai-provider", "anthropic-provider"] }
+      ]
+    },
+    {
+      "id": "c4-component",
+      "name": "C4 Component",
+      "type": "c4-component",
+      "summary": "Components inside the FastAPI API container.",
+      "lanes": [
+        { "id": "api", "name": "API", "nodeIds": ["estimations-v2-router", "estimations-v1-router"] },
+        { "id": "orchestration", "name": "Orchestration", "nodeIds": ["llm-pipeline", "estimation-service", "semantic-cache-service"] },
+        { "id": "integration", "name": "Integration", "nodeIds": ["provider-chain", "structured-llm-client", "guardrails-registry"] },
+        { "id": "context", "name": "Context", "nodeIds": ["cag-examples-store", "prompt-templates"] }
+      ]
+    },
+    {
+      "id": "risk-overlay",
+      "name": "Data / Risks",
+      "type": "risk-overlay",
+      "summary": "Operational and security risks across providers, cache, and deployment.",
+      "lanes": [
+        { "id": "operators", "name": "Operators", "nodeIds": ["developer"] },
+        { "id": "application", "name": "Application", "nodeIds": ["llm-pipeline", "semantic-cache-service", "provider-chain"] },
+        { "id": "infrastructure", "name": "Infrastructure", "nodeIds": ["redis-semantic-cache", "docker-app-container", "public-trust-boundary"] },
+        { "id": "external", "name": "External", "nodeIds": ["openai-provider", "anthropic-provider"] }
+      ]
+    }
+  ]
+}

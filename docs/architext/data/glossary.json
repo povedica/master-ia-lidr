@@ -1,0 +1,28 @@
+{
+  "terms": [
+    {
+      "term": "CAG (Context-Augmented Generation)",
+      "definition": "Pattern used here: few-shot estimation examples and mode-specific system instructions are injected into the LLM prompt; the client supplies structured project context as the user message."
+    },
+    {
+      "term": "Estimation mode",
+      "definition": "One of basic, standard, professional, or expert_review; selected from request context and eligibility rules in app/services/estimation_engine.py."
+    },
+    {
+      "term": "v2 guarded pipeline",
+      "definition": "LLMPipeline in app/guardrails/llm_pipeline.py: input guardrails, optional semantic cache lookup, structured LLM completion, output semantic checks."
+    },
+    {
+      "term": "Provider chain",
+      "definition": "Ordered LLM providers (OpenAI, Anthropic via LiteLLM) with optional static fallback when all providers fail, configured by LLM_PROVIDERS."
+    },
+    {
+      "term": "Semantic cache bucket",
+      "definition": "Namespaced cache partition derived from mode, prompt versions, and input fingerprint for vector similarity lookup in Redis."
+    },
+    {
+      "term": "Architext",
+      "definition": "External global CLI that validates and visualizes docs/architext/data/*.json; viewer code is not vendored in this repository."
+    }
+  ]
+}

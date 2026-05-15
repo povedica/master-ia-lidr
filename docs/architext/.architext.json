@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 2,
+  "installedAt": "2026-05-15T15:56:31.200Z",
+  "updatedAt": "2026-05-15T15:56:31.200Z",
+  "source": "architext-cli",
+  "cliVersion": "1.1.1",
+  "operation": "install",
+  "dataPolicy": "starter-written",
+  "copiedInstallMigrated": false,
+  "instructionFiles": {
+    "AGENTS.md": true,
+    "CLAUDE.md": true
+  },
+  "managedInstructions": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "gitignoreManaged": true,
+  "rootScriptsManaged": false,
+  "lastValidation": {
+    "ok": true,
+    "at": "2026-05-15T15:56:31.200Z"
+  }
+}

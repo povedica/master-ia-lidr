@@ -1,0 +1,114 @@
+{
+  "decisions": [
+    {
+      "id": "cag-few-shot-prompts",
+      "status": "accepted",
+      "title": "Context-Augmented Generation with file-based few-shot examples",
+      "context": "Estimates need consistent structure and domain tone without fine-tuning a model per customer.",
+      "decision": "Inject mode-specific few-shot examples from app/context/examples/ and system prompts from app/context/prompts/ into the LLM system message; client sends structured project context as the user message.",
+      "consequences": [
+        "Examples version with the codebase",
+        "Prompt changes do not require model retraining",
+        "Token usage grows with mode and example count"
+      ],
+      "relatedNodes": ["estimation-service", "cag-examples-store", "prompt-templates"],
+      "relatedFlows": ["v2-estimate-structured", "v1-estimate-sync"]
+    },
+    {
+      "id": "v2-structured-guarded-pipeline",
+      "status": "accepted",
+      "title": "v2 structured output with guarded LLM pipeline",
+      "context": "Markdown-only v1 responses are harder for the web UI to render reliably; unsafe input/output must be handled explicitly.",
+      "decision": "POST /api/v2/estimate uses Pydantic EstimationResult, LLMPipeline guardrails, and HTTP 422 for enforced blocks; domain mismatch may degrade with audit metadata.",
+      "consequences": [
+        "Primary integration path for web/",
+        "Guardrail rollout controlled per policy via environment",
+        "More moving parts than v1"
+      ],
+      "relatedNodes": ["llm-pipeline", "estimations-v2-router", "guardrails-registry", "structured-llm-client"],
+      "relatedFlows": ["v2-estimate-structured", "v2-estimate-stream"]
+    },
+    {
+      "id": "litellm-provider-chain",
+      "status": "accepted",
+      "title": "LiteLLM provider chain with failover",
+      "context": "Multiple LLM vendors and timeouts need a single abstraction without scattering SDK calls in routers.",
+      "decision": "Use app/services/llm_chain.py and ai_model_service.py with LLM_PROVIDERS order and optional static fallback.",
+      "consequences": [
+        "Routers do not call OpenAI/Anthropic directly",
+        "Provider errors classified at boundary",
+        "Gemini settings exist but default chain factories are OpenAI and Anthropic only"
+      ],
+      "relatedNodes": ["provider-chain", "openai-provider", "anthropic-provider"],
+      "relatedFlows": ["v2-estimate-structured", "v1-estimate-sync"]
+    },
+    {
+      "id": "semantic-cache-redis",
+      "status": "accepted",
+      "title": "Optional Redis Stack semantic cache",
+      "context": "Repeated similar estimation requests can be expensive; vector similarity can reuse validated structured outputs.",
+      "decision": "Feature-flagged semantic cache with Redis RediSearch, log-only rollout default, and guarded writes when safe_to_cache is true.",
+      "consequences": [
+        "Compose includes redis service by default",
+        "Cache correctness depends on bucket, prompt versions, and thresholds",
+        "Misconfiguration can serve stale estimates if enforce mode enabled too early"
+      ],
+      "relatedNodes": ["semantic-cache-service", "redis-semantic-cache"],
+      "relatedFlows": ["semantic-cache-lookup", "v2-estimate-structured"]
+    },
+    {
+      "id": "react-vite-web-ui",
+      "status": "accepted",
+      "title": "Split React web UI from FastAPI backend",
+      "context": "Streamlit was replaced with a maintainable browser workbench and Docker-static hosting.",
+      "decision": "web/ package uses React + Vite + TypeScript; production image serves static assets via nginx; API remains separate service.",
+      "consequences": [
+        "CORS configuration required for local dev",
+        "VITE_API_BASE_URL baked at Docker build time",
+        "Two deployment units in Compose"
+      ],
+      "relatedNodes": ["web-ui", "docker-web-container"],
+      "relatedFlows": ["v2-estimate-stream", "docker-local-stack"]
+    },
+    {
+      "id": "jinja2-prompt-rendering",
+      "status": "accepted",
+      "title": "Jinja2 prompt bundles for v2",
+      "context": "Structured v2 prompts need composable partials and version directories.",
+      "decision": "Resolve templates from app/prompts/estimation/{version}/ via PromptRenderer and prompt_versions.py.",
+      "consequences": [
+        "Prompt version selectable via PROMPT_ESTIMATION_VERSION",
+        "Template errors fail at render time"
+      ],
+      "relatedNodes": ["prompt-templates", "estimation-service"],
+      "relatedFlows": ["v2-estimate-structured"]
+    },
+    {
+      "id": "docker-compose-default-stack",
+      "status": "accepted",
+      "title": "Docker Compose as default full-stack local runtime",
+      "context": "Learners and reviewers should run API, UI, and Redis without local Python/Node toolchain.",
+      "decision": "docker-compose.yml defines redis, app, web, and optional redisinsight with documented ports.",
+      "consequences": [
+        "app depends_on redis for semantic cache exercises",
+        "Secrets still supplied via host .env",
+        "Production topology not specified in this repository"
+      ],
+      "relatedNodes": ["docker-app-container", "docker-web-container", "redis-semantic-cache"],
+      "relatedFlows": ["docker-local-stack"]
+    },
+    {
+      "id": "fastapi-router-versioning",
+      "status": "accepted",
+      "title": "Explicit API versioning under /api/v1 and /api/v2",
+      "context": "v1 Markdown API must remain available while v2 structured API evolves.",
+      "decision": "Separate routers in app/routers/ mounted with distinct prefixes in app/main.py.",
+      "consequences": [
+        "Clients choose contract per path",
+        "Duplicate estimation logic paths until v1 deprecation"
+      ],
+      "relatedNodes": ["fastapi-api", "estimations-v1-router", "estimations-v2-router"],
+      "relatedFlows": ["v1-estimate-sync", "v2-estimate-structured"]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "classes": [
+    {
+      "id": "client-project-brief",
+      "name": "Client project brief",
+      "sensitivity": "medium",
+      "handling": "Structured estimation request fields and optional attachments; may describe customer systems. Not logged in full by default."
+    },
+    {
+      "id": "estimation-output",
+      "name": "Estimation output",
+      "sensitivity": "medium",
+      "handling": "Generated Markdown (v1) or structured EstimationResult JSON (v2). Returned to client; optional persistence when enabled."
+    },
+    {
+      "id": "llm-provider-credentials",
+      "name": "LLM provider credentials",
+      "sensitivity": "critical",
+      "handling": "OPENAI_API_KEY, ANTHROPIC_API_KEY, and related secrets in .env only; never committed or logged."
+    },
+    {
+      "id": "semantic-cache-payload",
+      "name": "Semantic cache payload",
+      "sensitivity": "medium",
+      "handling": "Embeddings and serialized estimation artifacts in Redis when semantic cache is enabled; TTL and size limits apply."
+    },
+    {
+      "id": "operational-telemetry",
+      "name": "Operational telemetry",
+      "sensitivity": "low",
+      "handling": "Structured logs with provider names, latency, and token usage; DEV_MODE may expose more metadata in API responses."
+    },
+    {
+      "id": "static-cag-examples",
+      "name": "Static CAG examples",
+      "sensitivity": "low",
+      "handling": "Version-controlled few-shot samples under app/context/examples/; no live customer data."
+    },
+    {
+      "id": "architecture-knowledge",
+      "name": "Architecture knowledge",
+      "sensitivity": "low",
+      "handling": "Machine-readable Architext JSON under docs/architext/data/; reviewed like code."
+    }
+  ]
+}
