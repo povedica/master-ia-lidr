@@ -1,5 +1,6 @@
 volumes:
   redis_stack_data:
+  redisinsight_data:
 
 services:
   redis:
@@ -14,6 +15,17 @@ services:
       timeout: 3s
       retries: 10
       start_period: 15s
+
+  # Web UI for Redis (browse keys, run CLI, inspect modules). http://127.0.0.1:5540 — add database host `redis`, port `6379`.
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
 
   app:
     depends_on:

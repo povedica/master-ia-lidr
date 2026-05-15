@@ -60,6 +60,7 @@ If you only start `app` (or omit services), Redis may not run; either use `docke
 | OpenAPI docs | `http://127.0.0.1:8000/docs` |
 | Web UI (nginx) | `http://127.0.0.1:5175` |
 | Redis Stack (semantic cache / RediSearch vectors) | `redis://127.0.0.1:6379` |
+| Redis Insight (web UI for Redis) | `http://127.0.0.1:5540` — add database: host `redis`, port `6379` (Compose service name) |
 
 Set `SEMANTIC_CACHE_REDIS_URL` in `.env` when exercising the semantic cache: use `redis://redis:6379/0` for the `app` container, or `redis://127.0.0.1:6379/0` if the API runs on the host while Redis runs in Compose.
 
