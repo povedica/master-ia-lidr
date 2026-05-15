@@ -8,7 +8,7 @@ import struct
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Awaitable, Protocol, cast, runtime_checkable
 
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
@@ -170,14 +170,17 @@ class RedisSemanticCacheRepository:
         entry_id = uuid.uuid4().hex
         key = f"{self._key_prefix}{entry_id}"
         artifact_json = payload.artifact.model_dump_json()
-        await self._redis.hset(
-            key,
-            mapping={
-                "entry_id": entry_id,
-                "bucket_hash": payload.lookup.bucket.bucket_hash,
-                self._ARTIFACT_FIELD: artifact_json,
-                self._VECTOR_FIELD: _float32_bytes(payload.embedding),
-            },
+        await cast(
+            Awaitable[int],
+            self._redis.hset(
+                key,
+                mapping={
+                    "entry_id": entry_id,
+                    "bucket_hash": payload.lookup.bucket.bucket_hash,
+                    self._ARTIFACT_FIELD: artifact_json,
+                    self._VECTOR_FIELD: _float32_bytes(payload.embedding),
+                },
+            ),
         )
         await self._redis.expire(key, ttl_seconds)
 
