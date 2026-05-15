@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown'
 import { ZodError } from 'zod'
 
 import { useEstimateStream } from '../hooks/useEstimateStream'
-import { estimateStructuredStreamUrl } from '../api/estimateApi'
+import { estimateStructuredUrl } from '../api/estimateApi'
 import { filesToAttachments } from '../lib/fileToBase64'
 import {
   mapEstimationFormToRequestBody,
@@ -442,11 +442,11 @@ export function EstimationWorkbench() {
       <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Estimador CAG</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          Guided estimation form. Structured output streams from{' '}
+          Guided estimation form. Structured output from{' '}
           <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-            {estimateStructuredStreamUrl()}
+            {estimateStructuredUrl()}
           </code>{' '}
-          (v2: one terminal <code className="text-xs">done</code> event with JSON <code className="text-xs">result</code>).
+          (<code className="text-xs">POST /api/v2/estimate</code>, JSON <code className="text-xs">result</code>).
         </p>
       </header>
 
