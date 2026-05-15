@@ -202,12 +202,13 @@ If the user uses Linear or another tracker, **they** update it; `start-task` doe
 
 ## Phase 4. Environment and Git setup
 
-### 4.1 Branch and PR policy (`a-currar` adapted)
+### 4.1 Branch and PR policy (`master-ia`)
 
-- **Default (`master-ia`)**: do **not** open a PR or create a branch **unless the user asks** (project convention).
-- **If the user requests a branch / PR** (optional `a-currar`-style flow):
-  - Create `feature/…`, `fix/…`, or `chore/…` from up-to-date `main`.
-  - Optionally open a **draft** PR early for traceability; link it in the canonical document.
+- **Default**: create a **new branch** from up-to-date `main` (`feature/…`, `fix/…`, or `chore/…` aligned with the work item), land **baby-step commits** on that branch, **`git push -u`** to the remote, and open a **PR** with `gh pr create` (draft is fine for early traceability). Link the PR in the canonical document when there is a sensible place (e.g. progress or commits section).
+- **Exception**: only skip branching, push, or PR when the user **explicitly** asks for a local-only flow (e.g. spike, draft exploration, no remote). State in chat and the canonical doc what was skipped.
+- **WIP hygiene**: do not open a PR that bundles **unrelated** dirty work; resolve mixed-task trees in Phase 0 first (separate branches or agreed scope).
+
+Follow the repository’s PR workflow (title/body, test plan): use `gh` from a clean, task-scoped branch.
 
 ### 4.2 Python / uv
 
@@ -273,7 +274,7 @@ Update the canonical document when acceptance criteria, APIs, env vars, or verif
 
 ### 5.2 Push rhythm
 
-If using a remote branch, push periodically (e.g. every few commits).
+Push the task branch to the remote **periodically** (e.g. every few commits) and **before** opening or updating the PR, so review and CI see the latest commits.
 
 ### 5.3 Progress checklist in the canonical doc
 
@@ -294,6 +295,7 @@ Maintain a lightweight block (when useful):
 - [ ] Canonical document: acceptance criteria and **verification** match reality.
 - [ ] **`git status`** clean or intentional; no secrets staged.
 - [ ] **`## Repository commits (master-ia)`** table updated with **English** summaries.
+- [ ] **Branch pushed** and **PR opened** on the remote (unless the user explicitly opted out in Phase 4.1).
 - [ ] Ready for **`/commit-pending`** grouping if the user wants multiple commits spelled out.
 
 Optional: mark draft PR ready, self-review checklist (adapted from `a-currar`): criteria met, no stray debug prints, docs complete.
@@ -332,6 +334,7 @@ After **implementation** (when requested in the same invocation):
 
 - Per-step adherence: RED shown (or exception logged), GREEN, commits implied or listed.
 - Residual risks and **not verified** items stated explicitly.
+- **Remote PR** link (or explicit note that the user opted out of branch/PR).
 
 ---
 
@@ -374,14 +377,16 @@ Fix before moving on; do not advance the plan with a red suite.
 - Phases **0–7** are applied at a proportionate weight (XS tasks may collapse phases lightly, but never skip explicit verification).
 - Coding does not regress into “big bang” batches for testable logic.
 - Documentation and commit-log destinations remain clear throughout.
+- Unless the user opted out, the work is delivered on a **pushed branch** with a **remote PR** for review.
 
 ---
 
 ## Changelog
 
+- **2026-05-15**: **Default branch + remote PR** for `start-task` (Phase 4.1, Phase 5.2, Phase 6, success criteria); explicit **opt-out** when the user requests local-only work; WIP hygiene for PR scope.
 - **2026-05-06**: Integrated **`a-currar`**-style phased flow and **strict** TDD + baby-steps commit cadence for `master-ia`; Phase 0 WIP replaces Linear intake; tooling mapped to **`uv`** / **`pytest`** / Second Brain paths; strengthened hard stop and documentation lag rule.
 
 ---
 
-**Last updated:** 2026-05-06  
+**Last updated:** 2026-05-15  
 **Status:** Active
