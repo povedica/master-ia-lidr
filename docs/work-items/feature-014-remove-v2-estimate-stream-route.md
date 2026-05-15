@@ -377,3 +377,5 @@ Keep `POST /api/v2/estimate/stream` as a **temporary deprecated alias** during a
 | `c4de2f8` | `docs`: align product docs with v2 non-streaming estimate API |
 | `46531d5` | `docs(work-items)`: record commits for feature-014 v2 stream removal |
 | `5f19a7f` | `docs(cursor)`: default branch and remote PR in `start-task` |
+
+**Git branch (policy note):** The commits above shipped on **`feature/remove-v2-estimate-stream`**. For any **new** work under this canonical file, `/start-task` requires **`feature/014-remove-v2-estimate-stream-route`** (see `.cursor/commands/start-task.md` Phase 4.1).
