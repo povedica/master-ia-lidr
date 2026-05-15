@@ -9,7 +9,6 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
 
 from app.config import Settings, get_settings
 from app.guardrails.exceptions import GuardrailViolationError
@@ -156,22 +155,3 @@ async def create_estimate_structured(
         )
 
     return response
-
-
-@router.post("/estimate/stream")
-async def create_estimate_structured_stream(
-    body: EstimationRequest,
-    service: Annotated[EstimationService, Depends(get_estimation_service)],
-) -> StreamingResponse:
-    """SSE: emits a single ``done`` event with validated ``result`` JSON (no token chunks)."""
-
-    assessment_surface = render_estimation_assessment_surface(body)
-    return StreamingResponse(
-        service.stream_structured_estimation(body, assessment_surface=assessment_surface),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
