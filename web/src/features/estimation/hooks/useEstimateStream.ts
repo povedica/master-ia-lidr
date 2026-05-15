@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 
-import { estimateStructuredStreamUrl } from '../api/estimateApi'
-import { EstimationSseParser } from '../api/sseParser'
+import { estimateStructuredUrl } from '../api/estimateApi'
 
 export function useEstimateStream() {
   const [markdown, setMarkdown] = useState('')
@@ -28,70 +27,36 @@ export function useEstimateStream() {
       setLoading(true)
       const ctrl = new AbortController()
       aborter.current = ctrl
-      const parser = new EstimationSseParser()
-      let lineBuffer = ''
       try {
-        const response = await fetch(estimateStructuredStreamUrl(), {
+        const response = await fetch(estimateStructuredUrl(), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Accept: 'text/event-stream',
+            Accept: 'application/json',
           },
           body: JSON.stringify(body),
           signal: ctrl.signal,
         })
 
+        const text = await response.text().catch(() => '')
+
         if (!response.ok) {
-          const text = await response.text().catch(() => '')
           setError(formatHttpError(response.status, text))
           return
         }
 
-        if (!response.body) {
-          setError('Empty response body.')
+        let data: Record<string, unknown>
+        try {
+          data = JSON.parse(text) as Record<string, unknown>
+        } catch {
+          setError('Invalid JSON response from server.')
           return
         }
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) {
-            break
-          }
-          lineBuffer += decoder.decode(value, { stream: true })
-          let newlineIndex: number
-          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
-            const line = lineBuffer.slice(0, newlineIndex)
-            lineBuffer = lineBuffer.slice(newlineIndex + 1)
-            for (const event of parser.pushLine(line)) {
-              if (event.kind === 'chunk') {
-                setMarkdown((prev) => prev + event.text)
-              } else if (event.kind === 'done') {
-                setDoneMeta(event.data)
-                const r = event.data['result']
-                if (r && typeof r === 'object' && !Array.isArray(r)) {
-                  setStructuredResult(r as Record<string, unknown>)
-                }
-              } else if (event.kind === 'error') {
-                setError(event.message)
-              }
-            }
-          }
-        }
-
-        for (const event of parser.end()) {
-          if (event.kind === 'chunk') {
-            setMarkdown((prev) => prev + event.text)
-          } else if (event.kind === 'done') {
-            setDoneMeta(event.data)
-            const r = event.data['result']
-            if (r && typeof r === 'object' && !Array.isArray(r)) {
-              setStructuredResult(r as Record<string, unknown>)
-            }
-          } else if (event.kind === 'error') {
-            setError(event.message)
-          }
+        setDoneMeta(data)
+        const r = data['result']
+        if (r && typeof r === 'object' && !Array.isArray(r)) {
+          setStructuredResult(r as Record<string, unknown>)
         }
       } catch (exc) {
         if (exc instanceof DOMException && exc.name === 'AbortError') {

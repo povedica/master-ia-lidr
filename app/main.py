@@ -66,7 +66,6 @@ def read_root() -> dict[str, str]:
         "estimate": "POST /api/v1/estimate",
         "estimate_stream": "POST /api/v1/estimate/stream",
         "estimate_structured": "POST /api/v2/estimate",
-        "estimate_structured_stream": "POST /api/v2/estimate/stream",
     }
 
 

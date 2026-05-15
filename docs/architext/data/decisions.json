@@ -26,7 +26,7 @@
         "More moving parts than v1"
       ],
       "relatedNodes": ["llm-pipeline", "estimations-v2-router", "guardrails-registry", "structured-llm-client"],
-      "relatedFlows": ["v2-estimate-structured", "v2-estimate-stream"]
+      "relatedFlows": ["v2-estimate-structured"]
     },
     {
       "id": "litellm-provider-chain",
@@ -68,7 +68,7 @@
         "Two deployment units in Compose"
       ],
       "relatedNodes": ["web-ui", "docker-web-container"],
-      "relatedFlows": ["v2-estimate-stream", "docker-local-stack"]
+      "relatedFlows": ["v2-estimate-structured", "docker-local-stack"]
     },
     {
       "id": "jinja2-prompt-rendering",

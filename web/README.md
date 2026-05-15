@@ -1,6 +1,6 @@
 # Estimador CAG — web UI
 
-React + Vite + TypeScript client for the guided estimation form. It calls **`POST /api/v1/estimate/stream`** on the FastAPI backend and parses SSE (`chunk`, `done`, `error`) in the browser.
+React + Vite + TypeScript client for the guided estimation form. The workbench calls **`POST /api/v2/estimate`** and binds UI from the JSON **`result`** object.
 
 ## Setup
 

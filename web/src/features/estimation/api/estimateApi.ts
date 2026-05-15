@@ -9,11 +9,7 @@ export function getApiBaseUrl(): string {
   return raw.replace(/\/$/, '')
 }
 
-export function estimateStreamUrl(): string {
-  return `${getApiBaseUrl()}/api/v1/estimate/stream`
-}
-
-/** Structured estimate: single terminal SSE ``done`` with ``result`` JSON (no token chunks). */
-export function estimateStructuredStreamUrl(): string {
-  return `${getApiBaseUrl()}/api/v2/estimate/stream`
+/** Structured v2 estimate: synchronous JSON ``EstimationResponse`` with ``result``. */
+export function estimateStructuredUrl(): string {
+  return `${getApiBaseUrl()}/api/v2/estimate`
 }

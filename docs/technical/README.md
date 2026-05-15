@@ -396,7 +396,7 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 
 **Prompts:** Jinja2 templates live under `app/prompts/estimation/<version>/` (default `v1`). Rendering is centralized in **`render_estimation_prompt()`** (`app/services/estimation_prompt_rendering.py`) with **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`.
 
-**`POST /api/v2/estimate/stream`:** SSE does **not** stream partial model text. The service yields a **single** terminal `done` event whose JSON payload includes **`result`** (validated object) plus routing metadata (and optional `usage` when `DEV_MODE=true`), aligned with the non-streaming response body shape.
+The browser UI uses this route with **`Accept: application/json`**; there is **no** v2 SSE surface. (v1 `POST /api/v1/estimate/stream` remains available for Markdown + SSE.)
 
 **Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
 
