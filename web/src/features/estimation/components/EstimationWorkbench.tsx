@@ -14,10 +14,12 @@ import { useEstimateStream } from '../hooks/useEstimateStream'
 import { estimateStructuredUrl } from '../api/estimateApi'
 import { filesToAttachments } from '../lib/fileToBase64'
 import {
+  estimationFormSchema,
   mapEstimationFormToRequestBody,
   parseEstimationForm,
   type EstimationFormValues,
 } from '../lib/requestMapper'
+import { humanizeZodIssuesToFieldErrors } from '../lib/validationErrors'
 
 const REQUIRED_SELECT_PLACEHOLDER = '— Select —'
 
@@ -329,17 +331,6 @@ function StructuredEstimateSummary({ data }: { data: Record<string, unknown> }) 
   )
 }
 
-function zodIssuesToFieldErrors(issues: ZodError['issues']): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const issue of issues) {
-    const key = issue.path.length > 0 ? String(issue.path[0]) : '_form'
-    if (!map[key]) {
-      map[key] = issue.message
-    }
-  }
-  return map
-}
-
 function firstOrderedFieldWithError(
   fieldErrors: Record<string, string>,
   order: readonly string[],
@@ -390,6 +381,49 @@ export function EstimationWorkbench() {
     return () => window.clearTimeout(t)
   }, [fieldErrors])
 
+  useEffect(() => {
+    setFieldErrors((prev) => {
+      const keysWithErrors = Object.keys(prev).filter((k) => k !== '_form')
+      if (keysWithErrors.length === 0) {
+        return prev
+      }
+      const raw = { ...form, attachments: form.attachments }
+      const result = estimationFormSchema.safeParse(raw)
+      const fromZod = result.success
+        ? ({} as Record<string, string>)
+        : humanizeZodIssuesToFieldErrors(result.error.issues)
+
+      const next: Record<string, string> = { ...prev }
+      let changed = false
+
+      for (const k of keysWithErrors) {
+        if (k === 'attachments') {
+          continue
+        }
+        if (!fromZod[k]) {
+          delete next[k]
+          changed = true
+        } else if (fromZod[k] !== prev[k]) {
+          next[k] = fromZod[k]
+          changed = true
+        }
+      }
+      for (const [k, v] of Object.entries(fromZod)) {
+        if (next[k] !== v) {
+          next[k] = v
+          changed = true
+        }
+      }
+      if (!changed) {
+        return prev
+      }
+      if (prev._form && !next._form) {
+        next._form = prev._form
+      }
+      return next
+    })
+  }, [form])
+
   const needsTargetDate = useMemo(
     () => form.deliveryUrgency === 'fixed_date' || form.deliveryUrgency === 'critical',
     [form.deliveryUrgency],
@@ -416,25 +450,22 @@ export function EstimationWorkbench() {
     try {
       const parsed = parseEstimationForm(raw)
       const body = mapEstimationFormToRequestBody(parsed)
-      void run(body)
-    } catch (exc) {
-      if (exc instanceof ZodError) {
-        setFieldErrors(zodIssuesToFieldErrors(exc.issues))
+      const outcome = await run(body)
+      if (outcome && !outcome.ok) {
+        if (outcome.kind === 'validation') {
+          setFieldErrors(outcome.fieldErrors)
+          setClientError(outcome.formSummary ?? null)
+          return
+        }
         return
       }
-      setClientError(exc instanceof Error ? exc.message : 'Validation failed.')
-    }
-  }
-
-  function clearFieldErrorByName(name: string) {
-    setFieldErrors((prev) => {
-      if (!prev[name]) {
-        return prev
+    } catch (exc) {
+      if (exc instanceof ZodError) {
+        setFieldErrors(humanizeZodIssuesToFieldErrors(exc.issues))
+        return
       }
-      const next = { ...prev }
-      delete next[name]
-      return next
-    })
+      setClientError(exc instanceof Error ? exc.message : 'We could not validate the form.')
+    }
   }
 
   return (
@@ -465,13 +496,6 @@ export function EstimationWorkbench() {
       <form
         onSubmit={onSubmit}
         className="space-y-6"
-        onChange={(ev) => {
-          const el = ev.target as HTMLElement
-          const name = el.getAttribute('name')
-          if (name) {
-            clearFieldErrorByName(name)
-          }
-        }}
       >
         <Field name="projectName" label="Project name (optional)" error={fieldErrors.projectName}>
           <input
@@ -482,7 +506,12 @@ export function EstimationWorkbench() {
           />
         </Field>
 
-        <Field name="projectSummary" label="One-line summary (20–200 chars)" error={fieldErrors.projectSummary}>
+        <Field
+          name="projectSummary"
+          label="One-line summary (20–200 chars)"
+          required
+          error={fieldErrors.projectSummary}
+        >
           <input
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.projectSummary}
@@ -490,7 +519,7 @@ export function EstimationWorkbench() {
           />
         </Field>
 
-        <Field name="projectType" label="Project type" error={fieldErrors.projectType}>
+        <Field name="projectType" label="Project type" required error={fieldErrors.projectType}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.projectType}
@@ -505,7 +534,7 @@ export function EstimationWorkbench() {
           </select>
         </Field>
 
-        <Field name="targetAudience" label="Target audience" error={fieldErrors.targetAudience}>
+        <Field name="targetAudience" label="Target audience" required error={fieldErrors.targetAudience}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.targetAudience}
@@ -523,7 +552,8 @@ export function EstimationWorkbench() {
         {form.targetAudience === 'other' ? (
           <Field
             name="targetAudienceOther"
-            label="Audience detail (required)"
+            label="Audience detail"
+            required
             error={fieldErrors.targetAudienceOther}
           >
             <input
@@ -538,6 +568,7 @@ export function EstimationWorkbench() {
         <Field
           name="projectDescription"
           label="Project description (min 100 chars)"
+          required
           error={fieldErrors.projectDescription}
         >
           <textarea
@@ -547,7 +578,12 @@ export function EstimationWorkbench() {
           />
         </Field>
 
-        <Field name="deliverablesText" label="Deliverables (one per line, 3–8)" error={fieldErrors.deliverablesText}>
+        <Field
+          name="deliverablesText"
+          label="Deliverables (one per line, 3–8)"
+          required
+          error={fieldErrors.deliverablesText}
+        >
           <textarea
             className="min-h-[120px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.deliverablesText}
@@ -555,7 +591,7 @@ export function EstimationWorkbench() {
           />
         </Field>
 
-        <Field name="deliveryUrgency" label="Delivery urgency" error={fieldErrors.deliveryUrgency}>
+        <Field name="deliveryUrgency" label="Delivery urgency" required error={fieldErrors.deliveryUrgency}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.deliveryUrgency}
@@ -571,7 +607,7 @@ export function EstimationWorkbench() {
         </Field>
 
         {needsTargetDate ? (
-          <Field name="targetDate" label="Target date" error={fieldErrors.targetDate}>
+          <Field name="targetDate" label="Target date" required error={fieldErrors.targetDate}>
             <input
               type="date"
               className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -581,7 +617,7 @@ export function EstimationWorkbench() {
           </Field>
         ) : null}
 
-        <Field name="dataSensitivity" label="Data sensitivity" error={fieldErrors.dataSensitivity}>
+        <Field name="dataSensitivity" label="Data sensitivity" required error={fieldErrors.dataSensitivity}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.dataSensitivity}
@@ -596,7 +632,7 @@ export function EstimationWorkbench() {
           </select>
         </Field>
 
-        <Field name="detailLevel" label="Depth of estimate" error={fieldErrors.detailLevel}>
+        <Field name="detailLevel" label="Depth of estimate" required error={fieldErrors.detailLevel}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.detailLevel}
@@ -611,7 +647,7 @@ export function EstimationWorkbench() {
           </select>
         </Field>
 
-        <Field name="outputFormat" label="Output format" error={fieldErrors.outputFormat}>
+        <Field name="outputFormat" label="Output format" required error={fieldErrors.outputFormat}>
           <select
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={form.outputFormat}
@@ -693,6 +729,7 @@ export function EstimationWorkbench() {
             <Field
               name="integrationCustomText"
               label="Custom integrations (optional, one per line)"
+              hint="One integration per line. Each non-empty line must be between 20 and 300 characters."
               error={fieldErrors.integrationCustomText}
             >
               <textarea
@@ -717,7 +754,7 @@ export function EstimationWorkbench() {
             </Field>
 
             {form.industry === 'other' ? (
-              <Field name="industryOther" label="Industry detail (required)" error={fieldErrors.industryOther}>
+              <Field name="industryOther" label="Industry detail" required error={fieldErrors.industryOther}>
                 <input
                   className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   maxLength={80}
@@ -903,29 +940,50 @@ function Field({
   name,
   label,
   error,
+  hint,
+  required,
   children,
 }: {
   name: string
   label: string
   error?: string
+  hint?: string
+  /** When true, label shows a trailing ` *` and the control gets `aria-required`. */
+  required?: boolean
   children: ReactElement<Record<string, unknown>>
 }) {
+  const hintId = `${name}-hint`
   const errId = `${name}-error`
   const invalid = Boolean(error)
+  const describedByParts: string[] = []
+  if (hint) {
+    describedByParts.push(hintId)
+  }
+  if (invalid) {
+    describedByParts.push(errId)
+  }
+  const describedBy = describedByParts.length > 0 ? describedByParts.join(' ') : undefined
   const childProps = children.props as { className?: string }
   const childClass = childProps.className
   const child = cloneElement(children, {
     id: name,
     name,
     'aria-invalid': invalid ? true : undefined,
-    'aria-describedby': invalid ? errId : undefined,
+    'aria-describedby': describedBy,
+    'aria-required': required ? true : undefined,
     className: invalid ? [childClass, CONTROL_ERR_RING].filter(Boolean).join(' ') : childClass,
   } as Record<string, unknown>)
+  const labelText = required ? `${label} *` : label
   return (
     <div className="space-y-0">
       <label htmlFor={name} className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
+        {labelText}
       </label>
+      {hint ? (
+        <p id={hintId} className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">
+          {hint}
+        </p>
+      ) : null}
       {child}
       {error ? (
         <p id={errId} role="alert" className="mt-1.5 text-sm text-red-600 dark:text-red-400">

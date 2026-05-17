@@ -64,25 +64,76 @@ const TARGET_AUDIENCE = [
 const DETAIL_LEVEL = ['summary', 'medium', 'detailed'] as const
 
 const OUTPUT_FORMAT = ['phases_table', 'line_items', 'narrative'] as const
-export const CUSTOM_INTEGRATION_MAX_CHARS = 40
+export const CUSTOM_INTEGRATION_MIN_CHARS = 20
+export const CUSTOM_INTEGRATION_MAX_CHARS = 300
 export const CUSTOM_INTEGRATIONS_MESSAGE =
-  'Cada integración debe ocupar una línea y tener como máximo 40 caracteres.'
+  'Each non-empty line must be between 20 and 300 characters.'
 
-/** Required `<select>`: empty string until the user picks a value. */
+export function analyzeCustomIntegrationLineViolations(value: string): { tooShort: number[]; tooLong: number[] } {
+  const tooShort: number[] = []
+  const tooLong: number[] = []
+  const lines = value.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line.length === 0) {
+      continue
+    }
+    const lineNo = i + 1
+    if (line.length < CUSTOM_INTEGRATION_MIN_CHARS) {
+      tooShort.push(lineNo)
+    }
+    if (line.length > CUSTOM_INTEGRATION_MAX_CHARS) {
+      tooLong.push(lineNo)
+    }
+  }
+  return { tooShort, tooLong }
+}
 
-function requiredChoice<const T extends readonly string[]>(allowed: T, fieldLabel: string) {
+/** Lines (1-based) where a non-empty trimmed segment exceeds {@link CUSTOM_INTEGRATION_MAX_CHARS}. */
+export function findInvalidCustomIntegrationLines(value: string): number[] {
+  return analyzeCustomIntegrationLineViolations(value).tooLong
+}
+
+function formatLineNumberList(nums: number[]): string {
+  if (nums.length === 1) {
+    return String(nums[0])
+  }
+  if (nums.length === 2) {
+    return `${nums[0]} and ${nums[1]}`
+  }
+  return `${nums.slice(0, -1).join(', ')}, and ${nums[nums.length - 1]}`
+}
+
+function describeIntegrationLineViolations(tooShort: number[], tooLong: number[]): string {
+  const parts: string[] = []
+  if (tooLong.length > 0) {
+    const head = tooLong.length === 1 ? 'Line' : 'Lines'
+    parts.push(
+      `${head} ${formatLineNumberList(tooLong)} ${tooLong.length === 1 ? 'is' : 'are'} longer than ${CUSTOM_INTEGRATION_MAX_CHARS} characters.`,
+    )
+  }
+  if (tooShort.length > 0) {
+    const head = tooShort.length === 1 ? 'Line' : 'Lines'
+    parts.push(
+      `${head} ${formatLineNumberList(tooShort)} ${tooShort.length === 1 ? 'is' : 'are'} shorter than ${CUSTOM_INTEGRATION_MIN_CHARS} characters.`,
+    )
+  }
+  return parts.join(' ')
+}
+
+function requiredChoice<const T extends readonly string[]>(allowed: T) {
   return z.string().superRefine((val, ctx) => {
     if (val === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `${fieldLabel} is required`,
+        message: 'Required',
       })
       return
     }
     if (!(allowed as readonly string[]).includes(val)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Invalid ${fieldLabel}`,
+        message: 'Invalid selection',
       })
     }
   })
@@ -90,7 +141,7 @@ function requiredChoice<const T extends readonly string[]>(allowed: T, fieldLabe
 
 /** Optional `<select>` in “More details”: empty string means API default (`none` for preprocessing). */
 
-function optionalChoice<const T extends readonly string[]>(allowed: T, fieldLabel: string) {
+function optionalChoice<const T extends readonly string[]>(allowed: T) {
   return z.string().superRefine((val, ctx) => {
     if (val === '') {
       return
@@ -98,7 +149,7 @@ function optionalChoice<const T extends readonly string[]>(allowed: T, fieldLabe
     if (!(allowed as readonly string[]).includes(val)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Invalid ${fieldLabel}`,
+        message: 'Invalid selection',
       })
     }
   })
@@ -121,42 +172,34 @@ function nonEmptyLines(blob: string, maxLines?: number): string[] {
   return lines
 }
 
-export function findInvalidCustomIntegrationLines(value: string): number[] {
-  return value
-    .split('\n')
-    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter(({ line }) => line.length > CUSTOM_INTEGRATION_MAX_CHARS)
-    .map(({ lineNumber }) => lineNumber)
-}
-
 export const estimationFormSchema = z
   .object({
     projectName: z.string(),
     projectSummary: z.string().min(20).max(200),
-    projectType: requiredChoice(PROJECT_TYPES, 'project_type'),
-    targetAudience: requiredChoice(TARGET_AUDIENCE, 'target_audience'),
+    projectType: requiredChoice(PROJECT_TYPES),
+    targetAudience: requiredChoice(TARGET_AUDIENCE),
     targetAudienceOther: z.string(),
     industry: z.string(),
     industryOther: z.string(),
     projectDescription: z.string().min(100).max(24_000),
     deliverablesText: z.string(),
     outOfScopeText: z.string(),
-    deliveryUrgency: requiredChoice(DELIVERY_URGENCY, 'delivery_urgency'),
+    deliveryUrgency: requiredChoice(DELIVERY_URGENCY),
     targetDate: z.string(),
     deliveryApproach: z.string(),
     integrationCategories: z.array(z.enum(INTEGRATION_CATEGORIES)),
     integrationCustomText: z.string(),
-    dataSensitivity: requiredChoice(DATA_SENSITIVITY, 'data_sensitivity'),
+    dataSensitivity: requiredChoice(DATA_SENSITIVITY),
     hostingConstraints: z.array(z.enum(HOSTING_CONSTRAINTS)),
     hostingNotes: z.string(),
     teamContext: z.string(),
     uiLanguages: z.array(z.enum(UI_LANGUAGES)).max(3),
     riskLevel: z.string(),
     externalDependenciesText: z.string(),
-    detailLevel: requiredChoice(DETAIL_LEVEL, 'detail_level'),
-    outputFormat: requiredChoice(OUTPUT_FORMAT, 'output_format'),
+    detailLevel: requiredChoice(DETAIL_LEVEL),
+    outputFormat: requiredChoice(OUTPUT_FORMAT),
     attachments: z.array(attachmentSchema).max(3),
-    preprocessing: optionalChoice(PREPROCESSING, 'preprocessing'),
+    preprocessing: optionalChoice(PREPROCESSING),
     evaluate: z.boolean(),
   })
   .superRefine((val, ctx) => {
@@ -164,7 +207,7 @@ export const estimationFormSchema = z
     if (deliverables.length < 3 || deliverables.length > 8) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'deliverables must contain between 3 and 8 non-empty lines',
+        message: 'Deliverables must have between 3 and 8 non-empty lines (one per line).',
         path: ['deliverablesText'],
       })
     }
@@ -172,7 +215,7 @@ export const estimationFormSchema = z
       if (line.length > 80) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'each deliverable must be at most 80 characters',
+          message: 'Each deliverable line must be at most 80 characters.',
           path: ['deliverablesText'],
         })
         break
@@ -181,14 +224,14 @@ export const estimationFormSchema = z
     if (val.targetAudience === 'other' && !val.targetAudienceOther.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'target_audience_other is required when target_audience is other',
+        message: 'Audience detail is required when audience is "other".',
         path: ['targetAudienceOther'],
       })
     }
     if (val.industry === 'other' && !val.industryOther.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'industry_other is required when industry is other',
+        message: 'Industry detail is required when industry is "other".',
         path: ['industryOther'],
       })
     }
@@ -198,14 +241,16 @@ export const estimationFormSchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'target_date is required when delivery_urgency is fixed_date or critical',
+        message: 'Target date is required for this urgency level.',
         path: ['targetDate'],
       })
     }
-    if (findInvalidCustomIntegrationLines(val.integrationCustomText).length > 0) {
+    const { tooShort, tooLong } = analyzeCustomIntegrationLineViolations(val.integrationCustomText)
+    if (tooShort.length > 0 || tooLong.length > 0) {
+      const detail = describeIntegrationLineViolations(tooShort, tooLong)
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: CUSTOM_INTEGRATIONS_MESSAGE,
+        message: `${CUSTOM_INTEGRATIONS_MESSAGE} ${detail}`.trim(),
         path: ['integrationCustomText'],
       })
     }

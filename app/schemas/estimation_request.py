@@ -30,7 +30,8 @@ _DELIVERABLES_MIN = 3
 _DELIVERABLES_MAX = 8
 _OUT_OF_SCOPE_MAX_ITEMS = 5
 _INTEGRATION_CUSTOM_MAX_ITEMS = 3
-_INTEGRATION_CUSTOM_MAX_LEN = 40
+_INTEGRATION_CUSTOM_MIN_LEN = 20
+_INTEGRATION_CUSTOM_MAX_LEN = 300
 _EXTERNAL_DEP_MAX_ITEMS = 3
 _EXTERNAL_DEP_MAX_LEN = 100
 _HOSTING_NOTES_MAX = 200
@@ -332,6 +333,10 @@ class EstimationRequest(BaseModel):
             s = item.strip()
             if not s:
                 raise ValueError("integration_custom_names items must not be empty after trim")
+            if len(s) < _INTEGRATION_CUSTOM_MIN_LEN:
+                raise ValueError(
+                    f"each integration_custom_names entry must be at least {_INTEGRATION_CUSTOM_MIN_LEN} characters after trim"
+                )
             if len(s) > _INTEGRATION_CUSTOM_MAX_LEN:
                 raise ValueError(
                     f"each integration_custom_names entry must be at most {_INTEGRATION_CUSTOM_MAX_LEN} characters"
