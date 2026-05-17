@@ -739,6 +739,7 @@ class EstimationService:
         try:
             domain_result, raw_usage, finish = await complete_structured(
                 litellm_model=litellm_model,
+                chain_provider=provider.name,
                 api_key=api_key,
                 timeout_seconds=timeout,
                 system_prompt=rendered.system_prompt,

@@ -1223,6 +1223,8 @@ When export is off or keys are missing, a **noop adapter** runs the same code pa
 
 **Out of scope in this slice:** v1 routes, embedding observations for semantic cache, automatic LiteLLM SDK instrumentation, full prompt/response capture in prod (defaults off), corporate OTLP collector path.
 
+**Follow-up (2026-05-17):** v2 structured completions use `complete_structured` (Instructor), not `acomplete_chat`. Generations are recorded as `estimator.llm.structured_output` with `usage_details` and optional `cost_details` (model id normalized for `estimate_cost_usd`, e.g. `openai/gpt-4o-mini` → `gpt-4o-mini`).
+
 ### Technical layout
 
 | Module | Role |
@@ -1281,3 +1283,4 @@ Send `POST /api/v2/estimate` with `X-Session-Id: <your-session>`. In Langfuse EU
 | Commit | Summary |
 | --- | --- |
 | `c2465b5` | Slice 1 (steps 1–8): Langfuse adapter, settings, bootstrap, LLM generations, v2 HTTP trace; feature-014 spec + learnings log. |
+| _(pending)_ | Structured v2 path: `estimator.llm.structured_output` with usage/cost; model id normalization for cost estimate. |

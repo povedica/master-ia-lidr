@@ -25,17 +25,12 @@ from app.services.observability.llm_instrumentation import (
     LLM_GENERATION_NAME,
     complete_llm_generation,
     generation_metadata_for_litellm,
+    infer_llm_vendor,
 )
 
 logger = logging.getLogger(__name__)
 
 litellm.suppress_debug_info = True
-
-
-def _infer_llm_vendor(litellm_model: str) -> str:
-    if "/" not in litellm_model:
-        return "unknown"
-    return litellm_model.split("/", 1)[0]
 
 
 def _normalize_text_content(raw: Any) -> str:
@@ -184,7 +179,7 @@ async def acomplete_chat(
     if not trimmed_user:
         raise ProviderInvalidResponseError("User message content is empty.")
 
-    vendor = _infer_llm_vendor(litellm_model)
+    vendor = infer_llm_vendor(litellm_model)
     logger.info(
         "llm_request_started",
         extra={
@@ -359,7 +354,7 @@ async def astream_chat(
     if not trimmed_user:
         raise ProviderInvalidResponseError("User message content is empty.")
 
-    vendor = _infer_llm_vendor(litellm_model)
+    vendor = infer_llm_vendor(litellm_model)
     logger.info(
         "llm_stream_started",
         extra={
