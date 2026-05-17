@@ -31,7 +31,7 @@ from app.services.estimation_prompt_rendering import (
     render_two_phase_extraction_system_prompt,
 )
 from app.services.prompt_renderer import PromptRenderer
-from app.services.prompt_versions import mode_partial_template_path, resolve_prompt_template_set
+from app.services.prompt_versions import resolve_prompt_template_set
 from app.services.llm_chain import LitellmChainProvider
 from app.services.structured_llm_client import (
     StructuredCompletionError,
@@ -136,8 +136,12 @@ def build_system_prompt(
     template_set = resolve_prompt_template_set("estimation", version)
     renderer = PromptRenderer()
     system_preamble = renderer.render_partial(
-        mode_partial_template_path(template_set, mode),
-        {},
+        template_set.system_instructions_template,
+        {
+            "estimation_mode": mode.value,
+            "detail_level": "medium",
+            "output_format": "phases_table",
+        },
     )
     parts: list[str] = [system_preamble]
     if inline_cleaning:

@@ -198,7 +198,6 @@ proyectos/estimador-cag/
 │   │   │   ├── professional/
 │   │   │   └── standard/
 │   │   │       └── *.txt
-│   │   ├── prompt_loader.py
 │   │   └── prompts/
 │   │       ├── basic.txt
 │   │       ├── standard.txt
@@ -246,7 +245,7 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
-| `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
+| `app/prompts/estimation/v2/partials/system_instructions.md.j2` | Single system preamble for all adaptive modes (routing metadata in template context). |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
@@ -600,7 +599,8 @@ Current coverage:
 - `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
 - `tests/test_examples.py`: example pool loading and sampling behavior.
 - `tests/test_estimation_engine.py`: adaptive routing and guardrails.
-- `tests/test_prompt_loader.py`: mode prompt file loading.
+- `tests/test_prompt_loader.py`: unified system instructions partial.
+- `tests/test_system_instructions_template.py`: v2 bundle has no `partials/modes/`.
 - `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.
 - `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence.
 

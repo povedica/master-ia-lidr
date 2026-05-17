@@ -8,7 +8,7 @@ from app.services.estimation_engine import EstimationMode
 from app.services.prompt_context import build_prompt_render_context
 from app.services.prompt_exceptions import PromptRenderError
 from app.services.prompt_renderer import PromptRenderer
-from app.services.prompt_versions import mode_partial_template_path, resolve_prompt_template_set
+from app.services.prompt_versions import resolve_prompt_template_set
 from tests.estimation_fixtures import minimal_estimation_request_dict
 
 
@@ -31,14 +31,14 @@ def test_renderer_produces_non_empty_prompts_v2() -> None:
     out = renderer.render(ts, ctx, examples_version="test-examples-v2")
     assert "phases_table" in out.user_prompt
     assert out.prompt_version == "estimation/v2"
-    assert "STANDARD mode" in out.system_prompt or "standard" in out.system_prompt.lower()
+    assert "estimation profile (routing): standard" in out.system_prompt.lower()
 
 
 def test_strict_undefined_raises_on_missing_key() -> None:
     ts = resolve_prompt_template_set("estimation", "v2")
     renderer = PromptRenderer()
     bad_ctx = {
-        "mode_partial_template": mode_partial_template_path(ts, EstimationMode.BASIC),
+        "system_instructions_template": ts.system_instructions_template,
         "inline_cleaning_block": "",
         "examples": [],
     }

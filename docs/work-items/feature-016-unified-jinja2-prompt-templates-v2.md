@@ -224,9 +224,9 @@ EstimationRequest (validated)
 ## Acceptance Criteria
 
 - [x] `app/prompts/estimation/v2/` exists with complete `manifest.toml` and Markdown Jinja templates for guided body, user, system, examples, preprocessing, and structured output hint.
-- [ ] **Single** `system_instructions` partial in v2; **no** `partials/modes/` directory required at runtime (follow-up after initial merge).
+- [x] **Single** `system_instructions` partial in v2; **no** `partials/modes/` directory required at runtime.
 - [x] No production code path concatenates guided-form Markdown in Python (except tests comparing parity).
-- [ ] No production path loads per-mode system prose from `.txt` or from four separate Jinja mode files.
+- [x] No production path loads per-mode system prose from `.txt` or from four separate Jinja mode files.
 - [x] `render_estimation_prompt()` produces identical structure to today on agreed golden fixtures when `version=v2` (parity test or approved diff).
 - [x] `render_assessment_surface()` and `render_guided_user_message()` use the same v2 templates and version selector.
 - [x] `StrictUndefined` fails tests when a required context key is removed.
@@ -270,7 +270,7 @@ EstimationRequest (validated)
 - [x] Step 1: v2 bundle skeleton + `resolve_prompt_bundle_version()` + default `v2`
 - [x] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
 - [x] Step 3: Mode partials + `system.j2` / examples wiring _(superseded: collapse to single `system_instructions` — follow-up)_
-- [ ] Step 8 (follow-up): Replace `partials/modes/*.md.j2` with `system_instructions.md.j2`; remove `mode_partial_template` / `load_mode_prompt` usage
+- [x] Step 8 (follow-up): Replace `partials/modes/*.md.j2` with `system_instructions.md.j2`; remove `mode_partial_template` / `load_mode_prompt` usage
 - [ ] Step 9 (follow-up): Remove **`FORCED_ESTIMATION_MODE`** from env/docs/config/service (document-only decision in this work item until implemented)
 - [x] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
 - [x] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
@@ -323,15 +323,16 @@ EstimationRequest (validated)
 - **Residual risk:**
   - Breaking change for operators expecting empty env = v1; documented in `.env.example` and technical README.
   - Legacy `build_system_prompt()` still assembles examples in Python (no structured-output hint); v2 API uses full Jinja `system.j2`.
-  - **Follow-up:** branch still has `partials/modes/*.md.j2` and `mode_partial_template` — spec now targets one `system_instructions` partial; `app/context/prompts/*.txt` should be removed once unified.
+  - Unified `system_instructions.md.j2` shipped; static fallback infers mode from routing metadata line.
 
 ## Open questions
 
-- **Merge strategy for four legacy mode bodies:** one-shot union into `system_instructions.md.j2`, or a shorter net-new instruction set with `detail_level` / `output_format` conditionals only?
+- ~~Merge strategy for four legacy mode bodies~~ — resolved: net-new unified instructions based on standard template + `detail_level` / `output_format` / `estimation_mode` routing metadata.
 - **Structured v2 output shape:** confirm a single system preamble still satisfies `validate_mode_output` / Instructor schema for all `EstimationMode` values, or narrow validation when prompts unify.
 
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
 | ---------- | ------- | --------------- |
-| _pending_ | | |
+| _(see branch PR #12)_ | Multiple commits | v2 bundle, version resolution, unified renders, workflow docs, system_instructions follow-up |
+| _pending_ | | Step 9 FORCED_ESTIMATION_MODE removal when explicitly scheduled |

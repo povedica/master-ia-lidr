@@ -11,7 +11,7 @@ Edit templates here only. After changes, run from repo root:
 - `system.j2` / `user.j2` / `examples.j2` — main LLM prompts
 - `partials/guided_request.md.j2` — guided form Markdown body
 - `partials/assessment_surface.md.j2` — narrow guardrail/mode surface (no section headers)
-- `partials/modes/*.md.j2` — per-mode system instructions
+- `partials/system_instructions.md.j2` — single system preamble (routing metadata only; not four mode files)
 - `partials/preprocessing/` — inline cleaning and two-phase extraction system text
 
 Use Jinja conditionals on context **flags** from Python (`has_attachments`, `has_out_of_scope`, etc.). Do not embed business rules as Python string concatenation.

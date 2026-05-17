@@ -36,7 +36,7 @@ def test_build_system_prompt_includes_both_example_summaries() -> None:
     assert "Reference estimation examples" in prompt
     assert "Historical standard estimation sample" in prompt
     assert "Example 1 — meeting summary" in prompt
-    assert "standard mode" in prompt.lower()
+    assert "estimation profile (routing): standard" in prompt.lower()
     assert "practical estimation" in prompt.lower()
     assert "simulated role rate card" in prompt.lower()
 

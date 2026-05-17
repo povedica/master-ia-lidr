@@ -171,19 +171,24 @@ _EXPERT_BUDGET = (
 
 
 def _infer_mode_from_system_prompt(system_prompt: str) -> EstimationMode:
-    """Recover estimation mode from the composed system prompt (mode fragment is always first)."""
+    """Recover estimation mode from routing metadata or legacy mode markers in the system prompt."""
 
     head = system_prompt[:4000].lower()
+    marker = "estimation profile (routing):"
+    if marker in head:
+        tail = head.split(marker, 1)[1].strip().split("\n", 1)[0].strip()
+        try:
+            return EstimationMode(tail)
+        except ValueError:
+            pass
     if "expert review" in head and "principal software architect" in head:
         return EstimationMode.EXPERT_REVIEW
     if "professional mode" in head:
         return EstimationMode.PROFESSIONAL
-    if "operating in basic mode" in head:
+    if "operating in basic mode" in head or "basic mode" in head:
         return EstimationMode.BASIC
     if "standard mode" in head:
         return EstimationMode.STANDARD
-    if "basic mode" in head:
-        return EstimationMode.BASIC
     return EstimationMode.STANDARD
 
 

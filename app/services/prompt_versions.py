@@ -7,15 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import Settings
-from app.services.estimation_engine import EstimationMode
 from app.services.prompt_exceptions import PromptTemplateNotFound, PromptVersionError
 
 _APP_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_ROOT = _APP_DIR / "prompts"
 
 DEFAULT_PROMPT_VERSIONS: dict[str, str] = {"estimation": "v2"}
-
-_MODE_PARTIAL_BASENAMES: tuple[str, ...] = tuple(m.value for m in EstimationMode)
 
 
 @dataclass(frozen=True)
@@ -29,6 +26,7 @@ class PromptTemplateSet:
     user_template: str
     examples_template: str
     guided_request_template: str
+    system_instructions_template: str
     assessment_surface_template: str
     structured_output_hint_template: str
     inline_cleaning_template: str
@@ -89,6 +87,7 @@ def resolve_prompt_template_set(
         user_t = str(raw["user_template"])
         examples_t = str(raw["examples_template"])
         guided_t = str(raw["guided_request_template"])
+        system_inst_t = str(raw["system_instructions_template"])
         assessment_t = str(raw["assessment_surface_template"])
         hint_t = str(raw["structured_output_hint_template"])
         inline_t = str(raw["inline_cleaning_template"])
@@ -107,16 +106,13 @@ def resolve_prompt_template_set(
         user_t,
         examples_t,
         guided_t,
+        system_inst_t,
         assessment_t,
         hint_t,
         inline_t,
         extraction_t,
     ):
         _require_file(root_base, rel + name)
-
-    for mode_name in _MODE_PARTIAL_BASENAMES:
-        mode_rel = f"{rel}partials/modes/{mode_name}.md.j2"
-        _require_file(root_base, mode_rel)
 
     return PromptTemplateSet(
         use_case=use_case,
@@ -126,14 +122,9 @@ def resolve_prompt_template_set(
         user_template=_rel_template(use_case, version, user_t),
         examples_template=_rel_template(use_case, version, examples_t),
         guided_request_template=_rel_template(use_case, version, guided_t),
+        system_instructions_template=_rel_template(use_case, version, system_inst_t),
         assessment_surface_template=_rel_template(use_case, version, assessment_t),
         structured_output_hint_template=_rel_template(use_case, version, hint_t),
         inline_cleaning_template=_rel_template(use_case, version, inline_t),
         two_phase_extraction_system_template=_rel_template(use_case, version, extraction_t),
     )
-
-
-def mode_partial_template_path(template_set: PromptTemplateSet, mode: EstimationMode) -> str:
-    """Relative template path for a mode fragment under ``app/prompts``."""
-
-    return f"{template_set.use_case}/{template_set.version}/partials/modes/{mode.value}.md.j2"

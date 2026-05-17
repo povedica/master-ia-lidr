@@ -10,11 +10,7 @@ from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest, Industry, TargetAudience
 from app.services.estimation_engine import EstimationMode
 from app.services.prompt_renderer import PromptRenderer
-from app.services.prompt_versions import (
-    PromptTemplateSet,
-    mode_partial_template_path,
-    resolve_prompt_template_set,
-)
+from app.services.prompt_versions import PromptTemplateSet, resolve_prompt_template_set
 
 
 def decode_attachment_notes(request: EstimationRequest) -> list[str]:
@@ -125,7 +121,8 @@ def build_prompt_render_context(
     ex_list = [ex.model_dump(mode="json") for ex in examples]
     ctx.update(
         {
-            "mode_partial_template": mode_partial_template_path(template_set, mode),
+            "estimation_mode": mode.value,
+            "system_instructions_template": template_set.system_instructions_template,
             "inline_cleaning_block": inline_cleaning_block,
             "examples": ex_list,
             "schema_version": schema_version,
