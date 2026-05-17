@@ -268,7 +268,7 @@ EstimationRequest (validated)
 - [ ] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
 - [ ] Step 7: Specialist docs (`docs/technical/README.md`, `.env.example`, optional `v2/README.md`)
 
-**WIP PR:** _pending after branch push_
+**WIP PR:** https://github.com/povedica/master-ia-lidr/pull/12
 
 ## Baby steps (implementation order)
 
