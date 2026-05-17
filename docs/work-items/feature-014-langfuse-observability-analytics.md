@@ -1283,4 +1283,4 @@ Send `POST /api/v2/estimate` with `X-Session-Id: <your-session>`. In Langfuse EU
 | Commit | Summary |
 | --- | --- |
 | `c2465b5` | Slice 1 (steps 1–8): Langfuse adapter, settings, bootstrap, LLM generations, v2 HTTP trace; feature-014 spec + learnings log. |
-| _(pending)_ | Structured v2 path: `estimator.llm.structured_output` with usage/cost; model id normalization for cost estimate. |
+| `cbe07c7` | Structured v2 path: `estimator.llm.structured_output` with usage/cost; model id normalization for cost estimate. |
