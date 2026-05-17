@@ -27,14 +27,14 @@ from app.services.estimation_engine import (
     evaluate_mode_eligibility,
     summarize_assessment,
 )
-from app.services.estimation_request_render import render_estimation_user_message
+from app.services.estimation_prompt_rendering import render_guided_user_message
 from app.services.llm_service import (
     EXAMPLES_VERSION,
     EstimationError,
     EstimationService,
     StructuredEstimateBundle,
 )
-from app.services.prompt_versions import resolve_prompt_template_set
+from app.services.prompt_versions import resolve_prompt_bundle_version, resolve_prompt_template_set
 from app.services.semantic_cache.bucket import (
     build_semantic_cache_bucket,
     build_vector_text_surface,
@@ -96,7 +96,7 @@ class LLMPipeline:
 
         audit_id = new_audit_id()
         started = perf_counter()
-        guided = render_estimation_user_message(request).strip()
+        guided = render_guided_user_message(request, settings=self._settings).strip()
         if not guided:
             return StructuredPipelineOutcome(
                 bundle=None,
@@ -180,8 +180,8 @@ class LLMPipeline:
                 assessment_surface=assessment_surface,
                 skip_domain_guardrail=True,
             )
-            version_override = self._settings.prompt_estimation_version.strip() or None
-            template_set = resolve_prompt_template_set("estimation", version_override)
+            bundle_version = resolve_prompt_bundle_version(self._settings)
+            template_set = resolve_prompt_template_set("estimation", bundle_version)
             prompt_version = f"{template_set.use_case}/{template_set.version}"
             examples_version = EXAMPLES_VERSION
             bucket = build_semantic_cache_bucket(

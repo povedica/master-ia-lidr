@@ -12,7 +12,6 @@ from uuid import uuid4
 
 from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
-from app.context.prompt_loader import load_mode_prompt
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_result import EstimationResult as DomainEstimationResult
 from app.services.estimation_engine import (
@@ -26,9 +25,13 @@ from app.services.estimation_engine import (
     validate_mode_output,
 )
 from app.services.domain_guardrails import check_estimation_domain
-from app.services.estimation_prompt_rendering import render_estimation_prompt
-from app.services.estimation_request_render import render_estimation_user_message
-from app.services.inline_cleaning_prompt import INLINE_CLEANING_BLOCK
+from app.services.estimation_prompt_rendering import (
+    render_estimation_prompt,
+    render_guided_user_message,
+    render_two_phase_extraction_system_prompt,
+)
+from app.services.prompt_renderer import PromptRenderer
+from app.services.prompt_versions import mode_partial_template_path, resolve_prompt_template_set
 from app.services.llm_chain import LitellmChainProvider
 from app.services.structured_llm_client import (
     StructuredCompletionError,
@@ -48,14 +51,6 @@ PROMPT_VERSION = "v7-guided-input"
 EXAMPLES_VERSION = "file-mode-v4-estimator-layout"
 
 _EXTRACTION_MAX_TOKENS = 1500
-
-EXTRACTION_SYSTEM_PROMPT = (
-    "You are an analyst. Read the meeting transcription and produce a clean, "
-    "deduplicated bullet list of functional requirements, non-functional "
-    "requirements, integrations, constraints and explicit deadlines. Ignore "
-    "fillers, divagations and off-topic remarks. Output Markdown only."
-)
-
 
 class EstimationError(Exception):
     """Raised when an estimate cannot be produced; message is safe for clients."""
@@ -134,14 +129,20 @@ def build_system_prompt(
     mode: EstimationMode,
     *,
     inline_cleaning: bool = False,
+    version: str | None = None,
 ) -> str:
-    """Compose the system message: full mode-specific instructions plus static few-shot examples."""
+    """Compose the system message: mode Jinja partial plus static few-shot examples."""
 
-    system_preamble = load_mode_prompt(mode).strip()
-    cleaning = INLINE_CLEANING_BLOCK if inline_cleaning else ""
+    template_set = resolve_prompt_template_set("estimation", version)
+    renderer = PromptRenderer()
+    system_preamble = renderer.render_partial(
+        mode_partial_template_path(template_set, mode),
+        {},
+    )
     parts: list[str] = [system_preamble]
-    if cleaning:
-        parts.append("\n\n" + cleaning)
+    if inline_cleaning:
+        block = renderer.render_partial(template_set.inline_cleaning_template, {})
+        parts.append("\n\n" + block)
     parts.append("\n\n## Reference estimation examples\n")
     for index, example in enumerate(examples, start=1):
         parts.append(f"\n### Example {index} — meeting summary\n{example.meeting_summary}\n")
@@ -469,7 +470,9 @@ class EstimationService:
                 continue
             try:
                 res = await provider.complete(
-                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                    system_prompt=render_two_phase_extraction_system_prompt(
+                        settings=self._settings,
+                    ),
                     user_prompt=transcription,
                     max_output_tokens=cap,
                 )
@@ -635,7 +638,7 @@ class EstimationService:
         *,
         skip_domain_guardrail: bool = False,
     ) -> _StructuredPrelude:
-        guided = render_estimation_user_message(request).strip()
+        guided = render_guided_user_message(request, settings=self._settings).strip()
         if not guided:
             raise EstimationError("Transcription must not be empty.")
 
@@ -734,6 +737,7 @@ class EstimationService:
             preprocessed_requirements=prelude.preprocessed_markdown_for_template,
             version=version_override,
             examples_version=EXAMPLES_VERSION,
+            settings=self._settings,
         )
         litellm_model, api_key, timeout = provider.litellm_route()
         try:

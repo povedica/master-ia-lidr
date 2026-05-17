@@ -55,7 +55,10 @@ class Settings(BaseSettings):
     structured_output_max_attempts: int = Field(default=3, ge=1, le=10)
     prompt_estimation_version: str = Field(
         default="",
-        description="Optional prompt bundle version directory under app/prompts/estimation/ (e.g. v1).",
+        description=(
+            "Optional prompt bundle under app/prompts/estimation/ (e.g. v1). "
+            "Empty uses v2 (default)."
+        ),
     )
     # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.
     estimation_basic_output_tokens_max: int = Field(default=1024, ge=1)
