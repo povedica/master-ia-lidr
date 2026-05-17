@@ -10,6 +10,13 @@ from litellm import acompletion
 from pydantic import BaseModel, ValidationError
 
 from app.services.llm_types import UsageInfo
+from app.services.observability.bootstrap import get_observability
+from app.services.observability.llm_instrumentation import (
+    STRUCTURED_LLM_GENERATION_NAME,
+    complete_llm_generation,
+    generation_metadata_for_litellm,
+    infer_llm_vendor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +46,18 @@ def _usage_from_raw(raw: object | None) -> UsageInfo | None:
     )
 
 
+def _resolved_model(raw_completion: object | None, litellm_model: str) -> str:
+    if raw_completion is not None:
+        model = getattr(raw_completion, "model", None)
+        if model:
+            return str(model)
+    return litellm_model
+
+
 async def complete_structured(
     *,
     litellm_model: str,
+    chain_provider: str,
     api_key: str,
     timeout_seconds: float,
     system_prompt: str,
@@ -55,20 +71,60 @@ async def complete_structured(
     # Do not pass max_retries here: Instructor forwards it into LiteLLM's ``acompletion``,
     # which then collides with Instructor's own kwargs (``TypeError: multiple values for max_retries``).
     client = instructor.from_litellm(acompletion)
+    observability = get_observability()
+    vendor = infer_llm_vendor(litellm_model)
     last_exc: BaseException | None = None
     for attempt in range(max(1, max_attempts)):
-        try:
-            parsed, raw_completion = await client.chat.completions.create_with_completion(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_model=response_model,
-                model=litellm_model,
-                max_tokens=max_output_tokens,
-                api_key=api_key,
-                timeout=timeout_seconds,
-            )
+        with observability.start_generation(
+            STRUCTURED_LLM_GENERATION_NAME,
+            model=litellm_model,
+            metadata={
+                **generation_metadata_for_litellm(
+                    chain_provider=chain_provider,
+                    litellm_model=litellm_model,
+                    llm_vendor=vendor,
+                ),
+                "attempt": str(attempt + 1),
+                "max_attempts": str(max_attempts),
+            },
+        ):
+            try:
+                parsed, raw_completion = await client.chat.completions.create_with_completion(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_model=response_model,
+                    model=litellm_model,
+                    max_tokens=max_output_tokens,
+                    api_key=api_key,
+                    timeout=timeout_seconds,
+                )
+            except ValidationError as exc:
+                observability.record_error(exc)
+                last_exc = exc
+                logger.warning(
+                    "structured_output_validation_failed",
+                    extra={
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                continue
+            except Exception as exc:  # noqa: BLE001 — map last failure for operator visibility
+                observability.record_error(exc)
+                last_exc = exc
+                logger.warning(
+                    "structured_output_call_failed",
+                    extra={
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                continue
+
             usage = _usage_from_raw(raw_completion)
             finish = None
             if raw_completion is not None and hasattr(raw_completion, "choices") and raw_completion.choices:
@@ -76,27 +132,15 @@ async def complete_structured(
                 fr = getattr(ch0, "finish_reason", None)
                 if isinstance(fr, str):
                     finish = fr
+            resolved_model = _resolved_model(raw_completion, litellm_model)
+            complete_llm_generation(
+                observability,
+                resolved_model=resolved_model,
+                usage=usage,
+                finish_reason=finish or "stop",
+                output_text=parsed.model_dump_json(),
+            )
             return parsed, usage, finish
-        except ValidationError as exc:
-            last_exc = exc
-            logger.warning(
-                "structured_output_validation_failed",
-                extra={
-                    "attempt": attempt + 1,
-                    "max_attempts": max_attempts,
-                    "error_type": type(exc).__name__,
-                },
-            )
-        except Exception as exc:  # noqa: BLE001 — map last failure for operator visibility
-            last_exc = exc
-            logger.warning(
-                "structured_output_call_failed",
-                extra={
-                    "attempt": attempt + 1,
-                    "max_attempts": max_attempts,
-                    "error_type": type(exc).__name__,
-                },
-            )
 
     raise StructuredCompletionError(
         "The model did not return a response matching the required schema."

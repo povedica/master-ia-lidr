@@ -8,7 +8,7 @@ from time import perf_counter
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.guardrails.exceptions import GuardrailViolationError
@@ -25,9 +25,14 @@ from app.services.estimation_v2_response_builder import assemble_estimation_v2_r
 from app.services.estimate_response_builder import estimate_cost_usd
 from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import (
+    EXAMPLES_VERSION,
+    PROMPT_VERSION,
     EstimationService,
     LlmEstimationCallOutcome,
 )
+from app.services.observability.bootstrap import get_observability
+from app.services.observability.session import resolve_session_id
+from app.services.observability.types import TelemetryContext
 from app.services.response_output_writer import (
     ResponseOutputPersistError,
     persist_estimation_json,
@@ -35,6 +40,8 @@ from app.services.response_output_writer import (
 
 router = APIRouter(tags=["estimations-v2"])
 logger = logging.getLogger(__name__)
+
+V2_ESTIMATE_TRACE_NAME = "estimator.api.v2.estimate"
 
 
 def get_estimation_service(
@@ -50,6 +57,7 @@ def get_estimation_service(
 )
 async def create_estimate_structured(
     body: EstimationRequest,
+    request: Request,
     service: Annotated[EstimationService, Depends(get_estimation_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EstimationResponse:
@@ -57,23 +65,65 @@ async def create_estimate_structured(
 
     start = perf_counter()
     request_id = f"est_{uuid4().hex[:12]}"
+    session_id = resolve_session_id(request)
+    observability = get_observability()
+    observability.set_prompt_context(
+        prompt_version=PROMPT_VERSION,
+        examples_version=EXAMPLES_VERSION,
+    )
+    trace_context = TelemetryContext(
+        request_id=request_id,
+        feature="estimation",
+        session_id=session_id,
+        tags=["feature:estimation", "endpoint:api_v2_estimate"],
+        metadata={
+            "prompt_version": PROMPT_VERSION,
+            "examples_version": EXAMPLES_VERSION,
+        },
+    )
+
+    with observability.start_trace(V2_ESTIMATE_TRACE_NAME, context=trace_context):
+        try:
+            return await _execute_v2_estimate(
+                body=body,
+                service=service,
+                settings=settings,
+                request_id=request_id,
+                started_at_perf=start,
+            )
+        except HTTPException as exc:
+            observability.set_http_status(exc.status_code)
+            raise
+
+
+async def _execute_v2_estimate(
+    *,
+    body: EstimationRequest,
+    service: EstimationService,
+    settings: Settings,
+    request_id: str,
+    started_at_perf: float,
+) -> EstimationResponse:
     assessment_surface = render_estimation_assessment_surface(body)
     pipeline = LLMPipeline(service, settings)
-    try:
-        outcome = await pipeline.run_structured(
-            body,
-            assessment_surface=assessment_surface,
-            request_id=request_id,
-        )
-    except GuardrailViolationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={
-                "code": exc.reason_code,
-                "message": exc.user_message,
-                "audit_id": exc.audit_id,
-            },
-        ) from exc
+    observability = get_observability()
+
+    with observability.start_span("estimator.pipeline.structured"):
+        try:
+            outcome = await pipeline.run_structured(
+                body,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+            )
+        except GuardrailViolationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": exc.reason_code,
+                    "message": exc.user_message,
+                    "audit_id": exc.audit_id,
+                },
+            ) from exc
 
     if outcome.bundle is None:
         raise HTTPException(
@@ -98,7 +148,7 @@ async def create_estimate_structured(
             ) from exc
 
     finished_at = datetime.now(UTC)
-    latency_ms = int((perf_counter() - start) * 1000)
+    latency_ms = int((perf_counter() - started_at_perf) * 1000)
 
     response = assemble_estimation_v2_response(
         bundle,
@@ -154,4 +204,5 @@ async def create_estimate_structured(
             estimated_cost_usd=cost,
         )
 
+    observability.set_http_status(status.HTTP_200_OK)
     return response

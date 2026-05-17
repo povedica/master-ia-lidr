@@ -1,5 +1,7 @@
 # Feature: Langfuse integration (LLM telemetry) — MVP phase
 
+> **Superseded by** [`feature-014-langfuse-observability-analytics.md`](feature-014-langfuse-observability-analytics.md) (2026-05-17). Keep this file for historical MVP scope; implement only against feature-014.
+
 ## Objective
 
 Integrate **Langfuse Cloud (EU region)** to **start sending LLM telemetry as soon as possible** (observable traces in Langfuse) with **minimal effort in phase 1**, without blocking later evolution toward **prompt versioning**, **evals**, and **operational dashboards**.

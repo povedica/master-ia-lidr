@@ -41,6 +41,7 @@ async def test_complete_structured_returns_validated_model() -> None:
         mock_inst.from_litellm.return_value = fake_client
         got, usage, finish = await complete_structured(
             litellm_model="openai/gpt-4o-mini",
+            chain_provider="openai",
             api_key="sk-test",
             timeout_seconds=5.0,
             system_prompt="sys",
@@ -71,6 +72,7 @@ async def test_complete_structured_raises_after_retries() -> None:
         with pytest.raises(StructuredCompletionError):
             await complete_structured(
                 litellm_model="openai/gpt-4o-mini",
+                chain_provider="openai",
                 api_key="sk-test",
                 timeout_seconds=5.0,
                 system_prompt="sys",
