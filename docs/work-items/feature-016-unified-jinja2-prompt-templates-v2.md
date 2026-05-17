@@ -252,6 +252,24 @@ EstimationRequest (validated)
 2. Specialist review: edit one line in `guided_request.md.j2`, re-run dump script, confirm diff only in guided section.
 3. One live estimate with default (v2) and one with `PROMPT_ESTIMATION_VERSION=v1` (optional, local only).
 
+## Estimation
+
+- Size: **L**
+- Estimated time: **4–6 hours** (7 focused steps)
+- Planned steps: **7**
+
+## Implementation progress
+
+- [ ] Step 1: v2 bundle skeleton + `resolve_prompt_bundle_version()` + default `v2`
+- [ ] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
+- [ ] Step 3: Mode partials + `system.j2` / examples wiring
+- [ ] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
+- [ ] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
+- [ ] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
+- [ ] Step 7: Specialist docs (`docs/technical/README.md`, `.env.example`, optional `v2/README.md`)
+
+**WIP PR:** _pending after branch push_
+
 ## Baby steps (implementation order)
 
 1. Add **`v2/`** tree + `manifest.toml` (canonical); port all templatable content from Python / legacy `v1` / `.txt` modes.
