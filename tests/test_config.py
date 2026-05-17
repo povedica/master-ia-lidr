@@ -1,6 +1,7 @@
 """Settings loading tests."""
 
 import pytest
+from pydantic import ValidationError
 
 import app.config as app_config
 from app.config import Settings, get_settings
