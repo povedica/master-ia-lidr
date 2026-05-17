@@ -218,17 +218,17 @@ EstimationRequest (validated)
 
 ## Acceptance Criteria
 
-- [ ] `app/prompts/estimation/v2/` exists with complete `manifest.toml` and Markdown Jinja templates for guided body, modes, user, system, examples, preprocessing, and structured output hint.
-- [ ] No production code path concatenates guided-form Markdown or mode instructions in Python (except tests comparing parity).
-- [ ] `render_estimation_prompt()` produces identical structure to today on agreed golden fixtures when `version=v2` (parity test or approved diff).
-- [ ] `render_assessment_surface()` and `render_guided_user_message()` use the same v2 templates and version selector.
-- [ ] `StrictUndefined` fails tests when a required context key is removed.
-- [ ] Semantic cache bucket / vector text uses rendered strings from the same functions as the LLM path.
-- [ ] `docs/technical/README.md` documents context keys for prompt specialists and how to add a partial safely.
-- [ ] `DEFAULT_PROMPT_VERSIONS["estimation"]` is **`v2`**; empty `PROMPT_ESTIMATION_VERSION` resolves to v2 in all code paths.
-- [ ] `v1/` exists as a **copy of `v2/`** with `manifest.toml` version label `v1`; sync test or script documented.
-- [ ] Setting `PROMPT_ESTIMATION_VERSION=v1` renders the same output as default v2 on golden fixtures.
-- [ ] `resolve_prompt_bundle_version()` is the single resolution point (ready for future non-env config).
+- [x] `app/prompts/estimation/v2/` exists with complete `manifest.toml` and Markdown Jinja templates for guided body, modes, user, system, examples, preprocessing, and structured output hint.
+- [x] No production code path concatenates guided-form Markdown or mode instructions in Python (except tests comparing parity).
+- [x] `render_estimation_prompt()` produces identical structure to today on agreed golden fixtures when `version=v2` (parity test or approved diff).
+- [x] `render_assessment_surface()` and `render_guided_user_message()` use the same v2 templates and version selector.
+- [x] `StrictUndefined` fails tests when a required context key is removed.
+- [x] Semantic cache bucket / vector text uses rendered strings from the same functions as the LLM path.
+- [x] `docs/technical/README.md` documents context keys for prompt specialists and how to add a partial safely.
+- [x] `DEFAULT_PROMPT_VERSIONS["estimation"]` is **`v2`**; empty `PROMPT_ESTIMATION_VERSION` resolves to v2 in all code paths.
+- [x] `v1/` exists as a **copy of `v2/`** with `manifest.toml` version label `v1`; sync test or script documented.
+- [x] Setting `PROMPT_ESTIMATION_VERSION=v1` renders the same output as default v2 on golden fixtures.
+- [x] `resolve_prompt_bundle_version()` is the single resolution point (ready for future non-env config).
 
 ## Test Plan
 
@@ -260,13 +260,13 @@ EstimationRequest (validated)
 
 ## Implementation progress
 
-- [ ] Step 1: v2 bundle skeleton + `resolve_prompt_bundle_version()` + default `v2`
-- [ ] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
-- [ ] Step 3: Mode partials + `system.j2` / examples wiring
-- [ ] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
-- [ ] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
-- [ ] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
-- [ ] Step 7: Specialist docs (`docs/technical/README.md`, `.env.example`, optional `v2/README.md`)
+- [x] Step 1: v2 bundle skeleton + `resolve_prompt_bundle_version()` + default `v2`
+- [x] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
+- [x] Step 3: Mode partials + `system.j2` / examples wiring
+- [x] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
+- [x] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
+- [x] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
+- [x] Step 7: Specialist docs (`docs/technical/README.md`, `.env.example`, optional `v2/README.md`)
 
 **WIP PR:** https://github.com/povedica/master-ia-lidr/pull/12
 
@@ -303,11 +303,17 @@ EstimationRequest (validated)
 
 ## Verification
 
-_To be filled during implementation._
-
 - **Verified:**
+  - `uv run pytest` — 236 passed (bundle resolution, renderer StrictUndefined, guided/assessment parity v1≡v2, tree sync test, estimation prompt rendering).
+  - `scripts/sync-estimation-prompt-v1-from-v2.sh` copies `v2/` → `v1/` and sets manifest `version = "v1"`.
+  - Default empty `PROMPT_ESTIMATION_VERSION` resolves to `v2` via `resolve_prompt_bundle_version()`.
 - **Not verified:**
+  - Live LLM estimate with default v2 and with `PROMPT_ESTIMATION_VERSION=v1` (manual, requires API keys).
+  - Specialist dump script from Test Plan § Manual checks.
 - **Residual risk:**
+  - Breaking change for operators expecting empty env = v1; documented in `.env.example` and technical README.
+  - Legacy `build_system_prompt()` still assembles examples in Python (no structured-output hint); v2 API uses full Jinja `system.j2`.
+  - `app/context/prompts/*.txt` remain for `test_prompt_loader` only; estimation path uses Jinja mode partials.
 
 ## Repository commits (master-ia)
 

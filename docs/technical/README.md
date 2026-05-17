@@ -394,11 +394,19 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 
 **v2 outbound:** `POST /api/v2/estimate` returns **`EstimationResponse`** with **`result: EstimationResult`** (Pydantic domain model in `app/schemas/estimation_result.py`). The LLM JSON contract is enforced via **Instructor** on top of **LiteLLM** `acompletion` (`app/services/structured_llm_client.py`); schema is derived from the model, not duplicated as hand-written JSON files.
 
-**Prompts:** Jinja2 templates live under `app/prompts/estimation/<version>/` (default `v1`). Rendering is centralized in **`render_estimation_prompt()`** (`app/services/estimation_prompt_rendering.py`) with **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`.
+**Prompts:** Markdown + Jinja2 bundles live under `app/prompts/estimation/<version>/`. **`v2` is canonical** (edit files there only). **`v1` is a synced copy** for retrocompat (`scripts/sync-estimation-prompt-v1-from-v2.sh` after `v2/` changes). Default bundle when `PROMPT_ESTIMATION_VERSION` is empty: **`v2`** (`resolve_prompt_bundle_version()` in `app/services/prompt_versions.py`).
+
+| Entry point | Use |
+| --- | --- |
+| `render_estimation_prompt()` | Full system + user for LLM (`estimation_prompt_rendering.py`) |
+| `render_guided_user_message()` | Guided Markdown body (guardrails, cache, tests) |
+| `render_assessment_surface()` | Narrow text for domain guardrail + mode heuristics (no `##` headers) |
+
+Rendering uses **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`. Context keys are built in Python (`build_prompt_render_context()` in `prompt_context.py`); templates must not reference raw `EstimationRequest` fields.
 
 The browser UI uses this route with **`Accept: application/json`**; there is **no** v2 SSE surface. (v1 `POST /api/v1/estimate/stream` remains available for Markdown + SSE.)
 
-**Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
+**Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (`v2` when empty; set `v1` to pin the retrocompat bundle).
 
 ### Semantic cache (v2, optional)
 
