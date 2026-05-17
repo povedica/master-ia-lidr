@@ -269,6 +269,7 @@ EstimationRequest (validated)
 - [x] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
 - [x] Step 3: Mode partials + `system.j2` / examples wiring _(superseded: collapse to single `system_instructions` — follow-up)_
 - [ ] Step 8 (follow-up): Replace `partials/modes/*.md.j2` with `system_instructions.md.j2`; remove `mode_partial_template` / `load_mode_prompt` usage
+- [ ] Step 9 (follow-up): Remove **`FORCED_ESTIMATION_MODE`** from env/docs/config/service (document-only decision in this work item until implemented)
 - [x] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
 - [x] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
 - [x] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
