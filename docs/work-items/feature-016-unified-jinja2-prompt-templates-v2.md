@@ -6,7 +6,9 @@ Move **all templatable LLM-facing text** into a versioned **Markdown + Jinja2** 
 
 Python keeps **validation, orchestration, and context preparation** only. **`PromptRenderer` (or a thin `render_*` facade)** renders every artifact declared in `manifest.toml`.
 
-This closes the partial migration from `feature-011`: today `render_estimation_user_message()` in `app/services/estimation_request_render.py` and mode fragments in `app/context/prompts/*.txt` remain outside Jinja. After this feature, **no production path** builds prompt prose in `.py` files.
+This closes the partial migration from `feature-011`: today `render_estimation_user_message()` in `app/services/estimation_request_render.py` and legacy `app/context/prompts/*.txt` remain outside Jinja. After this feature, **no production path** builds prompt prose in `.py` files.
+
+**Spec revision (2026-05-17):** Per-mode system prompt files (`basic` / `standard` / `professional` / `expert_review`) are **no longer required** in the v2 bundle. Specialists maintain **one** system-instruction partial; `EstimationMode` stays a **runtime label** (token caps, few-shot example pool, output-structure checks) — not a switch between four prompt bodies. The first implementation slice on branch `feature/016-*` still ships `partials/modes/*.md.j2`; collapsing to a single partial is documented below as **follow-up** (see Scope, FR-01, Acceptance).
 
 **Why (prompt-specialist workflow):**
 
@@ -24,9 +26,9 @@ This closes the partial migration from `feature-011`: today `render_estimation_u
 | System + few-shot examples + JSON hint | `app/prompts/estimation/v1/*.j2` | `PromptRenderer` |
 | User wrapper (`detail_level`, `output_format`) | `v1/user.j2` | Jinja |
 | Guided form body (sections, attachments) | `app/services/estimation_request_render.py` | Python `parts.append(...)` |
-| Adaptive mode instructions | `app/context/prompts/{mode}.txt` | `load_mode_prompt()` |
+| Legacy per-mode system text (deprecated) | `app/context/prompts/{mode}.txt` | `load_mode_prompt()` — **remove**; not replaced by four Jinja mode files |
 | Two-phase extraction system prompt | `EXTRACTION_SYSTEM_PROMPT` constant in `llm_service.py` | Hardcoded string |
-| Assessment surface (guardrails / mode heuristics) | `render_estimation_assessment_surface()` | Python join |
+| Assessment surface (guardrails / adaptive routing input) | `render_estimation_assessment_surface()` | Python join → Jinja partial |
 
 **Consumers of guided / surface text:** `LLMPipeline`, `EstimationService.estimate_structured`, semantic cache vector surface, v1 routes, guardrails input phase.
 
@@ -40,11 +42,12 @@ This closes the partial migration from `feature-011`: today `render_estimation_u
 
 - New prompt bundle **`app/prompts/estimation/v2/`** with `manifest.toml` listing every template file (no hidden paths).
 - Migrate **`render_estimation_user_message`** content to Markdown Jinja (e.g. `partials/guided_request.md.j2` or top-level `guided_request.j2`).
-- Migrate **mode system fragments** from `app/context/prompts/*.txt` to Jinja partials under `v2/partials/modes/`.
+- Replace legacy per-mode `*.txt` system copy with **one** Jinja partial (e.g. `partials/system_instructions.md.j2`) included from `system.j2` — **not** four files under `partials/modes/`.
+- Drive depth/format expectations from **`EstimationRequest`** context (`detail_level`, `output_format`, flags) and/or a single instruction block, not from swapping `EstimationMode` template paths.
 - Migrate **two-phase extraction** system text to a versioned template.
 - Migrate **inline cleaning** block (today `INLINE_CLEANING_BLOCK` in Python) to a partial when `preprocessing == inline_cleaning`.
 - Unify **final user message** assembly in Jinja (guided body + detail/output preferences + optional preprocessing notes) so `v2/user.j2` is the single user prompt template, not a thin wrapper around Python Markdown.
-- Extend **`PromptTemplateSet` / manifest** to declare optional templates: `guided_request_template`, `assessment_surface_template`, `mode_fragment_template` pattern, `preprocessing_templates`, etc.
+- Extend **`PromptTemplateSet` / manifest** to declare optional templates: `guided_request_template`, `assessment_surface_template`, `system_instructions_template`, `preprocessing_templates`, etc. (no `mode_fragment_template` / per-mode manifest entries).
 - Extend **`build_estimation_prompt_context()`** (or `build_prompt_render_context()`) to expose a **stable, documented context schema** for specialists (field names, types, booleans for conditionals). Document the schema in `docs/technical/README.md`.
 - Keep **`render_estimation_prompt()`** as the **only** public render entry for estimation LLM calls; add **`render_guided_user_message()`** / **`render_assessment_surface()`** that delegate to the same renderer + version selector.
 - **Regression tests:** snapshot or golden files for **v2** renders; CI check that **`v1` bundle matches `v2`** (byte-identical templates or normalized render output on fixtures).
@@ -57,6 +60,8 @@ This closes the partial migration from `feature-011`: today `render_estimation_u
 
 ### Excludes
 
+- **Four parallel system prompts** keyed by `EstimationMode` (`partials/modes/*.md.j2` or revived `app/context/prompts/*.txt`).
+- Removing the **`EstimationMode`** enum or adaptive routing in `estimation_engine.py` (still used for tokens, examples, validation, API metadata).
 - Runtime prompt editor UI or database-backed prompt registry.
 - Changing **`EstimationRequest`** JSON fields or OpenAPI shape (unless documenting new optional context-only derived fields).
 - Replacing Instructor / LiteLLM / guardrail policy engine.
@@ -79,11 +84,7 @@ app/prompts/estimation/v2/
     ├── guided_request.md.j2      # full guided form → Markdown body
     ├── assessment_surface.md.j2  # narrow text for guardrails + mode (no ## headers)
     ├── structured_output_hint.md.j2
-    ├── modes/
-    │   ├── basic.md.j2
-    │   ├── standard.md.j2
-    │   ├── professional.md.j2
-    │   └── expert_review.md.j2
+    ├── system_instructions.md.j2   # single system preamble (no per-mode directory)
     └── preprocessing/
         ├── inline_cleaning.md.j2
         └── two_phase_extraction_system.md.j2
@@ -101,7 +102,7 @@ app/prompts/estimation/v2/
 
 `build_estimation_prompt_context()` (renamed or extended) must:
 
-1. Accept `EstimationRequest` + resolved `EstimationMode` + preprocessing mode.
+1. Accept `EstimationRequest` + preprocessing mode. Pass `EstimationMode` only when needed for **non-prompt** orchestration (examples loader, token cap metadata in logs); it must **not** select among multiple system template files.
 2. Decode attachments in Python; pass **structured lists** into templates (`attachment_notes`, never raw base64 in Jinja logic).
 3. Resolve enum display strings and `other` free-text suffixes in Python **or** via small Jinja filters registered once on `PromptRenderer`.
 4. Expose `guided_request_markdown` only if an intermediate render step is required; prefer **one user render** from `user.j2` that includes the guided partial.
@@ -121,7 +122,8 @@ All call `PromptRenderer` with the same **resolved bundle version** from `resolv
 ### FR-05: Deprecate Python prose builders
 
 - `estimation_request_render.py`: remove `parts.append` implementation; keep thin wrappers calling Jinja or delete module after re-exporting from `estimation_prompt_rendering.py`.
-- `load_mode_prompt()`: delegate to Jinja partial for active version or remove when v1 retired.
+- `load_mode_prompt()` and `app/context/prompts/*.txt`: **remove** from estimation paths (no replacement with four Jinja mode files).
+- `mode_partial_template_path()` / `partials/modes/`: **remove** after `system_instructions.md.j2` is wired; drop manifest/CI checks that require four mode files.
 - `EXTRACTION_SYSTEM_PROMPT` / `INLINE_CLEANING_BLOCK`: load from manifest-declared templates.
 
 ### FR-06: Parameter structure swappable later
@@ -183,7 +185,7 @@ EstimationRequest (validated)
     → build_prompt_render_context()   # Python: types, attachments, flags
     → PromptRenderer.render(bundle, context)
         → partials/guided_request.md.j2
-        → partials/modes/{mode}.md.j2
+        → partials/system_instructions.md.j2 (single preamble)
         → examples.j2 → system.j2
         → user.j2 (includes guided + preferences)
     → RenderedPrompt { system_prompt, user_prompt }
@@ -199,7 +201,8 @@ EstimationRequest (validated)
 | `app/services/prompt_context.py` | Expand context; attachment decoding helpers |
 | `app/services/estimation_prompt_rendering.py` | Wire v2 paths; public render helpers |
 | `app/services/estimation_request_render.py` | Thin delegate or remove |
-| `app/context/prompt_loader.py` | Deprecate in favor of Jinja modes |
+| `app/context/prompt_loader.py` | Remove from estimation prompt path (no per-mode `.txt`) |
+| `app/services/prompt_versions.py` | Drop `_MODE_PARTIAL_BASENAMES` validation when modes/ removed |
 | `app/services/llm_service.py` | Load extraction / cleaning templates by version |
 | `app/guardrails/llm_pipeline.py` | Use `render_guided_user_message` / `render_assessment_surface` |
 | `app/services/semantic_cache/*` | Same render functions for vector text |
@@ -218,8 +221,10 @@ EstimationRequest (validated)
 
 ## Acceptance Criteria
 
-- [x] `app/prompts/estimation/v2/` exists with complete `manifest.toml` and Markdown Jinja templates for guided body, modes, user, system, examples, preprocessing, and structured output hint.
-- [x] No production code path concatenates guided-form Markdown or mode instructions in Python (except tests comparing parity).
+- [x] `app/prompts/estimation/v2/` exists with complete `manifest.toml` and Markdown Jinja templates for guided body, user, system, examples, preprocessing, and structured output hint.
+- [ ] **Single** `system_instructions` partial in v2; **no** `partials/modes/` directory required at runtime (follow-up after initial merge).
+- [x] No production code path concatenates guided-form Markdown in Python (except tests comparing parity).
+- [ ] No production path loads per-mode system prose from `.txt` or from four separate Jinja mode files.
 - [x] `render_estimation_prompt()` produces identical structure to today on agreed golden fixtures when `version=v2` (parity test or approved diff).
 - [x] `render_assessment_surface()` and `render_guided_user_message()` use the same v2 templates and version selector.
 - [x] `StrictUndefined` fails tests when a required context key is removed.
@@ -262,7 +267,8 @@ EstimationRequest (validated)
 
 - [x] Step 1: v2 bundle skeleton + `resolve_prompt_bundle_version()` + default `v2`
 - [x] Step 2: Context builder + `guided_request.md.j2` + golden snapshots
-- [x] Step 3: Mode partials + `system.j2` / examples wiring
+- [x] Step 3: Mode partials + `system.j2` / examples wiring _(superseded: collapse to single `system_instructions` — follow-up)_
+- [ ] Step 8 (follow-up): Replace `partials/modes/*.md.j2` with `system_instructions.md.j2`; remove `mode_partial_template` / `load_mode_prompt` usage
 - [x] Step 4: Unified `user.j2` + preprocessing partials; remove Python prose constants
 - [x] Step 5: `assessment_surface.md.j2` + shared render helpers (guardrails, cache, LLM)
 - [x] Step 6: Sync `v1/` from `v2/` + parity tests; thin delegates / deprecations
@@ -275,11 +281,11 @@ EstimationRequest (validated)
 1. Add **`v2/`** tree + `manifest.toml` (canonical); port all templatable content from Python / legacy `v1` / `.txt` modes.
 2. Implement `resolve_prompt_bundle_version()`; set **`DEFAULT_PROMPT_VERSIONS["estimation"] = "v2"`**; update `.env.example` and `config.py` descriptions.
 3. Port `guided_request` to `partials/guided_request.md.j2`; context builder + v2 snapshots.
-4. Port mode fragments to `partials/modes/*.md.j2`; wire `system.j2`.
+4. Add **`partials/system_instructions.md.j2`** and wire `system.j2` to include it (do **not** add or keep `partials/modes/`).
 5. Port `user.j2`, preprocessing partials; remove Python string constants from `llm_service.py`.
 6. Add `assessment_surface.md.j2`; switch guardrails + cache to shared render helpers.
 7. **Sync `v1/` from `v2/`** (script + test that trees match or renders are identical); adjust `v1/manifest.toml` version label only.
-8. Deprecate `estimation_request_render.py` body (thin Jinja delegates); remove `load_mode_prompt` / `.txt` dependency for estimation path.
+8. Deprecate `estimation_request_render.py` body (thin Jinja delegates); remove `load_mode_prompt` and delete unused `app/context/prompts/*.txt` when tests move to the unified partial.
 9. Document specialist workflow + FR-09 Phase 2 extension point in `docs/technical/README.md`.
 
 ## Documentation Plan
@@ -300,6 +306,7 @@ EstimationRequest (validated)
 | Larger prompts from whitespace | Keep `trim_blocks` / `lstrip_blocks`; snapshot normalized whitespace in tests |
 | `v1` and `v2` drift after edits | CI sync test or mandatory script in PR checklist when `v2/` changes |
 | Operators expect empty env = v1 | Breaking change: document in README and `.env.example`; metadata `prompt_version` shows `estimation/v2` |
+| Four mode prompts diverge over time | Single `system_instructions.md.j2`; mode only affects examples/tokens/validation, not prompt file choice |
 
 ## Verification
 
@@ -313,7 +320,12 @@ EstimationRequest (validated)
 - **Residual risk:**
   - Breaking change for operators expecting empty env = v1; documented in `.env.example` and technical README.
   - Legacy `build_system_prompt()` still assembles examples in Python (no structured-output hint); v2 API uses full Jinja `system.j2`.
-  - `app/context/prompts/*.txt` remain for `test_prompt_loader` only; estimation path uses Jinja mode partials.
+  - **Follow-up:** branch still has `partials/modes/*.md.j2` and `mode_partial_template` — spec now targets one `system_instructions` partial; `app/context/prompts/*.txt` should be removed once unified.
+
+## Open questions
+
+- **Merge strategy for four legacy mode bodies:** one-shot union into `system_instructions.md.j2`, or a shorter net-new instruction set with `detail_level` / `output_format` conditionals only?
+- **Structured v2 output shape:** confirm a single system preamble still satisfies `validate_mode_output` / Instructor schema for all `EstimationMode` values, or narrow validation when prompts unify.
 
 ## Repository commits (master-ia)
 
