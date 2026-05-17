@@ -1,0 +1,12 @@
+use_case = "estimation"
+version = "v2"
+description = "Unified guided-form estimation prompts (Markdown + Jinja2)."
+system_template = "system.j2"
+user_template = "user.j2"
+examples_template = "examples.j2"
+guided_request_template = "partials/guided_request.md.j2"
+assessment_surface_template = "partials/assessment_surface.md.j2"
+structured_output_hint_template = "partials/structured_output_hint.md.j2"
+inline_cleaning_template = "partials/preprocessing/inline_cleaning.md.j2"
+two_phase_extraction_system_template = "partials/preprocessing/two_phase_extraction_system.md.j2"
+structured_outputs_ready = true
