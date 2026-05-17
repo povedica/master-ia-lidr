@@ -28,6 +28,7 @@ After each meaningful step:
 - One behavior, one fix, one refactor, or one documentation slice per commit.
 - Target up to **5 files** and around **200 changed lines** when practical.
 - If the change is larger, split it into independent verifiable commits.
+- After each step passes its verification, **commit immediately** if the diff is safe to land (tests green, no secrets). During **`/start-task`**, do **not** wait for the user to say “commit” — see `.cursor/commands/start-task.md` Phase 5.F.
 
 ## 4) Avoid "while I am here" scope creep
 Do not mix unrelated fixes into the same step.
@@ -67,5 +68,5 @@ Use this exception only for syntactic/mechanical changes, not for new behavior.
 
 ---
 
-**Last updated:** 2026-04-29
+**Last updated:** 2026-05-17
 **Status:** Active
