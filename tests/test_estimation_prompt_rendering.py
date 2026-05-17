@@ -40,10 +40,10 @@ def test_render_estimation_prompt_includes_mode_and_version() -> None:
         examples=ex,
         preprocessing="none",
         preprocessed_requirements=None,
-        version="v1",
-        examples_version="fixture-v1",
+        version="v2",
+        examples_version="fixture-v2",
     )
-    assert out.prompt_version == "estimation/v1"
-    assert out.examples_version == "fixture-v1"
+    assert out.prompt_version == "estimation/v2"
+    assert out.examples_version == "fixture-v2"
     assert "medium" in out.user_prompt
     assert "phases_table" in out.user_prompt
