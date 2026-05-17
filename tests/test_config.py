@@ -75,42 +75,6 @@ def test_estimation_output_persist_can_be_enabled_from_env(
     assert settings.estimation_output_persist_enabled is True
 
 
-def test_forced_estimation_mode_parses_enum_value() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="expert_review",
-    )
-    assert settings.forced_estimation_mode == EstimationMode.EXPERT_REVIEW
-
-
-def test_forced_estimation_mode_none_when_blank() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="",
-    )
-    assert settings.forced_estimation_mode is None
-
-
-def test_forced_estimation_mode_none_when_off_sentinel() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="off",
-    )
-    assert settings.forced_estimation_mode is None
-
-
-def test_forced_estimation_mode_rejects_invalid_value() -> None:
-    with pytest.raises(ValidationError):
-        Settings(
-            _env_file=None,
-            openai_api_key="sk-test",
-            forced_estimation_mode="not-a-mode",
-        )
-
-
 def test_completion_token_cap_per_mode_defaults() -> None:
     settings = Settings(_env_file=None, openai_api_key="sk-test")
     assert settings.completion_token_cap_for_mode(EstimationMode.BASIC) == 1024

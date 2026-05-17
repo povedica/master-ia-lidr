@@ -232,7 +232,6 @@ Copy `.env.example` for the full list of available variables. Key settings:
 | `LLM_AUTH_FALLBACK` | `false` | Treat auth failures as fallback instead of `503` |
 | `STATIC_FALLBACK_ENABLED` | `false` | Append deterministic local fallback when all providers fail |
 | `LLM_DOMAIN_GUARDRAIL_ENABLED` | `true` | Reject out-of-domain requests before provider calls |
-| `FORCED_ESTIMATION_MODE` | — | Override adaptive routing (`basic`, `standard`, `professional`, `expert_review`) |
 | `DEV_MODE` | `false` | Include provider, routing, timing, versions, and usage in the response |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | `false` | Save successful estimate outputs to `output-responses/` |
 | `ESTIMATION_STATS_LOG_ENABLED` | `false` | Append NDJSON usage metadata to `output-stats/estimation-stats.jsonl` |
