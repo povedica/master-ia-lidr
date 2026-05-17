@@ -294,4 +294,4 @@ uv run pytest
 | `4db286f` | `feat(web): add validationErrors normalizer for 422 and Zod` | `validationErrors.ts` + tests; backend field map and English copy for 422 detail. |
 | `0b5ba30` | `feat(web): humanize guided form validation UX` | Workbench, `useEstimateStream`, `requestMapper`; required `*` labels, sticky re-validation, 20–300 custom lines. |
 | `9b6531b` | `feat(api): enforce custom integration line length 20-300` | `EstimationRequest` min/max per line; Python regression tests. |
-| `bd1be35` | `docs(feature-015): record humanized validation UX and verification` | Work item acceptance, limits, verification evidence, commit log. |
+| `1b405b5` | `docs(feature-015): record humanized validation UX and verification` | Work item acceptance, limits, verification evidence, commit log. |
