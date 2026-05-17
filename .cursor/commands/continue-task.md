@@ -2,43 +2,44 @@
 
 ## Purpose
 
-Resume implementation work from an **existing canonical feature document** that was previously created with `/write-feature` and later refined with `/update-feature`, continuing from the **latest agreed state** instead of restarting intake.
+Resume implementation work from an **existing canonical feature document** under `docs/work-items/` that was previously started with `/start-task`, continuing from the latest agreed state instead of restarting intake.
 
 ## When to use
 
 Use `/continue-task` when:
 
-- The feature spec already exists and has been updated with new instructions.
+- The feature spec exists as `docs/work-items/feature-NNN-<slug>.md`.
+- The task already has an implementation branch or WIP PR.
+- The feature spec has been updated with new instructions.
 - The task was started earlier and is now partially implemented, paused, or waiting for follow-up work.
 - You want to keep the **same feature document** as the source of truth.
 - You want to preserve baby steps, TDD, and doc sync without repeating the full first-pass intake.
 
-Use `/start-task` when the work is being kicked off for the **first time** from a document, including non-feature work items.
+Use `/start-task` when the feature is being kicked off for the **first time** from a document. Do not use `/continue-task` for bug fixes, improvements, specs, experiments, ADRs, or legacy feature filenames without `NNN`.
 
 ## Command input
 
 The user passes the canonical feature document to continue from:
 
 ```text
-/continue-task learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/continue-task docs/work-items/feature-016-unified-jinja2-prompt-templates-v2.md
 ```
 
 Or using a Cursor reference:
 
 ```text
-/continue-task @learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/continue-task @docs/work-items/feature-016-unified-jinja2-prompt-templates-v2.md
 ```
 
-If the repository uses the **versioned documentation mirror**, paths under `proyectos/<project>/docs/` are also valid canonical inputs (see `.cursor/rules/11-spec-system.mdc`).
-
-If the user gives only a feature name and more than one document could match, ask for the exact path before reading or editing anything.
+If the user gives only a feature name, `NNN`, or a description, ask for the exact `docs/work-items/feature-NNN-<slug>.md` path before reading or editing anything.
 
 ## Critical rule: same source of truth
 
 - The input document remains the **single canonical document** for the task.
+- The input path must be under `docs/work-items/` and the filename must match `feature-NNN-<kebab-slug>.md`.
 - Do **not** create a new feature document, continuation note, or parallel task document unless the user explicitly asks.
 - Record resumed progress, scope adjustments, acceptance updates, verification notes, implementation learnings, and repository commit entries in **that same file**.
-- Treat the **latest version** of the document, including `/update-feature` edits, as the current truth.
+- Treat the **latest version** of the document as the current truth.
 
 ---
 
@@ -60,10 +61,12 @@ RED → GREEN → REFACTOR where applicable, living docs, and small commits. Whe
 
 ## Phase 0: Resume intake
 
-1. Read the canonical document end to end, especially Objective, Scope, Acceptance criteria, Test plan, Technical approach, and any **Implementation progress** or **Repository commits** sections.
-2. Infer what is done, in progress, or not started, and note any mismatch between the document and reality.
-3. Run `git status` and `git diff --stat` for WIP awareness; warn if unrelated dirt or mixed tasks could blur scope.
-4. If the document is missing critical acceptance or verification for the *remaining* work, pause and either update the spec with user consent or route to `/requirement-validate` or `/write-feature` as appropriate.
+1. Validate the input path and filename (`docs/work-items/feature-NNN-<slug>.md`). Reject other work item types and legacy names.
+2. Read the canonical document end to end, especially Objective, Scope, Acceptance criteria, Test plan, Technical approach, `## Estimation`, and any **Implementation progress** or **Repository commits** sections.
+3. Infer what is done, in progress, or not started, and note any mismatch between the document and reality.
+4. Run `git status` and `git diff --stat` for WIP awareness; warn if unrelated dirt or mixed tasks could blur scope.
+5. Locate the existing branch or PR when possible (`feature/NNN-<slug>`), but do **not** create a new PR in `/continue-task`.
+6. If the document is missing critical acceptance or verification for the *remaining* work, pause and route to `/write-feature` or an explicit document-editing request.
 
 ---
 
@@ -86,7 +89,7 @@ Do not re-read the entire ruleset by default.
 
 1. Spec vs code: locate touched modules, routers, services, and settings; confirm behavior matches the latest spec text.
 2. Tests: identify existing coverage for the remaining slice and note gaps.
-3. Git: relate the current branch and commits to the canonical **Repository commits** table; avoid duplicating or contradicting recorded work.
+3. Git: relate the current branch and commits to the canonical work item; avoid duplicating or contradicting recorded work.
 
 ---
 
@@ -138,11 +141,11 @@ Execute **one plan step at a time**:
 `/continue-task` succeeds when:
 
 - The **same** canonical document remains the only spec source; no parallel feature file is created.
-- Remaining work is grounded in the latest post-`/update-feature` state.
+- Remaining work is grounded in the latest canonical document state.
 - A clear **resume plan** and **per-step verification** exist before new production code.
 - Progress, commits, and verification evidence are reflected in that one file, with an honest **Verified / Not verified / Residual risk** summary at the end of the session.
 
 ---
 
-**Last updated:** 2026-05-13  
+**Last updated:** 2026-05-17  
 **Status:** Active

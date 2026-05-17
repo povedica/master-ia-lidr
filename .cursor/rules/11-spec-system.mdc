@@ -15,10 +15,10 @@ Provide a small, growable Spec-Driven Development baseline for `master-ia`: expl
 - Work item filenames must include an order prefix right after the type, using `NNN` format:
   - `<type>-<NNN>-<slug>.md`
   - Example: `feature-007-adaptive-estimation-engine.md`
-- Default location for project work:
-  - `learnings/second-brain-master-ia/proyectos/<project>/work-items/`
-- For **estimador-cag**, a versioned mirror of `learnings/second-brain-master-ia/proyectos/estimador-cag/` lives under git at `docs/` (excluding `sesiones/`, `aprendizajes/`, `retrospectivas/`) plus `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/`; refresh with `bash scripts/sync-estimador-cag-docs.sh` from the repo root after vault edits.
-- Session-bound work may live alongside the active session note instead.
+- Canonical repository location for work items:
+  - `docs/work-items/`
+- `/start-task` only accepts feature work items at `docs/work-items/feature-NNN-<slug>.md`.
+- Session notes and learning notes may still live in the Second Brain, but they are not canonical implementation work items for `/start-task`.
 
 ## Document Types (file prefix)
 
@@ -52,6 +52,8 @@ Switch to strict mode only when at least one applies:
 - Frontend ↔ backend integration.
 - Work spans multiple sessions.
 
+`/start-task` feature execution is always strict: the feature document must already include objective, context, scope, functional requirements, technical approach, acceptance criteria, test plan, and verification before implementation begins.
+
 Strict mode adds:
 
 - `requirement-design`
@@ -62,9 +64,9 @@ Strict mode adds:
 
 ## Required Sections per Type
 
-All canonical documents include `## Repository commits (master-ia)`.
+Completed canonical documents include `## Repository commits (master-ia)` as an implementation report. This section is not required when a feature is first written.
 
-- `feature-*`: objective, scope, acceptance, verification, docs impact, commits.
+- `feature-*`: objective, context, scope, functional requirements, technical approach, acceptance, test plan, verification, docs impact, commits at completion.
 - `bugfix-*`: problem, expected, reproduction, root cause, fix, regression, commits.
 - `spec-*`: objective, contract, scope, rules, implications, commits.
 - `exp-*`: hypothesis, method, metric, effort cap, result, commits.
@@ -75,11 +77,12 @@ All canonical documents include `## Repository commits (master-ia)`.
 - One canonical document per work item.
 - Type is set by the file prefix.
 - The numeric `NNN` prefix defines arrival order and must increase monotonically within each project.
+- Feature filenames must use `feature-NNN-<slug>.md`; legacy `feature-<slug>.md` names are not valid for new start-task work.
 - Light mode is the default; strict mode requires a real trigger.
 - Analysis informs, never blocks.
 - Never introduce new templates that do not solve a real problem.
 
 ---
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-05-17
 **Status:** Active

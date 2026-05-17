@@ -2,56 +2,55 @@
 
 ## Purpose
 
-Kick off development work in `master-ia` from an **existing working document**: feature, decision, session note, bug, improvement, experiment, or technical note. The agent must read that document in depth, turn it into operational context, review related rules and code, and **execute** (or hand off) work using a **strict baby-steps + TDD** loop.
+Kick off feature development in `master-ia` from an **existing feature work item** under `docs/work-items/`. The agent must read that document in depth, validate that it is implementation-ready, open the task branch and WIP draft PR before production code, and execute work using a strict baby-steps + TDD loop.
 
-This command is the `master-ia` adaptation of the **`a-currar` workflow** (document-driven phases, quality gates, per-step commits, RED → GREEN → REFACTOR). The **source of truth** is **not** Linear: it is the document the user passes as input and the associated Second Brain material.
+The **source of truth** is the repository work-item document the user passes as input. Linear is not part of this workflow.
 
 ## When to use
 
 Use `/start-task` when:
 
-- The user wants to start implementing an already documented feature.
-- A decision or session note must become an executable work plan.
-- Work continues on a task started in the Second Brain.
-- You need context before editing code.
-- You want **enforced** baby steps, verification, TDD where practical, and living documentation.
+- The user wants to start implementing an already documented **feature**.
+- The feature work item already exists as `docs/work-items/feature-NNN-<slug>.md`.
+- You need enforced documentation readiness, baby steps, verification, TDD where practical, WIP PR tracking, and living documentation.
 
-To create the document from scratch, use `/write-feature` or `/docs` first. To close pending changes, use `/commit-pending`.
+Do **not** use `/start-task` for bug fixes, improvements, specs, experiments, ADRs, or legacy feature filenames without `NNN`. Route those to the appropriate command instead. To create the feature document from scratch, use `/write-feature` first. To close pending changes, use `/commit-pending` or `/finish-task`.
 
 ## Command input
 
-The user passes the document to start from:
+The user passes the full repository path to the feature document:
 
 ```text
-/start-task learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/start-task docs/work-items/feature-016-unified-jinja2-prompt-templates-v2.md
 ```
 
 They may also use a Cursor reference:
 
 ```text
-/start-task @learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/feature-configuracion-inicial-cag.md
+/start-task @docs/work-items/feature-016-unified-jinja2-prompt-templates-v2.md
 ```
 
-For the **versioned documentation mirror** (when the vault symlink is missing), paths under `proyectos/<project>/docs/` are valid canonical inputs too.
+If the user gives only a feature name, `NNN`, or a description, ask for the exact `docs/work-items/feature-NNN-<slug>.md` path before proceeding.
 
 ## Critical rule: single source of truth
 
-- The input document is the **canonical** document for the task.
-- Do not create another document for the same feature unless the user asks.
-- All progress, plan changes, acceptance updates, commit log entries, and **learnings during implementation** go into **that same file** (or an explicitly linked note referenced from it).
-- If the document is missing, empty, or unclear on goals, stop and ask. Suggest a likely path under `learnings/second-brain-master-ia/proyectos/<project>/work-items/` (or the versioned mirror under `docs/work-items/` in this repo).
-- If session or project is unclear, infer from the path, suggest a default, and confirm before implementing.
+- The input document is the **canonical** document for the feature.
+- The file path must be under `docs/work-items/` and the filename must match `feature-NNN-<kebab-slug>.md`.
+- Do not create another document for the same feature.
+- All progress, plan changes, acceptance updates, verification updates, PR links, and implementation learnings go into **that same file**.
+- `## Repository commits (master-ia)` is added or updated during task closure, not during intake.
+- If the document is missing, empty, legacy-named, or incomplete for the strict documentation gate, stop. Do not complete it inline during `/start-task`.
 
 ---
 
-## Workflow overview (aligned with `a-currar`, adapted to `master-ia`)
+## Workflow overview
 
 ```text
-Phase 0: Task intake      → Canonical doc, readiness, conflicts / WIP awareness
+Phase 0: Feature intake   → Canonical doc, strict readiness, same-feature WIP checks
 Phase 1: Standards        → Read relevant `.cursor/rules/`
-Phase 2: Documentation    → Validate or complete canonical sections (still one file)
-Phase 3: Planning         → Baby steps, dependencies, sizing, verification map
-Phase 4: Setup            → Git branch policy, uv sync, subproject cwd if needed
+Phase 2: Documentation    → Validate canonical sections; stop if incomplete
+Phase 3: Planning         → Baby steps, dependencies, sizing, `## Estimation`, verification map
+Phase 4: Setup            → Branch, push, WIP draft PR + label before code
 Phase 5: Implementation   → Strict TDD + baby steps + commit cadence + doc sync
 Phase 6: Completion       → Final verification, doc accuracy, `/commit-pending` prep
 Phase 7: Retrospective    → Learnings → canonical doc / aprendizajes / rules candidates
@@ -72,21 +71,35 @@ Before any implementation, the agent must complete and present in the chat:
 
 1. For new or changed **logic** (pure functions, parsing, validation, error mapping, service contracts): add or extend a **failing test first**, run the narrowest `pytest` invocation to show **RED**, then implement **GREEN**, then **REFACTOR** only if it clarifies without scope creep.
 2. **Do not** land production code and tests in one undifferentiated batch without having shown test-first order in the session (unless the justified exception applies).
-3. Prefer **≤ ~100 meaningful changed lines per commit** where practical (same intent as `a-currar`); splitting deps / code / docs across commits is encouraged.
+3. Prefer **≤ ~100 meaningful changed lines per commit** where practical; splitting deps / code / docs across commits is encouraged.
 4. **Documentation must not lag more than one step** behind behavior changes (canonical document updated in the same step or immediate follow-up micro-commit).
 
 If any hard-stop item is missing, **stop and ask** before touching application code.
 
 ---
 
-## Phase 0. Task intake and canonical document
+## Phase 0. Feature intake and canonical document
+
+### 0.0 Validate input path and filename
+
+Hard requirements:
+
+- Path is under `docs/work-items/`.
+- Filename matches `feature-NNN-<kebab-slug>.md`.
+- The task is a feature. If the path points to `bugfix-*`, `spec-*`, `exp-*`, `adr-*`, an improvement, or any legacy feature filename without `NNN`, reject it and redirect to the appropriate command.
+
+Derive:
+
+- Feature ID: `NNN`.
+- Slug: `<kebab-slug>`.
+- Branch: `feature/NNN-<kebab-slug>`.
 
 ### 0.1 Read the input document
 
 Extract:
 
 - Primary objective.
-- Task type: `feature`, `bug`, `refactor`, `docs`, `experiment`, `setup`, or `learning`.
+- Task type: must be `feature`.
 - Affected project (e.g. `estimador-cag`, monorepo root `app/`).
 - Linked session, if any.
 - Included and excluded scope.
@@ -97,18 +110,41 @@ Extract:
 
 ### 0.2 Validate readiness (documentation gate)
 
-Same checks as historical `start-task`, strengthened:
+Strict checklist. Do not proceed to Phase 1 unless every required section is present and specific enough to implement:
 
-- [ ] Objective and scope are clear.
-- [ ] Acceptance criteria exist or can be derived.
-- [ ] **Test / verification strategy** exists (automated **or** explicit manual checklist).
-- [ ] **Repository commits section** exists or you add `## Repository commits (master-ia)` (**table body in English**).
+- [ ] `## Objective`
+- [ ] `## Context`
+- [ ] `## Scope` with `### Includes` and `### Excludes`
+- [ ] `## Functional Requirements` with concrete behavior and examples where useful
+- [ ] `## Technical Approach`
+- [ ] `## Acceptance Criteria` with testable criteria (target: about 10 or more for non-trivial features)
+- [ ] `## Test Plan` with automated and/or manual coverage
+- [ ] `## Verification` or an explicit verification subsection inside `## Test Plan`
 - [ ] No real secrets.
 - [ ] Does not contradict repo rules.
 
-If critical sections are missing, **pause implementation** and either complete the document (when intent is obvious) or route to `/write-feature`, `/requirement-validate`, etc., per complexity.
+If the document is empty or incomplete, stop and tell the user exactly what is missing. Do not complete the document inline during `/start-task`; use `/write-feature` or an explicit document-editing request first.
 
-### 0.3 WIP awareness (Linear-free equivalent of “In Progress”)
+### 0.3 Same-feature WIP check
+
+Multiple features may be in progress at the same time. Block only when the same feature document appears to already have active work.
+
+Check both signals:
+
+```bash
+git branch --list "feature/NNN-<kebab-slug>"
+git branch -r --list "origin/feature/NNN-<kebab-slug>"
+gh pr list --state open --search "docs/work-items/feature-NNN-<kebab-slug>.md"
+```
+
+Same-feature WIP exists if either:
+
+- A local or remote branch named `feature/NNN-<kebab-slug>` already exists.
+- An open PR title/body links the same `docs/work-items/feature-NNN-<kebab-slug>.md`.
+
+If same-feature WIP exists, warn the user and stop. Do not auto-resume or replan inside `/start-task`; the user should decide the next step.
+
+### 0.4 Working tree awareness
 
 Run or review:
 
@@ -118,12 +154,12 @@ git status --short
 git diff --stat
 ```
 
-If there is **large unrelated dirt** or **mixed tasks** in one working tree, **warn the user** and agree what belongs to this canonical document before proceeding (same *focus discipline* as resolving multiple Linear “In Progress” issues).
+If there is large unrelated dirt or mixed tasks in one working tree, warn the user and agree what belongs to this canonical document before proceeding.
 
-### 0.4 Record destinations
+### 0.5 Record destinations
 
 - **Progress**: canonical input document (including an **Implementation progress** subsection if useful — see Phase 5.3).
-- **Commits**: `## Repository commits (master-ia)` (or Spanish header if legacy, descriptions **English**).
+- **Commits**: `## Repository commits (master-ia)` is written during completion as an implementation report with English summaries.
 - **Sessions / learnings**: `learnings/second-brain-master-ia/proyectos/<project>/sesiones/` and `…/aprendizajes/` when applicable.
 
 ---
@@ -158,18 +194,15 @@ Depending on task type, review:
 - `.env.example` when configuration is involved.
 - Existing tests and routers/services boundaries.
 
-### 2.2 Detect workflow flavor
+### 2.2 Confirm feature workflow
 
-- `feature`: new behavior — default **TDD** for logic.
-- `bug`: reproduce → failing test → minimal fix.
-- `refactor`: preserve behavior; characterization tests when risk warrants.
-- `docs` / `setup` / `experiment` / `learning`: TDD only when it still reduces risk; **state the exception** under hard stop.
+`/start-task` only runs feature workflow. New or changed logic defaults to TDD. Documentation-only or setup-only slices still need a justified testing exception plus explicit verification.
 
 ---
 
 ## Phase 3. Baby-steps planning
 
-Build a plan. Each step uses this shape (same structure as `a-currar` Phase 3, adapted):
+Build a plan. Each step uses this shape:
 
 ```markdown
 ### Step N: [name]
@@ -191,40 +224,67 @@ Build a plan. Each step uses this shape (same structure as `a-currar` Phase 3, a
 
 ### Sizing (T-shirt)
 
-- `XS` | `S` | `M` | `L` | `XL` — same meaning as `a-currar`.
+- `XS` | `S` | `M` | `L` | `XL`.
 - `L` / `XL`: split into multiple documents or child tasks before coding.
 
-### Optional external tracking
+### Estimation section
 
-If the user uses Linear or another tracker, **they** update it; `start-task` does **not** require MCP or issue IDs.
+After planning, update the canonical work item with:
+
+```markdown
+## Estimation
+
+- Size: M
+- Estimated time: 3 hours
+- Planned steps: 6
+```
+
+External trackers are out of scope for `/start-task`.
 
 ---
 
 ## Phase 4. Environment and Git setup
 
-### 4.1 Branch name, single branch until close, and PR policy (`master-ia`)
+### 4.1 Branch name, single branch until close, and WIP PR policy (`master-ia`)
 
-**Canonical branch name (mandatory for document-driven work):**
+**Canonical branch name (mandatory):**
 
-Derive the git branch from the **work item filename** (`<type>-<NNN>-<kebab-slug>.md`), not from a shortened nickname:
+Derive the git branch from the **work item filename**:
 
-| Type prefix (in filename) | Git branch pattern | Example filename | Example branch |
-|----------------------------|--------------------|------------------|----------------|
-| `feature-` | `feature/<NNN>-<kebab-slug>` | `feature-014-remove-v2-estimate-stream-route.md` | `feature/014-remove-v2-estimate-stream-route` |
-| `bugfix-` | `fix/<NNN>-<kebab-slug>` | `bugfix-003-cors-preflight.md` | `fix/003-cors-preflight` |
-| `spec-` | `spec/<NNN>-<kebab-slug>` | — | — |
-| `exp-` | `exp/<NNN>-<kebab-slug>` | — | — |
+| Feature filename | Branch |
+|------------------|--------|
+| `docs/work-items/feature-014-remove-v2-estimate-stream-route.md` | `feature/014-remove-v2-estimate-stream-route` |
 
-Create this branch from up-to-date **`main`** as soon as Phase 0–3 are satisfied (before or immediately after the first production change).
+Create this branch from up-to-date **`main`** after Phase 0–3 are satisfied and **before any production code change**.
 
 **One branch, one doc, until closure:**
 
-- All implementation, tests, and **repository commit log rows** for this work item stay on **this branch** and in **`## Repository commits (master-ia)` inside the same canonical file** until the PR is merged (or the user explicitly splits/abandons the item).
-- **Do not** route commits for this feature into another `feature-NNN-*.md` commit table. If the working tree contains unrelated changes, **stash or branch off** per Phase 0 WIP rules—never “park” feature A’s log in feature B’s document.
+- All implementation, tests, and completion reporting for this work item stay on **this branch** and in the same canonical file until the PR is merged or the user explicitly abandons the item.
+- Do not route commits or progress for this feature into another `feature-NNN-*.md` document.
 
-**PR (default):**
+**Mandatory WIP draft PR before code:**
 
-- Land **baby-step commits** on the canonical branch, **`git push -u`** to the remote, and open a **PR** with `gh pr create` (draft is fine early). Link the PR URL in the canonical document when helpful (progress or commits section).
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/NNN-<kebab-slug>
+git push -u origin feature/NNN-<kebab-slug>
+gh pr create --draft --title "[WIP] feat: <short title>" --body "$(cat <<'EOF'
+## Summary
+- Implements `docs/work-items/feature-NNN-<kebab-slug>.md`.
+
+## Status
+- WIP draft PR. Implementation will proceed in baby steps.
+
+## Test plan
+- Planned verification is documented in the work item.
+EOF
+)"
+gh label create wip --color F9D0C4 --description "Work in progress" || true
+gh pr edit --add-label wip
+```
+
+Record the PR URL in the canonical work item.
 
 **Exceptions:**
 
@@ -251,7 +311,7 @@ Never commit `.env`. No keys in prompts, tests, logs, or mirrored docs.
 
 ---
 
-## Phase 5. Implementation — TDD + baby steps (`a-currar` core)
+## Phase 5. Implementation — TDD + baby steps
 
 Execute **one plan step at a time**. For each step that includes testable logic:
 
@@ -297,7 +357,7 @@ Update the canonical document when acceptance criteria, APIs, env vars, or verif
 
 ### 5.2 Push rhythm
 
-Push the task branch to the remote **periodically** (e.g. every few commits) and **before** opening or updating the PR, so review and CI see the latest commits.
+Push the task branch to the remote **periodically** (e.g. every few commits) and before updating the PR, so review and CI see the latest commits.
 
 ### 5.3 Progress checklist in the canonical doc
 
@@ -318,14 +378,14 @@ Maintain a lightweight block (when useful):
 - [ ] Canonical document: acceptance criteria and **verification** match reality.
 - [ ] **`git status`** clean or intentional; no secrets staged.
 - [ ] **`## Repository commits (master-ia)`** table updated with **English** summaries.
-- [ ] **Branch pushed** and **PR opened** on the remote (unless the user explicitly opted out in Phase 4.1).
+- [ ] **Branch pushed** and **WIP draft PR opened** on the remote (unless the user explicitly opted out in Phase 4.1).
 - [ ] Ready for **`/commit-pending`** grouping if the user wants multiple commits spelled out.
 
-Optional: mark draft PR ready, self-review checklist (adapted from `a-currar`): criteria met, no stray debug prints, docs complete.
+Optional: remove the `wip` label, mark the draft PR ready, and run a self-review checklist: criteria met, no stray debug prints, docs complete.
 
 ---
 
-## Phase 7. Retrospective and learnings (`a-currar` adapted)
+## Phase 7. Retrospective and learnings
 
 Answer briefly:
 
@@ -357,11 +417,11 @@ After **implementation** (when requested in the same invocation):
 
 - Per-step adherence: RED shown (or exception logged), GREEN, commits implied or listed.
 - Residual risks and **not verified** items stated explicitly.
-- **Remote PR** link (or explicit note that the user opted out of branch/PR).
+- **Remote PR** link and WIP label status (or explicit note that the user opted out of branch/PR).
 
 ---
 
-## Common scenarios (from `a-currar`, adapted)
+## Common scenarios
 
 ### Tests reveal bad design
 
@@ -383,7 +443,7 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ## Integration with other commands
 
-- Before: `/write-feature` or `/requirement-write`; `/requirement-validate` when vague.
+- Before: `/write-feature`; `/requirement-validate` when vague.
 - Non-trivial: `/requirement-design`, `/requirement-tasks`.
 - During: `/docs`, `/testing`, `/check-quality`, `/check-architecture`, `/check-dod`.
 - After: `/commit-pending`.
@@ -396,21 +456,23 @@ Fix before moving on; do not advance the plan with a red suite.
 `/start-task` succeeds when:
 
 - The input document is the **single** canonical source.
+- The input path is `docs/work-items/feature-NNN-<slug>.md`.
+- The strict documentation gate passes before planning and code.
 - Hard-stop items (plan, per-step verification, **TDD or justified exception**) are satisfied **before** code.
 - Phases **0–7** are applied at a proportionate weight (XS tasks may collapse phases lightly, but never skip explicit verification).
 - Coding does not regress into “big bang” batches for testable logic.
 - Documentation and commit-log destinations remain clear throughout.
-- Unless the user opted out, the work is delivered on a **pushed branch** with a **remote PR** for review.
+- Unless the user opted out, the work starts on a **pushed branch** with a **draft PR** carrying the `wip` label before production code.
 
 ---
 
 ## Changelog
 
+- **2026-05-17**: Restricted `/start-task` to `docs/work-items/feature-NNN-<slug>.md`, added strict feature documentation gate, same-feature WIP blocking by branch or PR, mandatory draft PR with `wip` label before code, and `## Estimation` planning output.
 - **2026-05-15 (b)**: **Canonical branch name** from work item filename (`feature/NNN-slug`); **one branch + one doc** until merge; forbid logging feature A commits in feature B’s table.
 - **2026-05-15**: **Default branch + remote PR** for `start-task` (Phase 4.1, Phase 5.2, Phase 6, success criteria); explicit **opt-out** when the user requests local-only work; WIP hygiene for PR scope.
-- **2026-05-06**: Integrated **`a-currar`**-style phased flow and **strict** TDD + baby-steps commit cadence for `master-ia`; Phase 0 WIP replaces Linear intake; tooling mapped to **`uv`** / **`pytest`** / Second Brain paths; strengthened hard stop and documentation lag rule.
 
 ---
 
-**Last updated:** 2026-05-15  
+**Last updated:** 2026-05-17  
 **Status:** Active

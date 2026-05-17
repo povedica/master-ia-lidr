@@ -1,17 +1,16 @@
 # docs
 
 ## Purpose
-Synchronize project documentation with the repository and Second Brain.
+Keep project documentation synchronized across canonical repository work items and supporting Second Brain notes.
 
 ## When to Use
 Use after setup changes, architecture decisions, FastAPI changes, LLM integration changes, or session work.
 
 ## Documentation Targets
-- Session work (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/sesiones/` — **versioned git mirror:** `learnings/docs/sesiones/`
-- Work items (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/work-items/` — **versioned git mirror:** `docs/work-items/`
-- Reusable learnings (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/` — **versioned git mirror:** `learnings/aprendizajes/`
-- Retrospectives (vault): `learnings/second-brain-master-ia/proyectos/estimador-cag/retrospectivas/` — **versioned git mirror:** `learnings/retrospectiva/`
-- **After vault edits**, run `bash scripts/sync-estimador-cag-docs.sh` from the repo root before committing (updates `docs/`, `learnings/docs/sesiones/`, `learnings/aprendizajes/`, and `learnings/retrospectiva/`).
+- Canonical work items: `docs/work-items/feature-NNN-<slug>.md`
+- Session work mirror: `learnings/docs/sesiones/`
+- Reusable learnings mirror: `learnings/aprendizajes/`
+- Retrospectives mirror: `learnings/retrospectiva/`
 - Runtime/setup docs: project `README.md`
 
 ## Rules
