@@ -1280,4 +1280,4 @@ Send `POST /api/v2/estimate` with `X-Session-Id: <your-session>`. In Langfuse EU
 
 | Commit | Summary |
 | --- | --- |
-| _(see git log on branch `feature/014-langfuse-observability-analytics`)_ | Slice 1 (steps 1–8): Langfuse adapter, settings, bootstrap, LLM generations, v2 HTTP trace. |
+| `c2465b5` | Slice 1 (steps 1–8): Langfuse adapter, settings, bootstrap, LLM generations, v2 HTTP trace; feature-014 spec + learnings log. |
