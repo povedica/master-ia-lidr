@@ -43,7 +43,7 @@ def _full_request() -> EstimationRequest:
         target_date=date(2026, 6, 1),
         delivery_approach=DeliveryApproach.phased_roadmap,
         integration_categories=[IntegrationCategory.payments, IntegrationCategory.crm],
-        integration_custom_names=["Legacy billing"],
+        integration_custom_names=["Legacy billing integration"],
         data_sensitivity=DataSensitivity.pii_light,
         hosting_constraints=[HostingConstraint.cloud_managed],
         hosting_notes="EU region only",

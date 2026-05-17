@@ -98,6 +98,30 @@ def test_integration_none_normalizes_to_empty() -> None:
     assert req.integration_categories == []
 
 
+def test_integration_custom_names_line_too_short_rejected() -> None:
+    with pytest.raises(ValidationError):
+        EstimationRequest(
+            **_valid_kwargs(),
+            integration_custom_names=["x" * 19],
+        )
+
+
+def test_integration_custom_names_line_too_long_rejected() -> None:
+    with pytest.raises(ValidationError):
+        EstimationRequest(
+            **_valid_kwargs(),
+            integration_custom_names=["x" * 301],
+        )
+
+
+def test_integration_custom_names_line_valid_length_accepted() -> None:
+    req = EstimationRequest(
+        **_valid_kwargs(),
+        integration_custom_names=["x" * 20, "y" * 100],
+    )
+    assert req.integration_custom_names == ["x" * 20, "y" * 100]
+
+
 def test_industry_other_required_when_industry_other() -> None:
     with pytest.raises(ValidationError):
         EstimationRequest(
