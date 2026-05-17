@@ -22,3 +22,4 @@ Track repository workflow, Cursor command, rules, and maintenance commits that d
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
+| `36d1378` | `docs(cursor): align feature start workflow` | Aligns Cursor workflow commands and spec rules around repository work items, strict feature start gates, WIP draft PRs, and the chore fallback commit log. |
