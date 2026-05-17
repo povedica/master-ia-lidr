@@ -23,3 +23,4 @@ Track repository workflow, Cursor command, rules, and maintenance commits that d
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `36d1378` | `docs(cursor): align feature start workflow` | Aligns Cursor workflow commands and spec rules around repository work items, strict feature start gates, WIP draft PRs, and the chore fallback commit log. |
+| `67423f3` | `docs(work-item): add feature-016 Jinja2 prompt templates v2 spec` | Adds canonical feature work item for unified Jinja2 prompt templates (estimation v2 bundle) before implementation. |
