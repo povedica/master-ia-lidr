@@ -422,6 +422,15 @@ class EstimationService:
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
+        if self._settings.forced_estimation_mode is not None:
+            mode = self._settings.forced_estimation_mode
+            logger.info(
+                "estimation_mode_forced",
+                extra={
+                    "mode": mode.value,
+                    "recommended_mode": recommended_mode.value,
+                },
+            )
 
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")
@@ -649,6 +658,15 @@ class EstimationService:
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
+        if self._settings.forced_estimation_mode is not None:
+            mode = self._settings.forced_estimation_mode
+            logger.info(
+                "estimation_mode_forced",
+                extra={
+                    "mode": mode.value,
+                    "recommended_mode": recommended_mode.value,
+                },
+            )
 
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")

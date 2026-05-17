@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # Canonical LiteLLM-style id for documentation defaults; runtime model ids come from OPENAI_MODEL / ANTHROPIC_MODEL.
     default_llm_model: str = "openai/gpt-4o-mini"
     gemini_api_key: str = ""
+    forced_estimation_mode: EstimationMode | None = None
     structured_output_max_attempts: int = Field(default=3, ge=1, le=10)
     prompt_estimation_version: str = Field(
         default="",
@@ -341,6 +342,19 @@ class Settings(BaseSettings):
             EstimationMode.EXPERT_REVIEW: self.estimation_expert_review_output_tokens_max,
         }
         return mapping[mode]
+
+    @field_validator("forced_estimation_mode", mode="before")
+    @classmethod
+    def _parse_forced_estimation_mode(cls, value: object) -> EstimationMode | None:
+        if value is None:
+            return None
+        if isinstance(value, EstimationMode):
+            return value
+        text = str(value).strip().lower()
+        if not text or text in {"none", "null", "off", "false", "0"}:
+            return None
+        return EstimationMode(text)
+
 
 @lru_cache
 def get_settings() -> Settings:

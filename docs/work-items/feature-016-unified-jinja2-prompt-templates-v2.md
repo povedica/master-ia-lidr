@@ -62,7 +62,6 @@ This closes the partial migration from `feature-011`: today `render_estimation_u
 
 - **Four parallel system prompts** keyed by `EstimationMode` (`partials/modes/*.md.j2` or revived `app/context/prompts/*.txt`).
 - Removing the **`EstimationMode`** enum or adaptive routing in `estimation_engine.py` (still used for tokens, examples, validation, API metadata).
-- **`FORCED_ESTIMATION_MODE`** env override (removed; was redundant once per-mode prompt bodies are gone).
 - Runtime prompt editor UI or database-backed prompt registry.
 - Changing **`EstimationRequest`** JSON fields or OpenAPI shape (unless documenting new optional context-only derived fields).
 - Replacing Instructor / LiteLLM / guardrail policy engine.
@@ -217,7 +216,6 @@ EstimationRequest (validated)
 ### Settings
 
 - **`PROMPT_ESTIMATION_VERSION`** — only selector in this feature; empty means **`v2`**.
-- **`FORCED_ESTIMATION_MODE` removed** — no longer documented or supported; adaptive routing always applies. Per-mode token caps remain via `ESTIMATION_*_OUTPUT_TOKENS_MAX` only.
 - No new secrets.
 - Future config sources: extension point per FR-09 Phase 2 (not env-only forever).
 
