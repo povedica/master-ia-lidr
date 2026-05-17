@@ -1,4 +1,4 @@
-{{ mode_system_fragment }}
+{% include mode_partial_template %}
 {% if inline_cleaning_block %}
 
 {{ inline_cleaning_block }}
@@ -8,4 +8,4 @@
 
 {{ examples_block }}
 
-{% include "estimation/v1/partials/structured_output_hint.md.j2" %}
+{% include structured_output_hint_template %}

@@ -2,4 +2,8 @@
 
 Detail level: **{{ detail_level }}** · Preferred output layout: **{{ output_format }}**
 
+{% if use_preprocessed_user_message %}
 {{ estimation_user_message }}
+{% else %}
+{% include guided_request_template %}
+{% endif %}
