@@ -1,6 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { estimateStructuredUrl } from '../api/estimateApi'
+import { parseStructuredEstimateFailure } from '../lib/validationErrors'
+
+export type EstimateRunResult =
+  | { ok: true }
+  | { ok: false; kind: 'validation'; fieldErrors: Record<string, string>; formSummary?: string }
+  | { ok: false; kind: 'generic' }
 
 export function useEstimateStream() {
   const [markdown, setMarkdown] = useState('')
@@ -22,7 +28,7 @@ export function useEstimateStream() {
   }, [])
 
   const run = useCallback(
-    async (body: Record<string, unknown>) => {
+    async (body: Record<string, unknown>): Promise<EstimateRunResult | undefined> => {
       reset()
       setLoading(true)
       const ctrl = new AbortController()
@@ -41,8 +47,26 @@ export function useEstimateStream() {
         const text = await response.text().catch(() => '')
 
         if (!response.ok) {
-          setError(formatHttpError(response.status, text))
-          return
+          if (response.status === 422) {
+            const parsed = parseStructuredEstimateFailure(422, text)
+            if (parsed.kind === 'validation') {
+              setError(null)
+              return {
+                ok: false,
+                kind: 'validation',
+                fieldErrors: parsed.fieldErrors,
+                formSummary: parsed.formSummary,
+              }
+            }
+            setError(parsed.message)
+            return { ok: false, kind: 'generic' }
+          }
+          const safeMessage =
+            response.status >= 500
+              ? 'The server is temporarily unavailable. Please try again later.'
+              : 'The request could not be completed. Please try again.'
+          setError(safeMessage)
+          return { ok: false, kind: 'generic' }
         }
 
         let data: Record<string, unknown>
@@ -50,7 +74,7 @@ export function useEstimateStream() {
           data = JSON.parse(text) as Record<string, unknown>
         } catch {
           setError('Invalid JSON response from server.')
-          return
+          return { ok: false, kind: 'generic' }
         }
 
         setDoneMeta(data)
@@ -58,12 +82,14 @@ export function useEstimateStream() {
         if (r && typeof r === 'object' && !Array.isArray(r)) {
           setStructuredResult(r as Record<string, unknown>)
         }
+        return { ok: true }
       } catch (exc) {
         if (exc instanceof DOMException && exc.name === 'AbortError') {
-          return
+          return undefined
         }
-        const message = exc instanceof Error ? exc.message : 'Request failed.'
+        const message = exc instanceof Error ? exc.message : 'The request failed.'
         setError(message)
+        return { ok: false, kind: 'generic' }
       } finally {
         setLoading(false)
         aborter.current = null
@@ -73,37 +99,4 @@ export function useEstimateStream() {
   )
 
   return { markdown, structuredResult, loading, error, doneMeta, run, cancel, reset }
-}
-
-function formatHttpError(status: number, body: string): string {
-  const trimmed = body.trim()
-  if (!trimmed) {
-    return `HTTP ${status}`
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as { detail?: unknown }
-    if (parsed.detail !== undefined) {
-      return `HTTP ${status}: ${stringifyDetail(parsed.detail)}`
-    }
-  } catch {
-    /* fall through */
-  }
-  return `HTTP ${status}: ${trimmed.slice(0, 800)}`
-}
-
-function stringifyDetail(detail: unknown): string {
-  if (typeof detail === 'string') {
-    return detail
-  }
-  if (Array.isArray(detail)) {
-    return detail
-      .map((item) => {
-        if (item && typeof item === 'object' && 'msg' in item) {
-          return String((item as { msg?: unknown }).msg ?? JSON.stringify(item))
-        }
-        return JSON.stringify(item)
-      })
-      .join('; ')
-  }
-  return JSON.stringify(detail)
 }

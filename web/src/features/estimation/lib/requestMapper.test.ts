@@ -6,6 +6,7 @@ import {
   mapEstimationFormToRequestBody,
   parseEstimationForm,
 } from './requestMapper'
+import { humanizeZodIssuesToFieldErrors } from './validationErrors'
 
 /** Valid raw payload except `projectType` left empty (unselected required `<select>`). */
 function validRawExceptProjectType(projectType: string) {
@@ -100,7 +101,7 @@ describe('mapEstimationFormToRequestBody', () => {
         targetDate: '',
         deliveryApproach: 'mvp_then_iterate',
         integrationCategories: ['payments', 'crm'],
-        integrationCustomText: 'Custom A\nCustom B',
+        integrationCustomText: `${'x'.repeat(20)}\n${'y'.repeat(25)}`,
         dataSensitivity: 'pii_light',
         hostingConstraints: ['cloud_managed'],
         hostingNotes: ' notes ',
@@ -124,7 +125,7 @@ describe('mapEstimationFormToRequestBody', () => {
     expect(body.project_name).toBe('My Project')
     expect(body.out_of_scope).toEqual(['out1', 'out2'])
     expect(body.integration_categories).toEqual(['payments', 'crm'])
-    expect(body.integration_custom_names).toEqual(['Custom A', 'Custom B'])
+    expect(body.integration_custom_names).toEqual([`${'x'.repeat(20)}`, `${'y'.repeat(25)}`])
     expect(body.hosting_constraints).toEqual(['cloud_managed'])
     expect(body.hosting_notes).toBe('notes')
     expect(body.team_context).toBe('vendor_led')
@@ -177,8 +178,8 @@ describe('estimationFormSchema', () => {
     const result = estimationFormSchema.safeParse(validRawExceptProjectType(''))
     expect(result.success).toBe(false)
     if (!result.success) {
-      const messages = result.error.issues.map((i) => i.message)
-      expect(messages.some((m) => m.includes('project_type'))).toBe(true)
+      const human = humanizeZodIssuesToFieldErrors(result.error.issues)
+      expect(human.projectType).toBe('Required.')
     }
   })
 
@@ -197,28 +198,37 @@ describe('estimationFormSchema', () => {
     expect(body.preprocessing).toBe('none')
   })
 
-  it('rejects custom integration lines longer than 40 characters', () => {
+  it('rejects custom integration lines longer than 300 characters', () => {
     const result = estimationFormSchema.safeParse({
       ...validRawExceptProjectType('web_saas'),
-      integrationCustomText: `Valid integration\n${'x'.repeat(41)}`,
+      integrationCustomText: `${'x'.repeat(20)}\n${'y'.repeat(301)}`,
     })
 
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: ['integrationCustomText'],
-            message: 'Cada integración debe ocupar una línea y tener como máximo 40 caracteres.',
-          }),
-        ]),
-      )
+      expect(result.error.issues.some((i) => i.path[0] === 'integrationCustomText')).toBe(true)
+      const human = humanizeZodIssuesToFieldErrors(result.error.issues)
+      expect(human.integrationCustomText).toContain('20')
+      expect(human.integrationCustomText).toContain('300')
+      expect(human.integrationCustomText).toMatch(/line|Line/)
     }
   })
 
-  it('reports invalid custom integration line numbers', () => {
+  it('rejects custom integration lines shorter than 20 characters', () => {
+    const result = estimationFormSchema.safeParse({
+      ...validRawExceptProjectType('web_saas'),
+      integrationCustomText: 'short\n' + 'y'.repeat(20),
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const human = humanizeZodIssuesToFieldErrors(result.error.issues)
+      expect(human.integrationCustomText).toMatch(/shorter|Line/)
+    }
+  })
+
+  it('reports line numbers for segments over max length', () => {
     expect(
-      findInvalidCustomIntegrationLines(`  ${'x'.repeat(41)}  \n\nValid\n${'y'.repeat(42)}`),
+      findInvalidCustomIntegrationLines(`  ${'x'.repeat(301)}  \n\n${'y'.repeat(20)}\n${'z'.repeat(302)}`),
     ).toEqual([1, 4])
   })
 })
