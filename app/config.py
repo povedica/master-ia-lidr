@@ -2,7 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
-from pydantic import Field, field_validator
+from typing import Self
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.services.estimation_engine import EstimationMode
@@ -193,6 +195,87 @@ class Settings(BaseSettings):
         default=False,
         description="When true and redis URL empty, use in-process store (single worker only).",
     )
+    # --- Observability (feature 014): Langfuse / OTEL export ---
+    otel_export_enabled: bool = Field(
+        default=False,
+        description="When true, export OTEL/Langfuse traces (requires Langfuse API keys).",
+    )
+    langfuse_public_key: str = Field(
+        default="",
+        description="Langfuse project public key (never commit real values).",
+    )
+    langfuse_secret_key: str = Field(
+        default="",
+        description="Langfuse project secret key (never commit real values).",
+    )
+    langfuse_base_url: str = Field(
+        default="https://cloud.langfuse.com",
+        description="Langfuse API base URL (EU cloud default).",
+    )
+    otel_service_name: str = Field(
+        default="estimator-local",
+        max_length=128,
+        description="OpenTelemetry service.name resource attribute.",
+    )
+    app_version: str = Field(
+        default="0.0.0-local",
+        max_length=128,
+        description="Application build/version label for observability metadata.",
+    )
+    app_release: str = Field(
+        default="local",
+        max_length=128,
+        description="Deployed release identifier for observability metadata.",
+    )
+    langfuse_debug: bool = Field(
+        default=False,
+        description="Enable Langfuse SDK debug logging (never in production by default).",
+    )
+    langfuse_sample_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="App-side trace sampling rate when export is enabled (0.0–1.0).",
+    )
+    langfuse_capture_inputs: bool = Field(
+        default=False,
+        description="Capture sanitized LLM inputs in Langfuse generations.",
+    )
+    langfuse_capture_outputs: bool = Field(
+        default=False,
+        description="Capture sanitized LLM outputs in Langfuse generations.",
+    )
+    langfuse_capture_usage: bool = Field(
+        default=True,
+        description="Send token usage_details when the provider returns usage.",
+    )
+    langfuse_capture_cost: bool = Field(
+        default=True,
+        description="Send explicit cost_details when cost is trustworthy.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_langfuse_keys_when_export_enabled(self) -> Self:
+        if not self.otel_export_enabled:
+            return self
+        if not self.langfuse_public_key.strip():
+            raise ValueError("LANGFUSE_PUBLIC_KEY is required when OTEL_EXPORT_ENABLED=true")
+        if not self.langfuse_secret_key.strip():
+            raise ValueError("LANGFUSE_SECRET_KEY is required when OTEL_EXPORT_ENABLED=true")
+        if not self.langfuse_base_url.strip():
+            raise ValueError("LANGFUSE_BASE_URL is required when OTEL_EXPORT_ENABLED=true")
+        return self
+
+    def observability_export_active(self) -> bool:
+        """True when export is enabled and Langfuse credentials are configured."""
+
+        if not self.otel_export_enabled:
+            return False
+        return bool(
+            self.langfuse_public_key.strip()
+            and self.langfuse_secret_key.strip()
+            and self.langfuse_base_url.strip()
+        )
 
     def openai_litellm_model_id(self) -> str:
         """Return a LiteLLM chat model id for the OpenAI chain entry."""

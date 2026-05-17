@@ -20,6 +20,12 @@ from app.services.llm_types import (
     ProviderUnavailableError,
     UsageInfo,
 )
+from app.services.observability.bootstrap import get_observability
+from app.services.observability.llm_instrumentation import (
+    LLM_GENERATION_NAME,
+    complete_llm_generation,
+    generation_metadata_for_litellm,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -198,55 +204,71 @@ async def acomplete_chat(
     if api_key:
         kwargs["api_key"] = api_key
 
-    try:
-        response = await acompletion(
-            model=litellm_model,
-            messages=messages,
-            max_completion_tokens=max_output_tokens,
-            **kwargs,
-        )
-    except Exception as exc:  # noqa: BLE001 — boundary: map upstream failures onto ProviderError subclasses
-        mapped = _map_litellm_exception(
-            exc, litellm_model=litellm_model, chain_provider=chain_provider
-        )
-        logger.warning(
-            "llm_request_failed",
-            extra={
-                "event": "llm_request_failed",
-                "llm_model": litellm_model,
-                "llm_vendor": vendor,
-                "chain_provider": chain_provider,
-                "error_type": type(exc).__name__,
-            },
-        )
-        raise mapped from exc
+    observability = get_observability()
+    with observability.start_generation(
+        LLM_GENERATION_NAME,
+        model=litellm_model,
+        metadata=generation_metadata_for_litellm(
+            chain_provider=chain_provider,
+            litellm_model=litellm_model,
+            llm_vendor=vendor,
+        ),
+    ):
+        try:
+            response = await acompletion(
+                model=litellm_model,
+                messages=messages,
+                max_completion_tokens=max_output_tokens,
+                **kwargs,
+            )
+        except Exception as exc:  # noqa: BLE001 — boundary: map upstream failures onto ProviderError subclasses
+            mapped = _map_litellm_exception(
+                exc, litellm_model=litellm_model, chain_provider=chain_provider
+            )
+            observability.record_error(mapped)
+            logger.warning(
+                "llm_request_failed",
+                extra={
+                    "event": "llm_request_failed",
+                    "llm_model": litellm_model,
+                    "llm_vendor": vendor,
+                    "chain_provider": chain_provider,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            raise mapped from exc
 
-    choice = response.choices[0] if getattr(response, "choices", None) else None
-    message = getattr(choice, "message", None) if choice else None
-    raw_content = getattr(message, "content", "") if message else ""
-    content = _normalize_text_content(raw_content)
+        choice = response.choices[0] if getattr(response, "choices", None) else None
+        message = getattr(choice, "message", None) if choice else None
+        raw_content = getattr(message, "content", "") if message else ""
+        content = _normalize_text_content(raw_content)
 
-    finish = getattr(choice, "finish_reason", None) or "stop"
-    resolved_model = str(getattr(response, "model", None) or litellm_model)
-    usage_info = _usage_from_litellm(getattr(response, "usage", None))
+        finish = getattr(choice, "finish_reason", None) or "stop"
+        resolved_model = str(getattr(response, "model", None) or litellm_model)
+        usage_info = _usage_from_litellm(getattr(response, "usage", None))
 
-    if not content:
-        logger.warning(
-            "llm_request_failed",
-            extra={
-                "event": "llm_request_failed",
-                "llm_model": litellm_model,
-                "llm_vendor": vendor,
-                "chain_provider": chain_provider,
-                "error_type": "empty_completion",
-            },
+        if not content:
+            empty_err = ProviderInvalidResponseError(_empty_completion_message(chain_provider))
+            observability.record_error(empty_err)
+            logger.warning(
+                "llm_request_failed",
+                extra={
+                    "event": "llm_request_failed",
+                    "llm_model": litellm_model,
+                    "llm_vendor": vendor,
+                    "chain_provider": chain_provider,
+                    "error_type": "empty_completion",
+                },
+            )
+            raise empty_err
+
+        complete_llm_generation(
+            observability,
+            resolved_model=resolved_model,
+            usage=usage_info,
+            finish_reason=str(finish),
+            output_text=content,
         )
-        empty_msg = "LLM returned an empty response."
-        if chain_provider == "openai":
-            empty_msg = "OpenAI returned an empty response."
-        elif chain_provider == "anthropic":
-            empty_msg = "Anthropic returned an empty response."
-        raise ProviderInvalidResponseError(empty_msg)
 
     logger.info(
         "llm_request_succeeded",
@@ -359,71 +381,95 @@ async def astream_chat(
     if _infer_llm_vendor(litellm_model) == "openai":
         kwargs["stream_options"] = {"include_usage": True}
 
-    try:
-        response_stream = await acompletion(
-            model=litellm_model,
-            messages=messages,
-            max_completion_tokens=max_output_tokens,
-            **kwargs,
-        )
-    except Exception as exc:  # noqa: BLE001 — boundary: map LiteLLM/transport errors to ProviderError
-        mapped = _map_litellm_exception(
-            exc, litellm_model=litellm_model, chain_provider=chain_provider
-        )
-        logger.warning(
-            "llm_stream_failed",
-            extra={
-                "event": "llm_stream_failed",
-                "llm_model": litellm_model,
-                "llm_vendor": vendor,
-                "chain_provider": chain_provider,
-                "error_type": type(exc).__name__,
-                "phase": "open",
-            },
-        )
-        raise mapped from exc
+    observability = get_observability()
+    with observability.start_generation(
+        LLM_GENERATION_NAME,
+        model=litellm_model,
+        metadata=generation_metadata_for_litellm(
+            chain_provider=chain_provider,
+            litellm_model=litellm_model,
+            llm_vendor=vendor,
+        ),
+    ):
+        try:
+            response_stream = await acompletion(
+                model=litellm_model,
+                messages=messages,
+                max_completion_tokens=max_output_tokens,
+                **kwargs,
+            )
+        except Exception as exc:  # noqa: BLE001 — boundary: map LiteLLM/transport errors to ProviderError
+            mapped = _map_litellm_exception(
+                exc, litellm_model=litellm_model, chain_provider=chain_provider
+            )
+            observability.record_error(mapped)
+            logger.warning(
+                "llm_stream_failed",
+                extra={
+                    "event": "llm_stream_failed",
+                    "llm_model": litellm_model,
+                    "llm_vendor": vendor,
+                    "chain_provider": chain_provider,
+                    "error_type": type(exc).__name__,
+                    "phase": "open",
+                },
+            )
+            raise mapped from exc
 
-    emitted_any = False
-    last_usage: UsageInfo | None = None
-    try:
-        async for chunk in response_stream:
-            usage_candidate = _usage_from_litellm(getattr(chunk, "usage", None))
-            if usage_candidate is not None:
-                last_usage = usage_candidate
-            delta_text = _extract_stream_delta_text(chunk)
-            if delta_text:
-                emitted_any = True
-                yield delta_text
-    except Exception as exc:  # noqa: BLE001 — boundary: mid-stream upstream failure
-        mapped = _map_litellm_exception(
-            exc, litellm_model=litellm_model, chain_provider=chain_provider
-        )
-        logger.warning(
-            "llm_stream_failed",
-            extra={
-                "event": "llm_stream_failed",
-                "llm_model": litellm_model,
-                "llm_vendor": vendor,
-                "chain_provider": chain_provider,
-                "error_type": type(exc).__name__,
-                "phase": "iterate",
-            },
-        )
-        raise mapped from exc
+        emitted_any = False
+        last_usage: UsageInfo | None = None
+        text_parts: list[str] = []
+        try:
+            async for chunk in response_stream:
+                usage_candidate = _usage_from_litellm(getattr(chunk, "usage", None))
+                if usage_candidate is not None:
+                    last_usage = usage_candidate
+                delta_text = _extract_stream_delta_text(chunk)
+                if delta_text:
+                    emitted_any = True
+                    text_parts.append(delta_text)
+                    yield delta_text
+        except Exception as exc:  # noqa: BLE001 — boundary: mid-stream upstream failure
+            mapped = _map_litellm_exception(
+                exc, litellm_model=litellm_model, chain_provider=chain_provider
+            )
+            observability.record_error(mapped)
+            logger.warning(
+                "llm_stream_failed",
+                extra={
+                    "event": "llm_stream_failed",
+                    "llm_model": litellm_model,
+                    "llm_vendor": vendor,
+                    "chain_provider": chain_provider,
+                    "error_type": type(exc).__name__,
+                    "phase": "iterate",
+                },
+            )
+            raise mapped from exc
 
-    if not emitted_any:
-        logger.warning(
-            "llm_stream_failed",
-            extra={
-                "event": "llm_stream_failed",
-                "llm_model": litellm_model,
-                "llm_vendor": vendor,
-                "chain_provider": chain_provider,
-                "error_type": "empty_completion",
-                "phase": "iterate",
-            },
+        if not emitted_any:
+            empty_err = ProviderInvalidResponseError(_empty_completion_message(chain_provider))
+            observability.record_error(empty_err)
+            logger.warning(
+                "llm_stream_failed",
+                extra={
+                    "event": "llm_stream_failed",
+                    "llm_model": litellm_model,
+                    "llm_vendor": vendor,
+                    "chain_provider": chain_provider,
+                    "error_type": "empty_completion",
+                    "phase": "iterate",
+                },
+            )
+            raise empty_err
+
+        complete_llm_generation(
+            observability,
+            resolved_model=litellm_model,
+            usage=last_usage,
+            finish_reason="stop",
+            output_text="".join(text_parts),
         )
-        raise ProviderInvalidResponseError(_empty_completion_message(chain_provider))
 
     logger.info(
         "llm_stream_succeeded",

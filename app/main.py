@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.cors import configure_cors
 from app.routers import estimations, estimations_v2
 from app.services.llm_chain import build_provider_chain
+from app.services.observability.bootstrap import init_observability, shutdown_observability
 
 _log_level = os.environ.get("LOG_LEVEL", "INFO")
 logging.basicConfig(
@@ -36,7 +37,17 @@ async def lifespan(app: FastAPI):
         "app_startup",
         extra={"app_env": settings.app_env, "providers": provider_names},
     )
+    observability = init_observability(settings)
+    logging.getLogger(__name__).info(
+        "observability_initialized",
+        extra={
+            "event": "observability_initialized",
+            "export_active": settings.observability_export_active(),
+            "adapter": type(observability).__name__,
+        },
+    )
     yield
+    shutdown_observability()
 
 
 app = FastAPI(

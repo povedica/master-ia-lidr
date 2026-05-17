@@ -16,6 +16,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "instructor>=1.15.1",
     "redis>=7.4.0",
+    "langfuse>=4.6.1",
 ]
 
 [dependency-groups]
