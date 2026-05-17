@@ -373,7 +373,7 @@ async def astream_chat(
     kwargs: dict[str, Any] = {"timeout": timeout_seconds, "stream": True}
     if api_key:
         kwargs["api_key"] = api_key
-    if _infer_llm_vendor(litellm_model) == "openai":
+    if infer_llm_vendor(litellm_model) == "openai":
         kwargs["stream_options"] = {"include_usage": True}
 
     observability = get_observability()

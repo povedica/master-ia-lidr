@@ -1284,3 +1284,33 @@ Send `POST /api/v2/estimate` with `X-Session-Id: <your-session>`. In Langfuse EU
 | --- | --- |
 | `c2465b5` | Slice 1 (steps 1–8): Langfuse adapter, settings, bootstrap, LLM generations, v2 HTTP trace; feature-014 spec + learnings log. |
 | `cbe07c7` | Structured v2 path: `estimator.llm.structured_output` with usage/cost; model id normalization for cost estimate. |
+| `c6fcade` | Doc hash for structured observability commit. |
+
+## Task closure (2026-05-17)
+
+### Verified
+
+- `uv run pytest`: **229 passed** (after fixing `infer_llm_vendor` typo in `astream_chat`).
+- Observability unit tests: noop default in `conftest`, Langfuse adapter fakes, v2 trace, structured generation metadata.
+- Manual smoke on Langfuse Cloud EU: trace `estimator.api.v2.estimate`, session header, HTTP status, generation `estimator.llm.structured_output` with usage/cost when cache miss.
+
+### Not verified
+
+- CI on this PR (pending until merge).
+- Automated Langfuse smoke in CI.
+- Phases 4–6 (cache metadata on spans, scores, embeddings).
+
+### Residual risk
+
+- Cost estimate only for models in `estimate_cost_usd` (e.g. `gpt-4o-mini`).
+- Cache hit may omit LLM generation (expected).
+- `user_id` deferred until real auth.
+
+### Acceptance (MVP scope)
+
+- [x] `OTEL_EXPORT_ENABLED` gates export; noop when off.
+- [x] Langfuse v2 API adapter + bootstrap flush.
+- [x] Root trace on `/api/v2` estimate + pipeline span + HTTP status.
+- [x] LLM generations: LiteLLM chat + Instructor structured v2.
+- [x] Session via `X-Session-Id` or generated `sess_<uuid>`.
+- [ ] Out of scope for this PR: scores, embeddings, full cache dimension tagging.
