@@ -272,9 +272,11 @@ Recommended baby steps for `/start-task` (TDD each logic step):
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/15 — WIP draft (2026-05-18)
+- https://github.com/povedica/master-ia-lidr/pull/15 — merged via `/finish-task` (2026-05-18).
 
 ## Architecture Decision — Why LLM Extractor Over Heuristic Extraction
+
+> **Canonical rationale for the extractor choice.** Implementation learnings and v1 trade-offs are in **Learnings** below.
 
 **1. Why history and project_metadata must be separate**
 
@@ -290,14 +292,20 @@ Estimation sessions rarely need more than the last ~10 turns once scope stabiliz
 - **Cost:** small structured block vs full transcript.
 - **Auditability:** log metadata snapshot per turn.
 
-**4. Why LLM extractor vs heuristics**
+**4. Why LLM extractor vs heuristics (decision summary)**
 
-Free-form and bilingual input breaks regex ("ya no usamos React", "team 4–5"). LLM extractor maps intent to `ProjectMetadata` reliably.
+| Approach | Limitation in this product |
+| --- | --- |
+| Regex / keyword heuristics | Break on free-form, bilingual, and implicit revisions ("ya no usamos React", "team 4–5", "olvida lo del MVP"). |
+| Rule-based NER on turns | High maintenance; every new field needs new patterns; removals/revisions are ambiguous. |
+| **LLM extractor + Pydantic + merge tests** | Maps intent to typed `ProjectMetadata`; `complete_structured` reuses the existing provider chain; merge rules are deterministic and testable. |
 
-**5. Trade-offs**
+We rejected heuristics because estimation input is conversational and unstructured. The extractor is a **narrow second call** (small schema, low temperature) whose output is never trusted blindly — it passes through Pydantic and explicit merge logic (`merge_project_metadata`).
+
+**5. Trade-offs accepted**
 
 - +1 LLM call per turn (cost, ~300–800 ms latency).
-- Hallucination / missed revision risk → Pydantic validation, explicit merge tests, narrow prompt, low temperature.
+- Hallucination / missed revision risk → mitigated by Pydantic validation, explicit merge tests (preserve / append / clear / remove), and a narrow extraction prompt.
 
 **6. Why in-memory is acceptable now**
 
@@ -305,10 +313,20 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 
 ## Learnings
 
+### Process
+
 - `/write-feature` must **never** ship application code; ambiguous prompts that say "implement" still mean **spec only** unless the user runs `/start-task` on the work item path.
 - Verify `complete_structured` exists before any import from `structured_llm_client`.
 - Run `uv run pytest --collect-only` before merging router registration.
 - Avoid route-level stubs; orchestration service + existing `EstimationService` keeps boundaries clean.
+
+### Technical (feature-018 implementation)
+
+- **LLM extractor choice held in production:** see **Architecture Decision §4** — heuristics were rejected for bilingual/free-form revision language; the extractor reuses `complete_structured` + `ProjectMetadata` with deterministic merge (`model_fields_set` for partial patches, case-insensitive list dedupe, `rejected_options` driving technology removal).
+- **`system_prompt_override` on `EstimationService.estimate()`** was the smallest hook to inject metadata-enriched system prompts without forking the provider chain.
+- **v1 estimation is single-turn at the provider boundary:** `ConversationHistory` is persisted and trimmed, but `LLMProvider.complete(system, user)` only accepts one user message — v1 sends the **current turn** plus metadata in the system prompt, not full `to_messages_list()`. Cross-turn recall relies on distilled metadata, not raw transcript. **Follow-up:** extend provider/service to pass multi-message context when product requires it (FR-02 full intent).
+- **`_prepare_call` runs twice per turn** today (orchestrator + `estimate()`); acceptable for v1 but worth deduplicating if latency becomes visible.
+- **Failed estimate after `add_user_message`** can orphan a user line in history; **failed metadata extraction after a successful estimate** returns 503 while the session already has the assistant turn — document as residual risk; consider best-effort metadata or transactional turn boundaries in a follow-up.
 
 ## Repository commits (master-ia)
 
