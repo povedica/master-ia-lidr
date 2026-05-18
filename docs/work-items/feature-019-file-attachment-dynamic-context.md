@@ -392,7 +392,7 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/sessions/$SESSION/estimate" \
 
 ## Pull Request
 
-*(WIP URL recorded after branch push)*
+- **WIP draft:** https://github.com/povedica/master-ia-lidr/pull/16 (label `wip`)
 
 ---
 
