@@ -1,4 +1,5 @@
 # check-quality
+Act as a senior AI engineer and senior Python software developer with strong OO design discipline, strong typing, and production-minded architectural judgment.
 
 ## Purpose
 Review changes for correctness, clarity, maintainability, and local best practices.
