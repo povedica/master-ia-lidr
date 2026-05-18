@@ -12,19 +12,32 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import Settings, get_settings
 from app.schemas.estimations import EstimateResponse, UsageView
-from app.schemas.session_estimation import SessionEstimateRequest
+from app.schemas.session_estimation import SessionEstimateRequest, SessionSummary
 from app.services.conversational_estimation_service import (
     ConversationalEstimationService,
     SessionNotFoundError,
 )
 from app.services.estimate_response_builder import assemble_estimate_response
 from app.services.llm_chain import build_provider_chain
-from app.services.llm_service import DomainGuardrailError, EstimationError, EstimationService
+from app.services.llm_service import (
+    EXAMPLES_VERSION,
+    PROMPT_VERSION,
+    DomainGuardrailError,
+    EstimationError,
+    EstimationService,
+)
 from app.services.metadata_extractor import MetadataExtractionError
+from app.services.observability.bootstrap import get_observability
+from app.services.observability.types import TelemetryContext
+from app.services.session_summary import session_to_summary
 from app.services.sessions import session_store
 
 router = APIRouter(tags=["sessions"])
 logger = logging.getLogger(__name__)
+
+SESSION_CREATE_TRACE = "estimator.api.v1.session_create"
+SESSION_LIST_TRACE = "estimator.api.v1.session_list"
+SESSION_ESTIMATE_TRACE = "estimator.api.v1.session_estimate"
 
 
 def get_estimation_service(
@@ -44,8 +57,42 @@ def get_conversational_service(
 def create_session() -> dict[str, str]:
     """Create an empty in-memory conversational session."""
 
+    request_id = f"sess_{uuid4().hex[:12]}"
+    observability = get_observability()
+    observability.set_prompt_context(
+        prompt_version=PROMPT_VERSION,
+        examples_version=EXAMPLES_VERSION,
+    )
     session = session_store.create_session()
-    return {"session_id": session.session_id}
+    with observability.start_trace(
+        SESSION_CREATE_TRACE,
+        context=TelemetryContext(
+            request_id=request_id,
+            feature="estimation",
+            session_id=session.session_id,
+            tags=["feature:estimation", "endpoint:api_v1_session_create"],
+        ),
+    ):
+        observability.set_http_status(status.HTTP_201_CREATED)
+        return {"session_id": session.session_id}
+
+
+@router.get("/sessions", response_model=list[SessionSummary])
+def list_sessions() -> list[SessionSummary]:
+    """List all in-memory sessions (most recently updated first)."""
+
+    request_id = f"sess_{uuid4().hex[:12]}"
+    observability = get_observability()
+    trace_context = TelemetryContext(
+        request_id=request_id,
+        feature="estimation",
+        session_id=None,
+        tags=["feature:estimation", "endpoint:api_v1_session_list"],
+    )
+    with observability.start_trace(SESSION_LIST_TRACE, context=trace_context):
+        summaries = [session_to_summary(s) for s in session_store.list_sessions()]
+        observability.set_http_status(status.HTTP_200_OK)
+        return summaries
 
 
 @router.post(

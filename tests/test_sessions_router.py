@@ -49,6 +49,33 @@ def _outcome_for(session: Session, text: str = "## Estimation\n\nDone.") -> Sess
     return SessionEstimateOutcome(session=session, estimation=estimation)
 
 
+def test_list_sessions_returns_empty_when_store_empty() -> None:
+    store = InMemorySessionStore()
+    with patch("app.routers.sessions.session_store", store):
+        client = TestClient(_build_app(store))
+        response = client.get("/api/v1/sessions")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_sessions_returns_summaries_ordered_by_activity() -> None:
+    store = InMemorySessionStore()
+    first = store.create_session()
+    second = store.create_session()
+    second.submit_count = 2
+    with patch("app.routers.sessions.session_store", store):
+        client = TestClient(_build_app(store))
+        response = client.get("/api/v1/sessions")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    assert body[0]["session_id"] == second.session_id
+    assert body[0]["submit_count"] == 2
+    assert body[1]["session_id"] == first.session_id
+
+
 def test_create_session_returns_distinct_ids() -> None:
     store = InMemorySessionStore()
     client = TestClient(_build_app(store))
