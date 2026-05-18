@@ -13,6 +13,7 @@ from app.services.prompt_versions import (
     resolve_prompt_bundle_version,
     resolve_prompt_template_set,
 )
+from app.services.session_sync import build_form_metadata_render_context
 from app.services.sessions import ProjectMetadata
 
 _SESSION_METADATA_TEMPLATE = "estimation/v2/partials/session_project_metadata.md.j2"
@@ -97,11 +98,21 @@ def _metadata_render_context(metadata: ProjectMetadata) -> dict[str, object]:
     return ctx
 
 
-def render_session_system_prompt(base_system: str, metadata: ProjectMetadata) -> str:
+def render_session_system_prompt(
+    base_system: str,
+    metadata: ProjectMetadata | None = None,
+    *,
+    last_request: EstimationRequest | None = None,
+) -> str:
     """Append populated session metadata to the base estimation system prompt."""
 
     base = base_system.strip()
-    ctx = _metadata_render_context(metadata)
+    if last_request is not None:
+        ctx = build_form_metadata_render_context(last_request)
+    elif metadata is not None:
+        ctx = _metadata_render_context(metadata)
+    else:
+        return base
     if not ctx:
         return base
     block = PromptRenderer().render_partial(_SESSION_METADATA_TEMPLATE, ctx)
