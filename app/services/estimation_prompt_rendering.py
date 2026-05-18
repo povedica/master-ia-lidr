@@ -13,6 +13,9 @@ from app.services.prompt_versions import (
     resolve_prompt_bundle_version,
     resolve_prompt_template_set,
 )
+from app.services.sessions import ProjectMetadata
+
+_SESSION_METADATA_TEMPLATE = "estimation/v2/partials/session_project_metadata.md.j2"
 
 
 def _resolve_version(version: str | None, settings: Settings | None) -> str:
@@ -75,6 +78,36 @@ def render_two_phase_extraction_system_prompt(
 
     template_set = _template_set(version, settings)
     return PromptRenderer().render_partial(template_set.two_phase_extraction_system_template, {})
+
+
+def _metadata_render_context(metadata: ProjectMetadata) -> dict[str, object]:
+    ctx: dict[str, object] = {}
+    if metadata.project_name:
+        ctx["project_name"] = metadata.project_name
+    if metadata.assumed_team_size is not None:
+        ctx["assumed_team_size"] = metadata.assumed_team_size
+    if metadata.mentioned_technologies:
+        ctx["mentioned_technologies"] = list(metadata.mentioned_technologies)
+    if metadata.agreed_scope:
+        ctx["agreed_scope"] = metadata.agreed_scope
+    if metadata.explicit_constraints:
+        ctx["explicit_constraints"] = list(metadata.explicit_constraints)
+    if metadata.rejected_options:
+        ctx["rejected_options"] = list(metadata.rejected_options)
+    return ctx
+
+
+def render_session_system_prompt(base_system: str, metadata: ProjectMetadata) -> str:
+    """Append populated session metadata to the base estimation system prompt."""
+
+    base = base_system.strip()
+    ctx = _metadata_render_context(metadata)
+    if not ctx:
+        return base
+    block = PromptRenderer().render_partial(_SESSION_METADATA_TEMPLATE, ctx)
+    if not block:
+        return base
+    return f"{base}\n\n{block}"
 
 
 def render_estimation_prompt(

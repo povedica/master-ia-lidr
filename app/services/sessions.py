@@ -65,6 +65,8 @@ class ProjectMetadata(BaseModel):
     assumed_team_size: int | None = None
     mentioned_technologies: list[str] = Field(default_factory=list)
     agreed_scope: str | None = None
+    explicit_constraints: list[str] = Field(default_factory=list)
+    rejected_options: list[str] = Field(default_factory=list)
 
 
 @dataclass
@@ -73,6 +75,7 @@ class Session:
 
     session_id: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     conversation_history: ConversationHistory = field(default_factory=ConversationHistory)
     project_metadata: ProjectMetadata = field(default_factory=ProjectMetadata)
 

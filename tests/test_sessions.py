@@ -17,6 +17,16 @@ def test_project_metadata_defaults_are_optional() -> None:
     assert meta.assumed_team_size is None
     assert meta.mentioned_technologies == []
     assert meta.agreed_scope is None
+    assert meta.explicit_constraints == []
+    assert meta.rejected_options == []
+
+
+def test_session_has_updated_at_defaulting_near_created_at() -> None:
+    session = Session(session_id="sess-updated")
+    assert session.updated_at is not None
+    assert session.updated_at.tzinfo is not None
+    delta = abs((session.updated_at - session.created_at).total_seconds())
+    assert delta < 1.0
 
 
 def test_chat_message_is_frozen_value() -> None:
@@ -103,3 +113,18 @@ def test_in_memory_session_store_get_unknown_returns_none() -> None:
 def test_in_memory_session_store_delete_missing_is_idempotent() -> None:
     store = InMemorySessionStore()
     store.delete_session("missing")
+
+
+def test_project_metadata_survives_conversation_history_trim() -> None:
+    session = Session(session_id="sess-trim")
+    session.project_metadata = ProjectMetadata(project_name="Persistent Portal")
+    history = session.conversation_history
+    history.max_turns = 1
+    history.set_system_prompt("sys")
+    history.add_user_message("u1")
+    history.add_assistant_message("a1")
+    history.add_user_message("u2")
+    history.add_assistant_message("a2")
+
+    assert session.project_metadata.project_name == "Persistent Portal"
+    assert {"role": "user", "content": "u1"} not in history.to_messages_list()

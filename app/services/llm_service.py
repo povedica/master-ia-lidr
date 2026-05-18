@@ -504,6 +504,7 @@ class EstimationService:
         *,
         preprocessing: str = "none",
         assessment_input: str | None = None,
+        system_prompt_override: str | None = None,
     ) -> LlmEstimationCallOutcome:
         """Return generated estimation plus provider usage metadata."""
 
@@ -512,7 +513,7 @@ class EstimationService:
             preprocessing=preprocessing,
             assessment_input=assessment_input,
         )
-        system_prompt = prepared.system_prompt
+        system_prompt = system_prompt_override or prepared.system_prompt
         user_text = prepared.user_text
         mode = prepared.mode
         max_output_tokens = prepared.max_output_tokens
