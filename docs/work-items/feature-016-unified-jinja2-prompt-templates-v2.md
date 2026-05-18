@@ -314,12 +314,13 @@ EstimationRequest (validated)
 ## Verification
 
 - **Verified:**
-  - `uv run pytest` — 236 passed (bundle resolution, renderer StrictUndefined, guided/assessment parity v1≡v2, tree sync test, estimation prompt rendering).
+  - `uv run pytest` — 239 passed (bundle resolution, renderer StrictUndefined, guided/assessment parity v1≡v2, tree sync test, estimation prompt rendering, dump script tests).
   - `scripts/sync-estimation-prompt-v1-from-v2.sh` copies `v2/` → `v1/` and sets manifest `version = "v1"`.
   - Default empty `PROMPT_ESTIMATION_VERSION` resolves to `v2` via `resolve_prompt_bundle_version()`.
+  - `uv run python scripts/dump_v2_estimation_prompt.py` (dry run, `preprocessing=none`) writes Markdown under `output-prompt/`; covered by `tests/test_dump_v2_estimation_prompt.py`.
 - **Not verified:**
   - Live LLM estimate with default v2 and with `PROMPT_ESTIMATION_VERSION=v1` (manual, requires API keys).
-  - Specialist dump script from Test Plan § Manual checks.
+  - Dump script with `--preprocessing two_phase` (real LLM extraction call).
 - **Residual risk:**
   - Breaking change for operators expecting empty env = v1; documented in `.env.example` and technical README.
   - Legacy `build_system_prompt()` still assembles examples in Python (no structured-output hint); v2 API uses full Jinja `system.j2`.
@@ -335,4 +336,6 @@ EstimationRequest (validated)
 | Short hash | Message | Scope / summary |
 | ---------- | ------- | --------------- |
 | _(see branch PR #12)_ | Multiple commits | v2 bundle, version resolution, unified renders, workflow docs, system_instructions follow-up |
+| `e48dde1` | `feat(scripts): add v2 prompt dump script for specialist review` | `scripts/dump_v2_estimation_prompt.py`, unit tests, `output-prompt/` in `.gitignore` |
+| `d4c8a8c` | `docs(feature-016): record dump script verification and commit log` | Verification section and repository commits table updated. |
 | _pending_ | | Step 9 FORCED_ESTIMATION_MODE removal when explicitly scheduled |
