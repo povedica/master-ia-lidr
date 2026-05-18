@@ -189,20 +189,20 @@ domain_result, raw_usage, finish = await complete_structured(
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/sessions` returns 201 with valid UUID `session_id` and empty history/metadata.
-- [ ] AC-02: Two session creates return distinct IDs.
-- [ ] AC-03: `ConversationHistory` keeps system prompt first after any number of trims.
-- [ ] AC-04: When `max_turns` exceeded, oldest user/assistant pair is removed; newer pairs remain.
-- [ ] AC-05: `POST /api/v1/sessions/{id}/estimate` returns success for valid session using **real** estimation path (mocked LLM in tests).
-- [ ] AC-06: After estimate, session history contains new user and assistant messages.
-- [ ] AC-07: Metadata block appears in composed system prompt (assert via mock/spy on render function).
-- [ ] AC-08: After forced history trim, `project_metadata` fields set earlier remain on session.
-- [ ] AC-09: Extractor validates LLM output with Pydantic; invalid output handled per FR-03 (tested).
-- [ ] AC-10: No-op turn preserves prior metadata scalars and lists.
-- [ ] AC-11: New list items append without duplication.
-- [ ] AC-12: Explicit user revision/removal updates or clears stale facts (tested).
-- [ ] AC-13: `uv run pytest` full suite passes; `uv run pytest --collect-only` has zero errors.
-- [ ] AC-14: No secrets in code, tests, or docs.
+- [x] AC-01: `POST /api/v1/sessions` returns 201 with valid UUID `session_id` and empty history/metadata.
+- [x] AC-02: Two session creates return distinct IDs.
+- [x] AC-03: `ConversationHistory` keeps system prompt first after any number of trims.
+- [x] AC-04: When `max_turns` exceeded, oldest user/assistant pair is removed; newer pairs remain.
+- [x] AC-05: `POST /api/v1/sessions/{id}/estimate` returns success for valid session using **real** estimation path (mocked LLM in tests).
+- [x] AC-06: After estimate, session history contains new user and assistant messages.
+- [x] AC-07: Metadata block appears in composed system prompt (assert via mock/spy on render function).
+- [x] AC-08: After forced history trim, `project_metadata` fields set earlier remain on session.
+- [x] AC-09: Extractor validates LLM output with Pydantic; invalid output handled per FR-03 (tested).
+- [x] AC-10: No-op turn preserves prior metadata scalars and lists.
+- [x] AC-11: New list items append without duplication.
+- [x] AC-12: Explicit user revision/removal updates or clears stale facts (tested).
+- [x] AC-13: `uv run pytest` full suite passes; `uv run pytest --collect-only` has zero errors.
+- [x] AC-14: No secrets in code, tests, or docs.
 
 ## Test Plan
 
@@ -231,11 +231,11 @@ curl -s -X POST http://localhost:8000/api/v1/sessions/<id>/estimate \
 
 ## Verification
 
-- **Automated:** `uv run pytest tests/test_sessions.py tests/test_metadata_extractor.py tests/test_sessions_router.py -v`
-- **Automated (regression):** `uv run pytest`
-- **Import gate:** `uv run python -c "from app.main import app"`
-- **Manual:** curl flow above
-- **Not verified yet:** multi-worker memory, persistence migration, production cost of extra LLM call per turn
+- **Automated:** `uv run pytest tests/test_sessions.py tests/test_metadata_extractor.py tests/test_sessions_router.py -v` — **Verified** (2026-05-18).
+- **Automated (regression):** `uv run pytest` — **Verified** (265 passed, 2026-05-18).
+- **Import gate:** `uv run python -c "from app.main import app"` — **Verified** (2026-05-18).
+- **Manual:** curl flow above — **Not verified** (requires live server + API key).
+- **Not verified:** multi-worker memory, persistence migration, production cost of extra LLM call per turn
 
 ## Documentation Plan
 
@@ -263,12 +263,12 @@ Recommended baby steps for `/start-task` (TDD each logic step):
 
 ## Implementation progress
 
-- [ ] Step 1: Extend `ProjectMetadata` + `Session.updated_at` + tests (RED → GREEN)
-- [ ] Step 2: `render_session_system_prompt` + tests (metadata injection, no None placeholders)
-- [ ] Step 3: `metadata_extractor` with `complete_structured` mock + merge tests
-- [ ] Step 4: `conversational_estimation_service` orchestration + unit tests
-- [ ] Step 5: `routers/sessions.py` + `test_sessions_router.py`; `--collect-only` clean
-- [ ] Step 6: Register router in `main.py`, README, full `pytest`, sync AC checkboxes
+- [x] Step 1: Extend `ProjectMetadata` + `Session.updated_at` + tests (RED → GREEN)
+- [x] Step 2: `render_session_system_prompt` + tests (metadata injection, no None placeholders)
+- [x] Step 3: `metadata_extractor` with `complete_structured` mock + merge tests
+- [x] Step 4: `conversational_estimation_service` orchestration + unit tests
+- [x] Step 5: `routers/sessions.py` + `test_sessions_router.py`; `--collect-only` clean
+- [x] Step 6: Register router in `main.py`, README, full `pytest`, sync AC checkboxes
 
 ## Pull Request
 
@@ -314,5 +314,10 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
-| *(pending)* | `docs(feature-018): add conversational memory work item and start-task plan` | Canonical work item + estimation/plan. |
-| *(pending)* | `feat(feature-018): extend ProjectMetadata and Session.updated_at` | Domain fields + unit tests. |
+| `eff5b99` | `docs(feature-018): add conversational memory work item and start-task plan` | Canonical work item + estimation/plan. |
+| `c317278` | `feat(feature-018): extend ProjectMetadata and Session.updated_at` | Domain fields + unit tests. |
+| `4480541` | `feat(feature-018): add render_session_system_prompt for metadata injection` | Jinja partial + prompt rendering tests. |
+| `8b618c8` | `feat(feature-018): add metadata extractor with merge rules` | LLM extraction + merge unit tests. |
+| `25b7ba4` | `feat(feature-018): add conversational estimation orchestration service` | Turn orchestration + service tests. |
+| `d457ca2` | `feat(feature-018): add sessions router and integration tests` | HTTP routes without main registration. |
+| `TBD` | `feat(feature-018): register sessions routes and document API` | main.py, README, AC-08 test, full regression. |

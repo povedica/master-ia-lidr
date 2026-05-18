@@ -138,8 +138,21 @@ For the v1 Markdown + SSE contract (optional), see [docs/technical/README.md](do
 | `POST` | `/api/v1/estimate` | Synchronous estimation |
 | `POST` | `/api/v1/estimate/stream` | Markdown estimation with SSE (`chunk` / `done` / `error`) |
 | `POST` | `/api/v2/estimate` | Structured synchronous estimation |
+| `POST` | `/api/v1/sessions` | Create an in-memory conversational session |
+| `POST` | `/api/v1/sessions/{session_id}/estimate` | Conversational estimate turn (free-text) |
 
 Full schema available at `http://127.0.0.1:8000/docs`.
+
+### Conversational sessions
+
+Create a session, then send free-text turns. Project metadata is distilled after each turn and injected into the system prompt; conversation history uses a sliding window while metadata persists.
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/v1/sessions | jq
+curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
+  -H "Content-Type: application/json" \
+  -d '{"user_message": "Estimate a Python FastAPI CRUD, team of 3"}' | jq
+```
 
 ### Example request
 

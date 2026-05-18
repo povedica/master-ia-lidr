@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.cors import configure_cors
-from app.routers import estimations, estimations_v2
+from app.routers import estimations, estimations_v2, sessions
 from app.services.llm_chain import build_provider_chain
 from app.services.observability.bootstrap import init_observability, shutdown_observability
 
@@ -64,6 +64,7 @@ configure_cors(app, get_settings())
 
 app.include_router(estimations.router, prefix="/api/v1")
 app.include_router(estimations_v2.router, prefix="/api/v2")
+app.include_router(sessions.router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -77,6 +78,8 @@ def read_root() -> dict[str, str]:
         "estimate": "POST /api/v1/estimate",
         "estimate_stream": "POST /api/v1/estimate/stream",
         "estimate_structured": "POST /api/v2/estimate",
+        "sessions": "POST /api/v1/sessions",
+        "session_estimate": "POST /api/v1/sessions/{session_id}/estimate",
     }
 
 

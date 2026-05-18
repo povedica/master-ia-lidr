@@ -113,3 +113,18 @@ def test_in_memory_session_store_get_unknown_returns_none() -> None:
 def test_in_memory_session_store_delete_missing_is_idempotent() -> None:
     store = InMemorySessionStore()
     store.delete_session("missing")
+
+
+def test_project_metadata_survives_conversation_history_trim() -> None:
+    session = Session(session_id="sess-trim")
+    session.project_metadata = ProjectMetadata(project_name="Persistent Portal")
+    history = session.conversation_history
+    history.max_turns = 1
+    history.set_system_prompt("sys")
+    history.add_user_message("u1")
+    history.add_assistant_message("a1")
+    history.add_user_message("u2")
+    history.add_assistant_message("a2")
+
+    assert session.project_metadata.project_name == "Persistent Portal"
+    assert {"role": "user", "content": "u1"} not in history.to_messages_list()
