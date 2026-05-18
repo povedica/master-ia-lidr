@@ -68,16 +68,16 @@ The exercise explicitly requires a new `sessions.py` module with:
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `sessions.py` exists under `app/services/` and imports cleanly.
-- [ ] AC-02: `ConversationHistory.to_messages_list()` returns `[{"role":"system","content":...}, ...]` when a system prompt is set.
-- [ ] AC-03: After exceeding `max_turns`, the system prompt is always the first message.
-- [ ] AC-04: After exceeding `max_turns`, the oldest user+assistant pair is removed.
-- [ ] AC-05: `ProjectMetadata` has all fields optional with sensible defaults.
-- [ ] AC-06: `Session` initializes with an empty `ConversationHistory` and a default `ProjectMetadata`.
-- [ ] AC-07: `InMemorySessionStore.create_session()` returns a `Session` and stores it internally.
-- [ ] AC-08: `InMemorySessionStore.get_session(id)` returns `None` for unknown IDs.
-- [ ] AC-09: `InMemorySessionStore.delete_session(id)` removes the session silently if absent.
-- [ ] AC-10: No import of `sessions.py` breaks any existing module.
+- [x] AC-01: `sessions.py` exists under `app/services/` and imports cleanly.
+- [x] AC-02: `ConversationHistory.to_messages_list()` returns `[{"role":"system","content":...}, ...]` when a system prompt is set.
+- [x] AC-03: After exceeding `max_turns`, the system prompt is always the first message.
+- [x] AC-04: After exceeding `max_turns`, the oldest user+assistant pair is removed.
+- [x] AC-05: `ProjectMetadata` has all fields optional with sensible defaults.
+- [x] AC-06: `Session` initializes with an empty `ConversationHistory` and a default `ProjectMetadata`.
+- [x] AC-07: `InMemorySessionStore.create_session()` returns a `Session` and stores it internally.
+- [x] AC-08: `InMemorySessionStore.get_session(id)` returns `None` for unknown IDs.
+- [x] AC-09: `InMemorySessionStore.delete_session(id)` removes the session silently if absent.
+- [x] AC-10: No import of `sessions.py` breaks any existing module.
 
 ## Test Plan
 
@@ -92,9 +92,10 @@ The exercise explicitly requires a new `sessions.py` module with:
 
 ## Verification
 
-- **Automated**: `uv run pytest tests/test_sessions.py -v`
-- **Manual**: import smoke-test above.
-- **Not verified yet**: integration with future `/sessions` router.
+- **Automated**: `uv run pytest tests/test_sessions.py -v` — **Verified** (9 passed, 2026-05-18).
+- **Automated (regression)**: `uv run pytest` — **Verified** (248 passed, 2026-05-18).
+- **Manual**: `uv run python -c "from app.services.sessions import session_store; ..."` — **Verified**.
+- **Not verified**: integration with future `/sessions` router.
 
 ## Documentation Plan
 
@@ -109,10 +110,10 @@ The exercise explicitly requires a new `sessions.py` module with:
 
 ## Implementation progress
 
-- [ ] Step 1: `ProjectMetadata` + `ChatMessage` (TDD)
-- [ ] Step 2: `ConversationHistory` sliding window (TDD)
-- [ ] Step 3: `Session` + `InMemorySessionStore` + `session_store` (TDD)
-- [ ] Step 4: Full verification + acceptance criteria sync
+- [x] Step 1: `ProjectMetadata` + `ChatMessage` (TDD)
+- [x] Step 2: `ConversationHistory` sliding window (TDD)
+- [x] Step 3: `Session` + `InMemorySessionStore` + `session_store` (TDD)
+- [x] Step 4: Full verification + acceptance criteria sync
 
 ## Draft PR
 
@@ -130,3 +131,6 @@ The exercise explicitly requires a new `sessions.py` module with:
 | `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` section to the work item. |
 | `5bc4d5f` | `docs(feature-017): add start-task estimation and implementation progress` | Added Estimation, Implementation progress, and Draft PR placeholders for `/start-task`. |
 | `48920aa` | `docs(feature-017): record start-task setup commit in repository log` | Logged the start-task setup commit in the work item table. |
+| (pending) | `docs(feature-017): link draft PR and mark acceptance verified` | PR #14 URL; verification and AC checkboxes updated. |
+| (pending) | `test(feature-017): add session state unit tests` | Nine tests for metadata, history window, and store. |
+| (pending) | `feat(feature-017): add in-memory session domain model` | `sessions.py` with `session_store` singleton. |
