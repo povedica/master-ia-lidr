@@ -337,5 +337,5 @@ EstimationRequest (validated)
 | ---------- | ------- | --------------- |
 | _(see branch PR #12)_ | Multiple commits | v2 bundle, version resolution, unified renders, workflow docs, system_instructions follow-up |
 | `e48dde1` | `feat(scripts): add v2 prompt dump script for specialist review` | `scripts/dump_v2_estimation_prompt.py`, unit tests, `output-prompt/` in `.gitignore` |
-| `d4c8a8c` | `docs(feature-016): record dump script verification and commit log` | Verification section and repository commits table updated. |
+| `598bdd9` | `docs(feature-016): record dump script verification and commit log` | Verification section and repository commits table updated. |
 | _pending_ | | Step 9 FORCED_ESTIMATION_MODE removal when explicitly scheduled |
