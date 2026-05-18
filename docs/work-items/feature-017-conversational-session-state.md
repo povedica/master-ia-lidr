@@ -101,16 +101,30 @@ The exercise explicitly requires a new `sessions.py` module with:
 - Short docstrings in `sessions.py` explaining the in-memory tradeoff.
 - No README update required at this stage (no new env vars, no new routes).
 
+## Estimation
+
+- Size: S
+- Estimated time: 1.5 hours
+- Planned steps: 4
+
+## Implementation progress
+
+- [ ] Step 1: `ProjectMetadata` + `ChatMessage` (TDD)
+- [ ] Step 2: `ConversationHistory` sliding window (TDD)
+- [ ] Step 3: `Session` + `InMemorySessionStore` + `session_store` (TDD)
+- [ ] Step 4: Full verification + acceptance criteria sync
+
+## Draft PR
+
+- (pending — created at `/start-task` setup)
+
 ## Implementation Plan
 
-- [ ] Step 1: Write `app/services/sessions.py` with `ChatMessage`, `ConversationHistory`, `ProjectMetadata`, `Session`, `InMemorySessionStore`, and `session_store` singleton.
-- [ ] Step 2: Write `tests/test_sessions.py` covering the six unit tests above.
-- [ ] Step 3: Run `uv run pytest tests/test_sessions.py -v` and confirm green.
+> Superseded by baby-steps plan in `/start-task` (TDD order). See **Implementation progress** above.
 
 ## Repository commits (master-ia)
 
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `60c2f74` | `docs(feature-017): add conversational session state work item spec` | Initial implementation-ready feature spec for in-memory session domain model (`sessions.py`, sliding window, store). |
-| `ce50515` | `docs(feature-017): record initial spec commit in repository log` | Added `## Repository commits (master-ia)` table to the work item. |
-| `9d89a1e` | `docs(feature-017): log repository commits table update` | Recorded the repository-log commit rows in the work item table. |
+| `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` and start-task planning sections. |
