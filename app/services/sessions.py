@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.estimation_request import EstimationRequest
+
 ChatRole = Literal["system", "user", "assistant"]
 
 
@@ -78,6 +80,8 @@ class Session:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     conversation_history: ConversationHistory = field(default_factory=ConversationHistory)
     project_metadata: ProjectMetadata = field(default_factory=ProjectMetadata)
+    last_estimation_request: EstimationRequest | None = None
+    submit_count: int = 0
 
 
 class InMemorySessionStore:
@@ -100,6 +104,15 @@ class InMemorySessionStore:
 
     def delete_session(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
+
+    def list_sessions(self) -> list[Session]:
+        """Return all sessions ordered by ``updated_at`` descending (most recent first)."""
+
+        return sorted(
+            self._sessions.values(),
+            key=lambda session: session.updated_at,
+            reverse=True,
+        )
 
 
 session_store = InMemorySessionStore()

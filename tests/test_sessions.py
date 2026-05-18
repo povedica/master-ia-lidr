@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+
+from app.schemas.estimation_request import EstimationRequest
 from app.services.sessions import (
     ChatMessage,
     ConversationHistory,
@@ -91,6 +94,21 @@ def test_session_initializes_with_empty_history_and_default_metadata() -> None:
     assert session.session_id == "sess-1"
     assert session.conversation_history.to_messages_list() == []
     assert session.project_metadata == ProjectMetadata()
+    assert session.last_estimation_request is None
+    assert session.submit_count == 0
+
+
+def test_list_sessions_orders_by_updated_at_descending() -> None:
+    store = InMemorySessionStore()
+    older = store.create_session()
+    newer = store.create_session()
+    older.updated_at = older.created_at
+    time.sleep(0.01)
+    newer.updated_at = newer.created_at
+
+    listed = store.list_sessions()
+
+    assert [s.session_id for s in listed] == [newer.session_id, older.session_id]
 
 
 def test_in_memory_session_store_create_get_and_delete() -> None:

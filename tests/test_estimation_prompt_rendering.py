@@ -77,6 +77,15 @@ def test_render_session_system_prompt_appends_populated_metadata_only() -> None:
     assert "None" not in composed
 
 
+def test_render_session_system_prompt_from_last_request() -> None:
+    req = _minimal_request().model_copy(update={"project_name": "Guided Portal"})
+    composed = render_session_system_prompt("Base system.", last_request=req)
+
+    assert "Guided Portal" in composed
+    assert "web_saas" in composed
+    assert "None" not in composed
+
+
 def test_render_session_system_prompt_omits_block_when_metadata_empty() -> None:
     composed = render_session_system_prompt("Base only.", ProjectMetadata())
     assert composed == "Base only."

@@ -5,18 +5,39 @@ Treat the following as agreed facts unless the current user turn explicitly revi
 {% if project_name -%}
 - Project name: {{ project_name }}
 {% endif -%}
-{% if assumed_team_size is not none -%}
+{% if project_summary is defined and project_summary -%}
+- Project summary: {{ project_summary }}
+{% endif -%}
+{% if project_type is defined and project_type -%}
+- Project type: {{ project_type }}
+{% endif -%}
+{% if target_audience is defined and target_audience -%}
+- Target audience: {{ target_audience }}
+{% endif -%}
+{% if industry is defined and industry -%}
+- Industry: {{ industry }}
+{% endif -%}
+{% if delivery_urgency is defined and delivery_urgency -%}
+- Delivery urgency: {{ delivery_urgency }}
+{% endif -%}
+{% if detail_level is defined and detail_level -%}
+- Detail level: {{ detail_level }}
+{% endif -%}
+{% if deliverables is defined and deliverables -%}
+- Deliverables: {{ deliverables | join("; ") }}
+{% endif -%}
+{% if assumed_team_size is defined and assumed_team_size is not none -%}
 - Assumed team size: {{ assumed_team_size }}
 {% endif -%}
-{% if mentioned_technologies -%}
+{% if mentioned_technologies is defined and mentioned_technologies -%}
 - Mentioned technologies: {{ mentioned_technologies | join(", ") }}
 {% endif -%}
-{% if agreed_scope -%}
+{% if agreed_scope is defined and agreed_scope -%}
 - Agreed scope: {{ agreed_scope }}
 {% endif -%}
-{% if explicit_constraints -%}
+{% if explicit_constraints is defined and explicit_constraints -%}
 - Explicit constraints: {{ explicit_constraints | join("; ") }}
 {% endif -%}
-{% if rejected_options -%}
+{% if rejected_options is defined and rejected_options -%}
 - Rejected options: {{ rejected_options | join("; ") }}
 {% endif -%}
