@@ -320,4 +320,4 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 | `8b618c8` | `feat(feature-018): add metadata extractor with merge rules` | LLM extraction + merge unit tests. |
 | `25b7ba4` | `feat(feature-018): add conversational estimation orchestration service` | Turn orchestration + service tests. |
 | `d457ca2` | `feat(feature-018): add sessions router and integration tests` | HTTP routes without main registration. |
-| `TBD` | `feat(feature-018): register sessions routes and document API` | main.py, README, AC-08 test, full regression. |
+| `2b64631` | `feat(feature-018): register sessions routes and document API` | main.py, README, AC-08 test, full regression. |
