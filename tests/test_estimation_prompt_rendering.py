@@ -11,7 +11,11 @@ from app.schemas.estimation_request import (
     TargetAudience,
 )
 from app.services.estimation_engine import EstimationMode
-from app.services.estimation_prompt_rendering import render_estimation_prompt
+from app.services.estimation_prompt_rendering import (
+    render_estimation_prompt,
+    render_session_system_prompt,
+)
+from app.services.sessions import ProjectMetadata
 
 
 def _minimal_request() -> EstimationRequest:
@@ -47,3 +51,32 @@ def test_render_estimation_prompt_includes_mode_and_version() -> None:
     assert out.examples_version == "fixture-v2"
     assert "medium" in out.user_prompt
     assert "phases_table" in out.user_prompt
+
+
+def test_render_session_system_prompt_appends_populated_metadata_only() -> None:
+    base = "You are an estimator."
+    metadata = ProjectMetadata(
+        project_name="Acme Portal",
+        assumed_team_size=3,
+        mentioned_technologies=["Python", "FastAPI"],
+        agreed_scope="CRUD API for users",
+        explicit_constraints=["Must use PostgreSQL"],
+        rejected_options=["GraphQL"],
+    )
+
+    composed = render_session_system_prompt(base, metadata)
+
+    assert composed.startswith(base)
+    assert "Acme Portal" in composed
+    assert "team size: 3" in composed.lower()
+    assert "Python" in composed
+    assert "FastAPI" in composed
+    assert "CRUD API" in composed
+    assert "PostgreSQL" in composed
+    assert "GraphQL" in composed
+    assert "None" not in composed
+
+
+def test_render_session_system_prompt_omits_block_when_metadata_empty() -> None:
+    composed = render_session_system_prompt("Base only.", ProjectMetadata())
+    assert composed == "Base only."
