@@ -116,7 +116,7 @@ The exercise explicitly requires a new `sessions.py` module with:
 
 ## Draft PR
 
-- (pending — created at `/start-task` setup)
+- https://github.com/povedica/master-ia-lidr/pull/14 (draft, label `wip`)
 
 ## Implementation Plan
 
@@ -129,3 +129,4 @@ The exercise explicitly requires a new `sessions.py` module with:
 | `60c2f74` | `docs(feature-017): add conversational session state work item spec` | Initial implementation-ready feature spec for in-memory session domain model (`sessions.py`, sliding window, store). |
 | `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` section to the work item. |
 | `5bc4d5f` | `docs(feature-017): add start-task estimation and implementation progress` | Added Estimation, Implementation progress, and Draft PR placeholders for `/start-task`. |
+| `48920aa` | `docs(feature-017): record start-task setup commit in repository log` | Logged the start-task setup commit in the work item table. |
