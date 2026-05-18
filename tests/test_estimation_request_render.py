@@ -26,6 +26,10 @@ from app.services.estimation_request_render import (
     render_estimation_user_message,
     user_message_template_version,
 )
+from app.services.estimation_prompt_rendering import (
+    render_assessment_surface,
+    render_guided_user_message,
+)
 
 
 def _full_request() -> EstimationRequest:
@@ -66,7 +70,7 @@ def _full_request() -> EstimationRequest:
 
 
 def test_user_message_template_version_is_stable() -> None:
-    assert user_message_template_version() == "guided-form-v1"
+    assert user_message_template_version() == "guided-form-v2"
 
 
 def test_render_estimation_assessment_surface_joins_core_fields() -> None:
@@ -100,3 +104,19 @@ def test_render_estimation_user_message_snapshot() -> None:
     assert "detailed" in text
     assert "## Documentos de apoyo" in text
     assert "Hello attachment." in text
+
+
+def test_v1_v2_guided_and_assessment_parity_on_full_fixture() -> None:
+    req = _full_request()
+    guided_v1 = render_guided_user_message(req, version="v1")
+    guided_v2 = render_guided_user_message(req, version="v2")
+    assert guided_v1 == guided_v2
+    surface_v1 = render_assessment_surface(req, version="v1")
+    surface_v2 = render_assessment_surface(req, version="v2")
+    assert surface_v1 == surface_v2
+    assert render_estimation_user_message(req, version="v1") == render_estimation_user_message(
+        req, version="v2"
+    )
+    assert render_estimation_assessment_surface(req, version="v1") == render_estimation_assessment_surface(
+        req, version="v2"
+    )

@@ -37,6 +37,15 @@ class PromptRenderer:
             autoescape=False,
         )
 
+    def render_partial(self, template_path: str, context: Mapping[str, Any]) -> str:
+        """Render a single template path relative to ``app/prompts``."""
+
+        try:
+            template = self._env.get_template(template_path)
+            return template.render(**context).strip()
+        except TemplateError as exc:
+            raise PromptRenderError(str(exc)) from exc
+
     def render(
         self,
         template_set: PromptTemplateSet,

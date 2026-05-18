@@ -1,5 +1,5 @@
 use_case = "estimation"
-version = "v1"
+version = "v2"
 description = "Unified guided-form estimation prompts (Markdown + Jinja2)."
 system_template = "system.j2"
 user_template = "user.j2"

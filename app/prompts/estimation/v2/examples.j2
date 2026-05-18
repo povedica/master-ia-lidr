@@ -1,0 +1,8 @@
+{% for ex in examples %}
+### Example {{ loop.index }} — meeting summary
+{{ ex.meeting_summary }}
+
+### Example {{ loop.index }} — reference estimate
+{{ ex.estimation }}
+
+{% endfor %}

@@ -73,6 +73,7 @@ Before any implementation, the agent must complete and present in the chat:
 2. **Do not** land production code and tests in one undifferentiated batch without having shown test-first order in the session (unless the justified exception applies).
 3. Prefer **≤ ~100 meaningful changed lines per commit** where practical; splitting deps / code / docs across commits is encouraged.
 4. **Documentation must not lag more than one step** behind behavior changes (canonical document updated in the same step or immediate follow-up micro-commit).
+5. **Commit each completed baby step** once verification for that step is green (see Phase 5.F). Do **not** wait for a separate user message such as “commit” or “commitea” — `/start-task` implementation includes commits by default.
 
 If any hard-stop item is missing, **stop and ask** before touching application code.
 
@@ -352,8 +353,14 @@ Update the canonical document when acceptance criteria, APIs, env vars, or verif
 
 ### F. Commit (baby-step cadence)
 
-- Prefer **one commit per plan step** (or tight pair: `test:` then `feat:` only when strictly needed for reviewer clarity).
+After each plan step is **verified** (tests green or documented manual check), create a **safe-to-commit** increment:
+
+- **One commit per completed baby step** when the tree is green for that slice (or a tight pair: `test:` then `feat:` only when reviewers need the split).
+- **Do not batch** multiple plan steps into one commit unless they are mechanically inseparable (call that out in the commit message).
+- **Do not pause** implementation with a large staged diff waiting for the user to ask for commits — committing is part of `/start-task`, not a separate optional phase.
+- Skip a commit only when the step left nothing committable (e.g. planning-only chat) or when files must not land yet (secrets, broken tests); say so explicitly before moving on.
 - Commit messages **English**, conventional prefixes (`feat`, `fix`, `test`, `docs`, `chore`, `refactor`).
+- Append a row to **`## Repository commits (master-ia)`** in the canonical work item when that section exists or as soon as implementation starts recording commits.
 
 ### 5.2 Push rhythm
 
@@ -468,6 +475,7 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ## Changelog
 
+- **2026-05-17 (b)**: Phase 5.F and hard-stop discipline: commit each verified baby step during `/start-task` without waiting for a separate user “commit” request.
 - **2026-05-17**: Restricted `/start-task` to `docs/work-items/feature-NNN-<slug>.md`, added strict feature documentation gate, same-feature WIP blocking by branch or PR, mandatory draft PR with `wip` label before code, and `## Estimation` planning output.
 - **2026-05-15 (b)**: **Canonical branch name** from work item filename (`feature/NNN-slug`); **one branch + one doc** until merge; forbid logging feature A commits in feature B’s table.
 - **2026-05-15**: **Default branch + remote PR** for `start-task` (Phase 4.1, Phase 5.2, Phase 6, success criteria); explicit **opt-out** when the user requests local-only work; WIP hygiene for PR scope.

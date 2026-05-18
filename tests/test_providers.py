@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.config import Settings
-from app.context.prompt_loader import load_mode_prompt
+from app.services.prompt_renderer import PromptRenderer
+from app.services.prompt_versions import resolve_prompt_template_set
 from app.services.ai_model_service import LiteLLMChatOutcome
 from app.services.estimation_engine import EstimationMode
 from app.services.llm_chain import LitellmChainProvider, StaticFallbackProvider
@@ -255,7 +256,15 @@ async def test_static_fallback_budget_shape_follows_mode(
 ) -> None:
     """Degraded markdown should mirror live-mode budget expectations (range vs breakdown)."""
 
-    system = load_mode_prompt(mode)
+    ts = resolve_prompt_template_set("estimation", "v2")
+    system = PromptRenderer().render_partial(
+        ts.system_instructions_template,
+        {
+            "estimation_mode": mode.value,
+            "detail_level": "medium",
+            "output_format": "phases_table",
+        },
+    )
     result = await StaticFallbackProvider().complete(system, "user", max_output_tokens=512)
     lowered = result.text.lower()
     assert must_contain in lowered

@@ -198,7 +198,6 @@ proyectos/estimador-cag/
 │   │   │   ├── professional/
 │   │   │   └── standard/
 │   │   │       └── *.txt
-│   │   ├── prompt_loader.py
 │   │   └── prompts/
 │   │       ├── basic.txt
 │   │       ├── standard.txt
@@ -246,7 +245,7 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
-| `app/context/prompts/` | Mode-specific prompt fragments (`*.txt`) loaded at runtime by `prompt_loader.py`. |
+| `app/prompts/estimation/v2/partials/system_instructions.md.j2` | Single system preamble for all adaptive modes (routing metadata in template context). |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
@@ -394,11 +393,19 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 
 **v2 outbound:** `POST /api/v2/estimate` returns **`EstimationResponse`** with **`result: EstimationResult`** (Pydantic domain model in `app/schemas/estimation_result.py`). The LLM JSON contract is enforced via **Instructor** on top of **LiteLLM** `acompletion` (`app/services/structured_llm_client.py`); schema is derived from the model, not duplicated as hand-written JSON files.
 
-**Prompts:** Jinja2 templates live under `app/prompts/estimation/<version>/` (default `v1`). Rendering is centralized in **`render_estimation_prompt()`** (`app/services/estimation_prompt_rendering.py`) with **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`.
+**Prompts:** Markdown + Jinja2 bundles live under `app/prompts/estimation/<version>/`. **`v2` is canonical** (edit files there only). **`v1` is a synced copy** for retrocompat (`scripts/sync-estimation-prompt-v1-from-v2.sh` after `v2/` changes). Default bundle when `PROMPT_ESTIMATION_VERSION` is empty: **`v2`** (`resolve_prompt_bundle_version()` in `app/services/prompt_versions.py`).
+
+| Entry point | Use |
+| --- | --- |
+| `render_estimation_prompt()` | Full system + user for LLM (`estimation_prompt_rendering.py`) |
+| `render_guided_user_message()` | Guided Markdown body (guardrails, cache, tests) |
+| `render_assessment_surface()` | Narrow text for domain guardrail + mode heuristics (no `##` headers) |
+
+Rendering uses **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`. Context keys are built in Python (`build_prompt_render_context()` in `prompt_context.py`); templates must not reference raw `EstimationRequest` fields.
 
 The browser UI uses this route with **`Accept: application/json`**; there is **no** v2 SSE surface. (v1 `POST /api/v1/estimate/stream` remains available for Markdown + SSE.)
 
-**Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (subdirectory under `app/prompts/estimation/`).
+**Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (`v2` when empty; set `v1` to pin the retrocompat bundle).
 
 ### Semantic cache (v2, optional)
 
@@ -592,7 +599,8 @@ Current coverage:
 - `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
 - `tests/test_examples.py`: example pool loading and sampling behavior.
 - `tests/test_estimation_engine.py`: adaptive routing and guardrails.
-- `tests/test_prompt_loader.py`: mode prompt file loading.
+- `tests/test_prompt_loader.py`: unified system instructions partial.
+- `tests/test_system_instructions_template.py`: v2 bundle has no `partials/modes/`.
 - `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.
 - `tests/test_api.py`: root, health, response shape, `DEV_MODE`, validation, `503` mapping, optional output persistence.
 

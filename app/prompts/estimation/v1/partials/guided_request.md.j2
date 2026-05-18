@@ -1,0 +1,83 @@
+## Contexto del producto
+{% if project_name -%}
+- **Nombre / código:** {{ project_name }}
+{% endif -%}
+- **Resumen:** {{ project_summary }}
+- **Tipo de proyecto:** {{ project_type }}
+- **Audiencia objetivo:** {{ target_audience_display }}
+{% if industry_display -%}
+- **Sector:** {{ industry_display }}
+{% endif %}
+
+## Descripción del proyecto
+
+{{ project_description }}
+
+## Alcance
+### Entregables
+{% for d in deliverables -%}
+- {{ d }}
+{% endfor -%}
+{% if has_out_of_scope %}
+
+### Fuera de alcance
+{% for line in out_of_scope -%}
+- {{ line }}
+{% endfor -%}
+{% endif %}
+
+## Entrega y plazos
+- **Urgencia:** {{ delivery_urgency }}
+{% if target_date -%}
+- **Fecha objetivo:** {{ target_date }}
+{% endif -%}
+{% if delivery_approach -%}
+- **Enfoque de entrega:** {{ delivery_approach }}
+{% endif %}
+
+## Integraciones y datos
+{% if has_integration_categories -%}
+- **Integraciones:** {{ integration_categories_display }}
+{% else -%}
+- **Integraciones:** (ninguna indicada)
+{% endif -%}
+{% if has_integration_custom_names -%}
+- **Integraciones (nombres propios):** {{ integration_custom_names_display }}
+{% endif -%}
+- **Sensibilidad de datos:** {{ data_sensitivity }}
+
+## Restricciones y entorno
+{% if has_hosting_constraints -%}
+- **Alojamiento / despliegue:** {{ hosting_constraints_display }}
+{% endif -%}
+{% if hosting_notes -%}
+- **Notas de alojamiento:** {{ hosting_notes }}
+{% endif -%}
+{% if team_context -%}
+- **Contexto de equipo:** {{ team_context }}
+{% endif -%}
+{% if has_ui_languages -%}
+- **Idiomas de UI / contenido:** {{ ui_languages_display }}
+{% endif %}
+
+## Riesgos
+{% if risk_level -%}
+- **Nivel de riesgo percibido:** {{ risk_level }}
+{% endif -%}
+{% if has_external_dependencies -%}
+- **Dependencias externas críticas:**
+{% for line in external_dependencies -%}
+  - {{ line }}
+{% endfor -%}
+{% endif %}
+
+## Preferencias de salida
+- **Profundidad de estimación:** {{ detail_level }}
+- **Formato de salida:** {{ output_format }}
+{% if has_attachments %}
+
+## Documentos de apoyo
+{% for note in attachment_notes -%}
+{{ note }}
+{% endfor -%}
+{% endif %}
