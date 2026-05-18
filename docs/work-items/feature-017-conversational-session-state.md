@@ -115,9 +115,15 @@ The exercise explicitly requires a new `sessions.py` module with:
 - [x] Step 3: `Session` + `InMemorySessionStore` + `session_store` (TDD)
 - [x] Step 4: Full verification + acceptance criteria sync
 
-## Draft PR
+## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/14 (draft, label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/14 — merged into `main` via `/finish-task` (2026-05-18).
+
+## Learnings
+
+- Sliding-window history is simplest when `_turns` stores only user/assistant messages and `_enforce_window()` drops pairs (`len(_turns) // 2 > max_turns`).
+- `to_messages_list()` returning `list[dict[str, str]]` keeps the future router integration aligned with `ai_model_service.py` without touching the provider layer yet.
+- Module-level `session_store` is acceptable for the exercise; production would need Redis or similar (explicitly out of scope).
 
 ## Implementation Plan
 
@@ -133,3 +139,4 @@ The exercise explicitly requires a new `sessions.py` module with:
 | `48920aa` | `docs(feature-017): record start-task setup commit in repository log` | Logged the start-task setup commit in the work item table. |
 | `ae62471` | `docs(feature-017): link draft PR and mark acceptance verified` | PR #14 URL; verification and AC checkboxes updated. |
 | `0c5d52b` | `feat(feature-017): add in-memory conversational session domain model` | `sessions.py`, `tests/test_sessions.py`, and `session_store` singleton. |
+| `0703da3` | `docs(feature-017): record implementation commits in repository log` | Final commit table sync before merge. |
