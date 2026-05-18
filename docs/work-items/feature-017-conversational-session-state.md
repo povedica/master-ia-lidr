@@ -127,4 +127,5 @@ The exercise explicitly requires a new `sessions.py` module with:
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `60c2f74` | `docs(feature-017): add conversational session state work item spec` | Initial implementation-ready feature spec for in-memory session domain model (`sessions.py`, sliding window, store). |
-| `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` and start-task planning sections. |
+| `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` section to the work item. |
+| `5bc4d5f` | `docs(feature-017): add start-task estimation and implementation progress` | Added Estimation, Implementation progress, and Draft PR placeholders for `/start-task`. |
