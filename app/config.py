@@ -256,6 +256,25 @@ class Settings(BaseSettings):
         default=True,
         description="Send explicit cost_details when cost is trustworthy.",
     )
+    max_attachment_size_bytes: int = Field(
+        default=10_485_760,
+        ge=1,
+        le=33_554_432,
+        description="Maximum decoded bytes per attachment file (default 10 MB).",
+    )
+    max_attachment_context_chars: int = Field(
+        default=131_072,
+        ge=1024,
+        le=524_288,
+        description="Maximum extracted plain-text characters injected into the user prompt.",
+    )
+    allowed_attachment_mime_types: str = Field(
+        default=(
+            "text/plain,text/markdown,application/pdf,"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        description="Comma-separated MIME types allowed for session attachment extraction.",
+    )
 
     @model_validator(mode="after")
     def _validate_langfuse_keys_when_export_enabled(self) -> Self:
@@ -279,6 +298,15 @@ class Settings(BaseSettings):
             and self.langfuse_secret_key.strip()
             and self.langfuse_base_url.strip()
         )
+
+    def allowed_attachment_mime_types_list(self) -> list[str]:
+        """Parsed MIME allowlist for attachment extraction (lowercase, trimmed)."""
+
+        return [
+            part.strip().lower()
+            for part in self.allowed_attachment_mime_types.split(",")
+            if part.strip()
+        ]
 
     def openai_litellm_model_id(self) -> str:
         """Return a LiteLLM chat model id for the OpenAI chain entry."""

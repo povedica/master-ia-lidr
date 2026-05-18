@@ -13,11 +13,16 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # --- Attachment limits (documented in README / docs/technical) ---
 _ATTACHMENT_ALLOWED_TYPES: frozenset[str] = frozenset(
-    {"text/plain", "text/markdown", "application/pdf"}
+    {
+        "text/plain",
+        "text/markdown",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
 )
 _MAX_ATTACHMENTS = 3
-_MAX_ATTACHMENT_BYTES = 256 * 1024
-_MAX_ATTACHMENTS_TOTAL_BYTES = 512 * 1024
+_MAX_ATTACHMENT_BYTES = 10_485_760  # 10 MB per decoded file
+_MAX_ATTACHMENTS_TOTAL_BYTES = 31_457_280  # 3 × 10 MB
 
 # --- Text limits ---
 _PROJECT_NAME_MAX = 120

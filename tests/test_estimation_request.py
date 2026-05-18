@@ -16,6 +16,7 @@ from app.schemas.estimation_request import (
     IntegrationCategory,
     ProjectType,
     TargetAudience,
+    attachment_decoded_size,
 )
 
 
@@ -161,14 +162,26 @@ def test_attachment_rejects_disallowed_content_type() -> None:
         )
 
 
-def test_attachments_total_size_cap() -> None:
-    chunk = b"x" * (200 * 1024)
-    b64 = base64.b64encode(chunk).decode("ascii")
-    att1 = Attachment(filename="a.txt", content_type="text/plain", content_base64=b64)
-    att2 = Attachment(filename="b.txt", content_type="text/plain", content_base64=b64)
-    att3 = Attachment(filename="c.txt", content_type="text/plain", content_base64=b64)
+def test_attachment_accepts_up_to_10mb_decoded() -> None:
+    raw = b"x" * (10 * 1024 * 1024)
+    b64 = base64.b64encode(raw).decode("ascii")
+    att = Attachment(filename="large.txt", content_type="text/plain", content_base64=b64)
+    assert attachment_decoded_size(att) == len(raw)
+
+
+def test_attachment_rejects_over_10mb_decoded() -> None:
+    raw = b"x" * (10 * 1024 * 1024 + 1)
+    b64 = base64.b64encode(raw).decode("ascii")
     with pytest.raises(ValidationError):
-        EstimationRequest(
-            **_valid_kwargs(),
-            attachments=[att1, att2, att3],
-        )
+        Attachment(filename="too_large.txt", content_type="text/plain", content_base64=b64)
+
+
+def test_attachments_three_at_10mb_each_accepted() -> None:
+    chunk = b"x" * (10 * 1024 * 1024)
+    b64 = base64.b64encode(chunk).decode("ascii")
+    attachments = [
+        Attachment(filename=f"a{i}.txt", content_type="text/plain", content_base64=b64)
+        for i in range(3)
+    ]
+    req = EstimationRequest(**_valid_kwargs(), attachments=attachments)
+    assert len(req.attachments) == 3
