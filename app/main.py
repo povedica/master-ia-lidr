@@ -78,8 +78,9 @@ def read_root() -> dict[str, str]:
         "estimate": "POST /api/v1/estimate",
         "estimate_stream": "POST /api/v1/estimate/stream",
         "estimate_structured": "POST /api/v2/estimate",
-        "sessions": "POST /api/v1/sessions",
-        "session_estimate": "POST /api/v1/sessions/{session_id}/estimate",
+        "sessions_create": "POST /api/v1/sessions",
+        "sessions_list": "GET /api/v1/sessions",
+        "session_estimate": "POST /api/v1/sessions/{session_id}/estimate (EstimationRequest body)",
     }
 
 

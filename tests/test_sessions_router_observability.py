@@ -59,3 +59,57 @@ def test_session_list_starts_trace() -> None:
 
     assert response.status_code == 200
     assert mock_obs.start_trace.call_args.args[0] == sessions_router.SESSION_LIST_TRACE
+
+
+def test_session_estimate_trace_uses_store_session_id() -> None:
+    from datetime import UTC, datetime
+
+    from app.guardrails.contracts import FinalResponseStatus
+    from app.guardrails.llm_pipeline import StructuredPipelineOutcome
+    from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
+    from app.services.session_estimation_service import SessionSubmitOutcome
+    from app.services.sessions import Session
+    from tests.estimation_fixtures import minimal_estimation_request_dict
+    from tests.test_sessions_router import _bundle
+
+    mock_obs = MagicMock()
+    _trace_cm(mock_obs)
+    store_session_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+    class _FakeSubmitService:
+        async def run_submit(self, session_id: str, request: object, *, request_id: str):
+            del request, request_id
+            session = Session(session_id=session_id)
+            return SessionSubmitOutcome(
+                session=session,
+                pipeline=StructuredPipelineOutcome(
+                    bundle=_bundle(),
+                    final_status=FinalResponseStatus.SUCCESS,
+                    reason_code=None,
+                    user_message=None,
+                    technical_message=None,
+                    audit_id="audit",
+                    safe_to_cache=True,
+                    safe_to_display=True,
+                ),
+            )
+
+    app.dependency_overrides[get_settings] = lambda: Settings(openai_api_key="sk-test", dev_mode=False)
+    app.dependency_overrides[sessions_router.get_session_estimation_service] = (
+        lambda: _FakeSubmitService()  # type: ignore[return-value]
+    )
+    try:
+        with patch("app.routers.sessions.get_observability", return_value=mock_obs):
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/v1/sessions/{store_session_id}/estimate",
+                    json=minimal_estimation_request_dict(),
+                )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    ctx = mock_obs.start_trace.call_args.kwargs["context"]
+    assert ctx.session_id == store_session_id
+    assert mock_obs.start_trace.call_args.args[0] == sessions_router.SESSION_ESTIMATE_TRACE
+    _ = assemble_estimation_v2_response  # import used by router at runtime

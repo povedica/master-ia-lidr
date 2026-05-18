@@ -24,6 +24,7 @@ class _StubStructuredService:
         *,
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
+        **_: object,
     ) -> StructuredEstimateBundle:
         self.called = True
         assert skip_domain_guardrail is True

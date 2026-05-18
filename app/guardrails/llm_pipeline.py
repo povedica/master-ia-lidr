@@ -91,12 +91,19 @@ class LLMPipeline:
         *,
         assessment_surface: str,
         request_id: str,
+        guided_user_message: str | None = None,
+        system_prompt_override: str | None = None,
+        user_prompt_override: str | None = None,
     ) -> StructuredPipelineOutcome:
         """Execute the guarded v2 path (raises ``GuardrailViolationError`` on enforced blocks)."""
 
         audit_id = new_audit_id()
         started = perf_counter()
-        guided = render_guided_user_message(request, settings=self._settings).strip()
+        guided = (
+            guided_user_message
+            if guided_user_message is not None
+            else render_guided_user_message(request, settings=self._settings)
+        ).strip()
         if not guided:
             return StructuredPipelineOutcome(
                 bundle=None,
@@ -250,6 +257,8 @@ class LLMPipeline:
                 request,
                 assessment_surface=assessment_surface,
                 skip_domain_guardrail=True,
+                system_prompt_override=system_prompt_override,
+                user_prompt_override=user_prompt_override,
             )
         except EstimationError as exc:
             return StructuredPipelineOutcome(

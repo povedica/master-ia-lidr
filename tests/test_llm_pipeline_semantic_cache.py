@@ -55,6 +55,7 @@ class _StubWithPrelude:
         *,
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
+        **_: object,
     ) -> StructuredEstimateBundle:
         self.calls += 1
         assert skip_domain_guardrail is True

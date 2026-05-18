@@ -60,7 +60,11 @@ def _industry_display(request: EstimationRequest) -> str | None:
     return ind
 
 
-def build_request_render_context(request: EstimationRequest) -> dict[str, Any]:
+def build_request_render_context(
+    request: EstimationRequest,
+    *,
+    omit_attachment_bodies: bool = False,
+) -> dict[str, Any]:
     """Context for guided and assessment partials (no few-shot examples)."""
 
     integration_cats = [c.value for c in request.integration_categories]
@@ -96,7 +100,14 @@ def build_request_render_context(request: EstimationRequest) -> dict[str, Any]:
         "detail_level": request.detail_level.value,
         "output_format": request.output_format.value,
         "has_attachments": bool(request.attachments),
-        "attachment_notes": decode_attachment_notes(request),
+        "attachment_notes": (
+            [
+                f"- «{att.filename}» ({att.content_type})"
+                for att in request.attachments
+            ]
+            if omit_attachment_bodies and request.attachments
+            else decode_attachment_notes(request)
+        ),
         "assessment_chunks": build_assessment_chunks(request),
     }
 

@@ -352,9 +352,9 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/sessions/$SESSION/estimate" \
 
 ## Verification
 
-- **Automated:** scoped pytest modules above — **Not verified**
-- **Regression:** `uv run pytest` — **Not verified**
-- **Langfuse manual:** with export enabled, confirm traces grouped by `session_id` — **Not verified**
+- **Automated:** scoped pytest modules above — **Verified** (2026-05-19)
+- **Regression:** `uv run pytest` — **Verified** (286 passed, 2026-05-19)
+- **Langfuse manual:** with export enabled, confirm traces grouped by `session_id` — **Not verified** (mock tests only)
 
 ## Documentation Plan
 
@@ -381,18 +381,32 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/sessions/$SESSION/estimate" \
 
 ## Implementation progress
 
-- [ ] Step 0: Raise `EstimationRequest` attachment limits + config defaults (`MAX_ATTACHMENT_*`)
-- [ ] Step 1: Extend `Session` + `InMemorySessionStore.list_sessions()` + tests
-- [ ] Step 2: `SessionSummary` + `GET /api/v1/sessions` + Langfuse trace + router tests
-- [ ] Step 3: `document_extractor` + `dynamic_context_manager` + deps + unit tests
-- [ ] Step 4: `session_sync` + metadata partial from form + rendering tests
-- [ ] Step 5: `SessionEstimationService` guided submit orchestration + unit tests
-- [ ] Step 6: Wire `POST .../estimate` (`EstimationRequest` / `EstimationResponse`), remove `SessionEstimateRequest`, Langfuse spans
-- [ ] Step 7: README, `.env.example`, full `uv run pytest`, sync AC
+- [x] Step 0: Raise `EstimationRequest` attachment limits + config defaults (`MAX_ATTACHMENT_*`)
+- [x] Step 1: Extend `Session` + `InMemorySessionStore.list_sessions()` + tests
+- [x] Step 2: `SessionSummary` + `GET /api/v1/sessions` + Langfuse trace + router tests
+- [x] Step 3: `document_extractor` + `dynamic_context_manager` + deps + unit tests
+- [x] Step 4: `session_sync` + metadata partial from form + rendering tests
+- [x] Step 5: `SessionEstimationService` guided submit orchestration + unit tests
+- [x] Step 6: Wire `POST .../estimate` (`EstimationRequest` / `EstimationResponse`), remove `SessionEstimateRequest`, Langfuse spans
+- [x] Step 7: README, `.env.example`, full `uv run pytest`, sync AC
 
 ## Pull Request
 
-- **WIP draft:** https://github.com/povedica/master-ia-lidr/pull/16 (label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/16
+
+## Repository commits (master-ia)
+
+| Commit | Message | Notes |
+| --- | --- | --- |
+| (docs) | `docs(feature-019): add canonical work item and implementation plan` | Work item + plan |
+| (docs) | `docs(feature-019): link WIP draft PR in work item` | PR link |
+| | `feat(config): raise attachment limits to 10 MB and 128k text cap` | Step 0 |
+| | `feat(sessions): add last request snapshot, submit count, and list_sessions` | Step 1 |
+| | `feat(sessions): add GET /sessions list with summaries and Langfuse traces` | Step 2 |
+| | `feat(attachments): add document extraction and dynamic context manager` | Step 3 |
+| | `feat(sessions): sync form snapshot to session and render metadata from form` | Step 4 |
+| | `feat(sessions): guided form submit with structured response and Langfuse` | Steps 5–6 |
+| | `docs: update README for guided session workflow` | Step 7 |
 
 ---
 

@@ -46,12 +46,16 @@ def render_guided_user_message(
     *,
     version: str | None = None,
     settings: Settings | None = None,
+    omit_attachment_bodies: bool = False,
 ) -> str:
     """Render guided-form Markdown body (tests, cache, guardrails)."""
 
     template_set = _template_set(version, settings)
     renderer = PromptRenderer()
-    ctx = build_request_render_context(request)
+    ctx = build_request_render_context(
+        request,
+        omit_attachment_bodies=omit_attachment_bodies,
+    )
     text = renderer.render_partial(template_set.guided_request_template, ctx)
     return text.strip() + "\n"
 

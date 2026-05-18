@@ -138,21 +138,30 @@ For the v1 Markdown + SSE contract (optional), see [docs/technical/README.md](do
 | `POST` | `/api/v1/estimate` | Synchronous estimation |
 | `POST` | `/api/v1/estimate/stream` | Markdown estimation with SSE (`chunk` / `done` / `error`) |
 | `POST` | `/api/v2/estimate` | Structured synchronous estimation |
-| `POST` | `/api/v1/sessions` | Create an in-memory conversational session |
-| `POST` | `/api/v1/sessions/{session_id}/estimate` | Conversational estimate turn (free-text) |
+| `POST` | `/api/v1/sessions` | Create an in-memory guided estimation session |
+| `GET` | `/api/v1/sessions` | List session summaries (in-memory store) |
+| `POST` | `/api/v1/sessions/{session_id}/estimate` | Guided form submit (`EstimationRequest` → `EstimationResponse`) |
 
 Full schema available at `http://127.0.0.1:8000/docs`.
 
-### Conversational sessions
+### Guided estimation sessions
 
-Create a session, then send free-text turns. Project metadata is distilled after each turn and injected into the system prompt; conversation history uses a sliding window while metadata persists.
+Create a session, list sessions, then submit the **same guided form** (`EstimationRequest`) one or more times. The server keeps the latest form snapshot, a sliding conversation window (compact turn labels), and extracts attachment text into the **user** prompt (bounded). Responses match `POST /api/v2/estimate` (`EstimationResponse`). Langfuse traces group by the store `session_id`.
+
+Attachment limits (configurable via env):
+
+- **10 MB** per decoded file (`MAX_ATTACHMENT_SIZE_BYTES`)
+- **128k characters** of extracted text in the user prompt (`MAX_ATTACHMENT_CONTEXT_CHARS`)
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/api/v1/sessions | jq
-curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
+SESSION=$(curl -s -X POST http://127.0.0.1:8000/api/v1/sessions | jq -r '.session_id')
+curl -s http://127.0.0.1:8000/api/v1/sessions | jq
+curl -s -X POST "http://127.0.0.1:8000/api/v1/sessions/$SESSION/estimate" \
   -H "Content-Type: application/json" \
-  -d '{"user_message": "Estimate a Python FastAPI CRUD, team of 3"}' | jq
+  -d @path/to/estimation_request.json | jq
 ```
+
+Use the same JSON body as `/api/v1/estimate` or `/api/v2/estimate` (not `user_message`-only).
 
 ### Example request
 

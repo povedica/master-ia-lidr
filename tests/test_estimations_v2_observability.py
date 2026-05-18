@@ -22,6 +22,7 @@ class _FakeStructuredEstimationService:
         *,
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
+        **_: object,
     ) -> StructuredEstimateBundle:
         del request, assessment_surface, skip_domain_guardrail
         li = EstimationLineItem(name="Task", hours=2.0, cost_eur=100.0)
