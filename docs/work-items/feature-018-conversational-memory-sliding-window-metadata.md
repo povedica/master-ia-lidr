@@ -272,7 +272,7 @@ Recommended baby steps for `/start-task` (TDD each logic step):
 
 ## Pull Request
 
-*(Link WIP draft PR during `/start-task` Phase 4.)*
+- https://github.com/povedica/master-ia-lidr/pull/15 — WIP draft (2026-05-18)
 
 ## Architecture Decision — Why LLM Extractor Over Heuristic Extraction
 
@@ -312,4 +312,7 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 
 ## Repository commits (master-ia)
 
-*(Populated during `/finish-task`.)*
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| *(pending)* | `docs(feature-018): add conversational memory work item and start-task plan` | Canonical work item + estimation/plan. |
+| *(pending)* | `feat(feature-018): extend ProjectMetadata and Session.updated_at` | Domain fields + unit tests. |

@@ -17,6 +17,16 @@ def test_project_metadata_defaults_are_optional() -> None:
     assert meta.assumed_team_size is None
     assert meta.mentioned_technologies == []
     assert meta.agreed_scope is None
+    assert meta.explicit_constraints == []
+    assert meta.rejected_options == []
+
+
+def test_session_has_updated_at_defaulting_near_created_at() -> None:
+    session = Session(session_id="sess-updated")
+    assert session.updated_at is not None
+    assert session.updated_at.tzinfo is not None
+    delta = abs((session.updated_at - session.created_at).total_seconds())
+    assert delta < 1.0
 
 
 def test_chat_message_is_frozen_value() -> None:
