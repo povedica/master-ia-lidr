@@ -131,6 +131,5 @@ The exercise explicitly requires a new `sessions.py` module with:
 | `3b1ea42` | `docs(feature-017): add repository commits table to work item` | Added `## Repository commits (master-ia)` section to the work item. |
 | `5bc4d5f` | `docs(feature-017): add start-task estimation and implementation progress` | Added Estimation, Implementation progress, and Draft PR placeholders for `/start-task`. |
 | `48920aa` | `docs(feature-017): record start-task setup commit in repository log` | Logged the start-task setup commit in the work item table. |
-| (pending) | `docs(feature-017): link draft PR and mark acceptance verified` | PR #14 URL; verification and AC checkboxes updated. |
-| (pending) | `test(feature-017): add session state unit tests` | Nine tests for metadata, history window, and store. |
-| (pending) | `feat(feature-017): add in-memory session domain model` | `sessions.py` with `session_store` singleton. |
+| `ae62471` | `docs(feature-017): link draft PR and mark acceptance verified` | PR #14 URL; verification and AC checkboxes updated. |
+| `0c5d52b` | `feat(feature-017): add in-memory conversational session domain model` | `sessions.py`, `tests/test_sessions.py`, and `session_store` singleton. |
