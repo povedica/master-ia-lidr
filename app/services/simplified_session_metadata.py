@@ -16,12 +16,9 @@ def derive_project_metadata(
     """Combine explicit fields, transcript, and attachment signals into metadata."""
 
     summary = request.one_line_summary or request.transcript.strip()[:500]
-    deliverables = _bullet_lines(request.transcript)
     constraints = _constraint_lines(request.transcript)
     attachment_summary = _attachment_summary(extracted)
     confidence = list(warnings)
-    if not deliverables:
-        confidence.append("deliverables were inferred from transcript structure, not explicit lists")
 
     return DerivedProjectMetadata(
         project_name=request.project_name,
@@ -29,22 +26,10 @@ def derive_project_metadata(
         target_audience=request.target_audience,
         industry=request.industry,
         summary=summary,
-        derived_deliverables=deliverables,
         detected_constraints=constraints,
         attachment_summary=attachment_summary,
         confidence_notes=confidence,
     )
-
-
-def _bullet_lines(text: str) -> list[str]:
-    items: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(("-", "*", "•")):
-            item = stripped.lstrip("-*• ").strip()
-            if item:
-                items.append(item[:120])
-    return items[:8]
 
 
 def _constraint_lines(text: str) -> list[str]:

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ZodIssue } from 'zod'
 
-import { CUSTOM_INTEGRATIONS_MESSAGE } from './requestMapper'
 import {
   BACKEND_FIELD_TO_UI,
+  CUSTOM_INTEGRATIONS_MESSAGE,
   humanizeZodIssuesToFieldErrors,
   parseStructuredEstimateFailure,
   VALIDATION_SUMMARY_BANNER,
@@ -63,6 +63,20 @@ describe('parseStructuredEstimateFailure', () => {
     expect(r.kind).toBe('validation')
     if (r.kind === 'validation') {
       expect(r.fieldErrors.targetDate).toBeTruthy()
+    }
+  })
+
+  it('maps out_of_domain object detail to transcript', () => {
+    const body = JSON.stringify({
+      detail: {
+        code: 'out_of_domain',
+        message: 'Only software/project estimation requests are supported.',
+      },
+    })
+    const r = parseStructuredEstimateFailure(422, body)
+    expect(r.kind).toBe('validation')
+    if (r.kind === 'validation') {
+      expect(r.fieldErrors.transcript).toContain('software/project')
     }
   })
 

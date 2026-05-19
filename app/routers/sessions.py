@@ -12,16 +12,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import Settings, get_settings
 from app.guardrails.exceptions import GuardrailViolationError
-from app.schemas.simplified_session import SessionEstimateRequest, SessionEstimateResponse
+from app.schemas.simplified_session import (
+    AttachmentProcessingStatus,
+    SessionDetailResponse,
+    SessionEstimateRequest,
+    SessionEstimateResponse,
+    SessionListItem,
+    SessionListResponse,
+)
 from app.services.attachment_errors import AttachmentError
 from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
 from app.services.llm_chain import build_provider_chain
-from app.services.llm_service import EXAMPLES_VERSION, PROMPT_VERSION, EstimationService
+from app.services.llm_service import (
+    DomainGuardrailError,
+    EXAMPLES_VERSION,
+    PROMPT_VERSION,
+    EstimationService,
+)
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
     SimplifiedSessionEstimationService,
 )
-from app.services.sessions import session_store
+from app.services.sessions import session_display_label, session_store
 
 router = APIRouter(tags=["sessions"])
 logger = logging.getLogger(__name__)
@@ -48,6 +60,54 @@ def create_session() -> dict[str, str]:
     return {"session_id": session.session_id}
 
 
+@router.get("/sessions", response_model=SessionListResponse)
+def list_sessions() -> SessionListResponse:
+    """List in-memory sessions for the UI history sidebar (last 30 days)."""
+
+    items = [
+        SessionListItem(
+            session_id=session.session_id,
+            label=session_display_label(session),
+            updated_at=session.updated_at,
+            submit_count=session.submit_count,
+        )
+        for session in session_store.list_sessions()
+    ]
+    return SessionListResponse(sessions=items)
+
+
+@router.get("/sessions/{session_id}", response_model=SessionDetailResponse)
+def get_session(session_id: str) -> SessionDetailResponse:
+    """Return stored payload and metadata snapshot for session restore."""
+
+    session = session_store.get_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session not found: {session_id}",
+        )
+    metadata = (
+        session.last_derived_metadata.model_dump(mode="json")
+        if session.last_derived_metadata is not None
+        else None
+    )
+    attachment_statuses: list[AttachmentProcessingStatus] = []
+    for item in session.last_attachment_statuses:
+        if isinstance(item, AttachmentProcessingStatus):
+            attachment_statuses.append(item)
+        else:
+            attachment_statuses.append(AttachmentProcessingStatus.model_validate(item))
+    return SessionDetailResponse(
+        session_id=session.session_id,
+        input_payload=session.last_normalized_payload,
+        project_metadata=metadata,
+        estimate=session.last_estimate,
+        warnings=list(session.last_warnings),
+        attachments=attachment_statuses,
+        submit_count=session.submit_count,
+    )
+
+
 @router.post(
     "/sessions/{session_id}/estimate",
     response_model=SessionEstimateResponse,
@@ -64,6 +124,14 @@ async def estimate_in_session(
     request_id = f"sess_{uuid4().hex[:12]}"
     try:
         submit = await service.run_submit(session_id, body, request_id=request_id)
+    except DomainGuardrailError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": exc.code,
+                "message": str(exc),
+            },
+        ) from exc
     except SessionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -117,11 +185,17 @@ async def estimate_in_session(
         pipeline_cache_miss_reason=outcome.cache_miss_reason,
     )
 
+    estimate_payload = estimate.model_dump(mode="json")
+    stored = session_store.get_session(session_id)
+    if stored is not None:
+        stored.last_estimate = estimate_payload
+        stored.last_warnings = list(submit.warnings)
+
     return SessionEstimateResponse(
         session_id=session_id,
         input_payload=submit.normalized_payload,
         project_metadata=submit.derived_metadata,
-        estimate=estimate.model_dump(mode="json"),
+        estimate=estimate_payload,
         warnings=submit.warnings,
         attachments=submit.attachment_statuses,
     )

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -81,7 +81,6 @@ class DerivedProjectMetadata(BaseModel):
     target_audience: TargetAudience
     industry: Industry | None = None
     summary: str | None = None
-    derived_deliverables: list[str] = Field(default_factory=list)
     detected_constraints: list[str] = Field(default_factory=list)
     attachment_summary: str | None = None
     confidence_notes: list[str] = Field(default_factory=list)
@@ -99,6 +98,8 @@ class Session:
     last_normalized_payload: dict[str, Any] | None = None
     last_derived_metadata: DerivedProjectMetadata | None = None
     last_attachment_statuses: list[Any] = field(default_factory=list)
+    last_estimate: dict[str, Any] | None = None
+    last_warnings: list[str] = field(default_factory=list)
     submit_count: int = 0
 
 
@@ -122,6 +123,26 @@ class InMemorySessionStore:
 
     def delete_session(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
+
+    def list_sessions(self, *, max_age_days: int = 30) -> list[Session]:
+        """Return sessions updated within the window, newest first."""
+
+        cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
+        recent = [session for session in self._sessions.values() if session.updated_at >= cutoff]
+        return sorted(recent, key=lambda session: session.updated_at, reverse=True)
+
+
+def session_display_label(session: Session) -> str:
+    """Human label for sidebar rows from derived or submitted payload."""
+
+    if session.last_derived_metadata is not None:
+        return session.last_derived_metadata.project_name
+    payload = session.last_normalized_payload
+    if isinstance(payload, dict):
+        name = payload.get("project_name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return "Untitled session"
 
 
 session_store = InMemorySessionStore()

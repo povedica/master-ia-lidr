@@ -18,20 +18,11 @@ _DELIVERABLE_MIN_LEN = 20
 
 
 def collect_context_warnings(request: SessionEstimateRequest) -> list[str]:
-    """Return user-visible warnings for omitted guided-form fields."""
+    """Return user-visible warnings for omitted simplified-form fields."""
 
-    warnings: list[str] = []
-    if request.industry is None:
-        warnings.append("industry was not provided; industry-specific assumptions may be weaker")
-    warnings.extend(
-        [
-            "delivery urgency was not explicitly provided; using flexible as default",
-            "data sensitivity was not explicitly provided; using regulated_unknown as default",
-            "detail level was not explicitly provided; using medium as default",
-            "output format preference was not explicitly provided; using phases_table as default",
-        ]
-    )
-    return warnings
+    if request.industry is not None:
+        return []
+    return ["industry was not provided; industry-specific assumptions may be weaker"]
 
 
 def adapt_to_estimation_request(
