@@ -1,4 +1,8 @@
+import { useState } from 'react'
+
 import type { PanelStatus } from '../hooks/useSessionEstimate'
+
+type MetadataView = 'readable' | 'memory'
 
 function MetadataSkeleton() {
   return (
@@ -31,7 +35,7 @@ function GroupedMetadata({ data }: { data: Record<string, unknown> }) {
     { title: 'General', keys: ['project_name', 'project_type', 'target_audience', 'industry', 'summary'] },
     {
       title: 'Context',
-      keys: ['derived_deliverables', 'detected_constraints', 'attachment_summary'],
+      keys: ['detected_constraints', 'attachment_summary'],
     },
     { title: 'Notes', keys: ['confidence_notes'] },
   ]
@@ -59,6 +63,18 @@ function GroupedMetadata({ data }: { data: Record<string, unknown> }) {
   )
 }
 
+function JsonMetadataViewer({ data }: { data: Record<string, unknown> }) {
+  const json = JSON.stringify(data, null, 2)
+  return (
+    <pre
+      className="overflow-auto text-xs leading-relaxed text-slate-100"
+      aria-label="Project metadata JSON"
+    >
+      <code>{json}</code>
+    </pre>
+  )
+}
+
 export function ProjectMetadataPanel({
   status,
   metadata,
@@ -66,12 +82,53 @@ export function ProjectMetadataPanel({
   status: PanelStatus
   metadata: Record<string, unknown> | null
 }) {
+  const [view, setView] = useState<MetadataView>('readable')
+
   return (
     <section
       className="flex h-full min-h-[280px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
       aria-label="Project metadata"
     >
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Project metadata</h2>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Project metadata</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Derived</p>
+        </div>
+        {status === 'available' && metadata ? (
+          <div
+            className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-600 dark:bg-slate-800"
+            role="tablist"
+            aria-label="Metadata view"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'readable'}
+              onClick={() => setView('readable')}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                view === 'readable'
+                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Readable
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'memory'}
+              onClick={() => setView('memory')}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                view === 'memory'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Memory (current)
+            </button>
+          </div>
+        ) : null}
+      </div>
       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Derived memory for debugging and transparency.
       </p>
@@ -82,7 +139,13 @@ export function ProjectMetadataPanel({
           </p>
         ) : null}
         {status === 'loading' ? <MetadataSkeleton /> : null}
-        {status === 'available' && metadata ? <GroupedMetadata data={metadata} /> : null}
+        {status === 'available' && metadata ? (
+          view === 'readable' ? (
+            <GroupedMetadata data={metadata} />
+          ) : (
+            <JsonMetadataViewer data={metadata} />
+          )
+        ) : null}
       </div>
       <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-500">Auto-generated from inputs</p>
     </section>

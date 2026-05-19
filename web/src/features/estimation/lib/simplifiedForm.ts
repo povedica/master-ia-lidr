@@ -92,6 +92,59 @@ export function mapToSessionEstimateBody(values: SimplifiedFormValues): Record<s
   }
 }
 
+function payloadAttachments(payload: Record<string, unknown>): AttachmentRefPayload[] {
+  const raw = payload.attachments
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const out: AttachmentRefPayload[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') {
+      continue
+    }
+    const row = item as Record<string, unknown>
+    const fileId = typeof row.file_id === 'string' ? row.file_id : ''
+    const name = typeof row.name === 'string' ? row.name : ''
+    const mimeType = typeof row.mime_type === 'string' ? row.mime_type : ''
+    const contentBase64 =
+      typeof row.content_base64 === 'string' ? row.content_base64 : ''
+    if (fileId && name && mimeType && contentBase64) {
+      out.push({
+        file_id: fileId,
+        name,
+        mime_type: mimeType,
+        content_base64: contentBase64,
+      })
+    }
+  }
+  return out
+}
+
+/** Restore simplified form fields from a session detail `input_payload`. */
+export function payloadToSimplifiedForm(payload: Record<string, unknown> | null): SimplifiedFormValues {
+  const base = buildInitialSimplifiedForm()
+  if (!payload) {
+    return base
+  }
+  const str = (key: string) => {
+    const value = payload[key]
+    return typeof value === 'string' ? value : ''
+  }
+  const industryRaw = payload.industry
+  return {
+    ...base,
+    projectName: str('project_name'),
+    oneLineSummary: str('one_line_summary'),
+    projectType: str('project_type'),
+    transcript: str('transcript'),
+    targetAudience: str('target_audience'),
+    targetAudienceOther: str('target_audience_other'),
+    industry: industryRaw === null || industryRaw === undefined ? '' : String(industryRaw),
+    additionalExtraInfo: str('additional_extra_info'),
+    attachments: payloadAttachments(payload),
+  }
+}
+
 /** Field order for focus scroll (top → bottom). */
 export const SIMPLIFIED_FORM_FIELD_ORDER: readonly string[] = [
   'projectName',

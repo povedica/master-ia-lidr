@@ -4,6 +4,7 @@ import {
   buildInitialSimplifiedForm,
   mapToSessionEstimateBody,
   parseSimplifiedForm,
+  payloadToSimplifiedForm,
   simplifiedFormSchema,
 } from './simplifiedForm'
 import { humanizeZodIssuesToFieldErrors } from './validationErrors'
@@ -58,6 +59,44 @@ describe('mapToSessionEstimateBody', () => {
     expect(body.industry).toBeNull()
     expect(body.additional_extra_info).toBeNull()
     expect(body.attachments).toEqual([])
+  })
+})
+
+describe('payloadToSimplifiedForm', () => {
+  it('restores camelCase fields from session input_payload', () => {
+    const form = payloadToSimplifiedForm({
+      project_name: 'NeoBank',
+      one_line_summary: 'Banking',
+      project_type: 'mobile_app',
+      transcript: validTranscript,
+      target_audience: 'b2c_consumers',
+      industry: 'fintech',
+      additional_extra_info: 'Extra',
+    })
+    expect(form.projectName).toBe('NeoBank')
+    expect(form.oneLineSummary).toBe('Banking')
+    expect(form.projectType).toBe('mobile_app')
+    expect(form.transcript).toBe(validTranscript)
+    expect(form.attachments).toEqual([])
+  })
+
+  it('restores attachments from session input_payload', () => {
+    const form = payloadToSimplifiedForm({
+      project_name: 'NeoBank',
+      project_type: 'mobile_app',
+      transcript: validTranscript,
+      target_audience: 'b2c_consumers',
+      attachments: [
+        {
+          file_id: 'f1',
+          name: 'notes.txt',
+          mime_type: 'text/plain',
+          content_base64: 'QUJDCg==',
+        },
+      ],
+    })
+    expect(form.attachments).toHaveLength(1)
+    expect(form.attachments[0]?.name).toBe('notes.txt')
   })
 })
 

@@ -15,14 +15,36 @@ function ResultSkeleton() {
   )
 }
 
+function EstimateWarnings({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) {
+    return null
+  }
+  return (
+    <div
+      className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
+      role="status"
+      aria-label="Estimate warnings"
+    >
+      <h3 className="mb-2 text-sm font-semibold text-amber-950 dark:text-amber-50">Warnings</h3>
+      <ul className="list-disc space-y-1 pl-5">
+        {warnings.map((w) => (
+          <li key={w}>{w}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function EstimateResultPanel({
   status,
   estimate,
   errorMessage,
+  warnings = [],
 }: {
   status: PanelStatus
   estimate: Record<string, unknown> | null
   errorMessage: string | null
+  warnings?: string[]
 }) {
   return (
     <section
@@ -49,6 +71,7 @@ export function EstimateResultPanel({
       ) : null}
       {status === 'available' && estimate ? (
         <div className="mt-4">
+          <EstimateWarnings warnings={warnings} />
           <StructuredEstimateSummary data={estimate} />
         </div>
       ) : null}

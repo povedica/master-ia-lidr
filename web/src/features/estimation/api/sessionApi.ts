@@ -4,6 +4,33 @@ export type SessionCreateResponse = {
   session_id: string
 }
 
+export type SessionListItem = {
+  session_id: string
+  label: string
+  updated_at: string
+  submit_count: number
+}
+
+export type SessionListResponse = {
+  sessions: SessionListItem[]
+}
+
+export type SessionDetailResponse = {
+  session_id: string
+  input_payload: Record<string, unknown> | null
+  project_metadata: Record<string, unknown> | null
+  estimate: Record<string, unknown> | null
+  warnings: string[]
+  attachments: Array<{
+    file_id: string
+    name: string
+    mime_type: string
+    status: string
+    message?: string | null
+  }>
+  submit_count: number
+}
+
 export type SessionEstimateResponse = {
   session_id: string
   input_payload: Record<string, unknown>
@@ -35,8 +62,35 @@ export function sessionsUrl(): string {
   return `${getApiBaseUrl()}/api/v1/sessions`
 }
 
+export function sessionDetailUrl(sessionId: string): string {
+  return `${getApiBaseUrl()}/api/v1/sessions/${encodeURIComponent(sessionId)}`
+}
+
 export function sessionEstimateUrl(sessionId: string): string {
-  return `${getApiBaseUrl()}/api/v1/sessions/${encodeURIComponent(sessionId)}/estimate`
+  return `${sessionDetailUrl(sessionId)}/estimate`
+}
+
+export async function listSessions(): Promise<SessionListResponse> {
+  const response = await fetch(sessionsUrl(), {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) {
+    throw new SessionApiError(response.status, await response.text().catch(() => ''))
+  }
+  return (await response.json()) as SessionListResponse
+}
+
+export async function getSession(sessionId: string): Promise<SessionDetailResponse> {
+  const response = await fetch(sessionDetailUrl(sessionId), {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  })
+  const text = await response.text().catch(() => '')
+  if (!response.ok) {
+    throw new SessionApiError(response.status, text)
+  }
+  return JSON.parse(text) as SessionDetailResponse
 }
 
 export async function createSession(): Promise<SessionCreateResponse> {

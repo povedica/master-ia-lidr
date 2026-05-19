@@ -1,6 +1,6 @@
 # Estimator — web UI
 
-React + Vite + TypeScript client for the **session-first simplified estimator**. On load the app creates a session (`POST /api/v1/sessions`), then submits the short form to `POST /api/v1/sessions/{session_id}/estimate` and shows **project metadata** and the structured **estimate** in separate panels.
+React + Vite + TypeScript client for the **session-first simplified estimator**. On load the app creates a session (`POST /api/v1/sessions`), lists recent sessions in a collapsible sidebar (`GET /api/v1/sessions`), and submits the short form to `POST /api/v1/sessions/{session_id}/estimate`. **Project metadata** appears in the right panel (Readable grouped view or **Memory (current)** JSON); the structured **estimate** renders in a full-width panel below.
 
 ## Setup
 

@@ -7,6 +7,7 @@ import {
   buildInitialSimplifiedForm,
   mapToSessionEstimateBody,
   parseSimplifiedForm,
+  payloadToSimplifiedForm,
   SIMPLIFIED_FORM_FIELD_ORDER,
   type SimplifiedFormValues,
 } from '../lib/simplifiedForm'
@@ -15,6 +16,7 @@ import { humanizeZodIssuesToFieldErrors } from '../lib/validationErrors'
 import { EstimateResultPanel } from './EstimateResultPanel'
 import { EstimatorHeader } from './EstimatorHeader'
 import { ProjectMetadataPanel } from './ProjectMetadataPanel'
+import { SessionHistorySidebar } from './SessionHistorySidebar'
 import { SimplifiedEstimationForm } from './SimplifiedEstimationForm'
 
 function firstOrderedFieldWithError(
@@ -35,6 +37,10 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
     sessionStatus,
     sessionError,
     resetInProgress,
+    selectInProgress,
+    sessionList,
+    sessionListStatus,
+    sessionListError,
     projectMetadata,
     metadataStatus,
     estimate,
@@ -43,6 +49,8 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
     warnings,
     bootstrapSession,
     resetConversation,
+    selectSession,
+    refreshSessionList,
     submitEstimate,
     clearPanels,
   } = useSessionEstimate()
@@ -53,7 +61,7 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
   const [fileList, setFileList] = useState<File[]>([])
   const hadFieldErrorsRef = useRef(false)
 
-  const formDisabled = sessionStatus !== 'ready' || resetInProgress
+  const formDisabled = sessionStatus !== 'ready' || resetInProgress || selectInProgress
   const submitting = estimateStatus === 'loading'
 
   useEffect(() => {
@@ -79,6 +87,28 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
     }, 100)
     return () => window.clearTimeout(t)
   }, [fieldErrors])
+
+  const handleSelectSession = useCallback(
+    async (targetSessionId: string) => {
+      if (targetSessionId === sessionId) {
+        return
+      }
+      setFieldErrors({})
+      setFormSummary(null)
+      setFileList([])
+      const outcome = await selectSession(targetSessionId)
+      if (!outcome.ok) {
+        setFormSummary(outcome.message)
+        return
+      }
+      if (outcome.detail.input_payload) {
+        setForm(payloadToSimplifiedForm(outcome.detail.input_payload))
+      } else {
+        setForm(buildInitialSimplifiedForm())
+      }
+    },
+    [selectSession, sessionId],
+  )
 
   const handleNewConversation = useCallback(async () => {
     setForm(buildInitialSimplifiedForm())
@@ -132,49 +162,53 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 text-left text-slate-900 dark:text-slate-100">
-      <EstimatorHeader
-        sessionId={sessionId}
-        sessionStatus={sessionStatus}
-        sessionError={sessionError}
-        resetInProgress={resetInProgress}
-        onNewConversation={() => void handleNewConversation()}
-        onRetrySession={() => void bootstrapSession()}
-        themeControl={themeControl}
-      />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
-        <SimplifiedEstimationForm
-          form={form}
-          fieldErrors={fieldErrors}
-          formSummary={formSummary}
-          fileList={fileList}
-          disabled={formDisabled}
-          submitting={submitting}
-          onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-          onFilesChange={setFileList}
-          onSubmit={onSubmit}
+    <div className="mx-auto max-w-[96rem] px-4 py-8 text-left text-slate-900 dark:text-slate-100">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <SessionHistorySidebar
+          sessions={sessionList}
+          status={sessionListStatus}
+          errorMessage={sessionListError}
+          activeSessionId={sessionId}
+          disabled={resetInProgress || selectInProgress || sessionStatus !== 'ready'}
+          onSelect={(id) => void handleSelectSession(id)}
+          onRetry={() => void refreshSessionList()}
         />
-        <ProjectMetadataPanel status={metadataStatus} metadata={projectMetadata} />
-      </div>
 
-      {warnings.length > 0 ? (
-        <section
-          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
-          role="status"
-          aria-label="Warnings"
-        >
-          <h3 className="mb-2 text-sm font-semibold text-amber-950 dark:text-amber-50">Warnings</h3>
-          <ul className="list-disc space-y-1 pl-5">
-            {warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        <div className="min-w-0 flex-1">
+          <EstimatorHeader
+            sessionId={sessionId}
+            sessionStatus={sessionStatus}
+            sessionError={sessionError}
+            resetInProgress={resetInProgress}
+            onNewConversation={() => void handleNewConversation()}
+            onRetrySession={() => void bootstrapSession()}
+            themeControl={themeControl}
+          />
 
-      <div className="mt-6">
-        <EstimateResultPanel status={estimateStatus} estimate={estimate} errorMessage={estimateError} />
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
+            <SimplifiedEstimationForm
+              form={form}
+              fieldErrors={fieldErrors}
+              formSummary={formSummary}
+              fileList={fileList}
+              disabled={formDisabled}
+              submitting={submitting}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              onFilesChange={setFileList}
+              onSubmit={onSubmit}
+            />
+            <ProjectMetadataPanel status={metadataStatus} metadata={projectMetadata} />
+          </div>
+
+          <div className="mt-6">
+            <EstimateResultPanel
+              status={estimateStatus}
+              estimate={estimate}
+              errorMessage={estimateError}
+              warnings={warnings}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -166,13 +166,20 @@ export function SimplifiedEstimationForm({
             onChange={(e) => onFilesChange(e.target.files ? Array.from(e.target.files) : [])}
           />
         </Field>
-        {fileList.length > 0 ? (
+        {fileList.length > 0 || form.attachments.length > 0 ? (
           <ul className="-mt-2 space-y-1 text-xs text-slate-500">
             {fileList.map((f) => (
               <li key={`${f.name}-${f.size}`}>
                 {f.name} ({Math.round(f.size / 1024)} KiB)
               </li>
             ))}
+            {fileList.length === 0
+              ? form.attachments.map((a) => (
+                  <li key={a.file_id}>
+                    {a.name} <span className="text-slate-400">(saved in session)</span>
+                  </li>
+                ))
+              : null}
           </ul>
         ) : null}
 
