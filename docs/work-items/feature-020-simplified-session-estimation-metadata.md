@@ -308,6 +308,8 @@ The current guided-form session contract already exists in the repo. This featur
 | docs | Add feature-020 canonical work item |
 | feat | Simplified session estimate schemas and DerivedProjectMetadata |
 | feat | Simplified session estimation pipeline, router envelope, tests |
+| fix | Session prompt overrides, sparse metadata Jinja, regression tests |
+| test | Align v2 estimation stubs with prompt override kwargs |
 
 ## Definition of Done (technical)
 
