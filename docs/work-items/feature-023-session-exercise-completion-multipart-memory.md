@@ -315,7 +315,7 @@ HTTP (JSON | multipart)
 
 ## Implementation progress
 
-- [ ] Step 1: `merge_derived_metadata` + unit tests
+- [x] Step 1: `merge_derived_metadata` + unit tests
 - [ ] Step 2: `messages_override` through structured LLM / pipeline
 - [ ] Step 3: Wire `SimplifiedSessionEstimationService` (FR-05/06/07) + integration assertions
 - [ ] Step 4: Multipart parser + router content negotiation + unit tests
@@ -325,4 +325,4 @@ HTTP (JSON | multipart)
 
 ## Pull Request
 
-_(Link recorded after draft PR creation.)_
+- Draft: https://github.com/povedica/master-ia-lidr/pull/20 (label: `wip`)
