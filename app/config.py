@@ -273,6 +273,28 @@ class Settings(BaseSettings):
         default=True,
         description="Send explicit cost_details when cost is trustworthy.",
     )
+    # --- Session integration tests (feature-022) ---
+    session_integration_test_llm_model: str = Field(
+        default="",
+        max_length=128,
+        description=(
+            "Optional OpenAI model id for pytest session integration harness "
+            "(empty uses OPENAI_MODEL)."
+        ),
+    )
+    session_integration_test_use_real_llm: bool = Field(
+        default=False,
+        description=(
+            "When true, session integration tests call the real structured LLM "
+            "instead of FakeStructuredLLM (requires OPENAI_API_KEY)."
+        ),
+    )
+
+    def resolved_session_integration_test_openai_model(self) -> str:
+        """Model id used by the session integration pytest harness."""
+
+        override = self.session_integration_test_llm_model.strip()
+        return override if override else self.openai_model
 
     @model_validator(mode="after")
     def _validate_langfuse_keys_when_export_enabled(self) -> Self:

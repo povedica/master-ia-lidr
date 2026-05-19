@@ -275,6 +275,39 @@ Run the full test suite (no real API calls — all provider clients are mocked):
 uv run pytest
 ```
 
+### Integration tests (sessions)
+
+Session memory, metadata re-injection, attachments, and sliding-window history are covered by an in-process integration suite that uses the real FastAPI app and `SimplifiedSessionEstimationService`, with `complete_structured` faked (no network):
+
+```bash
+uv run pytest tests/test_sessions_integration.py
+```
+
+Optional environment variables (also in `.env.example`):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SESSION_INTEGRATION_TEST_LLM_MODEL` | _(empty → `OPENAI_MODEL`)_ | OpenAI model id passed into the integration harness (`openai_model` / LiteLLM route). Recorded on fake calls as `litellm_model`. |
+| `SESSION_INTEGRATION_TEST_USE_REAL_LLM` | `false` | When `true`, disables the fake and calls the real structured LLM (`OPENAI_API_KEY` required). Deterministic fake-based tests are skipped; only `test_estimate_submit_live_llm_smoke` runs. |
+
+Example — keep the fake but pin the model id the stack would use:
+
+```bash
+SESSION_INTEGRATION_TEST_LLM_MODEL=gpt-4o uv run pytest tests/test_sessions_integration.py -v
+```
+
+Example — live smoke against OpenAI (costs tokens; not for CI):
+
+```bash
+SESSION_INTEGRATION_TEST_USE_REAL_LLM=true \
+SESSION_INTEGRATION_TEST_LLM_MODEL=gpt-4o-mini \
+OPENAI_API_KEY=sk-... \
+uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v
+```
+
+- **Attachments:** Path B — local text extraction (`text/plain`, `text/markdown`, `application/pdf`) via `DocumentTextExtractor`; integration tests build a minimal **PDF** in-process (`tests/fixtures/attachment_bytes.py`).
+- **Metadata:** simplified session submits use heuristic `derive_project_metadata()` from form fields and transcript, not the LLM metadata extractor.
+
 Run with verbose output:
 
 ```bash
