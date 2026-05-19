@@ -505,7 +505,7 @@ Never display raw stack traces or API keys.
 
 ## Pull Request
 
-- WIP draft PR: _(pending push)_
+- WIP draft PR: https://github.com/povedica/master-ia-lidr/pull/18
 
 ## Implementation progress
 
