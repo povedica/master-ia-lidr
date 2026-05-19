@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ZodIssue } from 'zod'
 
-import { CUSTOM_INTEGRATIONS_MESSAGE } from './requestMapper'
 import {
   BACKEND_FIELD_TO_UI,
+  CUSTOM_INTEGRATIONS_MESSAGE,
   humanizeZodIssuesToFieldErrors,
   parseStructuredEstimateFailure,
   VALIDATION_SUMMARY_BANNER,

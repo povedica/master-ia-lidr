@@ -112,7 +112,7 @@ Open the URL Vite prints (default `http://127.0.0.1:5173`). Ensure that origin i
 
 ## Web UI
 
-The `web/` package is a **React + Vite + TypeScript** browser UI. It calls `POST /api/v2/estimate` and renders the structured `result` (title, summary, totals, line items) as tables and cards — no Markdown parsing on the primary path.
+The `web/` package is a **React + Vite + TypeScript** browser UI. On load it creates a session (`POST /api/v1/sessions`), then submits the simplified form to `POST /api/v1/sessions/{session_id}/estimate` and shows **project metadata** and the structured **estimate** in separate panels. See `web/README.md` for dev commands.
 
 - **Docker:** the `web` image builds assets at container build time and serves them with nginx. No Node needed on the host.
 - **Production build smoke check:**

@@ -1,6 +1,7 @@
 import type { ZodIssue } from 'zod'
 
-import { CUSTOM_INTEGRATIONS_MESSAGE } from './requestMapper'
+export const CUSTOM_INTEGRATIONS_MESSAGE =
+  'Each non-empty line must be between 20 and 300 characters.'
 
 /** Shown when 422 maps to one or more fields (optional amber banner). */
 export const VALIDATION_SUMMARY_BANNER = 'Please review the fields highlighted in red.'
@@ -15,6 +16,9 @@ export type ParsedEstimateFailure =
 /** Maps EstimationRequest / FastAPI `loc` segments to EstimationWorkbench UI keys. */
 export const BACKEND_FIELD_TO_UI: Record<string, string> = {
   project_name: 'projectName',
+  one_line_summary: 'oneLineSummary',
+  transcript: 'transcript',
+  additional_extra_info: 'additionalExtraInfo',
   project_summary: 'projectSummary',
   project_type: 'projectType',
   target_audience: 'targetAudience',
@@ -135,6 +139,14 @@ function humanMessageForBackendField(backendField: string, rawMsg: string): stri
       return TARGET_AUDIENCE_OTHER_REQUIRED_MESSAGE
     case 'project_summary':
       return PROJECT_SUMMARY_LENGTH_MESSAGE
+    case 'transcript':
+      if (msg.includes('80') || msg.includes('at least')) {
+        return 'Transcript must be at least 80 characters after trim.'
+      }
+      if (msg.includes('24') || msg.includes('at most')) {
+        return 'Transcript must be at most 24,000 characters.'
+      }
+      return GENERIC_FIELD_MESSAGE
     case 'project_description':
       return PROJECT_DESCRIPTION_LENGTH_MESSAGE
     case 'project_name':
@@ -286,6 +298,9 @@ function humanizeSingleZodIssue(issue: ZodIssue): string {
     if (issue.code === 'too_small' || issue.code === 'too_big') {
       return PROJECT_SUMMARY_LENGTH_MESSAGE
     }
+  }
+  if (key === 'transcript') {
+    return issue.message
   }
   if (key === 'projectDescription') {
     if (issue.code === 'too_small' || issue.code === 'too_big') {

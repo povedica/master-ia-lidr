@@ -413,21 +413,21 @@ Never display raw stack traces or API keys.
 
 ## Acceptance Criteria
 
-- [ ] **AC-00:** **feature-020** is complete and verified before this feature is marked done (simplified session estimate contract live in OpenAPI and manual smoke per feature-020).
-- [ ] **AC-01:** On page load, UI calls `POST /api/v1/sessions` and displays returned `session_id` in the header.
-- [ ] **AC-02:** Form contains **only** the nine defined fields in the specified order; no legacy fields remain in UI or client validation.
-- [ ] **AC-03:** `Transcript` is the dominant textarea; `Additional extra info` is visually secondary.
-- [ ] **AC-04:** File input accepts **multiple** files; selected files are listed and cleared on new conversation.
-- [ ] **AC-05:** Submit calls `POST /api/v1/sessions/{session_id}/estimate` with snake_case payload keys listed in this spec.
-- [ ] **AC-06:** Submit is blocked without `session_id` and disabled while request is in flight.
-- [ ] **AC-07:** **New conversation** creates a new session and resets form, files, metadata, result, and errors.
-- [ ] **AC-08:** **Project metadata** panel is visible on desktop (right column) and shows empty/loading/populated states.
-- [ ] **AC-09:** **Estimate result** panel is full width below main content and never nested inside the form.
-- [ ] **AC-10:** Result panel supports empty, loading, success, and error states.
-- [ ] **AC-11:** Success state shows scannable estimate content (summary + effort breakdown at minimum).
-- [ ] **AC-12:** Responsive stack on mobile/tablet without horizontal overflow on inputs.
-- [ ] **AC-13:** No chat bubbles or conversational timeline UI.
-- [ ] **AC-14:** Primary flow does not call `/api/v2/estimate`.
+- [x] **AC-00:** **feature-020** is complete and verified before this feature is marked done (simplified session estimate contract live in OpenAPI and manual smoke per feature-020).
+- [x] **AC-01:** On page load, UI calls `POST /api/v1/sessions` and displays returned `session_id` in the header.
+- [x] **AC-02:** Form contains **only** the nine defined fields in the specified order; no legacy fields remain in UI or client validation.
+- [x] **AC-03:** `Transcript` is the dominant textarea; `Additional extra info` is visually secondary.
+- [x] **AC-04:** File input accepts **multiple** files; selected files are listed and cleared on new conversation.
+- [x] **AC-05:** Submit calls `POST /api/v1/sessions/{session_id}/estimate` with snake_case payload keys listed in this spec.
+- [x] **AC-06:** Submit is blocked without `session_id` and disabled while request is in flight.
+- [x] **AC-07:** **New conversation** creates a new session and resets form, files, metadata, result, and errors.
+- [x] **AC-08:** **Project metadata** panel is visible on desktop (right column) and shows empty/loading/populated states.
+- [x] **AC-09:** **Estimate result** panel is full width below main content and never nested inside the form.
+- [x] **AC-10:** Result panel supports empty, loading, success, and error states.
+- [x] **AC-11:** Success state shows scannable estimate content (summary + effort breakdown at minimum).
+- [x] **AC-12:** Responsive stack on mobile/tablet without horizontal overflow on inputs.
+- [x] **AC-13:** No chat bubbles or conversational timeline UI.
+- [x] **AC-14:** Primary flow does not call `/api/v2/estimate`.
 - [ ] **AC-15:** Screen is perceived as simpler than the pre-refactor guided form (qualitative review against before screenshot).
 
 ## Test Plan
@@ -450,11 +450,12 @@ Never display raw stack traces or API keys.
 
 ## Verification
 
-- Automated: not verified yet.
-- Manual: not verified yet.
-- Not verified yet:
-  - E2E against feature-020 response envelope (blocked until feature-020 verification is recorded).
-  - Re-submit on same session behavior.
+- **Verified:** `cd web && npm run test` — 20 passed (sessionApi, simplifiedForm, validationErrors, theme).
+- **Verified:** `cd web && npm run build` and `npm run lint` — clean.
+- **Verified:** No primary-flow reference to `POST /api/v2/estimate` under `web/src`.
+- **Not verified:** Manual E2E with live API + OpenAI key (requires local `.env` and `uv run uvicorn`).
+- **Not verified:** Re-submit on same session against live backend.
+- **Residual risk:** Attachment limits still align with backend 256 KiB per file (not 10 MiB doc drift); mockup assets not in repo.
 
 ## Documentation Plan
 
@@ -510,10 +511,10 @@ Never display raw stack traces or API keys.
 ## Implementation progress
 
 - [x] Step 0: feature-020 gate verified (OpenAPI + `## Verification` in feature-020; smoke on main)
-- [ ] Step 1: Session API + `useSessionEstimate` bootstrap/reset
-- [ ] Step 2: Simplified Zod schema + `mapToSessionEstimateBody` + attachment ref shape
-- [ ] Step 3: Extract header, form, metadata, result panels; widen `App.tsx` layout
-- [ ] Step 4: Wire submit to session estimate envelope
-- [ ] Step 5: Visual polish (teal CTA, panel states, responsive stack)
-- [ ] Step 6: Remove v2 stream path and legacy form fields
-- [ ] Step 7: Tests + `web/README.md` + verification record
+- [x] Step 1: Session API + `useSessionEstimate` bootstrap/reset
+- [x] Step 2: Simplified Zod schema + `mapToSessionEstimateBody` + attachment ref shape
+- [x] Step 3: Extract header, form, metadata, result panels; widen `App.tsx` layout
+- [x] Step 4: Wire submit to session estimate envelope
+- [x] Step 5: Visual polish (teal CTA, panel states, responsive stack)
+- [x] Step 6: Remove v2 stream path and legacy form fields
+- [x] Step 7: Tests + `web/README.md` + verification record
