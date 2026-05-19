@@ -34,6 +34,8 @@ If feature-020 is only partially shipped, stop and finish feature-020 — do not
 
 **2026-05-19 scope extension:** Initial delivery (steps 1–7) shipped session-first form, grouped metadata, and result panels, but omitted the mockup’s **collapsible session history sidebar** (`GET /api/v1/sessions`) and the metadata **JSON Memory tab**. This update adds both without changing the simplified nine-field form contract.
 
+**2026-05-19 restore fix:** Session detail must return the **last successful estimate envelope** so switching sidebar rows restores the **Estimate result** panel (not only form + metadata). Attachments round-trip via `input_payload.attachments` (inline base64). Removed unused `derived_deliverables` from `project_metadata` (never populated meaningfully in simplified flow).
+
 ### Current UI (`web/`)
 
 | Area | Location | Today |
@@ -94,7 +96,7 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 ### Includes
 
 - Refactor `EstimationWorkbench` (or successor) layout: **collapsible left sidebar** + header + 2-column main + full-width result panel.
-- **Sessions project history** sidebar (mockup): title, subtitle “Last 30 days”, collapse control; rows from `GET /api/v1/sessions`; active session highlighted; selecting a row calls `GET /api/v1/sessions/{session_id}` and swaps working context (header `session_id`, form from `input_payload`, metadata panel; estimate panel resets unless same-session re-submit data is already in client state).
+- **Sessions project history** sidebar (mockup): title, subtitle “Last 30 days”, collapse control; rows from `GET /api/v1/sessions`; active session highlighted; selecting a row calls `GET /api/v1/sessions/{session_id}` and swaps working context (header `session_id`, form from `input_payload` including `attachments`, metadata panel from `project_metadata`, **estimate result panel from persisted `estimate`** when `submit_count > 0`).
 - Auto `POST /api/v1/sessions` on page load; show `session_id` in header.
 - **Nueva conversación** / **New conversation** button: new session + full UI reset.
 - Simplified form with **only** the nine fields listed below, exact order.
@@ -136,6 +138,7 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 6. User clicks **New conversation** → new session created; all panels reset to empty; form cleared.
 7. On session create failure → blocking error with retry; form stays disabled.
 8. On estimate failure → result panel error; metadata unchanged or partial per response; form re-enabled.
+9. User selects a **past session** in the sidebar → form, metadata, and **last estimate** restore from `GET /api/v1/sessions/{session_id}`; result panel shows **loading** during fetch, then success or a safe empty/error state.
 
 ## Layout and Information Architecture
 
@@ -322,7 +325,8 @@ Explicit state machine for implementation and tests:
 | S10 | Metadata available | Right panel populated |
 | S11 | Sidebar loading | Skeleton rows while `GET /api/v1/sessions` in flight |
 | S12 | Sidebar ready | Session rows visible; active row highlighted |
-| S13 | Session switch in progress | Sidebar disabled briefly; header shows target `session_id` when loaded |
+| S13 | Session switch in progress | Sidebar disabled briefly; metadata + result panels **loading** (not empty placeholder); header shows target `session_id` when loaded |
+| S14 | Result restored from session | Result panel **available** with last saved estimate after sidebar select when `estimate` is present on detail response |
 
 ## Data and API Dependencies
 
@@ -361,12 +365,18 @@ GET /api/v1/sessions/{session_id}
   "session_id": "<uuid>",
   "input_payload": { ... } | null,
   "project_metadata": { ... } | null,
+  "estimate": { "result": { ... }, "prompt_version": "...", ... } | null,
+  "warnings": [],
+  "attachments": [ { "file_id", "name", "mime_type", "status", "message" } ],
   "submit_count": 0
 }
 ```
 
 - `404` → show safe error; offer **New conversation**.
-- Client maps `input_payload` back into simplified form fields when present; clears estimate result panel (estimate is not persisted server-side in MVP).
+- Client maps `input_payload` back into simplified form fields when present, including `attachments` (inline base64 refs).
+- Client maps `estimate` through `extractEstimateResult()` (unwrap nested `result`) into the result panel.
+- After each successful `POST .../estimate`, server stores `last_estimate` (full v2 envelope) on the in-memory session; detail `estimate` reflects that snapshot.
+- If `submit_count > 0` but `estimate` is null (e.g. session estimated before persistence shipped, or API restart), show a safe message prompting **Generate estimate** again — do not leave a blank panel with no explanation.
 
 ### Estimate submit (contract from feature-020)
 
@@ -411,7 +421,7 @@ Attachment shape is **defined by feature-020** OpenAPI (`AttachmentRef` with `fi
 | Replace hook | `useSessionEstimate.ts` — add sidebar list state, `selectSession(id)`, refresh list after create/submit |
 | Slim mapper | `simplifiedForm.ts` — add `payloadToSimplifiedForm()` for `GET` detail restore |
 | Split UI | Add `SessionHistorySidebar.tsx`; extend `ProjectMetadataPanel.tsx` with Readable / Memory tabs + JSON viewer |
-| Backend (minimal) | `InMemorySessionStore.list_sessions()`; `GET /api/v1/sessions` + `GET /api/v1/sessions/{session_id}` in `app/routers/sessions.py` + Pydantic list/detail schemas |
+| Backend (minimal) | `InMemorySessionStore.list_sessions()`; `GET /api/v1/sessions` + `GET /api/v1/sessions/{session_id}`; persist `last_estimate` + `last_warnings` on successful estimate in `app/routers/sessions.py` + Pydantic list/detail schemas |
 | Tests | `requestMapper.test.ts` — update for simplified fields; add hook/API unit tests with `fetch` mock |
 | App shell | `App.tsx` — widen layout wrapper if needed |
 
@@ -484,12 +494,17 @@ Never display raw stack traces or API keys.
 - [x] **AC-16:** Collapsible **Sessions project history** sidebar loads rows from `GET /api/v1/sessions`, highlights the active `session_id`, and refreshes after new session or successful estimate.
 - [x] **AC-17:** Selecting a sidebar row loads that session via `GET /api/v1/sessions/{session_id}`, updates header `session_id`, restores form from `input_payload` when available, and shows stored `project_metadata` in the right panel.
 - [x] **AC-18:** **Project metadata** panel exposes **Readable** and **Memory (current)** tabs; Memory shows formatted JSON of the current `project_metadata` object.
+- [x] **AC-19:** Selecting a session with `submit_count > 0` and a stored `estimate` on the detail response restores the **Estimate result** panel (same structured content as immediately after submit), without requiring a new **Generate estimate** run.
+- [x] **AC-20:** While a sidebar session is loading, metadata and result panels use **loading** state (not the empty placeholder).
+- [x] **AC-21:** Restored sessions show saved attachment names in the form (from `input_payload.attachments`); user may replace files before re-submit.
 
 ## Test Plan
 
 - **Unit tests:**
   - `mapToSessionEstimateBody` maps all fields and omits removed ones.
-  - `payloadToSimplifiedForm` restores round-trip fields from `input_payload`.
+  - `payloadToSimplifiedForm` restores round-trip fields and `attachments` from `input_payload`.
+  - `extractEstimateResult` unwraps persisted v2 envelope from `GET` detail `estimate`.
+  - Hook: `selectSession` sets result/metadata to **loading** during fetch, then **available** when `estimate` is present.
   - Zod schema rejects empty `project_name` / `transcript` / required selects.
   - Session reset clears state (hook test with mocked `fetch`).
   - `listSessions` / `getSession` parse list and detail responses.
@@ -503,7 +518,9 @@ Never display raw stack traces or API keys.
   - `uv run uvicorn app.main:app --reload` + `cd web && npm run dev`
   - Load page → session appears → fill form → generate → metadata + result populate
   - New conversation → clean slate; sidebar shows new row as current
-  - Select a past session in sidebar → form/metadata restore; result panel empty until re-run
+  - Select a past session in sidebar → form, metadata, and **estimate result** restore when that session had a successful submit after estimate persistence is deployed
+  - Select a session while API is fetching → result panel shows loading skeleton, not empty copy
+  - Session with `submit_count > 0` but missing `estimate` (e.g. after API restart) → safe message, not a blank panel
   - Toggle metadata **Memory (current)** → JSON matches Readable data
   - Collapse/expand sidebar on desktop
   - Resize to mobile width → column order correct
@@ -511,13 +528,14 @@ Never display raw stack traces or API keys.
 
 ## Verification
 
-- **Verified:** `cd web && npm run test` — 28 passed (includes `listSessions`, `getSession`, `payloadToSimplifiedForm`).
-- **Verified:** `uv run pytest tests/test_sessions_router.py` — 3 passed (`GET` list + detail).
-- **Verified:** `cd web && npm run build` and `npm run lint` — clean.
+- **Verified:** `cd web && npm run test` — includes `applySessionDetailToPanels`, `extractEstimateResult`, `payloadToSimplifiedForm`, session API helpers.
+- **Verified:** `uv run pytest tests/test_sessions_router.py tests/test_simplified_session_router.py` — list/detail restore + `last_estimate` persisted after estimate POST.
+- **Verified:** `cd web && npm run build` and `npm run lint` — clean (prior slice).
 - **Verified:** No primary-flow reference to `POST /api/v2/estimate` under `web/src`.
-- **Not verified:** Manual E2E with live API + OpenAI key (sidebar select + JSON tab against running `uvicorn`).
+- **Verified (2026-05-19):** `selectSession` uses loading panels during `GET` detail; `applySessionDetailToPanels` restores estimate from `estimate.result` envelope.
+- **Not verified:** Manual E2E with live API + OpenAI key (sidebar select restores full estimate panel after real submit).
 - **Not verified:** Re-submit on same session against live backend.
-- **Residual risk:** Estimate result is not restored when switching sessions (server does not persist last estimate); attachment files are not rehydrated from `input_payload`.
+- **Residual risk:** In-memory sessions are lost on API restart; estimates saved only after successful submit while the process is running. File input cannot show binary previews without re-selecting files (names from `input_payload` are shown as “saved in session”).
 
 ## Documentation Plan
 
@@ -541,7 +559,7 @@ Never display raw stack traces or API keys.
 | OQ-03 | Show `warnings` array in UI? | Yes — compact list under metadata or above result |
 | OQ-04 | Copy `session_id` button? | Yes — low effort, high utility |
 | OQ-05 | Metadata readable vs JSON tabs? | **Resolved:** both tabs required (`Readable` + `Memory (current)`) |
-| OQ-06 | Persist estimate when switching sessions? | No — server stores payload + metadata only; result panel clears on switch |
+| OQ-06 | Persist estimate when switching sessions? | **Yes** — `last_estimate` on session + restore via `GET` detail; client unwraps `estimate.result` for the result panel |
 
 ## Learnings
 
@@ -585,6 +603,7 @@ Never display raw stack traces or API keys.
 - [x] Step 9: `SessionHistorySidebar` + hook wiring (list, select, refresh, collapse)
 - [x] Step 10: Metadata **Readable** / **Memory (current)** tabs + JSON viewer
 - [x] Step 11: Tests + verification for sidebar and JSON tab
+- [x] Step 12: Session switch UX — loading panels during `GET` detail; restore estimate from `last_estimate`; missing-estimate message; tests for panel restore + API persistence
 
 ## Repository commits (master-ia)
 
@@ -593,3 +612,6 @@ Never display raw stack traces or API keys.
 | `b2c87c7` | `fix(api): return 422 for domain guardrail on session estimate` | Maps `DomainGuardrailError` to structured HTTP 422 so the session UI can surface out-of-domain feedback. |
 | `a386492` | `feat(web): proxy API via same-origin in dev and Docker` | Vite dev proxy, nginx `/api` proxy, empty default `VITE_API_BASE_URL`, and docker-compose build arg alignment. |
 | `02a13c2` | `feat(web): unwrap session estimate envelope and guardrail errors` | Extracts nested `estimate.result`, maps `out_of_domain` to transcript validation, shows recommended team, and improves warnings a11y. |
+| `e5059f9` | `feat(api): persist session snapshot for list, detail, and restore` | `GET` list/detail, `last_estimate` / warnings on submit, removed `derived_deliverables`. |
+| `281832e` | `feat(web): session history sidebar and restore form, metadata, estimate` | Sidebar, `payloadToSimplifiedForm`, hook restore paths (follow-up: loading state + missing-estimate UX in Step 12). |
+| `5244324` | `docs(work-items): record session restore and history for feature-021` | Documents sidebar and restore scope. |
