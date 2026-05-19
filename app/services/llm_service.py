@@ -719,6 +719,7 @@ class EstimationService:
         skip_domain_guardrail: bool = False,
         system_prompt_override: str | None = None,
         user_prompt_override: str | None = None,
+        messages_override: list[dict[str, str]] | None = None,
     ) -> StructuredEstimateBundle:
         """Jinja prompts + Instructor structured completion (v2 API)."""
 
@@ -760,6 +761,7 @@ class EstimationService:
                 max_output_tokens=prelude.max_output_tokens,
                 response_model=DomainEstimationResult,
                 max_attempts=self._settings.structured_output_max_attempts,
+                messages=messages_override,
             )
         except StructuredCompletionError as exc:
             raise EstimationError(str(exc)) from exc

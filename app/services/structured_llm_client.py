@@ -27,6 +27,37 @@ class StructuredCompletionError(RuntimeError):
     """Raised when structured output cannot be produced after retries."""
 
 
+def _validate_messages_for_structured_completion(messages: list[dict[str, str]]) -> None:
+    if not messages:
+        raise StructuredCompletionError("messages must not be empty")
+    if messages[0].get("role") != "system":
+        raise StructuredCompletionError("messages must start with a system role")
+    if messages[-1].get("role") != "user":
+        raise StructuredCompletionError("messages must end with a user role")
+    prior = messages[1:-1]
+    if len(prior) % 2 != 0:
+        raise StructuredCompletionError("messages prior pairs must be user/assistant pairs")
+    for index, message in enumerate(prior):
+        expected = "user" if index % 2 == 0 else "assistant"
+        if message.get("role") != expected:
+            raise StructuredCompletionError("messages roles must alternate user/assistant after system")
+
+
+def _resolve_completion_messages(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    messages: list[dict[str, str]] | None,
+) -> list[dict[str, str]]:
+    if messages is None:
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+    _validate_messages_for_structured_completion(messages)
+    return messages
+
+
 def _usage_from_raw(raw: object | None) -> UsageInfo | None:
     if raw is None:
         return None
@@ -65,8 +96,15 @@ async def complete_structured(
     max_output_tokens: int,
     response_model: type[TModel],
     max_attempts: int,
+    messages: list[dict[str, str]] | None = None,
 ) -> tuple[TModel, UsageInfo | None, str | None]:
     """Return a validated Pydantic instance, optional usage, and finish_reason."""
+
+    completion_messages = _resolve_completion_messages(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        messages=messages,
+    )
 
     # Do not pass max_retries here: Instructor forwards it into LiteLLM's ``acompletion``,
     # which then collides with Instructor's own kwargs (``TypeError: multiple values for max_retries``).
@@ -90,10 +128,7 @@ async def complete_structured(
         ):
             try:
                 parsed, raw_completion = await client.chat.completions.create_with_completion(
-                    [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
+                    completion_messages,
                     response_model=response_model,
                     model=litellm_model,
                     max_tokens=max_output_tokens,

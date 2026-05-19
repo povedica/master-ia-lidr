@@ -94,6 +94,7 @@ class LLMPipeline:
         guided_user_message: str | None = None,
         system_prompt_override: str | None = None,
         user_prompt_override: str | None = None,
+        messages_override: list[dict[str, str]] | None = None,
     ) -> StructuredPipelineOutcome:
         """Execute the guarded v2 path (raises ``GuardrailViolationError`` on enforced blocks)."""
 
@@ -259,6 +260,7 @@ class LLMPipeline:
                 skip_domain_guardrail=True,
                 system_prompt_override=system_prompt_override,
                 user_prompt_override=user_prompt_override,
+                messages_override=messages_override,
             )
         except EstimationError as exc:
             return StructuredPipelineOutcome(
