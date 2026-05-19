@@ -214,21 +214,21 @@ The current guided-form session contract already exists in the repo. This featur
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/sessions` returns `201 Created` with a session identifier.
-- [ ] AC-02: The new session starts with empty or minimal state and no prior estimate.
-- [ ] AC-03: `POST /api/v1/sessions/{session_id}/estimate` accepts the simplified request contract only.
-- [ ] AC-04: `project_name`, `project_type`, `transcript`, and `target_audience` are validated as required inputs.
-- [ ] AC-05: The backend rejects empty or too-short `transcript` values with a safe validation error.
-- [ ] AC-06: The request supports multiple attachments and processes each attachment independently.
-- [ ] AC-07: Attachment resolution and text extraction produce per-attachment status information.
-- [ ] AC-08: The response includes a top-level `project_metadata` object.
-- [ ] AC-09: `project_metadata` includes derived fields such as summary, derived deliverables, detected constraints, attachment summary, and confidence notes.
-- [ ] AC-10: The response separates `input_payload`, `project_metadata`, `estimate`, and `warnings`.
-- [ ] AC-11: Missing context such as urgency or sensitivity produces warnings instead of hard failure.
-- [ ] AC-12: The session store persists the latest normalized payload, metadata, attachment status, and estimate.
-- [ ] AC-13: Unknown session IDs return `404`.
-- [ ] AC-14: Unsafe provider, file, or extraction failures do not leak secrets or raw stack traces to the client.
-- [ ] AC-15: The current stateless estimation routes remain unaffected unless a temporary rollout adapter is explicitly added.
+- [x] AC-01: `POST /api/v1/sessions` returns `201 Created` with a session identifier.
+- [x] AC-02: The new session starts with empty or minimal state and no prior estimate.
+- [x] AC-03: `POST /api/v1/sessions/{session_id}/estimate` accepts the simplified request contract only.
+- [x] AC-04: `project_name`, `project_type`, `transcript`, and `target_audience` are validated as required inputs.
+- [x] AC-05: The backend rejects empty or too-short `transcript` values with a safe validation error.
+- [x] AC-06: The request supports multiple attachments and processes each attachment independently.
+- [x] AC-07: Attachment resolution and text extraction produce per-attachment status information.
+- [x] AC-08: The response includes a top-level `project_metadata` object.
+- [x] AC-09: `project_metadata` includes derived fields such as summary, derived deliverables, detected constraints, attachment summary, and confidence notes.
+- [x] AC-10: The response separates `input_payload`, `project_metadata`, `estimate`, and `warnings`.
+- [x] AC-11: Missing context such as urgency or sensitivity produces warnings instead of hard failure.
+- [x] AC-12: The session store persists the latest normalized payload, metadata, attachment status, and estimate.
+- [x] AC-13: Unknown session IDs return `404`.
+- [x] AC-14: Unsafe provider, file, or extraction failures do not leak secrets or raw stack traces to the client.
+- [x] AC-15: The current stateless estimation routes remain unaffected unless a temporary rollout adapter is explicitly added.
 
 ## Test Plan
 
@@ -252,10 +252,12 @@ The current guided-form session contract already exists in the repo. This featur
 
 ## Verification
 
-- **Verified:** `uv run pytest` — 272 passed (schemas, adapter, router envelope, full suite).
-- **Verified:** `POST /api/v1/sessions/{id}/estimate` accepts simplified body only; legacy `user_message` → `422`.
-- **Not verified:** Manual smoke with real PDF/DOCX attachments and Langfuse span review.
-- **Residual risk:** `file_id`-only refs without inline `content_base64` fail per-file until upload API; attachment extraction not exercised against production-sized binaries in CI.
+- **Verified:** `uv sync --group dev` and `uv run pytest` — **274 passed**; `pytest --collect-only` — 274 collected, no import errors.
+- **Verified:** Live smoke on `http://127.0.0.1:8000` — `POST /sessions` (201), simplified `POST .../estimate` (200) with envelope keys `project_metadata`, `warnings`, `estimate`; 404 unknown session; 422 short transcript and legacy `user_message`.
+- **Verified:** Regression tests for Jinja sparse metadata (`assumed_team_size`) and `LLMPipeline` prompt overrides (session submit path).
+- **Verified:** `README.md`, `docs/technical/README.md`, `.env.example` updated for simplified session contract and attachment limits.
+- **Not verified:** Langfuse spans on session routes; manual multi-attachment smoke with real PDF/DOCX binaries; `GET /api/v1/sessions` list endpoint (out of scope for this feature).
+- **Residual risk:** `file_id`-only refs without inline `content_base64` report per-file `failed` until upload API; metadata derivation is deterministic/heuristic (not LLM-enriched); in-memory sessions lost on restart.
 
 ## Documentation Plan
 
@@ -274,11 +276,11 @@ The current guided-form session contract already exists in the repo. This featur
 
 ## Implementation Plan
 
-- [ ] Step 1: Define the simplified session request/response models and extend session state for the new envelope.
-- [ ] Step 2: Add the normalization and attachment-resolution service with unit tests.
-- [ ] Step 3: Wire `POST /api/v1/sessions/{session_id}/estimate` to derive metadata, run estimation, and persist the session snapshot.
-- [ ] Step 4: Add router integration tests and verify the new response contract.
-- [ ] Step 5: Update README and technical docs, then run the focused and full `uv run pytest` checks.
+- [x] Step 1: Define the simplified session request/response models and extend session state for the new envelope.
+- [x] Step 2: Add the normalization and attachment-resolution service with unit tests.
+- [x] Step 3: Wire `POST /api/v1/sessions/{session_id}/estimate` to derive metadata, run estimation, and persist the session snapshot.
+- [x] Step 4: Add router integration tests and verify the new response contract.
+- [x] Step 5: Update README and technical docs, then run the focused and full `uv run pytest` checks.
 
 ## Estimation
 
@@ -288,7 +290,7 @@ The current guided-form session contract already exists in the repo. This featur
 
 ## Pull request
 
-- WIP draft: https://github.com/povedica/master-ia-lidr/pull/17
+- https://github.com/povedica/master-ia-lidr/pull/17 (merged via `/finish-task`)
 - Branch: `feature/020-simplified-session-estimation-metadata`
 
 ## Implementation progress
@@ -305,11 +307,18 @@ The current guided-form session contract already exists in the repo. This featur
 
 | Commit | Summary |
 | --- | --- |
-| docs | Add feature-020 canonical work item |
-| feat | Simplified session estimate schemas and DerivedProjectMetadata |
-| feat | Simplified session estimation pipeline, router envelope, tests |
-| fix | Session prompt overrides, sparse metadata Jinja, regression tests |
-| test | Align v2 estimation stubs with prompt override kwargs |
+| `1a626c9` | docs(work-items): add feature-020 simplified session estimation spec |
+| `af6991f` | feat(sessions): add simplified session estimate schemas |
+| `823aee1` | feat(sessions): simplified estimate contract with derived metadata |
+| `2091811` | fix(sessions): session prompt overrides and sparse metadata template |
+| `d649520` | test: align structured estimation stubs with prompt override kwargs |
+| `6e8c8f7` | docs(feature-020): record fix commits in implementation log |
+
+## Learnings (retrospective)
+
+- Session submits must pass **composed** system/user prompts through `LLMPipeline.run_structured`; default v2 path re-renders guided-only text.
+- Jinja session metadata partials need `is defined` under `StrictUndefined` when optional fields are omitted from context.
+- Live Docker verification caught integration gaps unit tests missed until pipeline overrides existed.
 
 ## Definition of Done (technical)
 
