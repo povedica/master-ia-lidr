@@ -12,6 +12,11 @@ from tests.fakes.fake_llm_provider import FakeStructuredLLM
 from tests.fixtures.attachment_bytes import redis_marker_pdf_attachment_ref
 from tests.fixtures.session_store import get_session_state, messages_for_session
 from tests.fixtures.transcripts import TURN_1, TURN_2, build_transcript, simplified_submit_payload
+from tests.support.multipart_submit import (
+    multipart_attachment_file,
+    multipart_submit_fields,
+    turn_2_multipart_fields,
+)
 from tests.support.session_integration_markers import (
     requires_fake_structured_llm,
     requires_real_structured_llm,
@@ -182,6 +187,62 @@ async def test_attachment_pdf_influences_llm_prompt_and_estimate(
     assert "ATTACH_MARKER:USE_REDIS" in prompt
     line_names = [item["name"] for item in body["estimate"]["result"]["line_items"]]
     assert "Redis (from attachment)" in line_names
+
+
+@pytest.mark.asyncio
+@requires_fake_structured_llm
+async def test_multipart_submit_with_text_attachment(
+    async_client: AsyncClient,
+    fake_structured_llm: FakeStructuredLLM,
+) -> None:
+    created = await async_client.post("/api/v1/sessions")
+    session_id = created.json()["session_id"]
+    marker = b"Project addendum: ATTACH_MARKER:USE_REDIS must be reflected in the estimate."
+
+    response = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        data=multipart_submit_fields(
+            transcript="See attached addendum for caching requirements. " * 4,
+        ),
+        files=[multipart_attachment_file(name="redis.txt", content=marker, content_type="text/plain")],
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["attachments"][0]["status"] == "processed"
+    assert "redis.txt" in (body["project_metadata"].get("attachment_summary") or "")
+    prompt = fake_structured_llm.last_call().user_prompt
+    assert "<attachments>" in prompt
+    assert 'filename="redis.txt"' in prompt
+    assert "ATTACH_MARKER:USE_REDIS" in prompt
+    line_names = [item["name"] for item in body["estimate"]["result"]["line_items"]]
+    assert "Redis (from attachment)" in line_names
+
+
+@pytest.mark.asyncio
+@requires_fake_structured_llm
+async def test_multipart_second_turn_omits_project_name(
+    async_client: AsyncClient,
+    fake_structured_llm: FakeStructuredLLM,
+) -> None:
+    created = await async_client.post("/api/v1/sessions")
+    session_id = created.json()["session_id"]
+
+    turn_1 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        data=multipart_submit_fields(),
+    )
+    assert turn_1.status_code == 200
+
+    turn_2 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        data=turn_2_multipart_fields(),
+    )
+    assert turn_2.status_code == 200
+    assert turn_2.json()["project_metadata"]["project_name"] == "Acme Portal"
+    assert fake_structured_llm.last_call().system_prompt.count("Acme Portal") >= 1
+    turn_2_messages = fake_structured_llm.last_call().messages or []
+    assert len(turn_2_messages) >= 4
 
 
 @pytest.mark.asyncio
