@@ -656,7 +656,7 @@ None required when AC-01–AC-12 pass.
 
 ## Verification
 
-- **Verified:** `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false uv run pytest tests/test_sessions_integration.py` → 8 passed, 1 skipped (live smoke), ~4s; `tests/test_attachment_bytes.py`; `tests/test_session_integration_settings.py`; full `uv run pytest` → 294 passed (2026-05 finish-task). Exercise trio: linked metadata, PDF attachment + output delta, eight-turn sliding window (store + fake `user_prompt` proxy).
+- **Verified:** `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false uv run pytest tests/test_sessions_integration.py` → 8 passed, 1 skipped (live smoke), ~4s; `tests/test_attachment_bytes.py`; `tests/test_session_integration_settings.py`; full `uv run pytest` → 294 passed, 1 skipped (2026-05 finish-task). Exercise trio: linked metadata, PDF attachment + output delta, eight-turn sliding window (store + fake `user_prompt` proxy).
 - **Not verified:** multipart transport, Path A Files API, wiring `to_messages_list()` into `complete_structured` (Paso 5 product gap — see Learnings), mandatory live LLM for all scenarios.
 - **Residual risk:** minimal hand-built PDF; simplified submit still sends `system_prompt` + single-turn `user_prompt` to provider, not full trimmed `messages` array.
 
