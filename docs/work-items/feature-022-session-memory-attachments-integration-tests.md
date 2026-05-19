@@ -1,41 +1,75 @@
 # Feature: Integration Test Suite — Session Memory, Metadata, and Attachments
 
-## 1) Problem statement
+## Objective
 
-The estimator backend now supports **multi-turn session state**: in-memory sessions, sliding-window conversation history, distilled `project_metadata`, and attachment-aware estimation via `POST /api/v1/sessions` and `POST /api/v1/sessions/{session_id}/estimate`.
+Add a **minimal but robust** pytest integration suite for multi-turn session estimation: in-memory sessions, sliding-window `conversation_history`, heuristic `project_metadata`, and attachment-aware submits via `POST /api/v1/sessions` and `POST /api/v1/sessions/{session_id}/estimate`.
 
-Existing tests cover **isolated units** (`tests/test_sessions.py`, `tests/test_conversational_estimation_service.py`, `tests/test_metadata_extractor.py`) and **thin router tests** that mock `SimplifiedSessionEstimationService` entirely (`tests/test_simplified_session_router.py`, `tests/test_sessions_router.py`). Those router tests validate HTTP status codes and response envelopes but **do not exercise**:
+The suite must exercise the **full in-process path** (routing → validation → session store → `SimplifiedSessionEstimationService` → prompt rendering → faked structured LLM → response assembly) so regressions in metadata re-injection, attachment context, or history trimming cannot hide behind unit tests or router tests that mock the entire service.
 
-- Real orchestration through `SimplifiedSessionEstimationService` (or `ConversationalEstimationService`).
-- Progressive enrichment and re-injection of `project_metadata` across linked submits.
-- Attachment extraction → prompt composition → observable LLM input.
-- Sliding-window trimming under repeated submits within one `session_id`.
-- Session isolation between concurrent sessions.
+## Context
 
-Without a focused integration suite, regressions in prompt composition, metadata persistence, attachment context, or history trimming can ship while unit and mocked-router tests remain green.
+- Built on **feature-020** simplified session routes and **feature-021** UI consumption; production uses JSON + base64 attachments and **Path B** local text extraction (`pypdf` / plain text).
+- Unit coverage exists in `tests/test_sessions.py`, `tests/test_conversational_estimation_service.py`, `tests/test_metadata_extractor.py`.
+- Router smoke tests in `tests/test_simplified_session_router.py` and `tests/test_sessions_router.py` **mock** `SimplifiedSessionEstimationService` and must not be duplicated.
+- Simplified submits use **heuristic** `derive_project_metadata()`, not the LLM metadata extractor.
 
-## 2) Goals and non-goals
+| Artifact | Location |
+| --- | --- |
+| Session domain model | `app/services/sessions.py` |
+| HTTP routes | `app/routers/sessions.py` |
+| Simplified orchestration | `app/services/simplified_session_estimation_service.py` |
+| Attachment processing | `app/services/simplified_attachment_processing.py`, `app/services/document_extractor.py` |
+| Prompt metadata injection | `app/services/estimation_prompt_rendering.py` → `render_session_system_prompt()` |
+| Structured LLM boundary | `app/services/structured_llm_client.py` → `complete_structured()` |
 
-### Goals
+## Scope
 
-- Add a **minimal but robust** pytest integration suite using **`httpx.AsyncClient`** against the real FastAPI app.
-- Exercise the **full in-process path**: routing → Pydantic validation → session store → orchestration → prompt rendering → (faked) LLM call → response assembly.
-- Provide an **inspectable LLM fake** that captures prompts/messages and returns deterministic structured outputs.
-- Cover the four **mandatory scenarios** (session creation, two linked turns, attachment influence, sliding window).
-- Keep tests **fast**, **deterministic**, and **free of real provider/network calls**.
-- Document in README how to run the suite and which attachment strategy the project uses.
+### Includes
 
-### Non-goals
+- `httpx.AsyncClient` + `ASGITransport` against `app.main:app`.
+- Inspectable `FakeStructuredLLM` patching `complete_structured` (not the whole estimation service).
+- Mandatory scenarios: session creation, two linked submits, attachment → prompt, sliding window.
+- Recommended: 404 unknown session, session isolation.
+- `InMemorySessionStore.reset_for_tests()`, shared store patching, README section.
 
-- Persistence across process restarts (in-memory store is sufficient).
-- Complex memory compression (anchors, hybrid tiers, dynamic summarization).
-- Real OpenAI/Anthropic/LiteLLM network calls or real Files API uploads.
-- End-to-end browser/UI tests (`front-feature-021` scope).
-- Replacing all existing unit tests or router smoke tests.
-- Performance/load testing of the session store.
-- Testing exact natural-language phrasing of LLM outputs (prefer structural/marker-based assertions).
+### Excludes
 
-## 3) Functional scope of the tests
+- Persistence across restarts, complex memory compression, real provider/Files API calls.
+- Browser/E2E tests, replacing existing unit/router tests, load testing.
+- Exact NL assertions on LLM output (marker-based only).
+- Multipart transport and Path A unless added in a follow-up (helpers may be stubbed).
+
+## Functional Requirements
+
+### FR-01: Session creation (Test 1)
+
+`POST /api/v1/sessions` returns `201` with a UUID `session_id`; store has empty history, default `ProjectMetadata`, `submit_count == 0`; consecutive creates yield distinct ids.
+
+### FR-02: Linked submits (Test 2)
+
+Two `POST .../estimate` calls on one session enrich metadata after Turn 1; Turn 2 **system prompt** (via fake) and `conversation_history` retain `Acme Portal` and both turn labels.
+
+### FR-03: Attachments (Test 3)
+
+Inline base64 attachment text with `ATTACH_MARKER:USE_REDIS` reaches fake `user_prompt` inside `<attachments>`; structured output includes `"Redis (from attachment)"` when marker present; control submit without attachment does not.
+
+### FR-04: Sliding window (Test 4)
+
+With `max_turns=3` and seven submits, history keeps system + at most three user/assistant pairs, drops oldest turn markers, preserves `project_metadata.project_name`.
+
+### FR-05: Test harness
+
+Function-scoped store + fake; patch `app.services.sessions.session_store` and `app.routers.sessions.session_store`; disable semantic cache and domain guardrails in test settings.
+
+### FR-06: Documentation
+
+README documents run command, Path B default, heuristic metadata for simplified submits.
+
+## Technical Approach
+
+*(Detailed design below — harness, fake contract, fixtures, and per-test assertions.)*
+
+## Functional scope of the tests
 
 ### Full integration (real code under test)
 
@@ -72,7 +106,7 @@ The codebase today uses:
 
 The exercise also describes **multipart/form-data** and **Path A (provider Files API)**. This spec requires tests to be **adaptable** to both transport and attachment paths; the implementation must pick one transport for production, document it, and map Test 3 accordingly (see §5.3 and §7).
 
-## 4) Technical test design
+## Technical test design
 
 ### 4.1 Application harness
 
@@ -501,7 +535,7 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 | **Unsupported/corrupt attachments** | Document; cover unsupported MIME in recommended tests; corrupt PDF as follow-up |
 | **Flaky PDF text extraction** | Use simple single-page PDF fixtures; assert substring presence, not full extracted text equality |
 
-## 8) Acceptance criteria
+## Acceptance Criteria
 
 - [ ] **AC-01:** `tests/test_sessions_integration.py` exists with Test 1–4 implemented and passing via `uv run pytest tests/test_sessions_integration.py`.
 - [ ] **AC-02:** Suite uses **`httpx.AsyncClient`** (async tests), not sync `TestClient`, for session integration tests.
@@ -519,7 +553,20 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 - [ ] **AC-14:** README updated: how to run tests, attachment path chosen, metadata derivation strategy (heuristic vs LLM).
 - [ ] **AC-15:** No secrets in fixtures or committed attachment samples.
 
-## 9) Step-by-step implementation plan
+## Test Plan
+
+### Automated
+
+```bash
+uv run pytest tests/test_sessions_integration.py
+uv run pytest
+```
+
+### Manual
+
+None required when AC-01–AC-12 pass.
+
+### Implementation steps
 
 ### Step 0 — Gate and baseline
 
@@ -574,19 +621,21 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 - [ ] Optional: add integration module to CI workflow if not already running full `pytest`.
 - **Verify:** `uv run pytest tests/test_sessions_integration.py` all green; `uv run pytest` full suite still green.
 
-## Context (repository references)
+## Estimation
 
-| Artifact | Location |
-| --- | --- |
-| Session domain model | `app/services/sessions.py` |
-| HTTP routes | `app/routers/sessions.py` |
-| Simplified orchestration | `app/services/simplified_session_estimation_service.py` |
-| Conversational orchestration (LLM metadata extractor) | `app/services/conversational_estimation_service.py` |
-| Attachment processing | `app/services/simplified_attachment_processing.py`, `app/services/document_extractor.py` |
-| Prompt metadata injection | `app/services/estimation_prompt_rendering.py` → `render_session_system_prompt()` |
-| Structured LLM boundary | `app/services/structured_llm_client.py` → `complete_structured()` |
-| Existing unit tests | `tests/test_sessions.py`, `tests/test_conversational_estimation_service.py` |
-| Existing router tests (mocked service) | `tests/test_simplified_session_router.py`, `tests/test_sessions_router.py` |
+- Size: **M**
+- Estimated time: 3–4 hours
+- Planned steps: 7
+
+## Implementation progress
+
+- [ ] Step 1: Test infrastructure scaffolding
+- [ ] Step 2: Test 1 — session creation
+- [ ] Step 3: Test 2 — two linked submits
+- [ ] Step 4: Test 3 — attachments
+- [ ] Step 5: Test 4 — sliding window
+- [ ] Step 6: Recommended edge tests
+- [ ] Step 7: README + verification
 
 ## Documentation plan
 
@@ -594,11 +643,15 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 - **docs/technical/README.md:** optional cross-link to session integration coverage (no duplicate contract spec).
 - **This work item:** update Verification section on completion.
 
-## Verification (to fill during `/start-task`)
+## Verification
 
-- **Automated:** `uv run pytest tests/test_sessions_integration.py`
-- **Manual:** none required if AC-01–AC-12 pass.
-- **Not verified yet:** multipart transport (if not implemented), Path A Files API, conversational `ConversationalEstimationService` route wiring.
+- **Verified:** _(fill on completion)_
+- **Not verified:** multipart transport, Path A Files API, `ConversationalEstimationService` route wiring.
+- **Residual risk:** PDF text extraction flakiness if PDF fixtures are added later; suite defaults to `text/plain` minimal attachments.
+
+## Pull request
+
+- _(WIP draft URL recorded after branch setup)_
 
 ## Learnings (from related features)
 
@@ -607,14 +660,6 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 - Keep `conversation_history` field name (feature-018 rename rejected).
 - Register routers only after imports are clean; run `uv run pytest --collect-only` after adding fakes.
 - Prefer marker-based assertions over LLM output text matching.
-
----
-
-**Next step:** implement with:
-
-```text
-/start-task docs/work-items/feature-022-session-memory-attachments-integration-tests.md
-```
 
 ## Repository commits (master-ia)
 
