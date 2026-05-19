@@ -66,6 +66,20 @@ describe('parseStructuredEstimateFailure', () => {
     }
   })
 
+  it('maps out_of_domain object detail to transcript', () => {
+    const body = JSON.stringify({
+      detail: {
+        code: 'out_of_domain',
+        message: 'Only software/project estimation requests are supported.',
+      },
+    })
+    const r = parseStructuredEstimateFailure(422, body)
+    expect(r.kind).toBe('validation')
+    if (r.kind === 'validation') {
+      expect(r.fieldErrors.transcript).toContain('software/project')
+    }
+  })
+
   it('returns generic safe message for 422 without mappable fields', () => {
     const body = JSON.stringify({
       detail: [{ type: 'value_error', loc: ['body', 'unknown_field'], msg: 'broken' }],

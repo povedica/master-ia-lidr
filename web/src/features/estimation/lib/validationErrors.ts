@@ -234,6 +234,18 @@ export function parseStructuredEstimateFailure(status: number, bodyText: string)
     }
   }
 
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const code = (detail as { code?: unknown }).code
+    const message = String((detail as { message?: unknown }).message ?? '').trim()
+    if (code === 'out_of_domain' && message) {
+      return {
+        kind: 'validation',
+        fieldErrors: { transcript: message },
+        formSummary: VALIDATION_SUMMARY_BANNER,
+      }
+    }
+  }
+
   const items = mergeDetailItems(detail)
   if (items.length === 0) {
     return {

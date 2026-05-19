@@ -6,6 +6,7 @@ import {
   SessionApiError,
   type SessionEstimateResponse,
 } from '../api/sessionApi'
+import { extractEstimateResult } from '../lib/extractEstimateResult'
 import { parseSessionEstimateFailure } from '../lib/sessionValidationErrors'
 
 export type SessionStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -112,7 +113,7 @@ export function useSessionEstimate() {
         const data = await estimateInSession(sessionId, body)
         setProjectMetadata(data.project_metadata)
         setMetadataStatus('available')
-        setEstimate(data.estimate)
+        setEstimate(extractEstimateResult(data.estimate))
         setEstimateStatus('available')
         setWarnings(data.warnings ?? [])
         return { ok: true, data }

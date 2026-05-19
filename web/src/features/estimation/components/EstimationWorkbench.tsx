@@ -159,16 +159,18 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
       </div>
 
       {warnings.length > 0 ? (
-        <ul
+        <section
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
           role="status"
+          aria-label="Warnings"
         >
-          {warnings.map((w) => (
-            <li key={w} className="list-disc ml-4">
-              {w}
-            </li>
-          ))}
-        </ul>
+          <h3 className="mb-2 text-sm font-semibold text-amber-950 dark:text-amber-50">Warnings</h3>
+          <ul className="list-disc space-y-1 pl-5">
+            {warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <div className="mt-6">

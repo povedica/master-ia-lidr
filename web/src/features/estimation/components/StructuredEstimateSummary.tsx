@@ -84,6 +84,7 @@ export function StructuredEstimateSummary({ data }: { data: Record<string, unkno
 
   const assumptions = asStringList(data.assumptions)
   const risks = asStringList(data.risks)
+  const recommendedTeam = asStringList(data.recommended_team)
   const nextSteps = asStringList(data.next_steps)
 
   return (
@@ -163,6 +164,7 @@ export function StructuredEstimateSummary({ data }: { data: Record<string, unkno
       ) : null}
       <StringListSection title="Assumptions" items={assumptions} />
       <StringListSection title="Risks" items={risks} />
+      <StringListSection title="Recommended team" items={recommendedTeam} />
       <StringListSection title="Next steps" items={nextSteps} />
     </div>
   )
