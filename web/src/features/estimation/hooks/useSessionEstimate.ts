@@ -31,6 +31,47 @@ const SESSION_BOOTSTRAP_ERROR =
 
 const SESSION_LIST_ERROR = 'Could not load session history. Try again in a moment.'
 
+const MISSING_SAVED_ESTIMATE_MESSAGE =
+  'No saved estimate for this session. Run Generate estimate again (for example after an API restart).'
+
+/** Map session detail snapshot into metadata and result panel state. */
+export function applySessionDetailToPanels(
+  detail: SessionDetailResponse,
+  setters: {
+    setProjectMetadata: (value: Record<string, unknown> | null) => void
+    setMetadataStatus: (status: PanelStatus) => void
+    setEstimate: (value: Record<string, unknown> | null) => void
+    setEstimateStatus: (status: PanelStatus) => void
+    setEstimateError: (value: string | null) => void
+    setWarnings: (value: string[]) => void
+  },
+): void {
+  if (detail.project_metadata) {
+    setters.setProjectMetadata(detail.project_metadata)
+    setters.setMetadataStatus('available')
+  } else {
+    setters.setProjectMetadata(null)
+    setters.setMetadataStatus('empty')
+  }
+
+  const restoredEstimate = extractEstimateResult(detail.estimate)
+  if (restoredEstimate) {
+    setters.setEstimate(restoredEstimate)
+    setters.setEstimateStatus('available')
+    setters.setEstimateError(null)
+  } else if ((detail.submit_count ?? 0) > 0) {
+    setters.setEstimate(null)
+    setters.setEstimateStatus('error')
+    setters.setEstimateError(MISSING_SAVED_ESTIMATE_MESSAGE)
+  } else {
+    setters.setEstimate(null)
+    setters.setEstimateStatus('empty')
+    setters.setEstimateError(null)
+  }
+
+  setters.setWarnings(detail.warnings ?? [])
+}
+
 export function useSessionEstimate() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('idle')
@@ -151,30 +192,26 @@ export function useSessionEstimate() {
         }
       }
       setSelectInProgress(true)
-      clearPanels()
+      setMetadataStatus('loading')
+      setEstimateStatus('loading')
+      setEstimateError(null)
+      setWarnings([])
       try {
         const detail = await getSession(targetSessionId)
         setSessionId(detail.session_id)
         setSessionStatus('ready')
         setSessionError(null)
-        if (detail.project_metadata) {
-          setProjectMetadata(detail.project_metadata)
-          setMetadataStatus('available')
-        } else {
-          setMetadataStatus('empty')
-        }
-        const restoredEstimate = extractEstimateResult(detail.estimate)
-        if (restoredEstimate) {
-          setEstimate(restoredEstimate)
-          setEstimateStatus('available')
-          setEstimateError(null)
-        } else {
-          setEstimate(null)
-          setEstimateStatus('empty')
-        }
-        setWarnings(detail.warnings ?? [])
+        applySessionDetailToPanels(detail, {
+          setProjectMetadata,
+          setMetadataStatus,
+          setEstimate,
+          setEstimateStatus,
+          setEstimateError,
+          setWarnings,
+        })
         return { ok: true, detail }
       } catch (exc) {
+        clearPanels()
         if (exc instanceof SessionApiError && exc.status === 404) {
           const msg = 'This session no longer exists. Start a new conversation.'
           setSessionError(msg)

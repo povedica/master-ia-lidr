@@ -124,6 +124,35 @@ def test_estimate_returns_envelope_with_project_metadata() -> None:
     assert body["estimate"]["result"]["title"] == "Estimate"
 
 
+def test_estimate_persists_last_estimate_for_session_detail() -> None:
+    store = InMemorySessionStore()
+    session = store.create_session()
+    app = _build_app(store)
+    service = app.state._test_service
+    service.run_submit = AsyncMock(return_value=_submit_outcome(session))
+
+    with patch("app.routers.sessions.session_store", store):
+        client = TestClient(app)
+        post = client.post(
+            f"/api/v1/sessions/{session.session_id}/estimate",
+            json=SessionEstimateRequest(
+                project_name="Portal",
+                project_type=ProjectType.web_saas,
+                transcript="A" * 80,
+                target_audience=TargetAudience.b2b_smb,
+            ).model_dump(mode="json"),
+        )
+        detail = client.get(f"/api/v1/sessions/{session.session_id}")
+
+    assert post.status_code == 200
+    assert detail.status_code == 200
+    assert detail.json()["estimate"]["result"]["title"] == "Estimate"
+    stored = store.get_session(session.session_id)
+    assert stored is not None
+    assert stored.last_estimate is not None
+    assert stored.last_estimate["result"]["title"] == "Estimate"
+
+
 def test_estimate_unknown_session_returns_404() -> None:
     store = InMemorySessionStore()
     app = _build_app(store)

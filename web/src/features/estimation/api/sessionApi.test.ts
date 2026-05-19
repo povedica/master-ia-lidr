@@ -53,6 +53,11 @@ describe('sessionApi', () => {
             session_id: 'sess_a',
             input_payload: { project_name: 'Alpha' },
             project_metadata: { project_name: 'Alpha' },
+            estimate: {
+              result: { title: 'Alpha estimate', summary: 'x'.repeat(25), totals: { hours: 1, cost_eur: 1 } },
+            },
+            warnings: [],
+            attachments: [],
             submit_count: 1,
           }),
       }),
