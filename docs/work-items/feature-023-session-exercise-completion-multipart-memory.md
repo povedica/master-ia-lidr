@@ -238,18 +238,18 @@ HTTP (JSON | multipart)
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `POST /api/v1/sessions` returns `201` and UUID `session_id` (regression).
-- [ ] **AC-02:** Same estimate URL accepts `multipart/form-data` with `transcript` + required fields and optional file parts; returns `200` + `SessionEstimateResponse`.
-- [ ] **AC-03:** JSON submit on same URL unchanged for existing integration tests (no regressions).
-- [ ] **AC-04:** Multipart upload with `text/plain` attachment containing `ATTACH_MARKER:USE_REDIS` reaches LLM user content and updates `attachment_summary` (mirror `test_attachment_text_influences_llm_prompt_and_estimate` with multipart helper).
-- [ ] **AC-05:** Two linked submits: turn 2 omits `project_name` in multipart (or JSON); response and fake LLM `system_prompt` still contain turn-1 project name.
-- [ ] **AC-06:** Fake LLM receives **more than one** user message in `messages` after turn 2 (history wired).
-- [ ] **AC-07:** Turn 2 `project_metadata` differs from turn 1 in at least one field (`detected_constraints`, `summary`, or `attachment_summary`) when transcript changes.
-- [ ] **AC-08:** Seven submits with `max_turns=3` still drop oldest markers; `project_metadata.project_name` preserved.
-- [ ] **AC-09:** `estimate` in response validates against existing v2 assembler output shape (existing tests / schema smoke).
-- [ ] **AC-10:** README documents Path B choice, why, both transports, metadata derive + merge, and memory model.
-- [ ] **AC-11:** Web sends `FormData` when files attached; JSON when not (manual or unit test on builder).
-- [ ] **AC-12:** `uv run pytest tests/test_sessions_integration.py` and full `uv run pytest` green without real API keys.
+- [x] **AC-01:** `POST /api/v1/sessions` returns `201` and UUID `session_id` (regression).
+- [x] **AC-02:** Same estimate URL accepts `multipart/form-data` with `transcript` + required fields and optional file parts; returns `200` + `SessionEstimateResponse`.
+- [x] **AC-03:** JSON submit on same URL unchanged for existing integration tests (no regressions).
+- [x] **AC-04:** Multipart upload with `text/plain` attachment containing `ATTACH_MARKER:USE_REDIS` reaches LLM user content and updates `attachment_summary` (mirror `test_attachment_text_influences_llm_prompt_and_estimate` with multipart helper).
+- [x] **AC-05:** Two linked submits: turn 2 omits `project_name` in multipart (or JSON); response and fake LLM `system_prompt` still contain turn-1 project name.
+- [x] **AC-06:** Fake LLM receives **more than one** user message in `messages` after turn 2 (history wired).
+- [x] **AC-07:** Turn 2 `project_metadata` differs from turn 1 in at least one field (`detected_constraints`, `summary`, or `attachment_summary`) when transcript changes.
+- [x] **AC-08:** Seven submits with `max_turns=3` still drop oldest markers; `project_metadata.project_name` preserved.
+- [x] **AC-09:** `estimate` in response validates against existing v2 assembler output shape (existing tests / schema smoke).
+- [x] **AC-10:** README documents Path B choice, why, both transports, metadata derive + merge, and memory model.
+- [x] **AC-11:** Web sends `FormData` when files attached; JSON when not (manual or unit test on builder).
+- [x] **AC-12:** `uv run pytest tests/test_sessions_integration.py` and full `uv run pytest` green without real API keys.
 
 ## Test Plan
 
@@ -274,9 +274,29 @@ HTTP (JSON | multipart)
 
 ## Verification
 
-- **Automated:** `uv run pytest tests/test_sessions_integration.py`; `uv run pytest`; `uv run pytest tests/test_session_multipart_parser.py` (if split).
-- **Manual:** Swagger multipart + web FormData path; inspect metadata panel between turns.
-- **Not verified yet:** Path A Files API, load testing, multi-worker session affinity.
+- **Verified (2026-05-19):**
+  - `uv run pytest` — 302 passed, 9 skipped.
+  - `cd web && npm run test` — 33 passed.
+  - Session integration module covers multipart, metadata delta, history wiring, and sliding window (fake LLM, no network).
+  - README professionalized with architecture, capabilities, session demo (Sesión 5), and Path B / memory documentation.
+- **Manual:** Docker dev stack exercised locally; Vidyard walkthrough linked for multi-turn session demo.
+- **Not verified:** Path A Files API, load testing, multi-worker session affinity, E2E browser (Playwright).
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| `597ad48` | docs(work-items): add feature-023 session multipart and memory spec |
+| `244fd0b` | feat(sessions): add merge_derived_metadata for cross-turn memory |
+| `3789414` | feat(llm): support messages_override in structured completion chain |
+| `cae7c0d` | feat(sessions): wire LLM history, metadata merge, and field defaults |
+| `d289e06` | feat(sessions): accept multipart form-data on session estimate |
+| `fbd437c` | docs: document session multipart transport and memory model |
+| `40937e1` | feat(web): send session estimate as FormData when files attached |
+| `c324e66` | fix(sessions): parse Starlette UploadFile in multipart estimate |
+| `197c9c2` | docs: professionalize README with architecture, capabilities, and session demo |
+
+Merged via PR #20: https://github.com/povedica/master-ia-lidr/pull/20
 
 ## Documentation Plan
 
@@ -287,9 +307,9 @@ HTTP (JSON | multipart)
 
 ## Implementation Plan
 
-- [ ] **Step 1:** `merge_derived_metadata` + unit tests (RED → GREEN).
-- [ ] **Step 2:** Extend `complete_structured` / `estimate_structured` / pipeline with `messages_override` + unit/fake test.
-- [ ] **Step 3:** Wire `SimplifiedSessionEstimationService` to build `messages_override`, FR-05 defaults, merge after derive; extend integration test for AC-05/06/07.
+- [x] **Step 1:** `merge_derived_metadata` + unit tests (RED → GREEN).
+- [x] **Step 2:** Extend `complete_structured` / `estimate_structured` / pipeline with `messages_override` + unit/fake test.
+- [x] **Step 3:** Wire `SimplifiedSessionEstimationService` to build `messages_override`, FR-05 defaults, merge after derive; extend integration test for AC-05/06/07.
 - [x] **Step 4:** Multipart parser + router content negotiation + unit tests (RED → GREEN).
 - [x] **Step 5:** Integration tests for multipart attachment (AC-04); full module green.
 - [x] **Step 6:** README + technical cross-link + OpenAPI check.
@@ -325,4 +345,4 @@ HTTP (JSON | multipart)
 
 ## Pull Request
 
-- Draft: https://github.com/povedica/master-ia-lidr/pull/20 (label: `wip`)
+- Merged: https://github.com/povedica/master-ia-lidr/pull/20
