@@ -131,6 +131,11 @@ class InMemorySessionStore:
         recent = [session for session in self._sessions.values() if session.updated_at >= cutoff]
         return sorted(recent, key=lambda session: session.updated_at, reverse=True)
 
+    def reset_for_tests(self) -> None:
+        """Clear all sessions; use only from pytest fixtures."""
+
+        self._sessions.clear()
+
 
 def session_display_label(session: Session) -> str:
     """Human label for sidebar rows from derived or submitted payload."""
