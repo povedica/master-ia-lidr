@@ -656,13 +656,13 @@ None required when AC-01–AC-12 pass.
 
 ## Verification
 
-- **Verified:** `uv run pytest tests/test_sessions_integration.py` (8 passed, 1 skipped live smoke, ~4s fake); `tests/test_attachment_bytes.py` (PDF extractable); full `uv run pytest` green with `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false`.
-- **Not verified:** multipart transport, Path A Files API, full `to_messages_list()` as provider messages array, live LLM parity with exercise.
-- **Residual risk:** hand-built minimal PDF; simplified path still sends current-turn `user_prompt` only (fake proxy documented in FR-04).
+- **Verified:** `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false uv run pytest tests/test_sessions_integration.py` → 8 passed, 1 skipped (live smoke), ~4s; `tests/test_attachment_bytes.py`; `tests/test_session_integration_settings.py`; full `uv run pytest` → 294 passed (2026-05 finish-task). Exercise trio: linked metadata, PDF attachment + output delta, eight-turn sliding window (store + fake `user_prompt` proxy).
+- **Not verified:** multipart transport, Path A Files API, wiring `to_messages_list()` into `complete_structured` (Paso 5 product gap — see Learnings), mandatory live LLM for all scenarios.
+- **Residual risk:** minimal hand-built PDF; simplified submit still sends `system_prompt` + single-turn `user_prompt` to provider, not full trimmed `messages` array.
 
 ## Pull request
 
-- https://github.com/povedica/master-ia-lidr/pull/19 (draft, `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/19 — merged via `/finish-task` 2026-05.
 
 ## Learnings (from related features)
 
@@ -671,6 +671,8 @@ None required when AC-01–AC-12 pass.
 - Keep `conversation_history` field name (feature-018 rename rejected).
 - Register routers only after imports are clean; run `uv run pytest --collect-only` after adding fakes.
 - Prefer marker-based assertions over LLM output text matching.
+- **Paso 5 (evolutivo):** `ConversationHistory` implements sliding window and `to_messages_list()`, but simplified estimation does not yet pass that array to the LLM API — follow-up should wire messages at the provider boundary and assert `FakeStructuredLLM.messages`.
+- **`SESSION_INTEGRATION_TEST_USE_REAL_LLM`:** default false for CI; true skips fake-dependent tests and must not be left on in `.env` for routine `pytest` (avoids cost and misleading skips).
 
 ## Repository commits (master-ia)
 
@@ -682,3 +684,5 @@ None required when AC-01–AC-12 pass.
 | `452b8be` | `test(sessions): add integration harness and fake structured LLM` | Fake, fixtures, app factory, fake unit tests. |
 | `0792f6d` | `test(sessions): add memory metadata and attachment integration suite` | Mandatory scenarios + 404/isolation (9 tests). |
 | `ab70818` | `docs: document session integration tests and close feature-022 verification` | README + AC/verification on work item. |
+| `41f59be` | `docs(work-items): record feature-022 commit hashes` | Commit table on work item. |
+| `27d92e3` | `test(sessions): align integration suite with exercise premises` | PDF fixture, 8-turn window, `@requires_fake_structured_llm`, env settings. |
