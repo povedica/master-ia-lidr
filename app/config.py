@@ -53,6 +53,23 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     forced_estimation_mode: EstimationMode | None = None
     structured_output_max_attempts: int = Field(default=3, ge=1, le=10)
+    max_attachment_size_bytes: int = Field(
+        default=10_485_760,
+        ge=1,
+        description="Maximum decoded bytes per attachment file (default 10 MB).",
+    )
+    max_attachment_context_chars: int = Field(
+        default=131_072,
+        ge=1,
+        description="Maximum characters of extracted attachment text injected into prompts.",
+    )
+    allowed_attachment_mime_types: str = Field(
+        default=(
+            "text/plain,text/markdown,application/pdf,"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        description="Comma-separated MIME types allowed for session attachment extraction.",
+    )
     prompt_estimation_version: str = Field(
         default="",
         description=(
@@ -301,6 +318,15 @@ class Settings(BaseSettings):
 
         parts = [part.strip() for part in self.frontend_origins.split(",")]
         return [part for part in parts if part]
+
+    def allowed_attachment_mime_types_list(self) -> list[str]:
+        """Parsed MIME allowlist for attachment extraction (lowercase, trimmed)."""
+
+        return [
+            part.strip().lower()
+            for part in self.allowed_attachment_mime_types.split(",")
+            if part.strip()
+        ]
 
     def semantic_cache_feature_active(self) -> bool:
         """True when semantic cache diagnostics or serving may run."""
