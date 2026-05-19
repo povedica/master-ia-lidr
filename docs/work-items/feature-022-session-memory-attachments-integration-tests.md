@@ -537,21 +537,21 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `tests/test_sessions_integration.py` exists with Test 1–4 implemented and passing via `uv run pytest tests/test_sessions_integration.py`.
-- [ ] **AC-02:** Suite uses **`httpx.AsyncClient`** (async tests), not sync `TestClient`, for session integration tests.
-- [ ] **AC-03:** No real external LLM or Files API calls during test runs (verified by monkeypatched `complete_structured` and absent network usage).
-- [ ] **AC-04:** Test 1 verifies empty `ConversationHistory` and `ProjectMetadata` in the store after `POST /api/v1/sessions`.
-- [ ] **AC-05:** Test 2 verifies metadata enrichment after Turn 1 and metadata presence in Turn 2 **system prompt** captured by fake.
-- [ ] **AC-06:** Test 2 verifies `conversation_history.to_messages_list()` accumulates both turns with system prompt first.
-- [ ] **AC-07:** Test 3 verifies attachment content reaches fake `user_prompt` (Path B) or file reference (Path A) and changes structured output deterministically.
-- [ ] **AC-08:** Test 4 verifies at most `max_turns` user+assistant pairs in history, system prompt always present, oldest markers dropped.
-- [ ] **AC-09:** Test 4 verifies `project_metadata` persists after history trim.
-- [ ] **AC-10:** Session isolation verified (session B not affected by session A) — recommended test.
-- [ ] **AC-11:** `InMemorySessionStore.reset_for_tests()` (or equivalent) prevents cross-test leakage.
-- [ ] **AC-12:** `FakeStructuredLLM` exposes `calls` / `last_call()` for inspection.
-- [ ] **AC-13:** Full suite runtime for integration module **< 10 seconds** on local dev machine (target; not a hard CI gate).
-- [ ] **AC-14:** README updated: how to run tests, attachment path chosen, metadata derivation strategy (heuristic vs LLM).
-- [ ] **AC-15:** No secrets in fixtures or committed attachment samples.
+- [x] **AC-01:** `tests/test_sessions_integration.py` exists with Test 1–4 implemented and passing via `uv run pytest tests/test_sessions_integration.py`.
+- [x] **AC-02:** Suite uses **`httpx.AsyncClient`** (async tests), not sync `TestClient`, for session integration tests.
+- [x] **AC-03:** No real external LLM or Files API calls during test runs (verified by monkeypatched `complete_structured` and absent network usage).
+- [x] **AC-04:** Test 1 verifies empty `ConversationHistory` and `ProjectMetadata` in the store after `POST /api/v1/sessions`.
+- [x] **AC-05:** Test 2 verifies metadata enrichment after Turn 1 and metadata presence in Turn 2 **system prompt** captured by fake.
+- [x] **AC-06:** Test 2 verifies `conversation_history.to_messages_list()` accumulates both turns with system prompt first.
+- [x] **AC-07:** Test 3 verifies attachment content reaches fake `user_prompt` (Path B) or file reference (Path A) and changes structured output deterministically.
+- [x] **AC-08:** Test 4 verifies at most `max_turns` user+assistant pairs in history, system prompt always present, oldest markers dropped.
+- [x] **AC-09:** Test 4 verifies `project_metadata` persists after history trim.
+- [x] **AC-10:** Session isolation verified (session B not affected by session A) — recommended test.
+- [x] **AC-11:** `InMemorySessionStore.reset_for_tests()` (or equivalent) prevents cross-test leakage.
+- [x] **AC-12:** `FakeStructuredLLM` exposes `calls` / `last_call()` for inspection.
+- [x] **AC-13:** Full suite runtime for integration module **< 10 seconds** on local dev machine (target; not a hard CI gate).
+- [x] **AC-14:** README updated: how to run tests, attachment path chosen, metadata derivation strategy (heuristic vs LLM).
+- [x] **AC-15:** No secrets in fixtures or committed attachment samples.
 
 ## Test Plan
 
@@ -629,13 +629,13 @@ None required when AC-01–AC-12 pass.
 
 ## Implementation progress
 
-- [ ] Step 1: Test infrastructure scaffolding
-- [ ] Step 2: Test 1 — session creation
-- [ ] Step 3: Test 2 — two linked submits
-- [ ] Step 4: Test 3 — attachments
-- [ ] Step 5: Test 4 — sliding window
-- [ ] Step 6: Recommended edge tests
-- [ ] Step 7: README + verification
+- [x] Step 1: Test infrastructure scaffolding
+- [x] Step 2: Test 1 — session creation
+- [x] Step 3: Test 2 — two linked submits
+- [x] Step 4: Test 3 — attachments
+- [x] Step 5: Test 4 — sliding window
+- [x] Step 6: Recommended edge tests
+- [x] Step 7: README + verification
 
 ## Documentation plan
 
@@ -645,13 +645,13 @@ None required when AC-01–AC-12 pass.
 
 ## Verification
 
-- **Verified:** _(fill on completion)_
-- **Not verified:** multipart transport, Path A Files API, `ConversationalEstimationService` route wiring.
-- **Residual risk:** PDF text extraction flakiness if PDF fixtures are added later; suite defaults to `text/plain` minimal attachments.
+- **Verified:** `uv run pytest tests/test_sessions_integration.py` (9 tests, ~4s); `uv run pytest` (289 passed). Harness uses `httpx.AsyncClient`, patches `complete_structured` and shared `session_store`, guardrails off, semantic cache off.
+- **Not verified:** multipart transport, Path A Files API, `ConversationalEstimationService` route wiring, AC-13 runtime budget on CI.
+- **Residual risk:** PDF fixtures not used in happy path; multipart helper not added.
 
 ## Pull request
 
-- _(WIP draft URL recorded after branch setup)_
+- https://github.com/povedica/master-ia-lidr/pull/19 (draft, `wip`)
 
 ## Learnings (from related features)
 
@@ -666,3 +666,7 @@ None required when AC-01–AC-12 pass.
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `246df53` | `docs(work-items): add feature-022 session integration tests spec` | Adds canonical work item defining httpx integration harness, LLM fake, fixtures, and mandatory session scenarios. |
+| _(pending)_ | `docs(work-items): normalize feature-022 for start-task gate` | Canonical Objective/Scope/Test Plan sections. |
+| _(pending)_ | `feat(sessions): add reset_for_tests on session store` | Test-only store cleanup helper. |
+| _(pending)_ | `test(sessions): add integration suite for memory and attachments` | httpx harness, fake LLM, mandatory scenarios AC-01–AC-12. |
+| _(pending)_ | `docs(readme): document session integration test command` | README section for Path B and heuristic metadata. |

@@ -275,6 +275,17 @@ Run the full test suite (no real API calls — all provider clients are mocked):
 uv run pytest
 ```
 
+### Integration tests (sessions)
+
+Session memory, metadata re-injection, attachments, and sliding-window history are covered by an in-process integration suite that uses the real FastAPI app and `SimplifiedSessionEstimationService`, with `complete_structured` faked (no network):
+
+```bash
+uv run pytest tests/test_sessions_integration.py
+```
+
+- **Attachments:** Path B — local text extraction (`text/plain`, `text/markdown`, `application/pdf`) via `DocumentTextExtractor`; tests use minimal `text/plain` fixtures by default.
+- **Metadata:** simplified session submits use heuristic `derive_project_metadata()` from form fields and transcript, not the LLM metadata extractor.
+
 Run with verbose output:
 
 ```bash
