@@ -666,7 +666,8 @@ None required when AC-01–AC-12 pass.
 | Short hash | Message | Scope / summary |
 |------------|---------|-----------------|
 | `246df53` | `docs(work-items): add feature-022 session integration tests spec` | Adds canonical work item defining httpx integration harness, LLM fake, fixtures, and mandatory session scenarios. |
-| _(pending)_ | `docs(work-items): normalize feature-022 for start-task gate` | Canonical Objective/Scope/Test Plan sections. |
-| _(pending)_ | `feat(sessions): add reset_for_tests on session store` | Test-only store cleanup helper. |
-| _(pending)_ | `test(sessions): add integration suite for memory and attachments` | httpx harness, fake LLM, mandatory scenarios AC-01–AC-12. |
-| _(pending)_ | `docs(readme): document session integration test command` | README section for Path B and heuristic metadata. |
+| `f8646e3` | `docs(work-items): normalize feature-022 for start-task gate` | Canonical Objective/Scope/Test Plan sections. |
+| `2914c39` | `feat(sessions): add reset_for_tests on session store` | Test-only store cleanup helper. |
+| `452b8be` | `test(sessions): add integration harness and fake structured LLM` | Fake, fixtures, app factory, fake unit tests. |
+| `0792f6d` | `test(sessions): add memory metadata and attachment integration suite` | Mandatory scenarios + 404/isolation (9 tests). |
+| `ab70818` | `docs: document session integration tests and close feature-022 verification` | README + AC/verification on work item. |
