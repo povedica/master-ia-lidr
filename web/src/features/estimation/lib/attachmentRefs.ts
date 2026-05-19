@@ -31,20 +31,29 @@ export type AttachmentRefPayload = {
   content_base64: string
 }
 
-export async function filesToAttachmentRefs(
-  files: FileList | File[],
-): Promise<AttachmentRefPayload[]> {
+/** Validate browser files before JSON base64 or multipart upload. */
+export function assertFilesWithinLimits(files: FileList | File[]): void {
   const list = Array.from(files).slice(0, MAX_FILES)
-  const out: AttachmentRefPayload[] = []
   for (const file of list) {
-    const buf = new Uint8Array(await file.arrayBuffer())
-    if (buf.byteLength > MAX_BYTES_PER_FILE) {
+    if (file.size > MAX_BYTES_PER_FILE) {
       throw new Error(`File "${file.name}" exceeds ${MAX_BYTES_PER_FILE} bytes.`)
     }
     const mime = guessMimeType(file.name)
     if (!ALLOWED_MIME.has(mime)) {
       throw new Error(`File "${file.name}" has unsupported type.`)
     }
+  }
+}
+
+export async function filesToAttachmentRefs(
+  files: FileList | File[],
+): Promise<AttachmentRefPayload[]> {
+  assertFilesWithinLimits(files)
+  const list = Array.from(files).slice(0, MAX_FILES)
+  const out: AttachmentRefPayload[] = []
+  for (const file of list) {
+    const buf = new Uint8Array(await file.arrayBuffer())
+    const mime = guessMimeType(file.name)
     out.push({
       file_id: crypto.randomUUID(),
       name: file.name,

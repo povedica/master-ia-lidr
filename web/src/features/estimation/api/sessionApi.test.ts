@@ -91,6 +91,35 @@ describe('sessionApi', () => {
     await expect(createSession()).rejects.toBeInstanceOf(SessionApiError)
   })
 
+  it('estimateInSession uses FormData when files are provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          session_id: 'sess_test_1',
+          input_payload: {},
+          project_metadata: {},
+          estimate: {},
+          warnings: [],
+        }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' })
+    await estimateInSession(
+      'sess_test_1',
+      {
+        project_name: 'Neo',
+        project_type: 'web_saas',
+        target_audience: 'b2b_smb',
+        transcript: 'y'.repeat(80),
+      },
+      { files: [file] },
+    )
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.body).toBeInstanceOf(FormData)
+    expect(init.headers).toEqual({ Accept: 'application/json' })
+  })
+
   it('estimateInSession parses envelope on success', async () => {
     const envelope = {
       session_id: 'sess_test_1',
