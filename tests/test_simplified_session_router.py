@@ -15,7 +15,7 @@ from app.schemas.estimation_request import ProjectType, TargetAudience
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
 from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
-from app.services.llm_service import StructuredEstimateBundle, UsageInfo
+from app.services.llm_service import DomainGuardrailError, StructuredEstimateBundle, UsageInfo
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
     SimplifiedSessionSubmitOutcome,
@@ -143,6 +143,32 @@ def test_estimate_unknown_session_returns_404() -> None:
         )
 
     assert response.status_code == 404
+
+
+def test_estimate_returns_422_for_domain_guardrail() -> None:
+    store = InMemorySessionStore()
+    session = store.create_session()
+    app = _build_app(store)
+    service = app.state._test_service
+    service.run_submit = AsyncMock(
+        side_effect=DomainGuardrailError("Only software/project estimation requests are supported."),
+    )
+
+    with patch("app.routers.sessions.session_store", store):
+        client = TestClient(app)
+        response = client.post(
+            f"/api/v1/sessions/{session.session_id}/estimate",
+            json=SessionEstimateRequest(
+                project_name="Portal",
+                project_type=ProjectType.web_saas,
+                transcript="A" * 80,
+                target_audience=TargetAudience.b2b_smb,
+            ).model_dump(mode="json"),
+        )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["detail"]["code"] == "out_of_domain"
 
 
 def test_estimate_rejects_legacy_user_message_body() -> None:

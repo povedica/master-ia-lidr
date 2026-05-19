@@ -16,7 +16,12 @@ from app.schemas.simplified_session import SessionEstimateRequest, SessionEstima
 from app.services.attachment_errors import AttachmentError
 from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
 from app.services.llm_chain import build_provider_chain
-from app.services.llm_service import EXAMPLES_VERSION, PROMPT_VERSION, EstimationService
+from app.services.llm_service import (
+    DomainGuardrailError,
+    EXAMPLES_VERSION,
+    PROMPT_VERSION,
+    EstimationService,
+)
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
     SimplifiedSessionEstimationService,
@@ -64,6 +69,14 @@ async def estimate_in_session(
     request_id = f"sess_{uuid4().hex[:12]}"
     try:
         submit = await service.run_submit(session_id, body, request_id=request_id)
+    except DomainGuardrailError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": exc.code,
+                "message": str(exc),
+            },
+        ) from exc
     except SessionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
