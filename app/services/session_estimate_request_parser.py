@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Request, UploadFile
-from starlette.datastructures import FormData
+from fastapi import Request
+from starlette.datastructures import FormData, UploadFile
 
 from app.schemas.estimation_request import Industry, ProjectType, TargetAudience
 from app.schemas.simplified_session import SessionEstimateRequest
@@ -26,7 +26,9 @@ async def parse_session_estimate_request(request: Request) -> SessionEstimateReq
     """Build ``SessionEstimateRequest`` from JSON or multipart form data."""
 
     content_type = (request.headers.get("content-type") or "").lower()
-    if content_type.startswith("multipart/form-data"):
+    if content_type.startswith("multipart/form-data") or content_type.startswith(
+        "application/x-www-form-urlencoded"
+    ):
         return await _parse_multipart_request(request)
     if content_type.startswith("application/json") or not content_type:
         try:

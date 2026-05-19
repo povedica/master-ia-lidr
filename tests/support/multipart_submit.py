@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from typing import Any
 
 
@@ -31,10 +32,16 @@ def multipart_attachment_file(
     name: str,
     content: bytes,
     content_type: str,
-) -> tuple[str, tuple[str, bytes, str]]:
+) -> tuple[str, tuple[str, io.BytesIO, str]]:
     """Single file tuple for httpx ``files=`` (repeated field name ``attachments``)."""
 
-    return ("attachments", (name, content, content_type))
+    return ("attachments", (name, io.BytesIO(content), content_type))
+
+
+def force_multipart_encoding() -> list[tuple[str, tuple[str, io.BytesIO, str]]]:
+    """Force ``multipart/form-data`` when httpx would otherwise use urlencoded ``data=`` only."""
+
+    return [("attachments", ("", io.BytesIO(b""), "text/plain"))]
 
 
 def turn_2_multipart_fields() -> dict[str, str]:

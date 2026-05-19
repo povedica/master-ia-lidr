@@ -13,6 +13,7 @@ from tests.fixtures.attachment_bytes import redis_marker_pdf_attachment_ref
 from tests.fixtures.session_store import get_session_state, messages_for_session
 from tests.fixtures.transcripts import TURN_1, TURN_2, build_transcript, simplified_submit_payload
 from tests.support.multipart_submit import (
+    force_multipart_encoding,
     multipart_attachment_file,
     multipart_submit_fields,
     turn_2_multipart_fields,
@@ -231,12 +232,14 @@ async def test_multipart_second_turn_omits_project_name(
     turn_1 = await async_client.post(
         f"/api/v1/sessions/{session_id}/estimate",
         data=multipart_submit_fields(),
+        files=force_multipart_encoding(),
     )
     assert turn_1.status_code == 200
 
     turn_2 = await async_client.post(
         f"/api/v1/sessions/{session_id}/estimate",
         data=turn_2_multipart_fields(),
+        files=force_multipart_encoding(),
     )
     assert turn_2.status_code == 200
     assert turn_2.json()["project_metadata"]["project_name"] == "Acme Portal"

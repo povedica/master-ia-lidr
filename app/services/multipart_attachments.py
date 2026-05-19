@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 
-from fastapi import UploadFile
+from starlette.datastructures import UploadFile
 
 from app.schemas.estimation_request import (
     _ATTACHMENT_ALLOWED_TYPES,
