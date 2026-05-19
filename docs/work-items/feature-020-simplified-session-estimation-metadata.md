@@ -252,12 +252,10 @@ The current guided-form session contract already exists in the repo. This featur
 
 ## Verification
 
-- Automated: not verified yet.
-- Manual: not verified yet.
-- Not verified yet:
-  - the new request/response contract,
-  - attachment resolution against real files,
-  - and the final response envelope shape in the API docs.
+- **Verified:** `uv run pytest` — 272 passed (schemas, adapter, router envelope, full suite).
+- **Verified:** `POST /api/v1/sessions/{id}/estimate` accepts simplified body only; legacy `user_message` → `422`.
+- **Not verified:** Manual smoke with real PDF/DOCX attachments and Langfuse span review.
+- **Residual risk:** `file_id`-only refs without inline `content_base64` fail per-file until upload API; attachment extraction not exercised against production-sized binaries in CI.
 
 ## Documentation Plan
 
@@ -286,15 +284,30 @@ The current guided-form session contract already exists in the repo. This featur
 
 - Size: M
 - Estimated time: 4-6 hours
-- Planned steps: 5
+- Planned steps: 7
+
+## Pull request
+
+- WIP draft: https://github.com/povedica/master-ia-lidr/pull/17
+- Branch: `feature/020-simplified-session-estimation-metadata`
 
 ## Implementation progress
 
-- [ ] Step 1: Define simplified request/response models
-- [ ] Step 2: Build normalization and attachment extraction
-- [ ] Step 3: Wire session estimate flow and persistence
-- [ ] Step 4: Add tests and verify API behavior
-- [ ] Step 5: Update docs and finish validation
+- [x] Step 1: Simplified request/response schemas + extended `ProjectMetadata`
+- [x] Step 2: Session state fields for normalized payload and attachment status
+- [x] Step 3: Normalization, warnings, and guided-form adapter
+- [x] Step 4: Attachment resolver (`AttachmentRef` + transitional inline base64)
+- [x] Step 5: Metadata derivation service (deterministic; no extra LLM pass)
+- [x] Step 6: Wire router + `SimplifiedSessionEstimationService.run_submit`
+- [x] Step 7: Integration tests, README, `.env.example`, full pytest
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| docs | Add feature-020 canonical work item |
+| feat | Simplified session estimate schemas and DerivedProjectMetadata |
+| feat | Simplified session estimation pipeline, router envelope, tests |
 
 ## Definition of Done (technical)
 

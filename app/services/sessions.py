@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -96,6 +96,10 @@ class Session:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     conversation_history: ConversationHistory = field(default_factory=ConversationHistory)
     project_metadata: ProjectMetadata = field(default_factory=ProjectMetadata)
+    last_normalized_payload: dict[str, Any] | None = None
+    last_derived_metadata: DerivedProjectMetadata | None = None
+    last_attachment_statuses: list[Any] = field(default_factory=list)
+    submit_count: int = 0
 
 
 class InMemorySessionStore:

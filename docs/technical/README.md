@@ -407,6 +407,14 @@ The browser UI uses this route with **`Accept: application/json`**; there is **n
 
 **Settings:** `STRUCTURED_OUTPUT_MAX_ATTEMPTS` (default `3`), optional `PROMPT_ESTIMATION_VERSION` (`v2` when empty; set `v1` to pin the retrocompat bundle).
 
+### Session simplified submit (`POST /api/v1/sessions/{session_id}/estimate`)
+
+Inbound: **`SessionEstimateRequest`** (`app/schemas/simplified_session.py`) — `project_name`, `project_type`, `transcript` (min 80 chars), `target_audience`, optional `industry`, `attachments[]` as **`AttachmentRef`** (`file_id`, `name`, `mime_type`, optional inline `content_base64`).
+
+Outbound: **`SessionEstimateResponse`** — top-level `project_metadata` (`DerivedProjectMetadata`), `input_payload`, `warnings`, per-file `attachments` status, and `estimate` (serialized `EstimationResponse` from the v2 assembler).
+
+Orchestration: `SimplifiedSessionEstimationService` adapts to **`EstimationRequest`** internally (`simplified_session_adapter.py`), extracts attachment text (`document_extractor.py`), and runs `LLMPipeline.run_structured`. Session state is in-memory only (`app/services/sessions.py`).
+
 ### Semantic cache (v2, optional)
 
 The guarded pipeline in `app/guardrails/llm_pipeline.py` can run a **semantic cache** after input guardrails: deterministic **bucket** hash (prompt, schema, guardrail, and structured request fields) plus **embedding** similarity over free-text surfaces (`app/services/semantic_cache/`). **Serving** hits requires `SEMANTIC_CACHE_ENABLED=true` and a configured store; with `SEMANTIC_CACHE_LOG_ONLY=true` (default), embeddings and lookup run for telemetry but the LLM is **never** skipped. When both `SEMANTIC_CACHE_ENABLED` and `SEMANTIC_CACHE_LOG_ONLY` are `false`, no embedding or store I/O runs. For local experiments without Redis, `SEMANTIC_CACHE_USE_MEMORY_STORE=true` enables an in-process store (single worker only). When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the app uses `RedisSemanticCacheRepository` with Redis Stack / RediSearch vector KNN over entries in the same deterministic bucket.

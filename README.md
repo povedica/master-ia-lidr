@@ -138,21 +138,29 @@ For the v1 Markdown + SSE contract (optional), see [docs/technical/README.md](do
 | `POST` | `/api/v1/estimate` | Synchronous estimation |
 | `POST` | `/api/v1/estimate/stream` | Markdown estimation with SSE (`chunk` / `done` / `error`) |
 | `POST` | `/api/v2/estimate` | Structured synchronous estimation |
-| `POST` | `/api/v1/sessions` | Create an in-memory conversational session |
-| `POST` | `/api/v1/sessions/{session_id}/estimate` | Conversational estimate turn (free-text) |
+| `POST` | `/api/v1/sessions` | Create an in-memory session (`201` + `session_id`) |
+| `POST` | `/api/v1/sessions/{session_id}/estimate` | Simplified transcript-centered submit (structured envelope) |
 
 Full schema available at `http://127.0.0.1:8000/docs`.
 
-### Conversational sessions
+### Simplified session estimation
 
-Create a session, then send free-text turns. Project metadata is distilled after each turn and injected into the system prompt; conversation history uses a sliding window while metadata persists.
+Create a session, then submit a short JSON body centered on `transcript`. The API returns `project_metadata`, `warnings`, `input_payload`, and a structured `estimate` (same core shape as `POST /api/v2/estimate`). Attachments use `AttachmentRef` with optional inline `content_base64` until a dedicated upload API exists.
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/sessions | jq
 curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
   -H "Content-Type: application/json" \
-  -d '{"user_message": "Estimate a Python FastAPI CRUD, team of 3"}' | jq
+  -d '{
+    "project_name": "Partner portal",
+    "project_type": "web_saas",
+    "transcript": "Discovery notes: B2B partners need ticket intake, SSO, dashboards, CSV export. Timeline flexible.",
+    "target_audience": "b2b_smb",
+    "attachments": []
+  }' | jq
 ```
+
+Transcript minimum length is **80** characters after trim. Stateless `POST /api/v1/estimate` and `POST /api/v2/estimate` are unchanged.
 
 ### Example request
 

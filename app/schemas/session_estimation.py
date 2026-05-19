@@ -1,11 +1,6 @@
-"""Request schemas for conversational session estimation."""
+"""Legacy session schema module (summary types only).
+
+The simplified session estimate contract lives in ``app.schemas.simplified_session``.
+"""
 
 from __future__ import annotations
-
-from pydantic import BaseModel, Field
-
-
-class SessionEstimateRequest(BaseModel):
-    """Free-text turn payload for session-scoped estimation."""
-
-    user_message: str = Field(..., min_length=1)
