@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -149,3 +150,30 @@ class SessionEstimateResponse(BaseModel):
     estimate: dict[str, Any]
     warnings: list[str] = Field(default_factory=list)
     attachments: list[AttachmentProcessingStatus] = Field(default_factory=list)
+
+
+class SessionListItem(BaseModel):
+    """Summary row for session history sidebar."""
+
+    session_id: str
+    label: str
+    updated_at: datetime
+    submit_count: int = 0
+
+
+class SessionListResponse(BaseModel):
+    """List of in-memory sessions (newest first, bounded window)."""
+
+    sessions: list[SessionListItem] = Field(default_factory=list)
+
+
+class SessionDetailResponse(BaseModel):
+    """Session snapshot for restoring form, metadata, and last estimate in the UI."""
+
+    session_id: str
+    input_payload: dict[str, Any] | None = None
+    project_metadata: dict[str, Any] | None = None
+    estimate: dict[str, Any] | None = None
+    warnings: list[str] = Field(default_factory=list)
+    attachments: list[AttachmentProcessingStatus] = Field(default_factory=list)
+    submit_count: int = 0

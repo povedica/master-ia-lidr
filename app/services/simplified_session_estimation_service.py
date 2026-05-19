@@ -172,5 +172,5 @@ def _derived_to_project_metadata(derived: DerivedProjectMetadata) -> ProjectMeta
         project_name=derived.project_name,
         agreed_scope=derived.summary,
         explicit_constraints=list(derived.detected_constraints),
-        mentioned_technologies=list(derived.derived_deliverables)[:5],
+        mentioned_technologies=[],
     )
