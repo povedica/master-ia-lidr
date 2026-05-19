@@ -290,10 +290,10 @@ HTTP (JSON | multipart)
 - [ ] **Step 1:** `merge_derived_metadata` + unit tests (RED → GREEN).
 - [ ] **Step 2:** Extend `complete_structured` / `estimate_structured` / pipeline with `messages_override` + unit/fake test.
 - [ ] **Step 3:** Wire `SimplifiedSessionEstimationService` to build `messages_override`, FR-05 defaults, merge after derive; extend integration test for AC-05/06/07.
-- [ ] **Step 4:** Multipart parser + router content negotiation + unit tests (RED → GREEN).
-- [ ] **Step 5:** Integration tests for multipart attachment (AC-04); full module green.
-- [ ] **Step 6:** README + technical cross-link + OpenAPI check.
-- [ ] **Step 7:** Web `FormData` path + `web/README.md`; manual smoke.
+- [x] **Step 4:** Multipart parser + router content negotiation + unit tests (RED → GREEN).
+- [x] **Step 5:** Integration tests for multipart attachment (AC-04); full module green.
+- [x] **Step 6:** README + technical cross-link + OpenAPI check.
+- [x] **Step 7:** Web `FormData` path + `web/README.md`; manual smoke.
 
 ## Learnings
 
@@ -318,10 +318,10 @@ HTTP (JSON | multipart)
 - [x] Step 1: `merge_derived_metadata` + unit tests
 - [x] Step 2: `messages_override` through structured LLM / pipeline
 - [x] Step 3: Wire `SimplifiedSessionEstimationService` (FR-05/06/07) + integration assertions
-- [ ] Step 4: Multipart parser + router content negotiation + unit tests
-- [ ] Step 5: Multipart integration tests (AC-04)
-- [ ] Step 6: README + technical cross-link + OpenAPI check
-- [ ] Step 7: Web `FormData` path + `web/README.md`
+- [x] Step 4: Multipart parser + router content negotiation + unit tests
+- [x] Step 5: Multipart integration tests (AC-04)
+- [x] Step 6: README + technical cross-link + OpenAPI check
+- [x] Step 7: Web `FormData` path + `web/README.md`
 
 ## Pull Request
 

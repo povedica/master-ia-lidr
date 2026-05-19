@@ -145,10 +145,37 @@ Full schema available at `http://127.0.0.1:8000/docs`.
 
 ### Simplified session estimation
 
-Create a session, then submit a short JSON body centered on `transcript`. The API returns `project_metadata`, `warnings`, `input_payload`, and a structured `estimate` (same core shape as `POST /api/v2/estimate`). Attachments use `AttachmentRef` with optional inline `content_base64` until a dedicated upload API exists.
+Create a session, then submit a transcript-centered estimate on `POST /api/v1/sessions/{session_id}/estimate`. The API returns `project_metadata`, `warnings`, `input_payload`, and a structured `estimate` (same core shape as `POST /api/v2/estimate`).
+
+**Transports**
+
+| Content-Type | Use case |
+|--------------|----------|
+| `application/json` | SPA / API clients; optional inline `AttachmentRef.content_base64` |
+| `multipart/form-data` | Direct file upload; repeat form field `attachments` per file |
+
+Transcript minimum length is **80** characters after trim. On follow-up submits, `project_name`, `project_type`, and `target_audience` may be omitted when the session already has derived metadata.
+
+**Attachment strategy (Path B)**
+
+Files are read in-process and converted to text locally (`DocumentTextExtractor` for `text/plain`, `text/markdown`, `application/pdf`). We use Path B because:
+
+- No external file store or provider Files API keys are required for the exercise or default CI.
+- Integration tests stay deterministic with in-memory sessions and fakes.
+- The same MIME and size limits apply to JSON base64 and multipart uploads.
+
+Path A (OpenAI/Anthropic Files API with pre-registered `file_id`) is deferred until product needs provider-native file handles.
+
+**Metadata and memory**
+
+- Each submit runs heuristic `derive_project_metadata()` from form fields, transcript, and extracted attachment text.
+- `merge_derived_metadata()` combines the new snapshot with `session.last_derived_metadata` (constraints union, latest attachment summary, deduped warnings).
+- The structured LLM call receives a bounded `conversation_history` (compact user/assistant pairs) plus the full current user prompt (including attachment context), not only the latest system prompt.
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/sessions | jq
+
+# JSON submit
 curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
   -H "Content-Type: application/json" \
   -d '{
@@ -158,9 +185,17 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
     "target_audience": "b2b_smb",
     "attachments": []
   }' | jq
+
+# Multipart submit (one file)
+curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
+  -F "project_name=Partner portal" \
+  -F "project_type=web_saas" \
+  -F "target_audience=b2b_smb" \
+  -F "transcript=Discovery notes: B2B partners need ticket intake, SSO, dashboards, CSV export. Timeline flexible." \
+  -F "attachments=@./brief.txt;type=text/plain" | jq
 ```
 
-Transcript minimum length is **80** characters after trim. Stateless `POST /api/v1/estimate` and `POST /api/v2/estimate` are unchanged.
+Stateless `POST /api/v1/estimate` and `POST /api/v2/estimate` are unchanged.
 
 ### Example request
 
@@ -305,8 +340,9 @@ OPENAI_API_KEY=sk-... \
 uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v
 ```
 
-- **Attachments:** Path B — local text extraction (`text/plain`, `text/markdown`, `application/pdf`) via `DocumentTextExtractor`; integration tests build a minimal **PDF** in-process (`tests/fixtures/attachment_bytes.py`).
-- **Metadata:** simplified session submits use heuristic `derive_project_metadata()` from form fields and transcript, not the LLM metadata extractor.
+- **Attachments:** Path B — local text extraction (`text/plain`, `text/markdown`, `application/pdf`) via `DocumentTextExtractor`; JSON base64 or multipart `attachments` parts; integration tests build a minimal **PDF** in-process (`tests/fixtures/attachment_bytes.py`).
+- **Metadata:** heuristic `derive_project_metadata()` per submit plus `merge_derived_metadata()` across turns; not the LLM metadata extractor on this path.
+- **Memory:** bounded `conversation_history` is passed to `complete_structured` together with the current user prompt. See [Simplified session estimation](#simplified-session-estimation).
 
 Run with verbose output:
 

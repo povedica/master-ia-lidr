@@ -409,11 +409,11 @@ The browser UI uses this route with **`Accept: application/json`**; there is **n
 
 ### Session simplified submit (`POST /api/v1/sessions/{session_id}/estimate`)
 
-Inbound: **`SessionEstimateRequest`** (`app/schemas/simplified_session.py`) — `project_name`, `project_type`, `transcript` (min 80 chars), `target_audience`, optional `industry`, `attachments[]` as **`AttachmentRef`** (`file_id`, `name`, `mime_type`, optional inline `content_base64`).
+Accepts **`application/json`** or **`multipart/form-data`** (see root `README.md` § Simplified session estimation). Inbound fields map to **`SessionEstimateRequest`** (`app/schemas/simplified_session.py`): `transcript` (min 80 chars), core project fields (optional on follow-up submits when session memory exists), and attachments either as JSON **`AttachmentRef.content_base64`** or repeated multipart field **`attachments`**.
 
 Outbound: **`SessionEstimateResponse`** — top-level `project_metadata` (`DerivedProjectMetadata`), `input_payload`, `warnings`, per-file `attachments` status, and `estimate` (serialized `EstimationResponse` from the v2 assembler).
 
-Orchestration: `SimplifiedSessionEstimationService` adapts to **`EstimationRequest`** internally (`simplified_session_adapter.py`), extracts attachment text (`document_extractor.py`), and runs `LLMPipeline.run_structured`. Session state is in-memory only (`app/services/sessions.py`).
+Orchestration: `session_estimate_request_parser.py` → `SimplifiedSessionEstimationService` (metadata merge, bounded history → `messages_override` on structured LLM) → `LLMPipeline.run_structured`. Session state is in-memory only (`app/services/sessions.py`).
 
 ### Semantic cache (v2, optional)
 
