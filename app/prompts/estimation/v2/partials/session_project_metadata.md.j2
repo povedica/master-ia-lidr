@@ -2,21 +2,21 @@
 
 Treat the following as agreed facts unless the current user turn explicitly revises them.
 
-{% if project_name -%}
+{% if project_name is defined and project_name -%}
 - Project name: {{ project_name }}
 {% endif -%}
-{% if assumed_team_size is not none -%}
+{% if assumed_team_size is defined and assumed_team_size is not none -%}
 - Assumed team size: {{ assumed_team_size }}
 {% endif -%}
-{% if mentioned_technologies -%}
+{% if mentioned_technologies is defined and mentioned_technologies -%}
 - Mentioned technologies: {{ mentioned_technologies | join(", ") }}
 {% endif -%}
-{% if agreed_scope -%}
+{% if agreed_scope is defined and agreed_scope -%}
 - Agreed scope: {{ agreed_scope }}
 {% endif -%}
-{% if explicit_constraints -%}
+{% if explicit_constraints is defined and explicit_constraints -%}
 - Explicit constraints: {{ explicit_constraints | join("; ") }}
 {% endif -%}
-{% if rejected_options -%}
+{% if rejected_options is defined and rejected_options -%}
 - Rejected options: {{ rejected_options | join("; ") }}
 {% endif -%}

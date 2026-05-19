@@ -80,3 +80,13 @@ def test_render_session_system_prompt_appends_populated_metadata_only() -> None:
 def test_render_session_system_prompt_omits_block_when_metadata_empty() -> None:
     composed = render_session_system_prompt("Base only.", ProjectMetadata())
     assert composed == "Base only."
+
+
+def test_render_session_system_prompt_sparse_metadata_without_team_size() -> None:
+    metadata = ProjectMetadata(
+        project_name="Portal",
+        agreed_scope="Ticket intake and dashboards",
+    )
+    composed = render_session_system_prompt("Base.", metadata)
+    assert "Portal" in composed
+    assert "team size" not in composed.lower()

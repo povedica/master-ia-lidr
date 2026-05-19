@@ -717,6 +717,8 @@ class EstimationService:
         *,
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
+        system_prompt_override: str | None = None,
+        user_prompt_override: str | None = None,
     ) -> StructuredEstimateBundle:
         """Jinja prompts + Instructor structured completion (v2 API)."""
 
@@ -745,14 +747,16 @@ class EstimationService:
             settings=self._settings,
         )
         litellm_model, api_key, timeout = provider.litellm_route()
+        system_prompt = system_prompt_override or rendered.system_prompt
+        user_prompt = user_prompt_override or rendered.user_prompt
         try:
             domain_result, raw_usage, finish = await complete_structured(
                 litellm_model=litellm_model,
                 chain_provider=provider.name,
                 api_key=api_key,
                 timeout_seconds=timeout,
-                system_prompt=rendered.system_prompt,
-                user_prompt=rendered.user_prompt,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 max_output_tokens=prelude.max_output_tokens,
                 response_model=DomainEstimationResult,
                 max_attempts=self._settings.structured_output_max_attempts,

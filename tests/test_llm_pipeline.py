@@ -17,6 +17,7 @@ from tests.estimation_fixtures import minimal_estimation_request_dict
 class _StubStructuredService:
     def __init__(self) -> None:
         self.called = False
+        self.last_kwargs: dict[str, object] = {}
 
     async def estimate_structured(
         self,
@@ -24,8 +25,15 @@ class _StubStructuredService:
         *,
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
+        system_prompt_override: str | None = None,
+        user_prompt_override: str | None = None,
     ) -> StructuredEstimateBundle:
         self.called = True
+        self.last_kwargs = {
+            "skip_domain_guardrail": skip_domain_guardrail,
+            "system_prompt_override": system_prompt_override,
+            "user_prompt_override": user_prompt_override,
+        }
         assert skip_domain_guardrail is True
         del request, assessment_surface
         li = EstimationLineItem(name="Task", hours=1.0, cost_eur=10.0)
@@ -84,3 +92,35 @@ async def test_pipeline_calls_structured_with_skip_domain() -> None:
     assert stub.called is True
     assert outcome.final_status.value == "success"
     assert outcome.safe_to_cache is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_forwards_session_prompt_overrides() -> None:
+    """Session simplified submit must pass composed prompts into structured estimation."""
+
+    settings = Settings(
+        openai_api_key="x",
+        llm_domain_guardrail_enabled=True,
+        guardrail_rollout_prompt_injection_patterns="disabled",
+        guardrail_rollout_pii_basic="disabled",
+    )
+    stub = _StubStructuredService()
+    pipeline = LLMPipeline(stub, settings)  # type: ignore[arg-type]
+    body = EstimationRequest.model_validate(minimal_estimation_request_dict(evaluate=False))
+    assessment_surface = render_estimation_assessment_surface(body)
+    custom_guided = "Custom guided body for session path"
+    custom_system = "System with session metadata block"
+    custom_user = "User prompt with attachment block"
+
+    outcome = await pipeline.run_structured(
+        body,
+        assessment_surface=assessment_surface,
+        request_id="req_session_overrides",
+        guided_user_message=custom_guided,
+        system_prompt_override=custom_system,
+        user_prompt_override=custom_user,
+    )
+
+    assert outcome.final_status.value == "success"
+    assert stub.last_kwargs["system_prompt_override"] == custom_system
+    assert stub.last_kwargs["user_prompt_override"] == custom_user
