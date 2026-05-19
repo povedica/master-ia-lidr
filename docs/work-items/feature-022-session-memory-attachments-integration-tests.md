@@ -615,3 +615,9 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 ```text
 /start-task docs/work-items/feature-022-session-memory-attachments-integration-tests.md
 ```
+
+## Repository commits (master-ia)
+
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `246df53` | `docs(work-items): add feature-022 session integration tests spec` | Adds canonical work item defining httpx integration harness, LLM fake, fixtures, and mandatory session scenarios. |

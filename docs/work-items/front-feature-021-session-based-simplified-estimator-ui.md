@@ -518,3 +518,11 @@ Never display raw stack traces or API keys.
 - [x] Step 5: Visual polish (teal CTA, panel states, responsive stack)
 - [x] Step 6: Remove v2 stream path and legacy form fields
 - [x] Step 7: Tests + `web/README.md` + verification record
+
+## Repository commits (master-ia)
+
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `b2c87c7` | `fix(api): return 422 for domain guardrail on session estimate` | Maps `DomainGuardrailError` to structured HTTP 422 so the session UI can surface out-of-domain feedback. |
+| `a386492` | `feat(web): proxy API via same-origin in dev and Docker` | Vite dev proxy, nginx `/api` proxy, empty default `VITE_API_BASE_URL`, and docker-compose build arg alignment. |
+| `02a13c2` | `feat(web): unwrap session estimate envelope and guardrail errors` | Extracts nested `estimate.result`, maps `out_of_domain` to transcript validation, shows recommended team, and improves warnings a11y. |
