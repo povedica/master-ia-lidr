@@ -6,6 +6,7 @@ import {
   getSession,
   listSessions,
   SessionApiError,
+  type EstimateInSessionOptions,
   type SessionDetailResponse,
   type SessionEstimateResponse,
   type SessionListItem,
@@ -227,7 +228,10 @@ export function useSessionEstimate() {
   )
 
   const submitEstimate = useCallback(
-    async (body: Record<string, unknown>): Promise<SubmitOutcome> => {
+    async (
+      body: Record<string, unknown>,
+      options?: EstimateInSessionOptions,
+    ): Promise<SubmitOutcome> => {
       if (!sessionId) {
         return { ok: false, kind: 'generic', message: 'Session is not ready.' }
       }
@@ -235,7 +239,7 @@ export function useSessionEstimate() {
       setMetadataStatus('loading')
       setEstimateError(null)
       try {
-        const data = await estimateInSession(sessionId, body)
+        const data = await estimateInSession(sessionId, body, options)
         setProjectMetadata(data.project_metadata)
         setMetadataStatus('available')
         setEstimate(extractEstimateResult(data.estimate))

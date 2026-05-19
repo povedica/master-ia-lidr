@@ -53,6 +53,7 @@ class FakeStructuredLLM:
         max_output_tokens: int,
         response_model: type[TModel],
         max_attempts: int,
+        messages: list[dict[str, str]] | None = None,
     ) -> tuple[TModel, UsageInfo | None, str | None]:
         del chain_provider, api_key, timeout_seconds, max_output_tokens, max_attempts
         index = len(self.calls)
@@ -63,6 +64,7 @@ class FakeStructuredLLM:
                 response_model=response_model,
                 call_index=index,
                 litellm_model=litellm_model,
+                messages=messages,
             )
         )
         result = self._dispatch(user_prompt)

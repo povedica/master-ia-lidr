@@ -20,6 +20,9 @@ def derive_project_metadata(
     attachment_summary = _attachment_summary(extracted)
     confidence = list(warnings)
 
+    if request.project_name is None or request.project_type is None or request.target_audience is None:
+        raise ValueError("project_name, project_type, and target_audience are required after session defaults")
+
     return DerivedProjectMetadata(
         project_name=request.project_name,
         project_type=request.project_type,

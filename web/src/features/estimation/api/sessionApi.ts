@@ -104,18 +104,50 @@ export async function createSession(): Promise<SessionCreateResponse> {
   return (await response.json()) as SessionCreateResponse
 }
 
+export type EstimateInSessionOptions = {
+  /** When set, submit as multipart/form-data (field name `attachments` per file). */
+  files?: File[]
+}
+
+function appendFormFields(form: FormData, body: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(body)) {
+    if (key === 'attachments' || value === null || value === undefined) {
+      continue
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      form.append(key, String(value))
+    }
+  }
+}
+
 export async function estimateInSession(
   sessionId: string,
   body: Record<string, unknown>,
+  options?: EstimateInSessionOptions,
 ): Promise<SessionEstimateResponse> {
-  const response = await fetch(sessionEstimateUrl(sessionId), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  const files = options?.files ?? []
+  let response: Response
+  if (files.length > 0) {
+    const form = new FormData()
+    appendFormFields(form, body)
+    for (const file of files) {
+      form.append('attachments', file)
+    }
+    response = await fetch(sessionEstimateUrl(sessionId), {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: form,
+    })
+  } else {
+    response = await fetch(sessionEstimateUrl(sessionId), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  }
   const text = await response.text().catch(() => '')
   if (!response.ok) {
     throw new SessionApiError(response.status, text)

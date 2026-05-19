@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { ZodError } from 'zod'
 
 import { useSessionEstimate } from '../hooks/useSessionEstimate'
-import { filesToAttachmentRefs } from '../lib/attachmentRefs'
+import { assertFilesWithinLimits } from '../lib/attachmentRefs'
 import {
   buildInitialSimplifiedForm,
   mapToSessionEstimateBody,
@@ -127,10 +127,9 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
     setFormSummary(null)
     setFieldErrors({})
 
-    let attachments = form.attachments
     try {
       if (fileList.length > 0) {
-        attachments = await filesToAttachmentRefs(fileList)
+        assertFilesWithinLimits(fileList)
       }
     } catch (exc) {
       setFieldErrors({
@@ -139,11 +138,14 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
       return
     }
 
-    const raw = { ...form, attachments }
+    const raw = { ...form, attachments: fileList.length > 0 ? [] : form.attachments }
     try {
       const parsed = parseSimplifiedForm(raw)
       const body = mapToSessionEstimateBody(parsed)
-      const outcome = await submitEstimate(body)
+      const outcome = await submitEstimate(
+        body,
+        fileList.length > 0 ? { files: fileList } : undefined,
+      )
       if (!outcome.ok) {
         if (outcome.kind === 'validation') {
           setFieldErrors(outcome.fieldErrors)

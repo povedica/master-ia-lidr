@@ -8,17 +8,22 @@ from time import perf_counter
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.guardrails.exceptions import GuardrailViolationError
 from app.schemas.simplified_session import (
     AttachmentProcessingStatus,
     SessionDetailResponse,
-    SessionEstimateRequest,
     SessionEstimateResponse,
     SessionListItem,
     SessionListResponse,
+)
+from app.services.session_estimate_request_parser import (
+    SessionEstimateParseError,
+    parse_session_estimate_request,
 )
 from app.services.attachment_errors import AttachmentError
 from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
@@ -31,6 +36,7 @@ from app.services.llm_service import (
 )
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
+    SessionSubmitValidationError,
     SimplifiedSessionEstimationService,
 )
 from app.services.sessions import session_display_label, session_store
@@ -111,17 +117,60 @@ def get_session(session_id: str) -> SessionDetailResponse:
 @router.post(
     "/sessions/{session_id}/estimate",
     response_model=SessionEstimateResponse,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/SessionEstimateRequest"},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["transcript", "project_type", "target_audience"],
+                        "properties": {
+                            "transcript": {"type": "string"},
+                            "project_name": {"type": "string"},
+                            "project_type": {"type": "string"},
+                            "target_audience": {"type": "string"},
+                            "industry": {"type": "string"},
+                            "one_line_summary": {"type": "string"},
+                            "additional_extra_info": {"type": "string"},
+                            "attachments": {
+                                "type": "array",
+                                "items": {"type": "string", "format": "binary"},
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    },
 )
 async def estimate_in_session(
     session_id: str,
-    body: SessionEstimateRequest,
+    request: Request,
     service: Annotated[SimplifiedSessionEstimationService, Depends(get_simplified_session_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> SessionEstimateResponse:
-    """Run one simplified transcript-centered estimation submit."""
+    """Run one simplified transcript-centered estimation submit (JSON or multipart)."""
 
     start = perf_counter()
     request_id = f"sess_{uuid4().hex[:12]}"
+    try:
+        body = await parse_session_estimate_request(request)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+    except SessionEstimateParseError as exc:
+        status_code = (
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+            if exc.code == "unsupported_media_type"
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     try:
         submit = await service.run_submit(session_id, body, request_id=request_id)
     except DomainGuardrailError as exc:
@@ -136,6 +185,11 @@ async def estimate_in_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
+        ) from exc
+    except SessionSubmitValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "invalid_session_submit", "message": str(exc)},
         ) from exc
     except AttachmentError as exc:
         raise HTTPException(
