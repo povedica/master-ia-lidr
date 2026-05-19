@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.estimation_request import Industry, ProjectType, TargetAudience
+
 ChatRole = Literal["system", "user", "assistant"]
 
 
@@ -67,6 +69,22 @@ class ProjectMetadata(BaseModel):
     agreed_scope: str | None = None
     explicit_constraints: list[str] = Field(default_factory=list)
     rejected_options: list[str] = Field(default_factory=list)
+
+
+class DerivedProjectMetadata(BaseModel):
+    """UI-facing project memory returned from simplified session submits."""
+
+    model_config = ConfigDict(frozen=False)
+
+    project_name: str
+    project_type: ProjectType
+    target_audience: TargetAudience
+    industry: Industry | None = None
+    summary: str | None = None
+    derived_deliverables: list[str] = Field(default_factory=list)
+    detected_constraints: list[str] = Field(default_factory=list)
+    attachment_summary: str | None = None
+    confidence_notes: list[str] = Field(default_factory=list)
 
 
 @dataclass
