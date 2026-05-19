@@ -32,6 +32,8 @@ If feature-020 is only partially shipped, stop and finish feature-020 — do not
 
 ## Context
 
+**2026-05-19 scope extension:** Initial delivery (steps 1–7) shipped session-first form, grouped metadata, and result panels, but omitted the mockup’s **collapsible session history sidebar** (`GET /api/v1/sessions`) and the metadata **JSON Memory tab**. This update adds both without changing the simplified nine-field form contract.
+
 ### Current UI (`web/`)
 
 | Area | Location | Today |
@@ -55,6 +57,8 @@ All paths are relative to `VITE_API_BASE_URL` (default `http://127.0.0.1:8000`).
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/v1/sessions` | Create session on load / “New conversation” → `{ "session_id": "<id>" }`, `201` |
+| `GET` | `/api/v1/sessions` | List in-memory sessions for the left sidebar (last 30 days, newest first) |
+| `GET` | `/api/v1/sessions/{session_id}` | Load session snapshot when user selects a row (form + metadata); `404` if missing |
 | `POST` | `/api/v1/sessions/{session_id}/estimate` | Submit simplified form → envelope with `project_metadata` + `estimate` |
 
 Do **not** call `POST /api/v2/estimate` from the refactored primary flow.
@@ -67,6 +71,8 @@ Attach during implementation for visual alignment:
 | --- | --- |
 | `assets/image-d5e36a8d-3a3e-42f0-88e6-5ae4afb44acc.png` | Target layout: header + 2-column main + full-width result; teal accent; metadata as structured JSON panel |
 | `assets/image-55f0e60d-9feb-4f3c-a407-1f3755a10ea8.png` | Before/after narrative: shorter form, visible memory, separated output (not chat bubbles) |
+| `assets/image-663a74b0-17da-455a-9539-663f17d8b562.png` | Collapsible **Sessions project history** sidebar: list from `GET /api/v1/sessions`, active row highlighted in teal |
+| `assets/image-e207dcb9-15d0-46a5-93f3-b49eb5e109a7.png` | Metadata panel **Readable** vs **Memory (current)** tabs; Memory shows pretty-printed JSON (syntax-friendly) |
 
 ## Product Goal
 
@@ -87,12 +93,13 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 
 ### Includes
 
-- Refactor `EstimationWorkbench` (or successor) layout: header, 2-column main, full-width result panel.
+- Refactor `EstimationWorkbench` (or successor) layout: **collapsible left sidebar** + header + 2-column main + full-width result panel.
+- **Sessions project history** sidebar (mockup): title, subtitle “Last 30 days”, collapse control; rows from `GET /api/v1/sessions`; active session highlighted; selecting a row calls `GET /api/v1/sessions/{session_id}` and swaps working context (header `session_id`, form from `input_payload`, metadata panel; estimate panel resets unless same-session re-submit data is already in client state).
 - Auto `POST /api/v1/sessions` on page load; show `session_id` in header.
 - **Nueva conversación** / **New conversation** button: new session + full UI reset.
 - Simplified form with **only** the nine fields listed below, exact order.
 - Submit to `POST /api/v1/sessions/{session_id}/estimate` with snake_case payload keys.
-- Visible **Project metadata** panel (right on desktop).
+- Visible **Project metadata** panel (right on desktop) with **Readable** and **Memory (current)** tabs: grouped fields (existing) and pretty-printed JSON viewer (mockup dark code block).
 - Separate **Estimate result** panel (full width below main).
 - Explicit UI states (initializing, loading, empty, success, error).
 - Client validation aligned with simplified contract (drop legacy field rules).
@@ -102,13 +109,13 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 
 ### Excludes
 
-- Left sidebar **session history list** (as in mockup) — out of scope unless added in a follow-up.
 - Chat bubbles, message timeline, or conversational turn UI.
 - Landing-page marketing sections, hero imagery, gradient “AI app” aesthetics (purple blobs, glassmorphism, orbs).
 - Any backend work (owned entirely by **feature-020**).
 - Auth, multi-user accounts, persistent session store across server restarts.
-- `GET /api/v1/sessions` UI (list endpoint may exist; no list UI in this feature).
+- Cross-device session sync or server-side session search beyond the in-memory list.
 - OCR, new upload microservice, or attachment storage redesign.
+- Third-party JSON tree widgets (use native `<pre>` + `JSON.stringify` or minimal inline markup).
 - Replacing Tailwind or introducing a component library.
 
 ## UX Principles
@@ -135,20 +142,21 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 ### Desktop (≥ `lg`, 1024px)
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Estimator          session_id: sess_…     [New conversation]  [theme]       │
-├──────────────────────────────┬──────────────────────────────────────────────┤
-│ Project information (card)   │ Project metadata (card / panel)              │
-│  - simplified form           │  - empty | loading | JSON/grouped KV         │
-│                              │  - footer: "Auto-generated from inputs"      │
-├──────────────────────────────┴──────────────────────────────────────────────┤
+┌──────────┬──────────────────────────────────────────────────────────────────┐
+│ Sessions │ Estimator     session_id: …   [New conversation]  [theme]          │
+│ history  ├────────────────────────────┬─────────────────────────────────────┤
+│ (collap- │ Project information        │ Project metadata (Derived)          │
+│ sible)   │  - simplified form         │  [Readable] [Memory (current)]      │
+│          │                            │  - grouped KV | JSON viewer         │
+│ GET list │                            │  - footer: Auto-generated…          │
+├──────────┴────────────────────────────┴─────────────────────────────────────┤
 │ Estimate result (full width card)                                           │
-│  - empty | loading | success (summary + breakdown) | error                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- App max width: increase from `max-w-3xl` to ~`max-w-6xl` or `max-w-7xl` centered.
-- Main grid: `grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]` (tune in implementation).
+- App max width: ~`max-w-7xl` centered; when sidebar expanded, allow full viewport width (`max-w-[96rem]` or fluid) so three columns breathe.
+- Shell grid: `sidebar | main` where `main` is the existing `form | metadata` grid.
+- Sidebar width ~`240–280px` expanded; collapsed rail ~`48px` with toggle only (mockup chevron + menu icon).
 - Vertical rhythm: `gap-6` between regions; cards use existing border/bg tokens.
 
 ### Mobile / tablet (`< lg`)
@@ -156,9 +164,10 @@ Reduce cognitive load while making **session**, **memory**, and **output** obvio
 Stack order:
 
 1. Header (sticky optional)
-2. Form
-3. Project metadata (collapsible **optional** enhancement — if not collapsible, stack as full-width section)
-4. Estimate result
+2. Sessions history (drawer or top collapsible strip — default: collapsible block above form, same `GET` list)
+3. Form
+4. Project metadata (tabs preserved)
+5. Estimate result
 
 No horizontal scroll on textareas; file list wraps.
 
@@ -211,8 +220,8 @@ Fields in **exact order** (do not reorder):
 | --- | --- |
 | Title | `Project metadata` |
 | Purpose copy | One line: derived memory for debugging and transparency |
-| Presentation | Prefer grouped sections (General, Context, Requirements) **or** pretty-printed JSON in a dark code block (mockup style); must be scannable |
-| Tabs | Optional `Readable` / `Memory` — **not required** for MVP; single view is enough if grouped well |
+| Presentation | **Two tabs required:** `Readable` (grouped definition lists) and `Memory (current)` (pretty-printed JSON in dark inset, monospace, teal key tone per mockup) |
+| Tabs | Toggle `Readable` / `Memory (current)`; default `Readable` when metadata first appears; persist tab choice per session in client state until user switches |
 | Footer | `Auto-generated from inputs` + relative timestamp when available |
 | Update trigger | After successful estimate response; optionally show stale metadata from previous submit until new response arrives |
 
@@ -286,6 +295,10 @@ Use **English** UI copy (repo convention). Suggested strings:
 | Transcript helper | `Paste the main project description, discovery notes, or meeting transcript.` |
 | Additional info helper | `Optional. Constraints, links, or context that does not belong in the transcript.` |
 | Metadata empty | `Metadata will appear after you generate an estimate.` |
+| Sessions sidebar title | `Sessions project history` |
+| Sessions sidebar subtitle | `Last 30 days` |
+| Current session row | `Current estimation` when `submit_count === 0`, else label from `project_name` |
+| Past session row | `project_name` from list item or `Untitled session` |
 | Result empty | `Run Generate estimate to see the output here.` |
 | Session error | `Could not start a session. Check that the API is running and try again.` |
 
@@ -307,6 +320,9 @@ Explicit state machine for implementation and tests:
 | S8 | New conversation in progress | Header button loading; form disabled |
 | S9 | Metadata empty | Right panel placeholder |
 | S10 | Metadata available | Right panel populated |
+| S11 | Sidebar loading | Skeleton rows while `GET /api/v1/sessions` in flight |
+| S12 | Sidebar ready | Session rows visible; active row highlighted |
+| S13 | Session switch in progress | Sidebar disabled briefly; header shows target `session_id` when loaded |
 
 ## Data and API Dependencies
 
@@ -316,6 +332,41 @@ Explicit state machine for implementation and tests:
 POST /api/v1/sessions
 → 201 { "session_id": "sess_…" }
 ```
+
+### Session list (sidebar)
+
+```http
+GET /api/v1/sessions
+→ 200 {
+  "sessions": [
+    {
+      "session_id": "<uuid>",
+      "label": "NeoBank Mobile",
+      "updated_at": "2026-05-19T12:00:00Z",
+      "submit_count": 1
+    }
+  ]
+}
+```
+
+- Server returns sessions with `updated_at` within the last **30 days**, sorted **newest first**.
+- `label` prefers `last_derived_metadata.project_name`, else `last_normalized_payload.project_name`, else `"Untitled session"`.
+- After `POST /api/v1/sessions` or successful estimate, **refresh** the list (or optimistically prepend/update the row).
+
+### Session detail (row select)
+
+```http
+GET /api/v1/sessions/{session_id}
+→ 200 {
+  "session_id": "<uuid>",
+  "input_payload": { ... } | null,
+  "project_metadata": { ... } | null,
+  "submit_count": 0
+}
+```
+
+- `404` → show safe error; offer **New conversation**.
+- Client maps `input_payload` back into simplified form fields when present; clears estimate result panel (estimate is not persisted server-side in MVP).
 
 ### Estimate submit (contract from feature-020)
 
@@ -356,10 +407,11 @@ Attachment shape is **defined by feature-020** OpenAPI (`AttachmentRef` with `fi
 
 | Action | Path |
 | --- | --- |
-| Add API helpers | `web/src/features/estimation/api/sessionApi.ts` — `createSession()`, `estimateInSession(sessionId, body)` |
-| Replace hook | `useEstimateStream.ts` → `useSessionEstimate.ts` (or refactor in place): session lifecycle + submit + metadata/result state |
-| Slim mapper | `requestMapper.ts` — new `SimplifiedEstimationFormValues` + Zod schema + `mapToSessionEstimateBody()` |
-| Split UI | Extract from `EstimationWorkbench.tsx`: `EstimatorHeader.tsx`, `SimplifiedEstimationForm.tsx`, `ProjectMetadataPanel.tsx`, `EstimateResultPanel.tsx`; keep thin orchestrator |
+| Add API helpers | `sessionApi.ts` — `createSession()`, `listSessions()`, `getSession(sessionId)`, `estimateInSession(...)` |
+| Replace hook | `useSessionEstimate.ts` — add sidebar list state, `selectSession(id)`, refresh list after create/submit |
+| Slim mapper | `simplifiedForm.ts` — add `payloadToSimplifiedForm()` for `GET` detail restore |
+| Split UI | Add `SessionHistorySidebar.tsx`; extend `ProjectMetadataPanel.tsx` with Readable / Memory tabs + JSON viewer |
+| Backend (minimal) | `InMemorySessionStore.list_sessions()`; `GET /api/v1/sessions` + `GET /api/v1/sessions/{session_id}` in `app/routers/sessions.py` + Pydantic list/detail schemas |
 | Tests | `requestMapper.test.ts` — update for simplified fields; add hook/API unit tests with `fetch` mock |
 | App shell | `App.tsx` — widen layout wrapper if needed |
 
@@ -409,7 +461,7 @@ Never display raw stack traces or API keys.
 - Delete `moreDetailsOpen`, `FORM_FIELD_ORDER` entries for removed fields, `DETAILS_FIELD_KEYS`.
 - Primary button classes: replace `bg-violet-600` with `bg-teal-600` (and dark mode equivalents).
 - Optional: character counter on `transcript` if backend publishes max length (mockup shows `342 / 20000`).
-- `GET /api/v1/sessions` not used in UI for this feature.
+- Sidebar list uses `GET /api/v1/sessions`; row select uses `GET /api/v1/sessions/{session_id}` (add if not present when implementing this slice).
 
 ## Acceptance Criteria
 
@@ -429,13 +481,19 @@ Never display raw stack traces or API keys.
 - [x] **AC-13:** No chat bubbles or conversational timeline UI.
 - [x] **AC-14:** Primary flow does not call `/api/v2/estimate`.
 - [ ] **AC-15:** Screen is perceived as simpler than the pre-refactor guided form (qualitative review against before screenshot).
+- [x] **AC-16:** Collapsible **Sessions project history** sidebar loads rows from `GET /api/v1/sessions`, highlights the active `session_id`, and refreshes after new session or successful estimate.
+- [x] **AC-17:** Selecting a sidebar row loads that session via `GET /api/v1/sessions/{session_id}`, updates header `session_id`, restores form from `input_payload` when available, and shows stored `project_metadata` in the right panel.
+- [x] **AC-18:** **Project metadata** panel exposes **Readable** and **Memory (current)** tabs; Memory shows formatted JSON of the current `project_metadata` object.
 
 ## Test Plan
 
 - **Unit tests:**
   - `mapToSessionEstimateBody` maps all fields and omits removed ones.
+  - `payloadToSimplifiedForm` restores round-trip fields from `input_payload`.
   - Zod schema rejects empty `project_name` / `transcript` / required selects.
   - Session reset clears state (hook test with mocked `fetch`).
+  - `listSessions` / `getSession` parse list and detail responses.
+  - Backend: `GET /api/v1/sessions` returns sorted summaries; `GET .../{id}` returns 404 for unknown id.
 - **Component tests (optional but valuable):**
   - Header shows `session_id` after mocked create.
   - Submit disabled when `sessionId` null.
@@ -444,18 +502,22 @@ Never display raw stack traces or API keys.
 - **Manual checks:**
   - `uv run uvicorn app.main:app --reload` + `cd web && npm run dev`
   - Load page → session appears → fill form → generate → metadata + result populate
-  - New conversation → clean slate
+  - New conversation → clean slate; sidebar shows new row as current
+  - Select a past session in sidebar → form/metadata restore; result panel empty until re-run
+  - Toggle metadata **Memory (current)** → JSON matches Readable data
+  - Collapse/expand sidebar on desktop
   - Resize to mobile width → column order correct
   - Dark/light theme still works
 
 ## Verification
 
-- **Verified:** `cd web && npm run test` — 20 passed (sessionApi, simplifiedForm, validationErrors, theme).
+- **Verified:** `cd web && npm run test` — 28 passed (includes `listSessions`, `getSession`, `payloadToSimplifiedForm`).
+- **Verified:** `uv run pytest tests/test_sessions_router.py` — 3 passed (`GET` list + detail).
 - **Verified:** `cd web && npm run build` and `npm run lint` — clean.
 - **Verified:** No primary-flow reference to `POST /api/v2/estimate` under `web/src`.
-- **Not verified:** Manual E2E with live API + OpenAI key (requires local `.env` and `uv run uvicorn`).
+- **Not verified:** Manual E2E with live API + OpenAI key (sidebar select + JSON tab against running `uvicorn`).
 - **Not verified:** Re-submit on same session against live backend.
-- **Residual risk:** Attachment limits still align with backend 256 KiB per file (not 10 MiB doc drift); mockup assets not in repo.
+- **Residual risk:** Estimate result is not restored when switching sessions (server does not persist last estimate); attachment files are not rehydrated from `input_payload`.
 
 ## Documentation Plan
 
@@ -467,7 +529,7 @@ Never display raw stack traces or API keys.
 ## Design Notes
 
 - Mockup uses teal primary and dark metadata editor — adopt teal CTA; metadata panel dark theme is recommended for contrast with the light form card.
-- Before/after diagram emphasizes **visible memory** and **separated output**; do not implement sidebar history in this iteration.
+- Before/after diagram emphasizes **visible memory** and **separated output**; sidebar history and JSON Memory tab complete the mockup alignment (2026-05-19 scope extension).
 - Industry beside project type in mockup is a **layout optimization**; this spec keeps **strict field order** from product request (industry after target audience). Implementation may use a two-column row only where it does not violate order (e.g. do not put industry before transcript).
 
 ## Open Questions
@@ -478,7 +540,8 @@ Never display raw stack traces or API keys.
 | OQ-02 | Allow multiple estimates per session without new conversation? | Yes — same `session_id`, panels update on each success |
 | OQ-03 | Show `warnings` array in UI? | Yes — compact list under metadata or above result |
 | OQ-04 | Copy `session_id` button? | Yes — low effort, high utility |
-| OQ-05 | Metadata readable vs JSON tabs? | Single grouped view for MVP |
+| OQ-05 | Metadata readable vs JSON tabs? | **Resolved:** both tabs required (`Readable` + `Memory (current)`) |
+| OQ-06 | Persist estimate when switching sessions? | No — server stores payload + metadata only; result panel clears on switch |
 
 ## Learnings
 
@@ -518,6 +581,10 @@ Never display raw stack traces or API keys.
 - [x] Step 5: Visual polish (teal CTA, panel states, responsive stack)
 - [x] Step 6: Remove v2 stream path and legacy form fields
 - [x] Step 7: Tests + `web/README.md` + verification record
+- [x] Step 8: Backend `GET /api/v1/sessions` + `GET /api/v1/sessions/{session_id}` (list/detail snapshots)
+- [x] Step 9: `SessionHistorySidebar` + hook wiring (list, select, refresh, collapse)
+- [x] Step 10: Metadata **Readable** / **Memory (current)** tabs + JSON viewer
+- [x] Step 11: Tests + verification for sidebar and JSON tab
 
 ## Repository commits (master-ia)
 
