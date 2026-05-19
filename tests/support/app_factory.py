@@ -8,19 +8,14 @@ from contextlib import asynccontextmanager
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.main import app
 from app.services.sessions import InMemorySessionStore
 from tests.fakes.fake_llm_provider import FakeStructuredLLM
-
-
-def integration_test_settings() -> Settings:
-    return Settings(
-        openai_api_key="test-key",
-        llm_domain_guardrail_enabled=False,
-        semantic_cache_enabled=False,
-        max_attachment_context_chars=8_000,
-    )
+from tests.support.integration_settings import (
+    integration_test_settings,
+    session_integration_uses_real_llm,
+)
 
 
 def patch_session_stores(monkeypatch: pytest.MonkeyPatch, store: InMemorySessionStore) -> None:
@@ -54,7 +49,8 @@ async def integration_async_client(
     app.dependency_overrides[get_settings] = lambda: settings
     get_settings.cache_clear()
     patch_session_stores(monkeypatch, store)
-    install_fake_structured_llm(monkeypatch, fake)
+    if not session_integration_uses_real_llm():
+        install_fake_structured_llm(monkeypatch, fake)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

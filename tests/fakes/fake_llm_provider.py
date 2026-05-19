@@ -23,6 +23,7 @@ class CapturedLLMCall:
     user_prompt: str
     response_model: type[BaseModel]
     call_index: int
+    litellm_model: str = ""
     messages: list[dict[str, str]] | None = None
 
 
@@ -53,14 +54,7 @@ class FakeStructuredLLM:
         response_model: type[TModel],
         max_attempts: int,
     ) -> tuple[TModel, UsageInfo | None, str | None]:
-        del (
-            litellm_model,
-            chain_provider,
-            api_key,
-            timeout_seconds,
-            max_output_tokens,
-            max_attempts,
-        )
+        del chain_provider, api_key, timeout_seconds, max_output_tokens, max_attempts
         index = len(self.calls)
         self.calls.append(
             CapturedLLMCall(
@@ -68,6 +62,7 @@ class FakeStructuredLLM:
                 user_prompt=user_prompt,
                 response_model=response_model,
                 call_index=index,
+                litellm_model=litellm_model,
             )
         )
         result = self._dispatch(user_prompt)

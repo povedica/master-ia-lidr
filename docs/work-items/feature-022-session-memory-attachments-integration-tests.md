@@ -6,9 +6,12 @@ Add a **minimal but robust** pytest integration suite for multi-turn session est
 
 The suite must exercise the **full in-process path** (routing → validation → session store → `SimplifiedSessionEstimationService` → prompt rendering → faked structured LLM → response assembly) so regressions in metadata re-injection, attachment context, or history trimming cannot hide behind unit tests or router tests that mock the entire service.
 
+**Evolution exercise alignment (2026-05):** the mandatory trio from the master exercise is explicit in FR-02–FR-04: (1) two linked submits with `project_metadata`, (2) **PDF** attachment with qualitative output change, (3) **eight** submits with effective LLM input bounded by configured `max_turns`. Default CI runs use the fake; optional live LLM is opt-in via `SESSION_INTEGRATION_TEST_USE_REAL_LLM`.
+
 ## Context
 
 - Built on **feature-020** simplified session routes and **feature-021** UI consumption; production uses JSON + base64 attachments and **Path B** local text extraction (`pypdf` / plain text).
+- Initial implementation used `text/plain` fixtures and seven sliding-window submits; the resume scope closes gaps vs the exercise wording (PDF, eight turns, LLM-boundary assertions on `FakeStructuredLLM` captures).
 - Unit coverage exists in `tests/test_sessions.py`, `tests/test_conversational_estimation_service.py`, `tests/test_metadata_extractor.py`.
 - Router smoke tests in `tests/test_simplified_session_router.py` and `tests/test_sessions_router.py` **mock** `SimplifiedSessionEstimationService` and must not be duplicated.
 - Simplified submits use **heuristic** `derive_project_metadata()`, not the LLM metadata extractor.
@@ -49,13 +52,16 @@ The suite must exercise the **full in-process path** (routing → validation →
 
 Two `POST .../estimate` calls on one session enrich metadata after Turn 1; Turn 2 **system prompt** (via fake) and `conversation_history` retain `Acme Portal` and both turn labels.
 
-### FR-03: Attachments (Test 3)
+### FR-03: PDF attachment (Test 3)
 
-Inline base64 attachment text with `ATTACH_MARKER:USE_REDIS` reaches fake `user_prompt` inside `<attachments>`; structured output includes `"Redis (from attachment)"` when marker present; control submit without attachment does not.
+Inline base64 **`application/pdf`** built in-test (minimal one-page PDF, `pypdf`-extractable) containing `ATTACH_MARKER:USE_REDIS`. Path B: `DocumentTextExtractor` → fake `user_prompt` includes `<attachments>`, `filename="redis_addendum.pdf"`, and the marker. Qualitative output: structured result includes line item `"Redis (from attachment)"` when the PDF is present; control submit without attachment does not.
 
-### FR-04: Sliding window (Test 4)
+### FR-04: Sliding window — eight turns (Test 4)
 
-With `max_turns=3` and seven submits, history keeps system + at most three user/assistant pairs, drops oldest turn markers, preserves `project_metadata.project_name`.
+With `session.conversation_history.max_turns = 3` (configured window) and **eight** submits (`TURN_MARKER:01` … `TURN_MARKER:08`):
+
+- Store `conversation_history.to_messages_list()` keeps system + at most `max_turns` user/assistant pairs; oldest markers (`01`, `02`) absent; `08` present; `project_metadata` persists.
+- **LLM boundary (fake proxy):** on the 8th call, `FakeStructuredLLM.last_call().user_prompt` must not contain dropped turn markers (`TURN_MARKER:01`, `TURN_MARKER:02`). The simplified path sends the current turn via `user_prompt_override` (not full `to_messages_list()` yet); the fake capture is the contract until multi-message provider wiring lands.
 
 ### FR-05: Test harness
 
@@ -64,6 +70,10 @@ Function-scoped store + fake; patch `app.services.sessions.session_store` and `a
 ### FR-06: Documentation
 
 README documents run command, Path B default, heuristic metadata for simplified submits.
+
+### FR-07: Optional live LLM (not CI)
+
+`SESSION_INTEGRATION_TEST_USE_REAL_LLM` and `SESSION_INTEGRATION_TEST_LLM_MODEL` opt into real `complete_structured`. Fake-dependent tests are skipped; sliding-window and isolation tests must not run against the network (marked `@requires_fake_structured_llm`).
 
 ## Technical Approach
 
@@ -543,8 +553,8 @@ def messages_for_session(store, session_id) -> list[dict[str, str]]: ...
 - [x] **AC-04:** Test 1 verifies empty `ConversationHistory` and `ProjectMetadata` in the store after `POST /api/v1/sessions`.
 - [x] **AC-05:** Test 2 verifies metadata enrichment after Turn 1 and metadata presence in Turn 2 **system prompt** captured by fake.
 - [x] **AC-06:** Test 2 verifies `conversation_history.to_messages_list()` accumulates both turns with system prompt first.
-- [x] **AC-07:** Test 3 verifies attachment content reaches fake `user_prompt` (Path B) or file reference (Path A) and changes structured output deterministically.
-- [x] **AC-08:** Test 4 verifies at most `max_turns` user+assistant pairs in history, system prompt always present, oldest markers dropped.
+- [x] **AC-07:** Test 3 uses **PDF** (`application/pdf`), Path B extraction, marker in fake `user_prompt`, and qualitative output change with vs without attachment.
+- [x] **AC-08:** Test 4 runs **eight** submits with configured `max_turns=3`; store window and last fake `user_prompt` exclude dropped turn markers.
 - [x] **AC-09:** Test 4 verifies `project_metadata` persists after history trim.
 - [x] **AC-10:** Session isolation verified (session B not affected by session A) — recommended test.
 - [x] **AC-11:** `InMemorySessionStore.reset_for_tests()` (or equivalent) prevents cross-test leakage.
@@ -636,6 +646,7 @@ None required when AC-01–AC-12 pass.
 - [x] Step 5: Test 4 — sliding window
 - [x] Step 6: Recommended edge tests
 - [x] Step 7: README + verification
+- [x] Step 8: Exercise alignment — PDF fixture, 8 turns, LLM-boundary asserts, skip fake-only tests when `USE_REAL_LLM`
 
 ## Documentation plan
 
@@ -645,9 +656,9 @@ None required when AC-01–AC-12 pass.
 
 ## Verification
 
-- **Verified:** `uv run pytest tests/test_sessions_integration.py` (9 tests, ~4s); `uv run pytest` (289 passed). Harness uses `httpx.AsyncClient`, patches `complete_structured` and shared `session_store`, guardrails off, semantic cache off.
-- **Not verified:** multipart transport, Path A Files API, `ConversationalEstimationService` route wiring, AC-13 runtime budget on CI.
-- **Residual risk:** PDF fixtures not used in happy path; multipart helper not added.
+- **Verified:** `uv run pytest tests/test_sessions_integration.py` (8 passed, 1 skipped live smoke, ~4s fake); `tests/test_attachment_bytes.py` (PDF extractable); full `uv run pytest` green with `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false`.
+- **Not verified:** multipart transport, Path A Files API, full `to_messages_list()` as provider messages array, live LLM parity with exercise.
+- **Residual risk:** hand-built minimal PDF; simplified path still sends current-turn `user_prompt` only (fake proxy documented in FR-04).
 
 ## Pull request
 

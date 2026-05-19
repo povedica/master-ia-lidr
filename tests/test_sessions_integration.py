@@ -9,9 +9,13 @@ from httpx import AsyncClient
 
 from app.services.sessions import InMemorySessionStore, ProjectMetadata
 from tests.fakes.fake_llm_provider import FakeStructuredLLM
-from tests.fixtures.attachment_bytes import redis_marker_attachment_ref
+from tests.fixtures.attachment_bytes import redis_marker_pdf_attachment_ref
 from tests.fixtures.session_store import get_session_state, messages_for_session
 from tests.fixtures.transcripts import TURN_1, TURN_2, build_transcript, simplified_submit_payload
+from tests.support.session_integration_markers import (
+    requires_fake_structured_llm,
+    requires_real_structured_llm,
+)
 
 pytest_plugins = ["tests.fixtures.conftest_sessions"]
 
@@ -49,6 +53,7 @@ async def test_create_session_initializes_empty_state(
 
 
 @pytest.mark.asyncio
+@requires_fake_structured_llm
 async def test_two_linked_submits_enrich_metadata_and_inject_into_system_prompt(
     async_client: AsyncClient,
     session_store: InMemorySessionStore,
@@ -89,7 +94,8 @@ async def test_two_linked_submits_enrich_metadata_and_inject_into_system_prompt(
 
 
 @pytest.mark.asyncio
-async def test_attachment_text_influences_llm_prompt_and_estimate(
+@requires_fake_structured_llm
+async def test_attachment_pdf_influences_llm_prompt_and_estimate(
     async_client: AsyncClient,
     fake_structured_llm: FakeStructuredLLM,
 ) -> None:
@@ -98,7 +104,7 @@ async def test_attachment_text_influences_llm_prompt_and_estimate(
     payload = simplified_submit_payload(
         project_name="Acme Portal",
         transcript="See attached addendum for caching requirements. " * 4,
-        attachments=[redis_marker_attachment_ref()],
+        attachments=[redis_marker_pdf_attachment_ref()],
     )
 
     response = await async_client.post(
@@ -109,16 +115,17 @@ async def test_attachment_text_influences_llm_prompt_and_estimate(
     assert response.status_code == 200
     body = response.json()
     assert body["attachments"][0]["status"] == "processed"
-    assert "redis_addendum.txt" in (body["project_metadata"].get("attachment_summary") or "")
+    assert "redis_addendum.pdf" in (body["project_metadata"].get("attachment_summary") or "")
     prompt = fake_structured_llm.last_call().user_prompt
     assert "<attachments>" in prompt
-    assert 'filename="redis_addendum.txt"' in prompt
+    assert 'filename="redis_addendum.pdf"' in prompt
     assert "ATTACH_MARKER:USE_REDIS" in prompt
     line_names = [item["name"] for item in body["estimate"]["result"]["line_items"]]
     assert "Redis (from attachment)" in line_names
 
 
 @pytest.mark.asyncio
+@requires_fake_structured_llm
 async def test_attachment_missing_does_not_inject_marker(
     async_client: AsyncClient,
 ) -> None:
@@ -140,17 +147,20 @@ async def test_attachment_missing_does_not_inject_marker(
 
 
 @pytest.mark.asyncio
-async def test_sliding_window_drops_oldest_pairs_preserves_system_prompt(
+@requires_fake_structured_llm
+async def test_sliding_window_eight_turns_respects_max_turns_at_llm_boundary(
     async_client: AsyncClient,
     session_store: InMemorySessionStore,
+    fake_structured_llm: FakeStructuredLLM,
 ) -> None:
     created = await async_client.post("/api/v1/sessions")
     session_id = created.json()["session_id"]
     session = get_session_state(session_store, session_id)
-    session.conversation_history.max_turns = 3
+    max_turns = 3
+    session.conversation_history.max_turns = max_turns
     session.project_metadata.project_name = "Window Project"
 
-    for index in range(1, 8):
+    for index in range(1, 9):
         marker = f"TURN_MARKER:{index:02d}"
         payload = simplified_submit_payload(
             project_name="Window Project",
@@ -163,12 +173,18 @@ async def test_sliding_window_drops_oldest_pairs_preserves_system_prompt(
         assert response.status_code == 200
 
     history = messages_for_session(session_store, session_id)
-    assert_window(history, max_turns=3)
+    assert_window(history, max_turns=max_turns)
     joined = "\n".join(message["content"] for message in history)
     assert "TURN_MARKER:01" not in joined
     assert "TURN_MARKER:02" not in joined
-    assert "TURN_MARKER:07" in joined
+    assert "TURN_MARKER:08" in joined
     assert get_session_state(session_store, session_id).project_metadata.project_name == "Window Project"
+
+    last_prompt = fake_structured_llm.last_call().user_prompt
+    assert "TURN_MARKER:08" in last_prompt
+    assert "TURN_MARKER:01" not in last_prompt
+    assert "TURN_MARKER:02" not in last_prompt
+    assert len(fake_structured_llm.calls) == 8
 
 
 @pytest.mark.asyncio
@@ -187,6 +203,7 @@ async def test_unknown_session_returns_404(
 
 
 @pytest.mark.asyncio
+@requires_fake_structured_llm
 async def test_session_isolation(
     async_client: AsyncClient,
     session_store: InMemorySessionStore,
@@ -203,3 +220,19 @@ async def test_session_isolation(
     session_b_state = get_session_state(session_store, session_b)
     assert session_b_state.project_metadata.project_name is None
     assert session_b_state.submit_count == 0
+
+
+@pytest.mark.asyncio
+@requires_real_structured_llm
+async def test_estimate_submit_live_llm_smoke(async_client: AsyncClient) -> None:
+    """Optional smoke against a real provider; skipped unless SESSION_INTEGRATION_TEST_USE_REAL_LLM=true."""
+
+    created = await async_client.post("/api/v1/sessions")
+    assert created.status_code == 201
+    session_id = created.json()["session_id"]
+    response = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        json=simplified_submit_payload(project_name="Live smoke"),
+    )
+    assert response.status_code == 200
+    assert response.json()["estimate"]["result"]["title"]
