@@ -91,6 +91,66 @@ async def test_two_linked_submits_enrich_metadata_and_inject_into_system_prompt(
     assert all("[Simplified submit] Acme Portal" in content for content in user_contents)
     assert "Redis" in fake_structured_llm.calls[1].user_prompt
     assert len(fake_structured_llm.calls) == 2
+    turn_2_messages = fake_structured_llm.calls[1].messages or []
+    assert len(turn_2_messages) >= 4
+    assert turn_2_messages[0]["role"] == "system"
+    assert turn_2_messages[-1]["role"] == "user"
+    assert "Acme Portal" in turn_2_messages[0]["content"]
+
+
+@pytest.mark.asyncio
+@requires_fake_structured_llm
+async def test_second_turn_omits_project_name_uses_session_defaults(
+    async_client: AsyncClient,
+    fake_structured_llm: FakeStructuredLLM,
+) -> None:
+    created = await async_client.post("/api/v1/sessions")
+    session_id = created.json()["session_id"]
+
+    turn_1 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        json=TURN_1,
+    )
+    assert turn_1.status_code == 200
+
+    turn_2_payload = {
+        "project_type": TURN_1["project_type"],
+        "target_audience": TURN_1["target_audience"],
+        "transcript": TURN_2["transcript"],
+    }
+    turn_2 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        json=turn_2_payload,
+    )
+    assert turn_2.status_code == 200
+    assert turn_2.json()["project_metadata"]["project_name"] == "Acme Portal"
+    assert fake_structured_llm.last_call().system_prompt.count("Acme Portal") >= 1
+
+
+@pytest.mark.asyncio
+@requires_fake_structured_llm
+async def test_metadata_changes_between_turns(
+    async_client: AsyncClient,
+) -> None:
+    created = await async_client.post("/api/v1/sessions")
+    session_id = created.json()["session_id"]
+
+    turn_1 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        json=TURN_1,
+    )
+    assert turn_1.status_code == 200
+    meta_1 = turn_1.json()["project_metadata"]
+
+    turn_2 = await async_client.post(
+        f"/api/v1/sessions/{session_id}/estimate",
+        json=TURN_2,
+    )
+    assert turn_2.status_code == 200
+    meta_2 = turn_2.json()["project_metadata"]
+
+    assert meta_2["project_name"] == meta_1["project_name"]
+    assert meta_2["summary"] != meta_1["summary"]
 
 
 @pytest.mark.asyncio

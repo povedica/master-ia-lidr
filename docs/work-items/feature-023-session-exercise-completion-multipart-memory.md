@@ -316,8 +316,8 @@ HTTP (JSON | multipart)
 ## Implementation progress
 
 - [x] Step 1: `merge_derived_metadata` + unit tests
-- [ ] Step 2: `messages_override` through structured LLM / pipeline
-- [ ] Step 3: Wire `SimplifiedSessionEstimationService` (FR-05/06/07) + integration assertions
+- [x] Step 2: `messages_override` through structured LLM / pipeline
+- [x] Step 3: Wire `SimplifiedSessionEstimationService` (FR-05/06/07) + integration assertions
 - [ ] Step 4: Multipart parser + router content negotiation + unit tests
 - [ ] Step 5: Multipart integration tests (AC-04)
 - [ ] Step 6: README + technical cross-link + OpenAPI check

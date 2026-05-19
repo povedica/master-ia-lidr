@@ -31,6 +31,7 @@ from app.services.llm_service import (
 )
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
+    SessionSubmitValidationError,
     SimplifiedSessionEstimationService,
 )
 from app.services.sessions import session_display_label, session_store
@@ -136,6 +137,11 @@ async def estimate_in_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
+        ) from exc
+    except SessionSubmitValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "invalid_session_submit", "message": str(exc)},
         ) from exc
     except AttachmentError as exc:
         raise HTTPException(

@@ -57,6 +57,7 @@ class _StubWithPrelude:
         skip_domain_guardrail: bool = False,
         system_prompt_override: str | None = None,
         user_prompt_override: str | None = None,
+        messages_override: list[dict[str, str]] | None = None,
     ) -> StructuredEstimateBundle:
         self.calls += 1
         assert skip_domain_guardrail is True

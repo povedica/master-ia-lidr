@@ -77,16 +77,16 @@ class AttachmentRef(BaseModel):
 class SessionEstimateRequest(BaseModel):
     """Simplified session submit centered on a free-form transcript."""
 
-    project_name: str = Field(..., min_length=1, max_length=_PROJECT_NAME_MAX)
+    project_name: str | None = Field(default=None, max_length=_PROJECT_NAME_MAX)
     one_line_summary: str | None = Field(default=None, max_length=_ONE_LINE_SUMMARY_MAX)
-    project_type: ProjectType
+    project_type: ProjectType | None = None
     transcript: str = Field(
         ...,
         min_length=_TRANSCRIPT_MIN,
         max_length=_TRANSCRIPT_MAX,
         description="Primary narrative (discovery notes, requirements, assumptions).",
     )
-    target_audience: TargetAudience
+    target_audience: TargetAudience | None = None
     industry: Industry | None = None
     additional_extra_info: str | None = Field(default=None, max_length=_ADDITIONAL_EXTRA_INFO_MAX)
     attachments: list[AttachmentRef] = Field(default_factory=list, max_length=_MAX_ATTACHMENTS)
@@ -98,13 +98,6 @@ class SessionEstimateRequest(BaseModel):
             return None
         stripped = value.strip()
         return stripped if stripped else None
-
-    @field_validator("project_name")
-    @classmethod
-    def project_name_not_empty(cls, value: str | None) -> str:
-        if not value:
-            raise ValueError("project_name must not be empty")
-        return value
 
     @field_validator("transcript")
     @classmethod
