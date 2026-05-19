@@ -528,13 +528,14 @@ Never display raw stack traces or API keys.
 
 ## Verification
 
-- **Verified:** `cd web && npm run test` — includes `applySessionDetailToPanels`, `extractEstimateResult`, `payloadToSimplifiedForm`, session API helpers.
-- **Verified:** `uv run pytest tests/test_sessions_router.py tests/test_simplified_session_router.py` — list/detail restore + `last_estimate` persisted after estimate POST.
-- **Verified:** `cd web && npm run build` and `npm run lint` — clean (prior slice).
+- **Verified (2026-05-19, finish-task):** `cd web && npm run test` — 32 tests (includes `applySessionDetailToPanels`, `extractEstimateResult`, `payloadToSimplifiedForm`, session API helpers).
+- **Verified (2026-05-19, finish-task):** `uv run pytest tests/test_sessions_router.py tests/test_simplified_session_router.py` — 8 passed (list/detail restore + `last_estimate` persisted after estimate POST).
+- **Verified (2026-05-19, finish-task):** `cd web && npm run build` and `npm run lint` — clean.
 - **Verified:** No primary-flow reference to `POST /api/v2/estimate` under `web/src`.
 - **Verified (2026-05-19):** `selectSession` uses loading panels during `GET` detail; `applySessionDetailToPanels` restores estimate from `estimate.result` envelope.
 - **Not verified:** Manual E2E with live API + OpenAI key (sidebar select restores full estimate panel after real submit).
 - **Not verified:** Re-submit on same session against live backend.
+- **Not verified:** AC-15 qualitative “simpler than before” review (no formal before/after sign-off).
 - **Residual risk:** In-memory sessions are lost on API restart; estimates saved only after successful submit while the process is running. File input cannot show binary previews without re-selecting files (names from `input_payload` are shown as “saved in session”).
 
 ## Documentation Plan
@@ -587,7 +588,7 @@ Never display raw stack traces or API keys.
 
 ## Pull Request
 
-- WIP draft PR: https://github.com/povedica/master-ia-lidr/pull/18
+- PR: https://github.com/povedica/master-ia-lidr/pull/18 (`front-feature/021-session-based-simplified-estimator-ui`)
 
 ## Implementation progress
 
@@ -615,3 +616,5 @@ Never display raw stack traces or API keys.
 | `e5059f9` | `feat(api): persist session snapshot for list, detail, and restore` | `GET` list/detail, `last_estimate` / warnings on submit, removed `derived_deliverables`. |
 | `281832e` | `feat(web): session history sidebar and restore form, metadata, estimate` | Sidebar, `payloadToSimplifiedForm`, hook restore paths (follow-up: loading state + missing-estimate UX in Step 12). |
 | `5244324` | `docs(work-items): record session restore and history for feature-021` | Documents sidebar and restore scope. |
+| `aab198d` | `fix(web): restore estimate panel when switching sessions` | `applySessionDetailToPanels` + loading states during `GET` detail; unwrap persisted estimate envelope. |
+| `08622a2` | `docs(work-items): require estimate restore on session select for feature-021` | AC-19/20/21 and verification aligned with restore fix. |
