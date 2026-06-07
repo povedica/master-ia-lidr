@@ -559,7 +559,7 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 | `d457ca2` | `feat(feature-018): add sessions router and integration tests` | HTTP routes without main registration. |
 | `2b64631` | `feat(feature-018): register sessions routes and document API` | main.py, README, AC-08 test, full regression. |
 | `f39ac51` | `docs(feature-018): expand learnings and LLM extractor architecture rationale` | Architecture decision table + implementation retrospective. |
-| *(pending)* | `feat(feature-018): delta user turns and valid assistant history roles` | Phase 2 role separation from audit JSON. |
+| `095b0d8` | `feat(feature-018): delta user turns and compact session history roles` | Phase 2: `session_turn_delta.md.j2`, `[Turn N]` history, `Estimate «title»` assistant compaction, integration tests. |
 
 ### Verification (phase 2, 2026-06-07)
 
