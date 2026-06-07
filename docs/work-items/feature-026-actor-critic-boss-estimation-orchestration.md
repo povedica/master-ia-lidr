@@ -530,12 +530,27 @@ Suggested commit boundaries: steps 1–2, 3, 4, 5–6, 7–9, 10.
 
 ## Estimation
 
-Medium–large: ~8–12 focused commits, ~1500–2500 LOC including tests and prompts.
+- Size: L
+- Estimated time: 8–12 hours
+- Planned steps: 8
+
+## Open decisions (resolved at `/start-task`)
+
+1. **Actor implementation:** Reuse `EstimationService.estimate_structured` for all Actor passes; inject Boss `revision_instructions` via deterministic `actor_revision.j2` appendix on iterations > 1.
+2. **`ACB_CRITIC_MODEL` / `ACB_BOSS_MODEL`:** Default empty → fall back to `OPENAI_MODEL` (same as Actor).
+3. **Non-dev trace exposure:** Structured logs + `provider_metadata` counts only; HTTP `acb_trace` remains `dev_mode=true` only.
 
 ## Implementation progress
 
-_Not started — spec only._
+- [ ] Step 1: ACB Pydantic schemas + `tests/test_acb_schemas.py`
+- [ ] Step 2: `policy.py` + `tests/test_acb_policy.py`
+- [ ] Step 3: Prompt bundle `app/prompts/acb/v1/` + rendering + distinctness tests
+- [ ] Step 4: `ActorCriticBossOrchestrator` + `tests/test_acb_orchestrator.py`
+- [ ] Step 5: Settings fields + `.env.example` + config tests
+- [ ] Step 6: `LLMPipeline.run_structured_with_acb`
+- [ ] Step 7: Session service activation + `SessionEstimateRequest.orchestration`
+- [ ] Step 8: Observability, dev trace, integration tests, README + technical doc
 
 ## Pull Request
 
-_TBD during `/start-task`._
+- Draft: _TBD after branch push_
