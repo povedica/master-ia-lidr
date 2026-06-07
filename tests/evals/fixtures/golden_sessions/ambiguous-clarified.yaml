@@ -1,0 +1,56 @@
+case_id: ambiguous-clarified
+category: ambiguous
+description: Vague first turn; constraints and stack clarified across turns 2–3.
+turns:
+  - label: vague
+    submit:
+      project_name: Client Portal
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        We want some kind of client portal for our agency clients. Not sure yet
+        about exact features — maybe dashboards, maybe document sharing. Budget
+        is flexible but timeline is Q3 delivery.
+    expect_status: 200
+    skip_estimate: false
+  - label: clarify
+    submit:
+      project_name: Client Portal
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Clarifying Client Portal scope: must include authenticated dashboards,
+        PDF document upload and preview, and email notifications. No mobile
+        native app — web responsive only. Python backend preferred.
+    expect_status: 200
+    skip_estimate: false
+  - label: finalize
+    submit:
+      project_name: Client Portal
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Final constraints for Client Portal: GDPR compliance required, must use
+        PostgreSQL, and SSO via Google Workspace. Deadline constraint is end of Q3.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 2
+expected_metadata_signals:
+  project_name: Client Portal
+  detected_constraints_contains:
+    - gdpr
+success_criteria:
+  expected_hours_range: [80, 300]
+  expected_components:
+    - authentication
+    - dashboard
+    - document
+  expected_risks:
+    - compliance
+  hard_constraints:
+    min_line_items: 4
+    must_not_mention:
+      - mobile app
+notes_for_judge: >
+  Estimate at turn 3 must incorporate clarified features and explicit no-mobile
+  constraint from turn 2, plus GDPR/SSO from turn 3.

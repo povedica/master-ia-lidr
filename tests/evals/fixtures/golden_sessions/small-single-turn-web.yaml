@@ -1,0 +1,35 @@
+case_id: small-single-turn-web
+category: small
+description: Well-scoped B2B web MVP described in a single discovery turn.
+turns:
+  - label: discovery
+    submit:
+      project_name: Portal Acme
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        We need a B2B SaaS customer portal for Acme Corp. Stack: Python, FastAPI,
+        PostgreSQL. Team of 4 developers. Scope includes user authentication,
+        an executive dashboard, and basic billing integration with Stripe.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 0
+expected_metadata_signals:
+  project_name: Portal Acme
+  project_type: web_saas
+  target_audience: b2b_smb
+success_criteria:
+  expected_hours_range: [40, 120]
+  expected_components:
+    - authentication
+    - dashboard
+  expected_risks:
+    - integration
+  expected_confidence_band: [0.3, 0.9]
+  hard_constraints:
+    min_line_items: 3
+    must_not_mention:
+      - wordpress
+notes_for_judge: >
+  Single-turn MVP; estimate should cover auth, dashboard, and billing scope
+  without inventing mobile or unrelated platforms.

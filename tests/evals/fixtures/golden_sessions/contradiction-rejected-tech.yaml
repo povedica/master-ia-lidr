@@ -1,0 +1,44 @@
+case_id: contradiction-rejected-tech
+category: contradiction
+description: Turn 2 rejects WordPress; final estimate must not reintroduce it.
+turns:
+  - label: initial
+    submit:
+      project_name: Marketing Site
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Marketing website for our product launch. Considering WordPress or a
+        custom React frontend with a headless CMS. Need landing pages, blog,
+        contact forms, and analytics integration.
+    expect_status: 200
+    skip_estimate: false
+  - label: rejection
+    submit:
+      project_name: Marketing Site
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Update for Marketing Site: we reject WordPress entirely. Must use React
+        with Next.js and Contentful as headless CMS. No PHP stack. Team prefers
+        TypeScript on the frontend.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 1
+expected_metadata_signals:
+  project_name: Marketing Site
+  detected_constraints_contains:
+    - reject
+success_criteria:
+  expected_hours_range: [40, 160]
+  expected_components:
+    - react
+    - cms
+  hard_constraints:
+    min_line_items: 3
+    must_not_mention:
+      - wordpress
+      - php
+notes_for_judge: >
+  User explicitly rejected WordPress in turn 2. Penalize any estimate that
+  mentions WordPress, PHP, or suggests CMS options contrary to the rejection.
