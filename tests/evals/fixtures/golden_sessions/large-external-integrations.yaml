@@ -1,0 +1,40 @@
+case_id: large-external-integrations
+category: large
+description: Enterprise portal with payments, CRM, and webhook integrations.
+turns:
+  - label: discovery
+    submit:
+      project_name: Enterprise Hub
+      project_type: web_saas
+      target_audience: b2b_enterprise
+      transcript: |
+        Enterprise customer hub for GlobalCorp. Must integrate Stripe payments,
+        Salesforce CRM sync, and outbound webhooks for order events.
+        Must comply with GDPR data retention policies.
+        Includes SSO via SAML, role-based access control, and audit logging.
+        Expected team of 8 engineers over 6 months.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 0
+expected_metadata_signals:
+  project_name: Enterprise Hub
+  project_type: web_saas
+  target_audience: b2b_enterprise
+  detected_constraints_contains:
+    - gdpr
+success_criteria:
+  expected_hours_range: [400, 2000]
+  expected_components:
+    - authentication
+    - integration
+    - webhook
+  expected_risks:
+    - external_api
+    - compliance
+  hard_constraints:
+    min_line_items: 5
+    must_not_mention:
+      - wordpress
+notes_for_judge: >
+  Large integration-heavy scope; line items and risks should reference external
+  systems and compliance, not a generic CRUD app.

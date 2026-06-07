@@ -446,22 +446,22 @@ or explicit_constraints in the metadata.
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `docs/work-items/feature-024-llm-as-judge-session-evals.md` is the canonical spec (this document).
-- [ ] **AC-02:** 6–10 golden YAML cases exist under `tests/evals/fixtures/golden_sessions/` covering all six mandatory categories.
-- [ ] **AC-03:** Pydantic loader validates goldens at import/collection; invalid YAML fails fast.
-- [ ] **AC-04:** `SessionEvalRunner` replays multi-turn cases via `POST /api/v1/sessions/{id}/estimate` and returns `SessionEvalOutcome`.
-- [ ] **AC-05:** Hard deterministic tests pass with fake LLM and no API keys (`uv run pytest tests/evals -m "evals and not slow"`).
-- [ ] **AC-06:** Hard tests check schema, required fields, hours range, components, metadata signals, and hard constraints — no exact text equality.
-- [ ] **AC-07:** Soft consistency tests exist for 2–3 goldens, marked `slow` + `soft`, skipped without live estimator credentials.
-- [ ] **AC-08:** At least three GEval metrics implemented: `SessionContextUse`, `ScopeCoherence`, `JustificationQuality`.
-- [ ] **AC-09:** Judge tests marked `judge` + `slow`; skip cleanly when judge credentials absent.
-- [ ] **AC-10:** Judge metrics use domain-specific criteria and configurable thresholds in `thresholds.py`.
-- [ ] **AC-11:** Pytest marks registered in `pyproject.toml`; README documents run commands.
-- [ ] **AC-12:** `.env.example` documents all `EVAL_*` variables without secrets.
-- [ ] **AC-13:** `docs/evals/session-estimation-evals.md` explains architecture, usage, calibration, limitations.
-- [ ] **AC-14:** No eval imports in `app/` production modules; existing suite still passes (`uv run pytest -m "not slow"`).
-- [ ] **AC-15:** Optional judge artifacts written to gitignored `tests/evals/artifacts/` on failure.
-- [ ] **AC-16:** `FakeStructuredLLM` or eval fake can emit golden-aligned structured responses for hard tests.
+- [x] **AC-01:** `docs/work-items/feature-024-llm-as-judge-session-evals.md` is the canonical spec (this document).
+- [x] **AC-02:** 6–10 golden YAML cases exist under `tests/evals/fixtures/golden_sessions/` covering all six mandatory categories.
+- [x] **AC-03:** Pydantic loader validates goldens at import/collection; invalid YAML fails fast.
+- [x] **AC-04:** `SessionEvalRunner` replays multi-turn cases via `POST /api/v1/sessions/{id}/estimate` and returns `SessionEvalOutcome`.
+- [x] **AC-05:** Hard deterministic tests pass with fake LLM and no API keys (`uv run pytest tests/evals -m "evals and not slow"`).
+- [x] **AC-06:** Hard tests check schema, required fields, hours range, components, metadata signals, and hard constraints — no exact text equality.
+- [x] **AC-07:** Soft consistency tests exist for 2–3 goldens, marked `slow` + `soft`, skipped without live estimator credentials.
+- [x] **AC-08:** At least three GEval metrics implemented: `SessionContextUse`, `ScopeCoherence`, `JustificationQuality`.
+- [x] **AC-09:** Judge tests marked `judge` + `slow`; skip cleanly when judge credentials absent.
+- [x] **AC-10:** Judge metrics use domain-specific criteria and configurable thresholds in `thresholds.py`.
+- [x] **AC-11:** Pytest marks registered in `pyproject.toml`; README documents run commands.
+- [x] **AC-12:** `.env.example` documents all `EVAL_*` variables without secrets.
+- [x] **AC-13:** `docs/evals/session-estimation-evals.md` explains architecture, usage, calibration, limitations.
+- [x] **AC-14:** No eval imports in `app/` production modules; existing suite still passes (`uv run pytest -m "not slow"`).
+- [x] **AC-15:** Optional judge artifacts written to gitignored `tests/evals/artifacts/` on failure.
+- [x] **AC-16:** `FakeStructuredLLM` or eval fake can emit golden-aligned structured responses for hard tests.
 
 ## Test Plan
 
@@ -499,11 +499,18 @@ or explicit_constraints in the metadata.
 - Run judge suite with real credentials on 1–2 goldens; inspect artifact JSON and DeepEval verbose output.
 - Confirm README run commands match actual pytest behavior.
 
-### Not verified yet (until implementation)
+### Verified (2026-06-07)
+
+- `uv run pytest tests/evals/test_loader.py tests/evals/test_serialization.py` — **20 passed** (full eval folder including unit layers).
+- `uv run pytest tests/evals -m "evals and not slow"` — **7 passed** (hard deterministic parametrized cases + runner).
+- `uv run pytest -m "not slow"` — **308 passed**, 9 skipped (no regression).
+- Judge and soft suites **skip cleanly** without `EVAL_*` credentials (8 skipped in full eval folder).
+
+### Not verified (requires live keys)
 
 - Judge threshold calibration on production-like model versions.
-- Cost/latency budget for full judge run (estimate ~6–10 LLM calls per metric per case).
-- Cross-provider judge (`anthropic`) if implemented.
+- Cost/latency budget for full judge run.
+- Cross-provider judge (`anthropic`) end-to-end.
 
 ## Documentation Plan
 
@@ -568,18 +575,35 @@ or explicit_constraints in the metadata.
 
 ## Estimation
 
-| Layer | Files (approx.) | Effort |
-| --- | --- | --- |
-| Models + loader + 6 goldens | ~12 | 0.5 day |
-| Runner + fake + hard tests | ~8 | 0.5 day |
-| Judge metrics + tests | ~6 | 0.5 day |
-| Soft tests + docs | ~5 | 0.25 day |
-| **Total** | ~30 | **~1.75 days** |
+- Size: **M**
+- Estimated time: ~1.75 days (spec)
+- Planned steps: 7
+- Actual: 7 steps completed in one session
 
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [x] Step 1: Scaffold and dependencies (`deepeval`, pytest marks, artifacts gitignore)
+- [x] Step 2: Golden dataset and models (6 YAML cases, loader unit tests)
+- [x] Step 3: Session runner and `EvalStructuredLLM` fake
+- [x] Step 4: Hard deterministic tests (`assertions.py`, parametrized over goldens)
+- [x] Step 5: Judge infrastructure (config, serialization, 6 GEval metrics)
+- [x] Step 6: Soft + judge tests with skip markers and failure artifacts
+- [x] Step 7: Documentation (`docs/evals/`, README, `.env.example`)
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+- **Draft PR:** https://github.com/povedica/master-ia-lidr/pull/22
+- **Branch:** `feature/024-llm-as-judge-session-evals`
+- **Label:** `wip`
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| `chore(evals): scaffold session eval suite with deps and pytest marks` | deepeval/pyyaml dev deps, markers, thresholds, gitignore |
+| `feat(evals): add golden session models, loader, and six YAML cases` | Pydantic models, YAML loader, 6 mandatory category goldens |
+| `feat(evals): add session runner and golden-aligned eval fake LLM` | HTTP replay runner, eval settings harness, EvalStructuredLLM |
+| `feat(evals): add hard deterministic property tests for all goldens` | Property assertions, parametrized hard tests |
+| `feat(evals): add judge config, GEval metrics, and serialization` | DeepEval metrics, judge config, context serialization |
+| `feat(evals): add soft consistency and LLM-as-judge test suites` | Soft multi-run tests, judge runner, failure artifacts |
+| `docs(evals): add session eval guide and EVAL_* env documentation` | Team guide, README section, `.env.example` |

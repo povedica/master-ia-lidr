@@ -1,0 +1,37 @@
+case_id: spanish-b2b-portal
+category: multilingual
+description: Spanish discovery transcript with B2B portal metadata expectations.
+turns:
+  - label: descubrimiento
+    submit:
+      project_name: Portal B2B Iberia
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Necesitamos un portal B2B para clientes mayoristas en España. Stack:
+        Python, FastAPI, PostgreSQL. Alcance: autenticación de usuarios,
+        panel de control con métricas de pedidos, integración con ERP SAP y
+        facturación electrónica conforme a normativa española. Equipo de 5
+        desarrolladores.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 0
+expected_metadata_signals:
+  project_name: Portal B2B Iberia
+  project_type: web_saas
+  target_audience: b2b_smb
+success_criteria:
+  expected_hours_range: [80, 250]
+  expected_components:
+    - autenticación
+    - panel
+    - integración
+  expected_risks:
+    - integración
+  hard_constraints:
+    min_line_items: 3
+    must_not_mention:
+      - wordpress
+notes_for_judge: >
+  Spanish-language session; estimate should reflect ERP integration and B2B
+  portal scope described in the transcript, regardless of output language.

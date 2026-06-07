@@ -1,0 +1,46 @@
+case_id: medium-redis-second-turn
+category: medium
+description: Scope clarified in turn 2 with Redis caching requirement.
+turns:
+  - label: discovery
+    submit:
+      project_name: Acme Portal
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        We need a B2B SaaS customer portal for Acme Corp. Stack: Python, FastAPI,
+        PostgreSQL. Team of 4 developers. Scope: authentication, dashboard,
+        billing integration.
+    expect_status: 200
+    skip_estimate: false
+  - label: caching
+    submit:
+      project_name: Acme Portal
+      project_type: web_saas
+      target_audience: b2b_smb
+      transcript: >
+        Same Acme Portal project — add Redis caching for session tokens and keep
+        the existing PostgreSQL datastore. Must support horizontal scaling.
+    expect_status: 200
+    skip_estimate: false
+eval_turn_index: 1
+expected_metadata_signals:
+  project_name: Acme Portal
+  project_type: web_saas
+  target_audience: b2b_smb
+  detected_constraints_contains:
+    - scaling
+success_criteria:
+  expected_hours_range: [60, 180]
+  expected_components:
+    - authentication
+    - redis
+    - dashboard
+  expected_risks:
+    - cache
+  hard_constraints:
+    min_line_items: 4
+    must_not_mention:
+      - wordpress
+notes_for_judge: >
+  Final estimate must reflect Redis caching added in turn 2, not only turn 1 scope.
