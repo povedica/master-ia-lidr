@@ -51,10 +51,7 @@ def _artifact(bucket_hash: str) -> CachedEstimationArtifact:
         guardrail_rules_version="registry-default",
         provider="openai",
         model="gpt-4o-mini",
-        mode="standard",
         result={"title": "Cached estimate"},
-        assessment={},
-        mode_eligibility={},
         finish_reason="stop",
     )
 

@@ -8,7 +8,6 @@ from app.config import Settings
 from app.guardrails.llm_pipeline import LLMPipeline
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
-from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.estimation_request_render import render_estimation_assessment_surface
 from app.services.llm_service import StructuredEstimateBundle, UsageInfo
 from tests.estimation_fixtures import minimal_estimation_request_dict
@@ -48,28 +47,15 @@ class _StubStructuredService:
             duration_weeks=2.0,
             confidence=0.8,
         )
-        assess = InputAssessment(
-            detail_level="medium",
-            recommended_mode=EstimationMode.STANDARD,
-            reason="stub",
-        )
-        mel = ModeEligibility(
-            allowed_modes=(EstimationMode.STANDARD,),
-            blocked_modes=(),
-            reason=None,
-        )
         return StructuredEstimateBundle(
             result=result,
             prompt_version="stub/prompt",
             examples_version="stub/ex",
-            mode=EstimationMode.STANDARD,
             model="stub-model",
             provider="stub",
             usage=UsageInfo(prompt_tokens=1, completion_tokens=2, total_tokens=3),
             degraded=False,
             finish_reason="stop",
-            assessment=assess,
-            mode_eligibility=mel,
         )
 
 

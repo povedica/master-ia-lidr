@@ -8,7 +8,6 @@ from app.config import Settings
 from app.guardrails.llm_pipeline import LLMPipeline
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
-from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.estimation_request_render import render_estimation_assessment_surface
 from app.services.llm_service import StructuredEstimateBundle, StructuredPrelude, UsageInfo
 from app.services.semantic_cache.embeddings import FakeEmbeddingProvider
@@ -29,21 +28,8 @@ class _StubWithPrelude:
         skip_domain_guardrail: bool = False,
     ) -> StructuredPrelude:
         del request, assessment_surface, skip_domain_guardrail
-        assess = InputAssessment(
-            detail_level="medium",
-            recommended_mode=EstimationMode.STANDARD,
-            reason="stub",
-        )
-        mel = ModeEligibility(
-            allowed_modes=(EstimationMode.STANDARD,),
-            blocked_modes=(),
-            reason=None,
-        )
         return StructuredPrelude(
             preprocessed_markdown_for_template=None,
-            mode=EstimationMode.STANDARD,
-            assessment=assess,
-            mode_eligibility=mel,
             phase1_prep_in=0,
             phase1_prep_out=0,
             max_output_tokens=2048,
@@ -73,28 +59,15 @@ class _StubWithPrelude:
             duration_weeks=2.0,
             confidence=0.8,
         )
-        assess = InputAssessment(
-            detail_level="medium",
-            recommended_mode=EstimationMode.STANDARD,
-            reason="stub",
-        )
-        mel = ModeEligibility(
-            allowed_modes=(EstimationMode.STANDARD,),
-            blocked_modes=(),
-            reason=None,
-        )
         return StructuredEstimateBundle(
             result=result,
             prompt_version="stub/prompt",
             examples_version="stub/ex",
-            mode=EstimationMode.STANDARD,
             model="stub-model",
             provider="stub",
             usage=UsageInfo(prompt_tokens=1, completion_tokens=2, total_tokens=3),
             degraded=False,
             finish_reason="stop",
-            assessment=assess,
-            mode_eligibility=mel,
         )
 
 

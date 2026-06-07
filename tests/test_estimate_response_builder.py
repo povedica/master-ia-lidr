@@ -3,7 +3,6 @@
 from datetime import UTC, datetime
 
 from app.services.estimate_response_builder import assemble_estimate_response, dev_response_property_rows
-from app.services.estimation_engine import EstimationMode
 from app.services.llm_service import LlmEstimationCallOutcome, UsageInfo
 
 
@@ -13,9 +12,6 @@ def test_assemble_dev_mode_matches_expected_top_level_keys() -> None:
         provider="openai",
         model="gpt-4o-mini",
         usage=UsageInfo(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-        mode=EstimationMode.STANDARD,
-        assessment=None,
-        mode_eligibility=None,
         finish_reason="stop",
     )
     finished = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
@@ -32,7 +28,6 @@ def test_assemble_dev_mode_matches_expected_top_level_keys() -> None:
     dumped = response.model_dump(mode="json", exclude_none=True)
     assert set(dumped.keys()) >= {
         "estimation",
-        "mode",
         "model",
         "provider",
         "request_id",
@@ -52,7 +47,6 @@ def test_dev_rows_sorted_by_field_name() -> None:
         provider="openai",
         model="gpt-4o-mini",
         usage=None,
-        mode=EstimationMode.BASIC,
         finish_reason="stop",
     )
     finished = datetime(2026, 1, 15, tzinfo=UTC)
@@ -76,7 +70,6 @@ def test_evaluate_false_omits_score_in_serialised_rows() -> None:
         provider="openai",
         model="gpt-4o-mini",
         usage=None,
-        mode=EstimationMode.BASIC,
         finish_reason="stop",
     )
     finished = datetime(2026, 1, 15, tzinfo=UTC)
@@ -93,7 +86,7 @@ def test_evaluate_false_omits_score_in_serialised_rows() -> None:
     assert not any(r["field"] == "score" for r in rows)
 
 
-def test_evaluate_true_includes_score_and_nested_blocks() -> None:
+def test_evaluate_true_includes_score_and_structure_evaluation() -> None:
     body = (
         "## Estimation: mocked output\n\n"
         "### Assumptions\nx\n### Estimate\ny\n### Risks\nz\n"
@@ -104,7 +97,6 @@ def test_evaluate_true_includes_score_and_nested_blocks() -> None:
         provider="openai",
         model="gpt-4o-mini",
         usage=None,
-        mode=EstimationMode.BASIC,
         finish_reason="stop",
     )
     finished = datetime(2026, 1, 15, tzinfo=UTC)
@@ -120,5 +112,5 @@ def test_evaluate_true_includes_score_and_nested_blocks() -> None:
     rows = dev_response_property_rows(response)
     fields = {r["field"] for r in rows}
     assert "score" in fields
-    assert "output_validation" in fields
     assert "structure_evaluation" in fields
+    assert "output_validation" not in fields

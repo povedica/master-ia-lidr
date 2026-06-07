@@ -14,7 +14,6 @@ from app.routers.sessions import get_simplified_session_service, router
 from app.schemas.estimation_request import ProjectType, TargetAudience
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
 from app.schemas.simplified_session import SessionEstimateRequest
-from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.llm_service import DomainGuardrailError, StructuredEstimateBundle, UsageInfo
 from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
@@ -52,22 +51,11 @@ def _bundle() -> StructuredEstimateBundle:
         result=result,
         prompt_version="estimation/v2",
         examples_version="ex",
-        mode=EstimationMode.STANDARD,
         model="gpt-4o-mini",
         provider="openai",
         usage=UsageInfo(prompt_tokens=1, completion_tokens=1, total_tokens=2),
         degraded=False,
         finish_reason="stop",
-        assessment=InputAssessment(
-            detail_level="medium",
-            recommended_mode=EstimationMode.STANDARD,
-            reason="fixture",
-        ),
-        mode_eligibility=ModeEligibility(
-            allowed_modes=(EstimationMode.STANDARD,),
-            blocked_modes=(),
-            reason=None,
-        ),
     )
 
 

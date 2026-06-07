@@ -12,16 +12,15 @@ def test_v2_bundle_has_system_instructions_not_modes_dir() -> None:
     assert not (v2 / "partials" / "modes").exists()
 
 
-def test_system_instructions_renders_routing_metadata() -> None:
+def test_system_instructions_renders_detail_level_and_output_format() -> None:
     ts = resolve_prompt_template_set("estimation", "v2")
     text = PromptRenderer().render_partial(
         ts.system_instructions_template,
         {
-            "estimation_mode": "standard",
             "detail_level": "medium",
             "output_format": "phases_table",
         },
     )
-    assert "estimation profile (routing): standard" in text.lower()
+    assert "estimation profile (routing)" not in text.lower()
     assert "medium" in text
     assert "phases_table" in text

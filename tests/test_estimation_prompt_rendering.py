@@ -10,7 +10,6 @@ from app.schemas.estimation_request import (
     ProjectType,
     TargetAudience,
 )
-from app.services.estimation_engine import EstimationMode
 from app.services.estimation_prompt_rendering import (
     render_estimation_prompt,
     render_session_system_prompt,
@@ -32,7 +31,7 @@ def _minimal_request() -> EstimationRequest:
     )
 
 
-def test_render_estimation_prompt_includes_mode_and_version() -> None:
+def test_render_estimation_prompt_includes_version_and_guided_fields() -> None:
     req = _minimal_request()
     ex = [
         EstimationExample(meeting_summary="m1", estimation="e1"),
@@ -40,7 +39,6 @@ def test_render_estimation_prompt_includes_mode_and_version() -> None:
     ]
     out = render_estimation_prompt(
         req,
-        mode=EstimationMode.STANDARD,
         examples=ex,
         preprocessing="none",
         preprocessed_requirements=None,

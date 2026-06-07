@@ -9,11 +9,12 @@ def test_system_instructions_template_is_non_empty() -> None:
     text = PromptRenderer().render_partial(
         ts.system_instructions_template,
         {
-            "estimation_mode": "standard",
             "detail_level": "medium",
             "output_format": "phases_table",
         },
     )
     assert len(text) >= 200
     assert "practical estimation" in text.lower()
-    assert "estimation profile (routing): standard" in text.lower()
+    assert "estimation profile (routing)" not in text.lower()
+    assert "medium" in text
+    assert "phases_table" in text

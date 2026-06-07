@@ -12,7 +12,6 @@ from app.routers.estimations import get_estimation_service
 from app.routers import estimations_v2
 from app.services import response_output_writer
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
-from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.llm_service import (
     DomainGuardrailError,
     EstimationError,
@@ -36,9 +35,6 @@ class _FakeEstimationService:
             provider="openai",
             model="gpt-4o-mini",
             usage=UsageInfo(prompt_tokens=100, completion_tokens=50, total_tokens=150),
-            mode=EstimationMode.BASIC,
-            assessment=None,
-            mode_eligibility=None,
             finish_reason="stop",
         )
 
@@ -55,9 +51,6 @@ class _FakeStaticFallbackEstimationService:
             provider="static_fallback",
             model="static-v1",
             usage=None,
-            mode=EstimationMode.BASIC,
-            assessment=None,
-            mode_eligibility=None,
             degraded=True,
             finish_reason="stop",
         )
@@ -123,13 +116,12 @@ def test_estimate_returns_expected_shape_with_mocked_service() -> None:
     assert body["estimation"].startswith("## Estimation")
     assert body["provider"] == "openai"
     assert body["model"] == "gpt-4o-mini"
-    assert body["mode"] == "basic"
     assert body["request_id"].startswith("est_")
     assert body["timestamp"]
     assert isinstance(body["latency_ms"], int)
     assert body["latency_ms"] >= 0
     assert body["prompt_version"] == "v7-guided-input"
-    assert body["examples_version"] == "file-mode-v4-estimator-layout"
+    assert body["examples_version"] == "file-flat-v1-unified-pool"
     assert body["usage"]["total_tokens"] == 150
     assert body["usage"]["preprocessing_input_tokens"] == 0
     assert body["usage"]["preprocessing_output_tokens"] == 0
@@ -159,9 +151,7 @@ def test_estimate_returns_estimator_scoring_by_default() -> None:
     assert body["score"] == 0.25
     assert body["structure_evaluation"] is not None
     assert body["structure_evaluation"]["score"] == body["score"]
-    assert body["output_validation"] is not None
-    assert body["output_validation"]["finish_reason_ok"] is True
-    assert body["output_validation"]["mode"] == "basic"
+    assert "output_validation" not in body
 
 
 def test_estimate_rejects_invalid_preprocessing() -> None:
@@ -245,7 +235,6 @@ def test_estimate_includes_degraded_only_for_static_fallback() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["provider"] == "static_fallback"
-    assert body["mode"] == "basic"
     assert body["degraded"] is True
     assert "score" not in body
     assert "usage" not in body
@@ -370,7 +359,6 @@ def test_estimate_appends_stats_jsonl_when_stats_log_enabled(
     row = json.loads(lines[0])
     assert "estimation" not in row
     assert row["provider"] == "openai"
-    assert row["mode"] == "basic"
     assert row["request_id"].startswith("est_")
     assert row["usage"]["total_tokens"] == 150
     assert row["usage"]["preprocessing_input_tokens"] == 0
@@ -460,28 +448,15 @@ class _FakeStructuredEstimationService:
             duration_weeks=1.0,
             confidence=0.7,
         )
-        assess = InputAssessment(
-            detail_level="medium",
-            recommended_mode=EstimationMode.STANDARD,
-            reason="fixture",
-        )
-        mel = ModeEligibility(
-            allowed_modes=(EstimationMode.STANDARD, EstimationMode.BASIC),
-            blocked_modes=(),
-            reason=None,
-        )
         return StructuredEstimateBundle(
             result=result,
             prompt_version="estimation/v1",
             examples_version="fixture-ex",
-            mode=EstimationMode.STANDARD,
             model="gpt-4o-mini",
             provider="openai",
             usage=UsageInfo(prompt_tokens=10, completion_tokens=20, total_tokens=30),
             degraded=False,
             finish_reason="stop",
-            assessment=assess,
-            mode_eligibility=mel,
         )
 
 def test_v2_estimate_returns_structured_result() -> None:

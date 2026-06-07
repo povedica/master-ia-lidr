@@ -7,7 +7,6 @@ import pytest
 
 from app.config import Settings
 from app.context.examples import load_examples
-from app.services.estimation_engine import EstimationMode
 from app.services.llm_service import (
     DomainGuardrailError,
     EstimationError,
@@ -25,18 +24,18 @@ from app.services.llm_types import (
 
 def test_build_system_prompt_includes_inline_cleaning_when_enabled() -> None:
     examples = load_examples()
-    prompt = build_system_prompt(examples, EstimationMode.STANDARD, inline_cleaning=True)
+    prompt = build_system_prompt(examples, inline_cleaning=True)
     assert "Extract ONLY the functional" in prompt
 
 
 def test_build_system_prompt_includes_both_example_summaries() -> None:
     examples = load_examples()
-    prompt = build_system_prompt(examples, EstimationMode.STANDARD)
+    prompt = build_system_prompt(examples)
     assert len(examples) >= 2
     assert "Reference estimation examples" in prompt
     assert "Historical estimation sample" in prompt
     assert "Example 1 — meeting summary" in prompt
-    assert "estimation profile (routing): standard" in prompt.lower()
+    assert "estimation profile (routing)" not in prompt.lower()
     assert "practical estimation" in prompt.lower()
     assert "simulated role rate card" in prompt.lower()
 
@@ -151,14 +150,9 @@ async def test_estimate_returns_primary_result_without_fallback() -> None:
     result = await service.estimate(transcription)
     assert result.provider == "openai"
     assert result.model == "gpt-4o-mini"
-    assert result.mode == EstimationMode.BASIC
-    assert result.assessment is not None
-    assert result.assessment.recommended_mode == EstimationMode.BASIC
-    assert result.mode_eligibility is not None
-    assert EstimationMode.BASIC in result.mode_eligibility.allowed_modes
     assert primary.calls == 1
     assert secondary.calls == 0
-    assert primary.last_max_output_tokens == 1024
+    assert primary.last_max_output_tokens == 2048
 
 
 @pytest.mark.asyncio
@@ -261,31 +255,6 @@ async def test_estimate_returns_static_degraded_when_real_providers_fail() -> No
 
 
 @pytest.mark.asyncio
-async def test_estimate_downgrades_expert_review_when_input_quality_is_low() -> None:
-    provider = _StubProvider(
-        name="openai",
-        model="gpt-4o-mini",
-        _result=ProviderResult(
-            text="## Assumptions\n- a\n\n## Tasks\n- b\n\n## Effort summary\n- c",
-            provider="openai",
-            model="gpt-4o-mini",
-            usage=None,
-        ),
-    )
-    service = EstimationService(_settings(), providers=[provider])
-
-    result = await service.estimate(
-        "Maybe we need something like a platform, not sure yet, whatever works."
-    )
-    assert result.assessment is not None
-    assert result.assessment.recommended_mode == EstimationMode.EXPERT_REVIEW
-    assert result.mode == EstimationMode.STANDARD
-    assert result.mode_eligibility is not None
-    assert EstimationMode.EXPERT_REVIEW in result.mode_eligibility.blocked_modes
-    assert result.mode_eligibility.reason == "Input detail is insufficient."
-
-
-@pytest.mark.asyncio
 async def test_estimate_raises_when_all_providers_fail() -> None:
     providers = [
         _StubProvider(name="openai", model="gpt-4o-mini", _error=ProviderTimeoutError("timeout")),
@@ -293,36 +262,6 @@ async def test_estimate_raises_when_all_providers_fail() -> None:
     service = EstimationService(_settings(), providers=providers)
     with pytest.raises(EstimationError, match="All providers failed"):
         await service.estimate("Client needs a portal.")
-
-
-@pytest.mark.asyncio
-async def test_estimate_falls_back_when_primary_output_is_structurally_invalid() -> None:
-    primary = _StubProvider(
-        name="openai",
-        model="gpt-4o-mini",
-        _result=ProviderResult(
-            text="## Estimation: too short",
-            provider="openai",
-            model="gpt-4o-mini",
-            usage=None,
-        ),
-    )
-    secondary = _StubProvider(
-        name="anthropic",
-        model="claude-3-5-haiku-latest",
-        _result=ProviderResult(
-            text="## Assumptions\n- a\n\n## Estimate range\n- b\n\n## Risks\n- c",
-            provider="anthropic",
-            model="claude-3-5-haiku-latest",
-            usage=None,
-        ),
-    )
-    service = EstimationService(_settings(), providers=[primary, secondary])
-
-    result = await service.estimate("Client needs a portal.")
-    assert result.provider == "anthropic"
-    assert primary.calls == 1
-    assert secondary.calls == 1
 
 
 @pytest.mark.asyncio
