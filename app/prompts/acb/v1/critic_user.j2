@@ -1,0 +1,16 @@
+Evaluate the Actor candidate below against the original context.
+
+## Assessment surface
+{{ assessment_surface }}
+
+## Project metadata
+{% for key, value in project_metadata.items() %}
+- {{ key }}: {{ value }}
+{% endfor %}
+
+## Actor candidate (JSON)
+```json
+{{ candidate_json }}
+```
+
+List material defects as structured issues. Empty issues with overall_assessment=pass when no material defects exist.
