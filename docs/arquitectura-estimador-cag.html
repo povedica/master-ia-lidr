@@ -1,0 +1,2906 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Documentación técnica interactiva del Estimador CAG — arquitectura, flujos, stack y consumo de tokens." />
+  <title>Estimador CAG — Guía Técnica Interactiva</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --bg-elevated: #1a2332;
+      --bg-card: #1e2a3a;
+      --border: #2d3f54;
+      --text: #e8edf4;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-dim: #0ea5e9;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --purple: #a78bfa;
+      --radius: 12px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      --nav-width: 300px;
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      /* Typography scale (base html = 19px) */
+      --text-xs: 0.8rem;
+      --text-sm: 0.925rem;
+      --text-base: 1rem;
+      --text-md: 1.0625rem;
+      --text-lg: 1.2rem;
+      --text-xl: 1.45rem;
+      --text-2xl: 1.75rem;
+      --text-3xl: 2.25rem;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 2rem;
+      font-size: 19px;
+    }
+
+    body {
+      font-family: var(--font);
+      font-size: var(--text-base);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: var(--nav-width) 1fr;
+      min-height: 100vh;
+    }
+
+    nav.sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      z-index: 100;
+    }
+
+    nav.sidebar .brand {
+      padding: 0 1.25rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+
+    nav.sidebar .brand h1 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    nav.sidebar .brand p {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    nav.sidebar ul { list-style: none; }
+
+    nav.sidebar a {
+      display: block;
+      padding: 0.55rem 1.25rem;
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: var(--transition);
+    }
+
+    nav.sidebar a:hover,
+    nav.sidebar a.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      border-left-color: var(--accent);
+    }
+
+    main {
+      padding: 2rem 2.5rem 4rem;
+      max-width: 1200px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(56, 189, 248, 0.12) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero h2 {
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero .subtitle {
+      color: var(--text-muted);
+      font-size: var(--text-md);
+      max-width: 720px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge.green { background: rgba(52, 211, 153, 0.15); color: var(--success); border-color: rgba(52, 211, 153, 0.3); }
+    .badge.amber { background: rgba(251, 191, 36, 0.15); color: var(--warning); border-color: rgba(251, 191, 36, 0.3); }
+    .badge.purple { background: rgba(167, 139, 250, 0.15); color: var(--purple); border-color: rgba(167, 139, 250, 0.3); }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 3rem;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    section > h2 {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    section > h2 .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #0f1419;
+      font-size: var(--text-sm);
+      font-weight: 800;
+    }
+
+    section > p.lead {
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      font-size: var(--text-md);
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    /* ── Cards & Grid ── */
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+      transition: transform var(--transition), border-color var(--transition);
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .card h4 {
+      font-size: var(--text-md);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .card p, .card li { font-size: var(--text-sm); color: var(--text-muted); }
+    .card ul { padding-left: 1.1rem; margin-top: 0.5rem; }
+
+    /* ── Tables ── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 1rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+    }
+
+    th, td {
+      padding: 0.75rem 1.1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg-elevated);
+      font-weight: 600;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(56, 189, 248, 0.04); }
+
+    code, .mono {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* ── File tree ── */
+    .file-tree {
+      font-family: var(--mono);
+      font-size: var(--text-sm);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      line-height: 1.8;
+    }
+
+    .tree-node { cursor: pointer; user-select: none; }
+    .tree-node::before {
+      content: "▸ ";
+      display: inline-block;
+      transition: transform 0.2s;
+      color: var(--accent);
+    }
+    .tree-node.open::before { transform: rotate(90deg); }
+    .tree-children { display: none; padding-left: 1.25rem; }
+    .tree-node.open + .tree-children { display: block; }
+    .tree-leaf { color: var(--text-muted); padding-left: 1rem; }
+    .tree-leaf .comment { color: var(--text-muted); opacity: 0.7; font-style: italic; }
+
+    /* ── Diagrams ── */
+    .diagram-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    .mermaid { text-align: center; }
+
+    /* ── Flow steps (animated) ── */
+    .flow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+      margin: 1.5rem 0;
+    }
+
+    .flow-step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1rem;
+      padding: 1rem 0;
+      opacity: 0.4;
+      transition: opacity 0.4s, transform 0.4s;
+    }
+
+    .flow-step.active {
+      opacity: 1;
+      transform: translateX(4px);
+    }
+
+    .flow-step .step-num {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: var(--text-md);
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .flow-step.active .step-num {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0f1419;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+
+    .flow-step .step-body h4 { font-size: var(--text-md); margin-bottom: 0.25rem; }
+    .flow-step .step-body p { font-size: var(--text-sm); color: var(--text-muted); }
+
+    .flow-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Token meter ── */
+    .token-bar-group { margin: 1rem 0; }
+    .token-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+      margin-bottom: 0.35rem;
+    }
+    .token-bar-label span:last-child { color: var(--text-muted); font-family: var(--mono); }
+
+    .token-bar {
+      height: 10px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .token-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0;
+    }
+
+    .token-bar-fill.input { background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
+    .token-bar-fill.output { background: linear-gradient(90deg, var(--purple), #c4b5fd); }
+    .token-bar-fill.cache { background: linear-gradient(90deg, var(--success), #6ee7b7); }
+    .token-bar-fill.embed { background: linear-gradient(90deg, var(--warning), #fde68a); }
+
+    /* ── Pattern pills ── */
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .pattern-pill {
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      font-size: var(--text-sm);
+      transition: var(--transition);
+    }
+
+    .pattern-pill strong { display: block; color: var(--accent); font-size: var(--text-xs); margin-bottom: 0.25rem; }
+
+    .pattern-pill:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    /* ── Alert boxes ── */
+    .alert {
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius);
+      border-left: 4px solid;
+      margin: 1rem 0;
+      font-size: var(--text-sm);
+    }
+
+    .alert.warning { background: rgba(251, 191, 36, 0.1); border-color: var(--warning); }
+    .alert.danger { background: rgba(248, 113, 113, 0.1); border-color: var(--danger); }
+    .alert.info { background: rgba(56, 189, 248, 0.1); border-color: var(--accent); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 0.5rem 1.1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: var(--font);
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #0f1419; border-color: var(--accent); font-weight: 600; }
+    .btn.primary:hover { background: var(--accent-dim); }
+
+    .toolbar {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab {
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      transition: var(--transition);
+      font-family: var(--font);
+    }
+    .tab.active { background: var(--accent); color: #0f1419; border-color: var(--accent); font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Layer stack visual ── */
+    .layer-stack { display: flex; flex-direction: column; gap: 4px; margin: 1rem 0; }
+    .layer {
+      padding: 0.85rem 1.25rem;
+      border-radius: 8px;
+      text-align: center;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      transition: transform 0.3s;
+    }
+    .layer:hover { transform: scale(1.02); }
+    .layer.l1 { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
+    .layer.l2 { background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); margin: 0 1rem; }
+    .layer.l3 { background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); margin: 0 2rem; }
+    .layer.l4 { background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); margin: 0 3rem; }
+    .layer.l5 { background: rgba(248, 113, 113, 0.15); border: 1px solid rgba(248, 113, 113, 0.35); margin: 0 4rem; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    .mermaid svg {
+      font-size: 15px !important;
+    }
+
+    /* ── Interactive architecture diagram ── */
+    .arch-diagram {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 1rem 0;
+    }
+
+    .arch-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    [data-theme="light"] .arch-toolbar {
+      background: rgba(15, 23, 42, 0.03);
+    }
+
+    .arch-toolbar-label {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      margin-right: 0.25rem;
+    }
+
+    .arch-flow-btn {
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      font-family: var(--font);
+      transition: var(--transition);
+    }
+
+    .arch-flow-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .arch-flow-btn.active {
+      background: var(--accent);
+      color: #0f1419;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .arch-play-btn {
+      margin-left: auto;
+    }
+
+    .arch-body {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      min-height: 780px;
+    }
+
+    .arch-canvas {
+      padding: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .arch-layer-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .arch-layer-band {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: opacity 0.35s, transform 0.35s;
+    }
+
+    .arch-layer-band.band-dimmed {
+      opacity: 0.28;
+    }
+
+    .arch-layer-band.band-active {
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+    }
+
+    .arch-layer-band.l1 {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    .arch-layer-band.l2 {
+      background: rgba(167, 139, 250, 0.1);
+      border-color: rgba(167, 139, 250, 0.4);
+      margin-left: 0.65rem;
+      margin-right: 0.65rem;
+    }
+    .arch-layer-band.l3 {
+      background: rgba(52, 211, 153, 0.1);
+      border-color: rgba(52, 211, 153, 0.4);
+      margin-left: 1.3rem;
+      margin-right: 1.3rem;
+    }
+    .arch-layer-band.l4 {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.4);
+      margin-left: 1.95rem;
+      margin-right: 1.95rem;
+    }
+    .arch-layer-band.l5 {
+      background: rgba(251, 146, 60, 0.1);
+      border-color: rgba(251, 146, 60, 0.45);
+      margin-left: 2rem;
+      margin-right: 2rem;
+    }
+    .arch-layer-band.l6 {
+      background: rgba(148, 163, 184, 0.1);
+      border-color: rgba(148, 163, 184, 0.4);
+      margin-left: 2.5rem;
+      margin-right: 2.5rem;
+    }
+
+    .arch-layer-band.zone-app { border-style: solid; }
+    .arch-layer-band.zone-models {
+      border-style: dashed;
+      border-width: 2px;
+    }
+    .arch-layer-band.zone-infra {
+      border-style: dotted;
+      border-width: 2px;
+    }
+
+    .arch-layer-zone-tag {
+      margin-left: auto;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      opacity: 0.85;
+      flex-shrink: 0;
+    }
+
+    .zone-app .arch-layer-zone-tag { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+    .zone-models .arch-layer-zone-tag { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+    .zone-infra .arch-layer-zone-tag { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+    .arch-boundary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 0.55rem 1rem;
+      margin: 0.35rem 0;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .arch-boundary::before,
+    .arch-boundary::after {
+      content: "";
+      flex: 1;
+      height: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--border),
+        var(--border) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+    }
+
+    .arch-boundary span {
+      white-space: nowrap;
+      padding: 0.2rem 0.6rem;
+      border: 1px dashed var(--border);
+      border-radius: 999px;
+      background: var(--bg-elevated);
+    }
+
+    .arch-layer-band-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+    }
+
+    [data-theme="light"] .arch-layer-band-header {
+      border-bottom-color: rgba(15, 23, 42, 0.08);
+    }
+
+    .arch-layer-num {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: var(--text-sm);
+      flex-shrink: 0;
+    }
+
+    .l1 .arch-layer-num { background: rgba(56, 189, 248, 0.25); color: #38bdf8; }
+    .l2 .arch-layer-num { background: rgba(167, 139, 250, 0.25); color: #a78bfa; }
+    .l3 .arch-layer-num { background: rgba(52, 211, 153, 0.25); color: #34d399; }
+    .l4 .arch-layer-num { background: rgba(251, 191, 36, 0.25); color: #fbbf24; }
+    .l5 .arch-layer-num { background: rgba(251, 146, 60, 0.25); color: #fb923c; }
+    .l6 .arch-layer-num { background: rgba(148, 163, 184, 0.25); color: #94a3b8; }
+
+    .arch-layer-band-title strong {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .arch-layer-band-title span {
+      display: block;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 0.1rem;
+    }
+
+    .arch-layer-band-body {
+      padding: 0.85rem 1rem 1rem;
+    }
+
+    .arch-sublane {
+      margin-bottom: 0.65rem;
+    }
+
+    .arch-sublane:last-child {
+      margin-bottom: 0;
+    }
+
+    .arch-sublane-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+      padding-left: 0.15rem;
+    }
+
+    .arch-layer-bridge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 0.4rem 1rem;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      opacity: 0.65;
+      user-select: none;
+    }
+
+    .arch-layer-bridge::before,
+    .arch-layer-bridge::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      max-width: 120px;
+    }
+
+    .arch-lane-nodes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: stretch;
+    }
+
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+      padding: 0.65rem 0.85rem;
+      min-width: 130px;
+      max-width: 200px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: var(--bg-card);
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--font);
+      color: var(--text);
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .arch-node:hover {
+      border-color: rgba(56, 189, 248, 0.6);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .arch-node .arch-node-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .arch-node .arch-node-sub {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--mono);
+      line-height: 1.3;
+    }
+
+    .arch-node .arch-node-tag {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+      margin-top: 0.15rem;
+    }
+
+    .arch-node.dimmed {
+      opacity: 0.22;
+      pointer-events: none;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .arch-node.highlight {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), 0 4px 20px rgba(56, 189, 248, 0.15);
+    }
+
+    .arch-node.pulse {
+      animation: archPulse 1.2s ease infinite;
+    }
+
+    @keyframes archPulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25); }
+      50% { box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.45); }
+    }
+
+    .arch-node[data-layer="client"] { border-left: 4px solid #38bdf8; }
+    .arch-node[data-layer="router"] { border-left: 4px solid #a78bfa; }
+    .arch-node[data-layer="service"] { border-left: 4px solid #34d399; }
+    .arch-node[data-layer="guard"] { border-left: 4px solid #fbbf24; }
+    .arch-node[data-layer="adapter"] { border-left: 4px solid #2dd4bf; }
+    .arch-node[data-layer="model"] {
+      border-left: 4px solid #fb923c;
+      border-style: dashed;
+      background: rgba(251, 146, 60, 0.06);
+    }
+    .arch-node[data-layer="infra"] {
+      border-left: 4px solid #94a3b8;
+      border-style: dotted;
+      background: rgba(148, 163, 184, 0.06);
+    }
+
+    .arch-detail {
+      border-left: 1px solid var(--border);
+      padding: 1.25rem;
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .arch-detail h4 {
+      font-size: var(--text-md);
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .arch-detail .arch-detail-file {
+      font-family: var(--mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .arch-detail p {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .arch-detail-steps {
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .arch-detail-steps h5 {
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .arch-step-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .arch-step-list li {
+      font-size: var(--text-xs);
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+
+    .arch-step-list li.active-step {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .arch-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .arch-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .arch-legend i {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* ── Simplified horizontal architecture ── */
+    .arch-simple-wrap {
+      margin: 2.5rem 0 1.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .arch-simple-wrap h3 {
+      font-size: var(--text-xl);
+      margin-bottom: 0.35rem;
+    }
+
+    .arch-simple-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .arch-simple-frame {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1rem 1.25rem;
+      overflow-x: auto;
+    }
+
+    .arch-simple-zone-labels {
+      display: flex;
+      align-items: stretch;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+      min-width: 720px;
+    }
+
+    .arch-simple-zone-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      text-align: center;
+      padding: 0.35rem;
+      border-radius: 6px;
+      flex: 1;
+    }
+
+    .arch-simple-zone-label.app {
+      flex: 4.2;
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .arch-simple-zone-spacer {
+      width: 3px;
+      flex-shrink: 0;
+      background: repeating-linear-gradient(
+        180deg,
+        var(--border),
+        var(--border) 4px,
+        transparent 4px,
+        transparent 8px
+      );
+      border-radius: 2px;
+    }
+
+    .arch-simple-zone-label.ext {
+      flex: 2;
+      color: #94a3b8;
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .arch-simple-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1.15fr auto 1fr auto 1fr auto 1fr;
+      gap: 0;
+      align-items: stretch;
+      min-width: 720px;
+    }
+
+    .arch-simple-boundary {
+      background: repeating-linear-gradient(
+        180deg,
+        var(--border),
+        var(--border) 4px,
+        transparent 4px,
+        transparent 8px
+      );
+      width: 3px;
+      margin: 0 0.35rem;
+      border-radius: 2px;
+      align-self: stretch;
+    }
+
+    .arch-simple-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      opacity: 0.55;
+      padding: 0 0.15rem;
+      user-select: none;
+    }
+
+    .arch-simple-col {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      transition: opacity 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+
+    .arch-simple-col.dimmed {
+      opacity: 0.22;
+    }
+
+    .arch-simple-col.active {
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45);
+      transform: translateY(-2px);
+    }
+
+    .arch-simple-col.l1 { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4); }
+    .arch-simple-col.l2 { background: rgba(167, 139, 250, 0.1); border-color: rgba(167, 139, 250, 0.4); }
+    .arch-simple-col.l3 { background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.4); }
+    .arch-simple-col.l4 { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.4); }
+    .arch-simple-col.l5 { background: rgba(251, 146, 60, 0.1); border-color: rgba(251, 146, 60, 0.45); border-style: dashed; }
+    .arch-simple-col.l6 { background: rgba(148, 163, 184, 0.1); border-color: rgba(148, 163, 184, 0.4); border-style: dotted; }
+
+    .arch-simple-col-head {
+      padding: 0.55rem 0.5rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    [data-theme="light"] .arch-simple-col-head {
+      border-bottom-color: rgba(15, 23, 42, 0.08);
+    }
+
+    .arch-simple-col-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 5px;
+      font-size: var(--text-xs);
+      font-weight: 800;
+      margin-bottom: 0.25rem;
+    }
+
+    .l1 .arch-simple-col-num { background: rgba(56, 189, 248, 0.3); color: #38bdf8; }
+    .l2 .arch-simple-col-num { background: rgba(167, 139, 250, 0.3); color: #a78bfa; }
+    .l3 .arch-simple-col-num { background: rgba(52, 211, 153, 0.3); color: #34d399; }
+    .l4 .arch-simple-col-num { background: rgba(251, 191, 36, 0.3); color: #fbbf24; }
+    .l5 .arch-simple-col-num { background: rgba(251, 146, 60, 0.3); color: #fb923c; }
+    .l6 .arch-simple-col-num { background: rgba(148, 163, 184, 0.3); color: #94a3b8; }
+
+    .arch-simple-col-head strong {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .arch-simple-col-body {
+      padding: 0.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      justify-content: center;
+    }
+
+    .arch-simple-chip {
+      font-size: 0.7rem;
+      line-height: 1.3;
+      padding: 0.35rem 0.4rem;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .arch-simple-note {
+      margin-top: 0.75rem;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-align: center;
+      min-width: 720px;
+    }
+
+    @media (max-width: 900px) {
+      .arch-body { grid-template-columns: 1fr; }
+      .arch-detail { border-left: none; border-top: 1px solid var(--border); }
+      .arch-play-btn { margin-left: 0; width: 100%; margin-top: 0.25rem; }
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav.sidebar {
+        position: relative;
+        height: auto;
+        max-height: none;
+      }
+      main { padding: 1.25rem; }
+      .layer.l2, .layer.l3, .layer.l4, .layer.l5 { margin: 0; }
+      .arch-layer-band.l2,
+      .arch-layer-band.l3,
+      .arch-layer-band.l4,
+      .arch-layer-band.l5,
+      .arch-layer-band.l6 { margin-left: 0; margin-right: 0; }
+      .arch-simple-grid,
+      .arch-simple-zone-labels,
+      .arch-simple-note { min-width: 0; }
+      .arch-simple-arrow { font-size: 0.85rem; }
+    }
+
+    /* ── Test pyramid ── */
+    .test-pyramid-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      align-items: flex-start;
+      margin: 1.5rem 0;
+    }
+
+    .test-pyramid {
+      flex: 1;
+      min-width: 280px;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .test-pyramid-tier {
+      width: var(--tier-width, 100%);
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      text-align: center;
+      cursor: default;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+
+    .test-pyramid-tier:hover {
+      transform: scale(1.02);
+      box-shadow: var(--shadow);
+    }
+
+    .test-pyramid-tier strong {
+      display: block;
+      font-size: var(--text-sm);
+      margin-bottom: 0.2rem;
+    }
+
+    .test-pyramid-tier span {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .test-pyramid-tier .tier-count {
+      display: inline-block;
+      margin-top: 0.35rem;
+      font-family: var(--mono);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .test-pyramid-tier.t-e2e {
+      --tier-width: 38%;
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+
+    .test-pyramid-tier.t-integration {
+      --tier-width: 58%;
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.45);
+    }
+
+    .test-pyramid-tier.t-api {
+      --tier-width: 78%;
+      background: rgba(167, 139, 250, 0.12);
+      border-color: rgba(167, 139, 250, 0.45);
+    }
+
+    .test-pyramid-tier.t-unit {
+      --tier-width: 100%;
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.45);
+    }
+
+    .test-pyramid-legend {
+      flex: 1;
+      min-width: 260px;
+    }
+
+    .test-pyramid-legend ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .test-pyramid-legend li {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      padding-left: 1rem;
+      border-left: 3px solid var(--border);
+    }
+
+    .test-pyramid-legend li strong {
+      color: var(--text);
+      display: block;
+      font-size: var(--text-sm);
+    }
+
+    .test-no-ai {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .test-ai-optional {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warning);
+      border-color: rgba(251, 191, 36, 0.35);
+    }
+
+    .cmd-block {
+      font-family: var(--mono);
+      font-size: var(--text-xs);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      line-height: 1.7;
+      color: var(--text-muted);
+      margin: 0.75rem 0;
+    }
+
+    .cmd-block code {
+      background: transparent;
+      padding: 0;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="toolbar">
+    <button class="btn" id="themeToggle" aria-label="Cambiar tema">🌓 Tema</button>
+  </div>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Navegación">
+      <div class="brand">
+        <h1>Estimador CAG</h1>
+        <p>Guía técnica interactiva · v0.1.0</p>
+      </div>
+      <ul>
+        <li><a href="#overview">Visión general</a></li>
+        <li><a href="#stack">Stack tecnológico</a></li>
+        <li><a href="#architecture">Arquitectura detallada</a></li>
+        <li><a href="#architecture-simple">Arquitectura (horizontal)</a></li>
+        <li><a href="#structure">Estructura del repo</a></li>
+        <li><a href="#patterns">Patrones de diseño</a></li>
+        <li><a href="#flows">Flujos de interacción</a></li>
+        <li><a href="#cag">CAG y prompts</a></li>
+        <li><a href="#guardrails">Guardrails</a></li>
+        <li><a href="#cache">Caché semántica</a></li>
+        <li><a href="#sessions">Sesiones</a></li>
+        <li><a href="#tokens">Tokens y coste</a></li>
+        <li><a href="#critical">Partes críticas</a></li>
+        <li><a href="#bottlenecks">Cuellos de botella</a></li>
+        <li><a href="#api">API y endpoints</a></li>
+        <li><a href="#tests">Tests y pirámide</a></li>
+        <li><a href="#infra">Infraestructura</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="hero">
+        <h2>Estimador CAG</h2>
+        <p class="subtitle">
+          API de <strong>Context-Augmented Generation</strong> que transforma transcripciones de reuniones,
+          briefs y adjuntos en estimaciones de software estructuradas. Baseline de AI Engineering con
+          guardrails, caché semántica opcional, sesiones multi-turno y UI React.
+        </p>
+        <div class="badges">
+          <span class="badge">FastAPI</span>
+          <span class="badge green">LiteLLM</span>
+          <span class="badge purple">Instructor</span>
+          <span class="badge amber">Jinja2 CAG</span>
+          <span class="badge">React + Vite</span>
+          <span class="badge green">pytest</span>
+        </div>
+      </header>
+
+      <!-- 1. Overview -->
+      <section id="overview">
+        <h2><span class="num">1</span> Visión general</h2>
+        <p class="lead">
+          El proyecto implementa un estimador de proyectos de software usando CAG deliberadamente simple:
+          ejemplos few-shot mantenidos por el equipo (no RAG vectorial), inyectados en el system prompt
+          según el modo adaptativo de la petición.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>¿Qué hace?</h4>
+            <p>Recibe contexto estructurado (transcripción, metadatos del proyecto, adjuntos) y devuelve una estimación con fases, horas, supuestos y nivel de confianza.</p>
+          </div>
+          <div class="card">
+            <h4>¿Qué NO incluye?</h4>
+            <ul>
+              <li>Autenticación de producción</li>
+              <li>Persistencia de sesiones entre instancias</li>
+              <li>Moderación de contenido enterprise-grade</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Superficies de API</h4>
+            <ul>
+              <li><code>v1</code> — texto Markdown + SSE streaming</li>
+              <li><code>v2</code> — JSON estructurado + guardrails</li>
+              <li><code>sessions</code> — multi-turno con memoria en RAM</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Clientes</h4>
+            <ul>
+              <li>Web UI React (<code>web/</code>)</li>
+              <li>curl / Bruno (<code>api-collection/</code>)</li>
+              <li>OpenAPI en <code>/docs</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Stack -->
+      <section id="stack">
+        <h2><span class="num">2</span> Stack tecnológico</h2>
+        <p class="lead">Decisiones técnicas actuales y su justificación en el contexto del máster.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Área</th><th>Tecnología</th><th>Versión / detalle</th><th>Razón</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Lenguaje</td><td>Python</td><td>&gt;=3.11, &lt;3.12</td><td>Tipado moderno, compatibilidad controlada</td></tr>
+              <tr><td>Paquetes</td><td>uv</td><td>uv.lock</td><td>Entornos reproducibles, instalación rápida</td></tr>
+              <tr><td>HTTP</td><td>FastAPI</td><td>&gt;=0.115</td><td>OpenAPI automático, Pydantic nativo</td></tr>
+              <tr><td>ASGI</td><td>Uvicorn</td><td>standard</td><td>Servidor local y Docker</td></tr>
+              <tr><td>Config</td><td>pydantic-settings</td><td>v2</td><td>Settings tipados desde .env</td></tr>
+              <tr><td>LLM routing</td><td>LiteLLM</td><td>&gt;=1.83</td><td>Abstracción unificada OpenAI + Anthropic</td></tr>
+              <tr><td>Structured output</td><td>Instructor</td><td>&gt;=1.15</td><td>JSON validado contra Pydantic</td></tr>
+              <tr><td>Prompts</td><td>Jinja2</td><td>StrictUndefined</td><td>Templates versionados y testeables</td></tr>
+              <tr><td>Caché</td><td>Redis Stack</td><td>RediSearch vectors</td><td>Similitud semántica opcional</td></tr>
+              <tr><td>Observabilidad</td><td>Langfuse + OTEL</td><td>opt-in</td><td>Trazas de generación LLM</td></tr>
+              <tr><td>Frontend</td><td>React + Vite + TS</td><td>Node 20+</td><td>Workbench con sesiones y temas</td></tr>
+              <tr><td>Tests</td><td>pytest + Vitest</td><td>mocked providers</td><td>Suite determinista sin API keys</td></tr>
+              <tr><td>Adjuntos</td><td>pypdf + python-docx</td><td>—</td><td>Extracción local Path B</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3. Architecture -->
+      <section id="architecture">
+        <h2><span class="num">3</span> Arquitectura en capas</h2>
+        <p class="lead">Seis capas con frontera clara: la aplicación (1–4) vive en Python; los <strong>modelos</strong> son APIs SaaS externas (5); <strong>Redis, Langfuse</strong> y almacenamiento son infraestructura (6). Políticas y guardrails son código de aplicación, no infra.</p>
+
+        <div class="arch-diagram" id="archDiagram" aria-label="Diagrama de arquitectura interactivo">
+          <div class="arch-toolbar">
+            <span class="arch-toolbar-label">Resaltar flujo:</span>
+            <button type="button" class="arch-flow-btn active" data-arch-flow="all">Vista completa</button>
+            <button type="button" class="arch-flow-btn" data-arch-flow="v1">v1 Markdown / SSE</button>
+            <button type="button" class="arch-flow-btn" data-arch-flow="v2">v2 Guarded</button>
+            <button type="button" class="arch-flow-btn" data-arch-flow="session">Sesiones Web</button>
+            <button type="button" class="btn primary arch-play-btn" id="archPlayBtn">▶ Animar recorrido</button>
+          </div>
+
+          <div class="arch-body">
+            <div class="arch-canvas">
+              <div class="arch-layer-stack">
+
+                <!-- CAPA 1 — Clientes -->
+                <div class="arch-layer-band l1 zone-app" data-band="1">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">1</span>
+                    <div class="arch-layer-band-title">
+                      <strong>Clientes</strong>
+                      <span>Web UI · curl · Bruno</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">Presentación</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-lane-nodes">
+                      <button type="button" class="arch-node" data-id="client-web" data-layer="client"
+                        data-title="Web UI React"
+                        data-file="web/src/features/estimation/"
+                        data-desc="Workbench en navegador: crea sesión al cargar, sidebar de historial, formulario simplificado con adjuntos multipart y paneles de metadata + estimación.">
+                        <span class="arch-node-title">Web UI React</span>
+                        <span class="arch-node-sub">:5173 dev · :5175 Docker</span>
+                        <span class="arch-node-tag">SPA principal</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="client-api" data-layer="client"
+                        data-title="curl / Bruno"
+                        data-file="api-collection/"
+                        data-desc="Clientes HTTP para pruebas manuales, CI local y exploración del contrato OpenAPI sin UI.">
+                        <span class="arch-node-title">curl / Bruno</span>
+                        <span class="arch-node-sub">api-collection/</span>
+                        <span class="arch-node-tag">API clients</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="arch-layer-bridge" aria-hidden="true">▼ HTTP</div>
+
+                <!-- CAPA 2 — HTTP / Routers -->
+                <div class="arch-layer-band l2 zone-app" data-band="2">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">2</span>
+                    <div class="arch-layer-band-title">
+                      <strong>HTTP — FastAPI routers</strong>
+                      <span>app/routers/ · validación · status codes · ensamblado</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">En proceso</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-lane-nodes">
+                      <button type="button" class="arch-node" data-id="router-v1" data-layer="router"
+                        data-title="POST /api/v1/estimate"
+                        data-file="app/routers/estimations.py"
+                        data-desc="Estimación síncrona en Markdown. Valida EstimationRequest, domain guardrail, routing adaptativo de modo, construye prompt CAG y devuelve texto + evaluación opcional.">
+                        <span class="arch-node-title">v1 /estimate</span>
+                        <span class="arch-node-sub">Markdown sync</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="router-stream" data-layer="router"
+                        data-title="POST /api/v1/estimate/stream"
+                        data-file="app/routers/estimations.py"
+                        data-desc="Mismo pipeline que v1 pero con SSE: eventos chunk, done y error. Streaming vía LiteLLM astream_chat.">
+                        <span class="arch-node-title">v1 /stream</span>
+                        <span class="arch-node-sub">SSE chunks</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="router-v2" data-layer="router"
+                        data-title="POST /api/v2/estimate"
+                        data-file="app/routers/estimations_v2.py"
+                        data-desc="Entrada structured JSON. Delega en LLMPipeline (guardrails + caché + Instructor). Respuesta EstimationResponse tipada.">
+                        <span class="arch-node-title">v2 /estimate</span>
+                        <span class="arch-node-sub">JSON estructurado</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="router-sessions" data-layer="router"
+                        data-title="/api/v1/sessions/*"
+                        data-file="app/routers/sessions.py"
+                        data-desc="CRUD in-memory: crear, listar, detalle y POST estimate (JSON o multipart). Punto de entrada de la UI web.">
+                        <span class="arch-node-title">v1 /sessions</span>
+                        <span class="arch-node-sub">multi-turno</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="arch-layer-bridge" aria-hidden="true">▼ Lógica de aplicación</div>
+
+                <!-- CAPA 3 — Servicios de aplicación (in-process) -->
+                <div class="arch-layer-band l3 zone-app" data-band="3">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">3</span>
+                    <div class="arch-layer-band-title">
+                      <strong>Servicios de aplicación</strong>
+                      <span>app/services/ · CAG · sesiones · adapters LLM · caché (lógica)</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">En proceso</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-sublane">
+                      <div class="arch-sublane-label">Orquestación y dominio</div>
+                      <div class="arch-lane-nodes">
+                        <button type="button" class="arch-node" data-id="svc-es" data-layer="service"
+                          data-title="EstimationService"
+                          data-file="app/services/llm_service.py"
+                          data-desc="Núcleo CAG: assessment de modo, load_examples(), render Jinja2, invoca cadena de proveedores y complete_structured. Punto central de estimación.">
+                          <span class="arch-node-title">EstimationService</span>
+                          <span class="arch-node-sub">llm_service.py</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-ss" data-layer="service"
+                          data-title="SimplifiedSessionEstimationService"
+                          data-file="app/services/simplified_session_estimation_service.py"
+                          data-desc="Parsea request, extrae adjuntos, merge metadata, historial acotado y delega en LLMPipeline.run_structured.">
+                          <span class="arch-node-title">SessionService</span>
+                          <span class="arch-node-sub">multipart · metadata</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-store" data-layer="service"
+                          data-title="SessionStore (in-memory)"
+                          data-file="app/services/sessions.py"
+                          data-desc="Estado de sesión en RAM del proceso Python. No es Redis ni BD: se pierde al reiniciar y no escala horizontalmente.">
+                          <span class="arch-node-title">SessionStore</span>
+                          <span class="arch-node-sub">dict in-process</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="cag-prompts" data-layer="service"
+                          data-title="Prompts CAG (Jinja2 + few-shot)"
+                          data-file="app/prompts/estimation/v2/ · app/context/examples/"
+                          data-desc="Construcción del system prompt con instrucciones por modo y 2–4 ejemplos del pool. Contexto estático del equipo, no retrieval vectorial.">
+                          <span class="arch-node-title">Prompts CAG</span>
+                          <span class="arch-node-sub">templates + examples</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="arch-sublane">
+                      <div class="arch-sublane-label">Adapters hacia modelos (código interno)</div>
+                      <div class="arch-lane-nodes">
+                        <button type="button" class="arch-node" data-id="adapter-chain" data-layer="adapter"
+                          data-title="Provider chain"
+                          data-file="app/services/llm_chain.py"
+                          data-desc="Código de aplicación: ordena LLM_PROVIDERS, reintentos y fallback. No es un servicio externo — invoca LiteLLM client y static fallback local.">
+                          <span class="arch-node-title">Provider chain</span>
+                          <span class="arch-node-sub">build_provider_chain()</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="adapter-litellm" data-layer="adapter"
+                          data-title="LiteLLM client"
+                          data-file="app/services/ai_model_service.py"
+                          data-desc="Adapter SDK en Python: acomplete_chat / astream_chat. Normaliza tokens y finish_reason antes de devolver al dominio.">
+                          <span class="arch-node-title">LiteLLM client</span>
+                          <span class="arch-node-sub">ai_model_service.py</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="adapter-instructor" data-layer="adapter"
+                          data-title="Instructor client"
+                          data-file="app/services/structured_llm_client.py"
+                          data-desc="Adapter que fuerza schema Pydantic (EstimationResult) sobre acompletion. Reintentos STRUCTURED_OUTPUT_MAX_ATTEMPTS.">
+                          <span class="arch-node-title">Instructor</span>
+                          <span class="arch-node-sub">structured output</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="adapter-fallback" data-layer="adapter"
+                          data-title="Static fallback (local)"
+                          data-file="app/services/llm_chain.py"
+                          data-desc="Proveedor degradado embebido en la app: respuesta determinista sin llamada externa cuando fallan OpenAI/Anthropic.">
+                          <span class="arch-node-title">Static fallback</span>
+                          <span class="arch-node-sub">degraded · local</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-sc" data-layer="service"
+                          data-title="SemanticCache (lógica)"
+                          data-file="app/services/semantic_cache/"
+                          data-desc="Lógica de bucket, embedding y lookup. Persiste en Redis (capa 6) o memory store in-process — la lógica vive aquí, no en infra.">
+                          <span class="arch-node-title">SemanticCache</span>
+                          <span class="arch-node-sub">service · no storage</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="arch-layer-bridge" aria-hidden="true">▼ Controles transversales (v2 / sesiones)</div>
+
+                <!-- CAPA 4 — Políticas y guardrails -->
+                <div class="arch-layer-band l4 zone-app" data-band="4">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">4</span>
+                    <div class="arch-layer-band-title">
+                      <strong>Políticas y guardrails</strong>
+                      <span>app/guardrails/ · audit · rollout · validación input/output</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">En proceso</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-lane-nodes">
+                      <button type="button" class="arch-node" data-id="svc-gp" data-layer="guard"
+                        data-title="LLMPipeline"
+                        data-file="app/guardrails/llm_pipeline.py"
+                        data-desc="Orquestador del path v2/sesiones: input guardrails → cache lookup → LLM → output guardrails. Código de política, no almacenamiento.">
+                        <span class="arch-node-title">LLMPipeline</span>
+                        <span class="arch-node-sub">orquestador v2</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="guard-input" data-layer="guard"
+                        data-title="Input guardrails"
+                        data-file="app/guardrails/input_semantic.py · domain_guardrails.py"
+                        data-desc="Heurísticas pre-LLM: dominio, prompt injection, PII. domain_guardrail también en path v1 vía EstimationService.">
+                        <span class="arch-node-title">Input guardrails</span>
+                        <span class="arch-node-sub">dominio · injection · PII</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="guard-output" data-layer="guard"
+                        data-title="Output guardrails"
+                        data-file="app/guardrails/output_semantic.py"
+                        data-desc="Validación post-LLM: confidence floor, leakage heuristics. Determina safe_to_cache y degraded.">
+                        <span class="arch-node-title">Output guardrails</span>
+                        <span class="arch-node-sub">confidence · leakage</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="guard-policy" data-layer="guard"
+                        data-title="Policy executor"
+                        data-file="app/guardrails/policy_executor.py · policy_registry.py"
+                        data-desc="Rollout modes: disabled · log_only · enforce. Audit_id por ejecución.">
+                        <span class="arch-node-title">Policy executor</span>
+                        <span class="arch-node-sub">rollout · audit_id</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="arch-boundary" aria-hidden="true"><span>Frontera HTTPS · SaaS e infra externa</span></div>
+
+                <div class="arch-layer-bridge" aria-hidden="true">▼ Invocación remota de modelos</div>
+
+                <!-- CAPA 5 — Proveedores de modelos (SaaS) -->
+                <div class="arch-layer-band l5 zone-models" data-band="5">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">5</span>
+                    <div class="arch-layer-band-title">
+                      <strong>Proveedores de modelos (SaaS)</strong>
+                      <span>APIs remotas · consumo de tokens · no es infra de datos</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">Externo · IA</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-lane-nodes">
+                      <button type="button" class="arch-node" data-id="model-openai" data-layer="model"
+                        data-title="OpenAI API"
+                        data-file="OPENAI_API_KEY · OPENAI_MODEL (gpt-4o-mini)"
+                        data-desc="Proveedor cloud de chat completions. Invocado vía LiteLLM client (capa 3). Coste por token input/output.">
+                        <span class="arch-node-title">OpenAI</span>
+                        <span class="arch-node-sub">gpt-4o-mini</span>
+                        <span class="arch-node-tag">SaaS LLM</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="model-anthropic" data-layer="model"
+                        data-title="Anthropic API"
+                        data-file="ANTHROPIC_API_KEY · ANTHROPIC_MODEL"
+                        data-desc="Fallback en cadena LLM_PROVIDERS. Mismo boundary que OpenAI: red externa, facturación por tokens.">
+                        <span class="arch-node-title">Anthropic</span>
+                        <span class="arch-node-sub">claude-haiku-4-5</span>
+                        <span class="arch-node-tag">SaaS LLM</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="model-embeddings" data-layer="model"
+                        data-title="OpenAI Embeddings API"
+                        data-file="app/services/semantic_cache/openai_embeddings.py"
+                        data-desc="API remota para vectores de caché semántica. Genera el embedding; Redis (capa 6) almacena el resultado.">
+                        <span class="arch-node-title">Embeddings API</span>
+                        <span class="arch-node-sub">semantic cache</span>
+                        <span class="arch-node-tag">SaaS · opt-in</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="arch-layer-bridge" aria-hidden="true">▼ Persistencia · caché · observabilidad</div>
+
+                <!-- CAPA 6 — Infraestructura -->
+                <div class="arch-layer-band l6 zone-infra" data-band="6">
+                  <div class="arch-layer-band-header">
+                    <span class="arch-layer-num">6</span>
+                    <div class="arch-layer-band-title">
+                      <strong>Infraestructura y plataforma</strong>
+                      <span>Redis · observabilidad · contenedores · sin modelos LLM</span>
+                    </div>
+                    <span class="arch-layer-zone-tag">Externo · Infra</span>
+                  </div>
+                  <div class="arch-layer-band-body">
+                    <div class="arch-lane-nodes">
+                      <button type="button" class="arch-node" data-id="infra-redis" data-layer="infra"
+                        data-title="Redis Stack"
+                        data-file="docker-compose.yml · semantic_cache/repository.py"
+                        data-desc="Almacén vectorial RediSearch para artefactos de caché semántica. Infra de datos, no ejecuta inferencia LLM.">
+                        <span class="arch-node-title">Redis Stack</span>
+                        <span class="arch-node-sub">:6379 · vectors</span>
+                        <span class="arch-node-tag">Datos</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="infra-langfuse" data-layer="infra"
+                        data-title="Langfuse (OTEL export)"
+                        data-file="app/services/observability/ · LANGFUSE_*"
+                        data-desc="Backend SaaS de trazas y costes LLM. Recibe spans vía OpenTelemetry — observabilidad, no generación de texto.">
+                        <span class="arch-node-title">Langfuse</span>
+                        <span class="arch-node-sub">traces · cost</span>
+                        <span class="arch-node-tag">Observabilidad</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="infra-nginx" data-layer="infra"
+                        data-title="nginx (Web UI Docker)"
+                        data-file="Dockerfile.web · docker-compose.yml"
+                        data-desc="Sirve el bundle estático React en :5175. Separado del proceso FastAPI en :8000.">
+                        <span class="arch-node-title">nginx</span>
+                        <span class="arch-node-sub">web estático</span>
+                        <span class="arch-node-tag">Runtime</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="infra-redisinsight" data-layer="infra"
+                        data-title="Redis Insight"
+                        data-file="docker-compose.yml"
+                        data-desc="UI de operaciones para inspeccionar Redis Stack en desarrollo (:5540). No participa en el path de estimación.">
+                        <span class="arch-node-title">Redis Insight</span>
+                        <span class="arch-node-sub">:5540 · dev</span>
+                        <span class="arch-node-tag">Ops · dev</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <aside class="arch-detail" id="archDetail">
+              <h4 id="archDetailTitle">Selecciona un componente</h4>
+              <div class="arch-detail-file" id="archDetailFile">—</div>
+              <p id="archDetailDesc">Haz clic en cualquier caja del diagrama para ver su responsabilidad, archivo fuente y rol en el flujo activo.</p>
+              <div class="arch-detail-steps" id="archDetailSteps" hidden>
+                <h5>Recorrido del flujo activo</h5>
+                <ol class="arch-step-list" id="archStepList"></ol>
+              </div>
+            </aside>
+          </div>
+
+          <div class="arch-legend">
+            <span><i style="background:#38bdf8"></i> 1 · Clientes</span>
+            <span><i style="background:#a78bfa"></i> 2 · HTTP</span>
+            <span><i style="background:#34d399"></i> 3 · App services</span>
+            <span><i style="background:#fbbf24"></i> 4 · Políticas</span>
+            <span><i style="background:#fb923c;border-style:dashed"></i> 5 · Modelos SaaS</span>
+            <span><i style="background:#94a3b8;border-style:dotted"></i> 6 · Infra</span>
+          </div>
+        </div>
+
+        <div class="arch-simple-wrap" id="architecture-simple">
+          <h3>Vista simplificada — capas en horizontal</h3>
+          <p class="lead" style="margin-bottom:0">Recorrido izquierda → derecha: clientes, API, lógica interna, frontera externa, modelos SaaS e infra. Sin detalle de módulos; ideal para explicar el sistema de un vistazo.</p>
+
+          <div class="arch-simple-toolbar">
+            <span class="arch-toolbar-label">Resaltar:</span>
+            <button type="button" class="arch-flow-btn simple-flow-btn active" data-simple-flow="all">Todo</button>
+            <button type="button" class="arch-flow-btn simple-flow-btn" data-simple-flow="v1">v1</button>
+            <button type="button" class="arch-flow-btn simple-flow-btn" data-simple-flow="v2">v2</button>
+            <button type="button" class="arch-flow-btn simple-flow-btn" data-simple-flow="session">Sesiones</button>
+          </div>
+
+          <div class="arch-simple-frame">
+            <div class="arch-simple-zone-labels">
+              <span class="arch-simple-zone-label app">Aplicación · Python / FastAPI</span>
+              <span class="arch-simple-zone-spacer" aria-hidden="true"></span>
+              <span class="arch-simple-zone-label ext">Externos · SaaS + Infra</span>
+            </div>
+
+            <div class="arch-simple-grid" id="archSimpleGrid">
+              <div class="arch-simple-col l1" data-simple-col="1" data-simple-flows="all v1 v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">1</span>
+                  <strong>Clientes</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">Web UI</span>
+                  <span class="arch-simple-chip">curl / Bruno</span>
+                </div>
+              </div>
+              <div class="arch-simple-arrow" aria-hidden="true">→</div>
+
+              <div class="arch-simple-col l2" data-simple-col="2" data-simple-flows="all v1 v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">2</span>
+                  <strong>API HTTP</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">v1 / v2</span>
+                  <span class="arch-simple-chip">sessions</span>
+                </div>
+              </div>
+              <div class="arch-simple-arrow" aria-hidden="true">→</div>
+
+              <div class="arch-simple-col l3" data-simple-col="3" data-simple-flows="all v1 v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">3</span>
+                  <strong>App services</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">CAG + estimación</span>
+                  <span class="arch-simple-chip">Sesiones RAM</span>
+                  <span class="arch-simple-chip">Adapters LLM</span>
+                </div>
+              </div>
+              <div class="arch-simple-arrow" aria-hidden="true">→</div>
+
+              <div class="arch-simple-col l4" data-simple-col="4" data-simple-flows="all v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">4</span>
+                  <strong>Políticas</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">Guardrails</span>
+                  <span class="arch-simple-chip">LLMPipeline</span>
+                </div>
+              </div>
+
+              <div class="arch-simple-boundary" aria-hidden="true" title="Frontera HTTPS"></div>
+
+              <div class="arch-simple-col l5" data-simple-col="5" data-simple-flows="all v1 v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">5</span>
+                  <strong>Modelos SaaS</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">OpenAI</span>
+                  <span class="arch-simple-chip">Anthropic</span>
+                  <span class="arch-simple-chip">Embeddings</span>
+                </div>
+              </div>
+              <div class="arch-simple-arrow" aria-hidden="true">→</div>
+
+              <div class="arch-simple-col l6" data-simple-col="6" data-simple-flows="all v2 session">
+                <div class="arch-simple-col-head">
+                  <span class="arch-simple-col-num">6</span>
+                  <strong>Infra</strong>
+                </div>
+                <div class="arch-simple-col-body">
+                  <span class="arch-simple-chip">Redis</span>
+                  <span class="arch-simple-chip">Langfuse</span>
+                  <span class="arch-simple-chip">nginx</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="arch-simple-note">Flujo típico: <strong>Cliente → API → App → [Políticas] → Modelo → [Infra async]</strong> · v1 omite capa 4 · Infra (Redis/Langfuse) es opcional y lateral</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Capa</th><th>Zona</th><th>Ubicación</th><th>Responsabilidad</th></tr></thead>
+            <tbody>
+              <tr><td>1–2</td><td>App</td><td>Clientes · <code>app/routers/</code></td><td>Entrada HTTP, validación Pydantic, ensamblado de respuesta</td></tr>
+              <tr><td>3</td><td>App</td><td><code>app/services/</code></td><td>CAG, sesiones, adapters LiteLLM/Instructor, lógica de caché semántica</td></tr>
+              <tr><td>4</td><td>App</td><td><code>app/guardrails/</code></td><td>Políticas input/output, LLMPipeline, audit — código, no infra</td></tr>
+              <tr><td>5</td><td>SaaS externo</td><td>OpenAI · Anthropic · Embeddings API</td><td>Inferencia remota y facturación por tokens</td></tr>
+              <tr><td>6</td><td>Infra</td><td>Redis · Langfuse · nginx</td><td>Almacenamiento vectorial, trazas, servido estático — sin modelos</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. Structure -->
+      <section id="structure">
+        <h2><span class="num">4</span> Estructura del repositorio</h2>
+        <p class="lead">Haz clic en las carpetas para expandir. Cada módulo tiene una responsabilidad acotada.</p>
+        <div class="file-tree" id="fileTree">
+          <div class="tree-node open">master-ia/</div>
+          <div class="tree-children" style="display:block">
+            <div class="tree-node open">app/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">main.py <span class="comment">— entrypoint, lifespan, CORS, routers</span></div>
+              <div class="tree-leaf">config.py <span class="comment">— Settings pydantic-settings</span></div>
+              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">estimations.py <span class="comment">— v1 text + SSE</span></div>
+                <div class="tree-leaf">estimations_v2.py <span class="comment">— v2 structured</span></div>
+                <div class="tree-leaf">sessions.py <span class="comment">— CRUD sesiones + estimate</span></div>
+              </div>
+              <div class="tree-node">services/ <span class="comment">— lógica de negocio</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">llm_service.py <span class="comment">— orquestación CAG</span></div>
+                <div class="tree-leaf">llm_chain.py <span class="comment">— cadena LiteLLM + fallback</span></div>
+                <div class="tree-leaf">structured_llm_client.py <span class="comment">— Instructor + acompletion</span></div>
+                <div class="tree-leaf">estimation_engine.py <span class="comment">— routing adaptativo</span></div>
+                <div class="tree-leaf">sessions.py <span class="comment">— store in-memory</span></div>
+                <div class="tree-leaf">semantic_cache/ <span class="comment">— bucket, embeddings, Redis</span></div>
+                <div class="tree-leaf">observability/ <span class="comment">— Langfuse OTEL</span></div>
+              </div>
+              <div class="tree-node">guardrails/ <span class="comment">— pipeline v2</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">llm_pipeline.py <span class="comment">— orquestador guarded</span></div>
+                <div class="tree-leaf">input_semantic.py · output_semantic.py</div>
+                <div class="tree-leaf">policy_executor.py · policy_registry.py</div>
+              </div>
+              <div class="tree-node">context/examples/ <span class="comment">— few-shot por modo</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">basic/ · standard/ · professional/ · expert_review/</div>
+              </div>
+              <div class="tree-node">prompts/estimation/ <span class="comment">— v1 y v2 Jinja2</span></div>
+            </div>
+            <div class="tree-node">web/ <span class="comment">— React + Vite + TypeScript</span></div>
+            <div class="tree-children">
+              <div class="tree-leaf">src/features/estimation/ <span class="comment">— formulario, sesiones, paneles</span></div>
+              <div class="tree-leaf">src/theme/ <span class="comment">— apariencia claro/oscuro</span></div>
+            </div>
+            <div class="tree-node">tests/ <span class="comment">— pytest con providers mockeados</span></div>
+            <div class="tree-node">docs/ <span class="comment">— work-items, technical, este HTML</span></div>
+            <div class="tree-leaf">docker-compose.yml · pyproject.toml · uv.lock</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Patterns -->
+      <section id="patterns">
+        <h2><span class="num">5</span> Patrones de diseño</h2>
+        <p class="lead">Convenciones arquitectónicas aplicadas de forma consistente en el codebase.</p>
+        <div class="pattern-grid">
+          <div class="pattern-pill"><strong>Layered Architecture</strong> Routers delgados → servicios → proveedores externos</div>
+          <div class="pattern-pill"><strong>Dependency Injection</strong> <code>Depends(get_settings)</code> en frontera HTTP</div>
+          <div class="pattern-pill"><strong>Strategy</strong> Cadena ordenada de proveedores LLM con fallback</div>
+          <div class="pattern-pill"><strong>Template Method</strong> <code>LLMPipeline.run_structured()</code> fases fijas</div>
+          <div class="pattern-pill"><strong>Policy / Chain of Responsibility</strong> Guardrails con rollout modes</div>
+          <div class="pattern-pill"><strong>Repository</strong> <code>SemanticCacheRepository</code> (Redis / memoria)</div>
+          <div class="pattern-pill"><strong>Factory</strong> <code>build_provider_chain()</code>, <code>build_semantic_cache_service()</code></div>
+          <div class="pattern-pill"><strong>Adapter</strong> LiteLLM unifica OpenAI y Anthropic</div>
+          <div class="pattern-pill"><strong>CAG (no RAG)</strong> Contexto estático versionado, no retrieval dinámico</div>
+          <div class="pattern-pill"><strong>Degraded Mode</strong> Respuesta segura cuando fallan guardrails o proveedores</div>
+          <div class="pattern-pill"><strong>Sliding Window</strong> Historial acotado en sesiones multi-turno</div>
+          <div class="pattern-pill"><strong>StrictUndefined Jinja2</strong> Falla explícita si falta variable en template</div>
+        </div>
+      </section>
+
+      <!-- 6. Flows -->
+      <section id="flows">
+        <h2><span class="num">6</span> Flujos de interacción</h2>
+        <p class="lead">Selecciona un flujo y usa los controles para recorrerlo paso a paso.</p>
+
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="flow-v1">v1 Texto</button>
+          <button class="tab" data-tab="flow-v2">v2 Guarded</button>
+          <button class="tab" data-tab="flow-session">Sesión Web</button>
+        </div>
+
+        <div class="tab-panel active" id="flow-v1">
+          <div class="flow-controls">
+            <button class="btn primary" data-flow="v1" data-action="play">▶ Reproducir</button>
+            <button class="btn" data-flow="v1" data-action="reset">↺ Reiniciar</button>
+          </div>
+          <div class="flow-steps" id="steps-v1">
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>POST /api/v1/estimate</h4><p>Cliente envía <code>EstimationRequest</code> con transcripción y metadatos del proyecto.</p></div></div>
+            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Validación + domain guardrail</h4><p>Router valida Pydantic. <code>check_estimation_domain()</code> rechaza prompts fuera de dominio antes del LLM.</p></div></div>
+            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Assessment adaptativo</h4><p><code>assess_and_select_mode()</code> puntúa detalle, completitud y ambigüedad → modo <code>basic|standard|professional|expert_review</code>.</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Construcción CAG</h4><p><code>load_examples()</code> muestrea 2–4 ejemplos del pool del modo. Jinja2 renderiza system + user prompt.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Cadena de proveedores</h4><p>LiteLLM intenta OpenAI → Anthropic → static fallback. Retorna Markdown + usage tokens.</p></div></div>
+            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Evaluación opcional</h4><p>Si <code>evaluate=true</code>: score estructural, validación por modo. <code>DEV_MODE</code> añade metadatos operativos.</p></div></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="flow-v2">
+          <div class="flow-controls">
+            <button class="btn primary" data-flow="v2" data-action="play">▶ Reproducir</button>
+            <button class="btn" data-flow="v2" data-action="reset">↺ Reiniciar</button>
+          </div>
+          <div class="flow-steps" id="steps-v2">
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>POST /api/v2/estimate</h4><p>Mismo inbound que v1. Salida: <code>EstimationResponse</code> con <code>EstimationResult</code> validado por Instructor.</p></div></div>
+            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>LLMPipeline — fase input</h4><p>Heurísticas: prompt injection, PII básica, relevancia de dominio. Políticas con rollout <code>disabled|log_only|enforce</code>.</p></div></div>
+            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Caché semántica (lookup)</h4><p>Bucket determinista + embedding del texto. Hit solo si <code>SEMANTIC_CACHE_ENABLED=true</code> y no log-only.</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>LLM estructurado</h4><p><code>complete_structured()</code> via Instructor. Reintentos hasta <code>STRUCTURED_OUTPUT_MAX_ATTEMPTS</code> (default 3).</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Output guardrails</h4><p>Confianza mínima, heurísticas de leakage. Respuesta degraded si no pasa validación semántica de salida.</p></div></div>
+            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Cache write + respuesta</h4><p>Si <code>safe_to_cache=true</code>, persiste artefacto. Incluye <code>audit_id</code>, <code>final_status</code>, metadatos Langfuse.</p></div></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="flow-session">
+          <div class="flow-controls">
+            <button class="btn primary" data-flow="session" data-action="play">▶ Reproducir</button>
+            <button class="btn" data-flow="session" data-action="reset">↺ Reiniciar</button>
+          </div>
+          <div class="flow-steps" id="steps-session">
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Web UI carga</h4><p><code>POST /api/v1/sessions</code> crea sesión. Sidebar lista sesiones recientes (30 días, in-memory).</p></div></div>
+            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Usuario envía formulario</h4><p>JSON o multipart con transcript (≥80 chars), metadatos y adjuntos PDF/DOCX/txt.</p></div></div>
+            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Procesamiento adjuntos</h4><p><code>DocumentTextExtractor</code> extrae texto localmente (Path B). Sin Files API externa.</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Metadata merge</h4><p><code>derive_project_metadata()</code> + <code>merge_derived_metadata()</code> acumula contexto entre turnos.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>LLMPipeline con historial</h4><p><code>messages_override</code> incluye ventana deslizante user/assistant + prompt actual completo.</p></div></div>
+            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Paneles UI</h4><p><code>ProjectMetadataPanel</code> y <code>EstimateResultPanel</code> se actualizan con la respuesta estructurada v2.</p></div></div>
+          </div>
+        </div>
+
+        <div class="diagram-box" style="margin-top:2rem">
+          <pre class="mermaid">
+sequenceDiagram
+    participant C as Cliente
+    participant R as Router v2
+    participant P as LLMPipeline
+    participant G as Input Guardrails
+    participant S as SemanticCache
+    participant L as LiteLLM+Instructor
+    participant O as Output Guardrails
+
+    C->>R: POST /api/v2/estimate
+    R->>P: run_structured(request)
+    P->>G: input_semantic_phase
+    alt blocked enforce
+        G-->>P: PolicyOutcome BLOCK
+        P-->>R: 422 + audit_id
+    else degraded domain
+        G-->>P: degraded bundle
+        P-->>R: 200 final_status=degraded
+    else pass
+        P->>S: lookup(bucket, embedding)
+        alt cache hit
+            S-->>P: CachedArtifact
+            P-->>R: cached=true
+        else miss
+            P->>L: complete_structured
+            L-->>P: EstimationResult + usage
+            P->>O: output validation
+            P->>S: write if safe_to_cache
+            P-->>R: EstimationResponse
+        end
+    end
+    R-->>C: JSON response
+          </pre>
+        </div>
+      </section>
+
+      <!-- 7. CAG -->
+      <section id="cag">
+        <h2><span class="num">7</span> CAG y sistema de prompts</h2>
+        <p class="lead">Context-Augmented Generation: el modelo recibe contexto mantenido por el equipo, no datos recuperados de una base vectorial.</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>Patrón de mensajes</h4>
+            <pre style="font-family:var(--mono);font-size:var(--text-sm);color:var(--text-muted);margin-top:0.5rem;white-space:pre-wrap">[system]  Instrucciones + ejemplos few-shot
+[user]    Transcripción / brief del proyecto
+[assistant]  Estimación generada</pre>
+          </div>
+          <div class="card">
+            <h4>Modos adaptativos</h4>
+            <ul>
+              <li><code>basic</code> — sizing rápido</li>
+              <li><code>standard</code> — planificación interna (default)</li>
+              <li><code>professional</code> — propuestas comerciales</li>
+              <li><code>expert_review</code> — validación de alto riesgo</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Versionado de prompts</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Constante</th><th>Valor actual</th><th>Cuándo incrementar</th></tr></thead>
+            <tbody>
+              <tr><td><code>PROMPT_VERSION</code></td><td>v7-guided-input</td><td>Cambio material en composición del prompt</td></tr>
+              <tr><td><code>EXAMPLES_VERSION</code></td><td>file-mode-v4-estimator-layout</td><td>Cambio en pools, sampling o fallback de ejemplos</td></tr>
+              <tr><td><code>PROMPT_ESTIMATION_VERSION</code></td><td>v2 (default)</td><td>Pin a v1 para retrocompat</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert info">
+          <strong>v2 es canónico.</strong> Edita solo <code>app/prompts/estimation/v2/</code>.
+          v1 se sincroniza con <code>scripts/sync-estimation-prompt-v1-from-v2.sh</code>.
+        </div>
+      </section>
+
+      <!-- 8. Guardrails -->
+      <section id="guardrails">
+        <h2><span class="num">8</span> Guardrails</h2>
+        <p class="lead">Pipeline de políticas en v2 y sesiones. Cada guardrail tiene modo de rollout configurable.</p>
+        <div class="grid-3">
+          <div class="card"><h4>Input — dominio</h4><p>Rechaza peticiones fuera de estimación de software. HTTP 200 degraded o skip según política.</p></div>
+          <div class="card"><h4>Input — injection</h4><p>Heurísticas deterministas sobre el texto del usuario antes de llamar al proveedor.</p></div>
+          <div class="card"><h4>Input — PII</h4><p>Detección básica de datos personales sensibles en la superficie de assessment.</p></div>
+          <div class="card"><h4>Output — confianza</h4><p>Umbral mínimo de confidence en <code>EstimationResult</code>.</p></div>
+          <div class="card"><h4>Output — leakage</h4><p>Heurísticas para detectar filtrado de instrucciones del system prompt.</p></div>
+          <div class="card"><h4>Audit trail</h4><p>Cada ejecución genera <code>audit_id</code> para trazabilidad en respuestas degraded/blocked.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Resultado</th><th>HTTP</th><th>final_status</th><th>safe_to_cache</th></tr></thead>
+            <tbody>
+              <tr><td>Input blocked (enforce)</td><td>422</td><td>—</td><td>false</td></tr>
+              <tr><td>Domain mismatch</td><td>200</td><td>degraded</td><td>false</td></tr>
+              <tr><td>LLM + output OK</td><td>200</td><td>success</td><td>true (si pasa output checks)</td></tr>
+              <tr><td>Cache hit válido</td><td>200</td><td>success</td><td>— (ya cacheado)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 9. Cache -->
+      <section id="cache">
+        <h2><span class="num">9</span> Caché semántica</h2>
+        <p class="lead">Capa opcional para <code>POST /api/v2/estimate</code>. Desactivada por defecto; modo log-only permite telemetría sin saltarse el LLM.</p>
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart TD
+    REQ[Request validado] --> BUCKET["Bucket hash determinista\n(prompt + schema + guardrails + request)"]
+    BUCKET --> EMB[Embedding del texto libre]
+    EMB --> LOOKUP{Similarity ≥ threshold?}
+    LOOKUP -->|Hit + enabled| SERVE[Respuesta cacheada]
+    LOOKUP -->|Miss o log-only| LLM[Llamada LLM]
+    LLM --> VALID{safe_to_cache?}
+    VALID -->|Sí| WRITE[Redis / Memory store]
+    VALID -->|No| RESP[Respuesta directa]
+    WRITE --> RESP
+          </pre>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Variable</th><th>Default</th><th>Efecto</th></tr></thead>
+            <tbody>
+              <tr><td><code>SEMANTIC_CACHE_ENABLED</code></td><td>false</td><td>Permite servir hits</td></tr>
+              <tr><td><code>SEMANTIC_CACHE_LOG_ONLY</code></td><td>true</td><td>Lookup sin bypass del LLM</td></tr>
+              <tr><td><code>SEMANTIC_CACHE_SIMILARITY_THRESHOLD</code></td><td>0.92</td><td>Cosine mínimo para hit</td></tr>
+              <tr><td><code>SEMANTIC_CACHE_USE_MEMORY_STORE</code></td><td>false</td><td>Store in-process (single worker)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 10. Sessions -->
+      <section id="sessions">
+        <h2><span class="num">10</span> Sesiones multi-turno</h2>
+        <p class="lead">Estado en memoria (<code>app/services/sessions.py</code>). No apto para multi-instancia sin almacenamiento externo.</p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Memoria conversacional</h4>
+            <p>Ventana deslizante de pares user/assistant pasados al LLM estructurado via <code>messages_override</code>. El prompt actual incluye transcript + adjuntos completos.</p>
+          </div>
+          <div class="card">
+            <h4>Metadata derivada</h4>
+            <p>Heurísticas extraen nombre, tipo, audiencia del formulario + transcript + texto de adjuntos. Se fusiona con el snapshot anterior de la sesión.</p>
+          </div>
+        </div>
+        <div class="alert warning">
+          <strong>Limitación de producción:</strong> las sesiones se pierden al reiniciar el proceso y no se comparten entre workers Uvicorn. Para producción real se necesitaría Redis/PostgreSQL + sticky sessions o IDs externos.
+        </div>
+      </section>
+
+      <!-- 11. Tokens -->
+      <section id="tokens">
+        <h2><span class="num">11</span> Consumo de tokens y coste</h2>
+        <p class="lead">Estimación orientativa para una petición típica con <code>gpt-4o-mini</code>. Valores reales dependen del tamaño del transcript, adjuntos y modo.</p>
+
+        <button class="btn primary" id="animateTokens" style="margin-bottom:1rem">Animar desglose de tokens</button>
+
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>System prompt (instrucciones + few-shot)</span><span>~1.800 – 4.500 tokens</span></div>
+          <div class="token-bar"><div class="token-bar-fill input" data-width="55"></div></div>
+        </div>
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>User prompt (transcript + metadatos + adjuntos)</span><span>~500 – 8.000+ tokens</span></div>
+          <div class="token-bar"><div class="token-bar-fill input" data-width="70"></div></div>
+        </div>
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>Output estructurado (Instructor JSON)</span><span>~800 – 2.048 tokens</span></div>
+          <div class="token-bar"><div class="token-bar-fill output" data-width="40"></div></div>
+        </div>
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>Preprocessing two_phase (si activo)</span><span>~300 – 1.500 tokens extra</span></div>
+          <div class="token-bar"><div class="token-bar-fill embed" data-width="25"></div></div>
+        </div>
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>Embedding caché semántica (si activa)</span><span>~1 llamada embedding / request</span></div>
+          <div class="token-bar"><div class="token-bar-fill embed" data-width="15"></div></div>
+        </div>
+        <div class="token-bar-group">
+          <div class="token-bar-label"><span>Ahorro en cache hit</span><span>~95–100% tokens LLM evitados</span></div>
+          <div class="token-bar"><div class="token-bar-fill cache" data-width="95"></div></div>
+        </div>
+
+        <h3>Precios de referencia (gpt-4o-mini)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Métrica</th><th>Valor</th><th>Notas</th></tr></thead>
+            <tbody>
+              <tr><td>Input</td><td>$0.15 / 1M tokens</td><td>Definido en <code>estimate_response_builder.py</code></td></tr>
+              <tr><td>Output</td><td>$0.60 / 1M tokens</td><td>Solo calculado cuando <code>DEV_MODE=true</code></td></tr>
+              <tr><td>Coste típico v2</td><td>~$0.001 – $0.015</td><td>Transcript medio, sin adjuntos grandes</td></tr>
+              <tr><td>Reintentos Instructor</td><td>×1 – ×3</td><td><code>STRUCTURED_OUTPUT_MAX_ATTEMPTS=3</code></td></tr>
+              <tr><td>Historial sesión</td><td>Crecimiento lineal</td><td>Cada turno añade pares al contexto</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert info">
+          Activa <code>DEV_MODE=true</code> para ver <code>usage.prompt_tokens</code>, <code>completion_tokens</code>, <code>total_tokens</code> y <code>estimated_cost_usd</code> en la respuesta HTTP.
+          Langfuse captura el mismo desglose cuando <code>OTEL_EXPORT_ENABLED=true</code>.
+        </div>
+      </section>
+
+      <!-- 12. Critical -->
+      <section id="critical">
+        <h2><span class="num">12</span> Partes críticas del sistema</h2>
+        <p class="lead">Módulos cuyo fallo impacta directamente la funcionalidad core o la seguridad.</p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>EstimationService + LLMPipeline</h4>
+            <p>Orquestadores centrales. Un bug aquí afecta todas las superficies (v1, v2, sesiones).</p>
+          </div>
+          <div class="card">
+            <h4>structured_llm_client.py</h4>
+            <p>Puerta de entrada a Instructor. Validación de roles en <code>messages</code> y reintentos ante schema mismatch.</p>
+          </div>
+          <div class="card">
+            <h4>llm_chain.py</h4>
+            <p>Cadena de fallback. Configuración incorrecta de keys → 503 o degraded mode.</p>
+          </div>
+          <div class="card">
+            <h4>estimation_engine.py</h4>
+            <p>Routing determinista de modo. Afecta profundidad y validación de la estimación.</p>
+          </div>
+          <div class="card">
+            <h4>prompt_renderer + Jinja2 templates</h4>
+            <p>Cualquier error de template rompe el render en runtime (<code>StrictUndefined</code>).</p>
+          </div>
+          <div class="card">
+            <h4>sessions.py (in-memory store)</h4>
+            <p>Pérdida de estado en restart. Race conditions potenciales con múltiples workers.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 13. Bottlenecks -->
+      <section id="bottlenecks">
+        <h2><span class="num">13</span> Cuellos de botella y riesgos</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cuello de botella</th><th>Impacto</th><th>Mitigación actual</th></tr></thead>
+            <tbody>
+              <tr><td>Llamada LLM síncrona</td><td>Latencia 2–30s por request</td><td>Timeout configurable, fallback chain, caché semántica</td></tr>
+              <tr><td>Reintentos Instructor</td><td>×N tokens en schema failures</td><td>Max 3 intentos, validación previa de prompts</td></tr>
+              <tr><td>System prompt grande (CAG)</td><td>Coste input alto, context window</td><td>Sampling 2–4 ejemplos, modos adaptativos</td></tr>
+              <tr><td>Adjuntos PDF/DOCX</td><td>Tokens user inflados, CPU extracción</td><td>Límite 10 MB, extracción local</td></tr>
+              <tr><td>Embedding + Redis lookup</td><td>+100–300ms si caché activa</td><td>Log-only default, threshold alto (0.92)</td></tr>
+              <tr><td>Sesiones in-memory</td><td>No escala horizontalmente</td><td>Documentado como limitación de ejercicio</td></tr>
+              <tr><td>Historial multi-turno</td><td>Contexto crece sin límite duro visible</td><td>Sliding window acotada en servicio</td></tr>
+              <tr><td>Rate limits proveedor</td><td>503 o fallback</td><td>Cadena openai → anthropic → static</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="alert danger">
+          <strong>Riesgo de coste en sesiones:</strong> cada submit adicional reenvía historial + prompt completo.
+          En demos con muchos turnos y adjuntos grandes, el consumo de tokens crece rápidamente.
+          Monitoriza con Langfuse o <code>DEV_MODE</code>.
+        </div>
+      </section>
+
+      <!-- 14. API -->
+      <section id="api">
+        <h2><span class="num">14</span> API y endpoints</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Pipeline</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/health</code></td><td>Liveness probe</td><td>—</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/estimate</code></td><td>Estimación texto Markdown</td><td>EstimationService directo</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/estimate/stream</code></td><td>SSE chunk/done/error</td><td>Streaming LiteLLM</td></tr>
+              <tr><td>POST</td><td><code>/api/v2/estimate</code></td><td>JSON estructurado</td><td>LLMPipeline + guardrails + cache</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/sessions</code></td><td>Crear sesión (201)</td><td>In-memory store</td></tr>
+              <tr><td>GET</td><td><code>/api/v1/sessions</code></td><td>Listar sesiones sidebar</td><td>Últimos 30 días</td></tr>
+              <tr><td>GET</td><td><code>/api/v1/sessions/{id}</code></td><td>Detalle para restore</td><td>Payload + metadata + last estimate</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 15. Tests -->
+      <section id="tests">
+        <h2><span class="num">15</span> Tests y estrategia de verificación</h2>
+        <p class="lead">
+          La suite por defecto es <strong>determinista y sin red</strong>: no requiere API keys ni llama a OpenAI/Anthropic.
+          Los proveedores LLM se sustituyen por fakes, monkeypatch o servicios inyectados en el límite HTTP.
+        </p>
+
+        <div style="margin-bottom:1rem">
+          <span class="test-no-ai">✓ CI / default: sin IA real</span>
+          <span class="test-no-ai test-ai-optional" style="margin-left:0.5rem">⚠ 1 smoke opcional con OpenAI</span>
+        </div>
+
+        <h3>Estructura del repositorio</h3>
+        <div class="file-tree">
+          <div class="tree-node open">tests/</div>
+          <div class="tree-children" style="display:block">
+            <div class="tree-leaf">conftest.py <span class="comment">— fixtures autouse: Settings cache, observabilidad noop</span></div>
+            <div class="tree-leaf">estimation_fixtures.py <span class="comment">— payloads EstimationRequest reutilizables</span></div>
+            <div class="tree-node open">fakes/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">fake_llm_provider.py <span class="comment">— FakeStructuredLLM (captura prompts, respuesta fija)</span></div>
+            </div>
+            <div class="tree-node open">fixtures/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">conftest_sessions.py · session_store.py · attachment_bytes.py · transcripts.py</div>
+            </div>
+            <div class="tree-node open">support/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">app_factory.py <span class="comment">— AsyncClient ASGI + patch stores/fake LLM</span></div>
+              <div class="tree-leaf">multipart_submit.py · integration_settings.py · session_integration_markers.py</div>
+            </div>
+            <div class="tree-leaf">test_*.py <span class="comment">— ~60 módulos · ~290 tests (pytest)</span></div>
+          </div>
+          <div class="tree-node">web/src/**/*.test.ts</div>
+          <div class="tree-children">
+            <div class="tree-leaf">6 archivos · 33 tests (Vitest) — formularios, API client, hooks, tema</div>
+          </div>
+        </div>
+
+        <h3>Tipos de tests</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Tipo</th><th>Alcance</th><th>¿IA real?</th><th>Stack</th><th>Ejemplos en repo</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Unitarios (dominio)</strong></td>
+                <td>Funciones puras: schemas, prompts Jinja2, guardrails heurísticos, parsing, coste tokens</td>
+                <td>No</td>
+                <td>pytest</td>
+                <td><code>test_estimation_request.py</code>, <code>test_prompt_renderer.py</code>, <code>test_guardrails_*.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Unitarios (servicios)</strong></td>
+                <td>Lógica de servicio con dependencias mockeadas (sin HTTP)</td>
+                <td>No</td>
+                <td>pytest + monkeypatch</td>
+                <td><code>test_llm_service.py</code>, <code>test_llm_pipeline.py</code>, <code>test_semantic_cache_*.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>API / HTTP</strong></td>
+                <td>Endpoints FastAPI con <code>TestClient</code> o servicios fake inyectados vía DI</td>
+                <td>No</td>
+                <td>pytest + FastAPI TestClient / httpx</td>
+                <td><code>test_api.py</code>, <code>test_sessions_router.py</code>, <code>test_cors.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Integración (sesiones)</strong></td>
+                <td>App ASGI real, store in-memory, multipart, historial, metadata — LLM fake</td>
+                <td>No (fake) · smoke opcional sí</td>
+                <td>pytest-asyncio + httpx ASGITransport</td>
+                <td><code>test_sessions_integration.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Frontend unit</strong></td>
+                <td>Validación de formulario, mapeo de errores, cliente API mockeado, hooks de paneles</td>
+                <td>No</td>
+                <td>Vitest + TypeScript</td>
+                <td><code>web/src/**/*.test.ts</code></td>
+              </tr>
+              <tr>
+                <td><strong>Smoke manual (E2E LLM)</strong></td>
+                <td>Un test contra OpenAI real; fuera de CI por defecto</td>
+                <td>Sí · consume tokens</td>
+                <td>pytest + env flags</td>
+                <td><code>test_estimate_submit_live_llm_smoke</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Dependencias y aislamiento</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Backend (dev group)</h4>
+            <ul>
+              <li><code>pytest</code> — runner</li>
+              <li><code>pytest-asyncio</code> — tests async (<code>asyncio_mode = auto</code>)</li>
+              <li><code>httpx</code> — <code>TestClient</code> / <code>AsyncClient</code> ASGI</li>
+            </ul>
+            <p style="margin-top:0.5rem">No se añaden SDKs de test extra: Redis, Langfuse y LiteLLM se simulan o desactivan en <code>conftest.py</code>.</p>
+          </div>
+          <div class="card">
+            <h4>Frontend</h4>
+            <ul>
+              <li><code>vitest</code> — runner en <code>web/</code></li>
+              <li>Sin navegador (no Playwright/Cypress en el repo)</li>
+              <li>Sin llamadas al backend real en la suite por defecto</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Pirámide de tests (proyecto actual)</h3>
+        <p class="lead">Distribución aproximada recogida con <code>uv run pytest --collect-only</code> y <code>npm run test</code> en <code>web/</code>.</p>
+
+        <div class="test-pyramid-wrap">
+          <div class="test-pyramid" aria-label="Pirámide de tests">
+            <div class="test-pyramid-tier t-e2e" title="Smoke manual, no CI">
+              <strong>E2E / smoke LLM</strong>
+              <span>1 test opcional · OpenAI real</span>
+              <span class="tier-count">~1</span>
+            </div>
+            <div class="test-pyramid-tier t-integration" title="App completa, fake structured LLM">
+              <strong>Integración sesiones</strong>
+              <span>ASGI · memoria · multipart · ventana historial</span>
+              <span class="tier-count">~12</span>
+            </div>
+            <div class="test-pyramid-tier t-api" title="HTTP boundaries">
+              <strong>API / routers HTTP</strong>
+              <span>TestClient · DI con fakes · v1/v2/sessions</span>
+              <span class="tier-count">~45</span>
+            </div>
+            <div class="test-pyramid-tier t-unit" title="Mayoría de la suite">
+              <strong>Unitarios (+ frontend)</strong>
+              <span>pytest dominio/servicios · Vitest UI (~33)</span>
+              <span class="tier-count">~245 + 33</span>
+            </div>
+          </div>
+
+          <div class="test-pyramid-legend card" style="box-shadow:var(--shadow)">
+            <h4 style="color:var(--accent);margin-bottom:0.75rem">Lectura de la pirámide</h4>
+            <ul>
+              <li><strong>Base ancha — unitarios</strong> Prompts, guardrails, schemas, caché (fake Redis), observabilidad noop. Rápidos, sin I/O de red.</li>
+              <li><strong>API HTTP</strong> Contrato REST/SSE, códigos de error, guardrails en transporte. Servicios reemplazados por <code>_FakeEstimationService</code>.</li>
+              <li><strong>Integración sesiones</strong> Única franja que levanta la app entera con <code>FakeStructuredLLM</code> registrando prompts y <code>messages</code>.</li>
+              <li><strong>Cima — smoke</strong> Solo si <code>SESSION_INTEGRATION_TEST_USE_REAL_LLM=true</code> y <code>OPENAI_API_KEY</code>. No forma parte del gate CI habitual.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Cómo ejecutar</h3>
+        <p class="lead">Comandos desde la raíz del repo salvo Vitest.</p>
+
+        <div class="cmd-block"># Suite backend completa (~290 tests, sin API keys)
+uv sync --group dev
+uv run pytest
+
+# Verbose
+uv run pytest -v
+
+# Un módulo / un test
+uv run pytest tests/test_guardrails_policies.py -v
+uv run pytest tests/test_api.py::test_health_returns_ok -v
+
+# Integración sesiones (fake LLM, sin red)
+uv run pytest tests/test_sessions_integration.py -v
+
+# Docker dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
+
+# Frontend (33 tests)
+cd web && npm install && npm run test
+
+# Smoke REAL OpenAI — manual, cuesta tokens, NO para CI
+SESSION_INTEGRATION_TEST_USE_REAL_LLM=true \
+OPENAI_API_KEY=sk-... \
+uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v</div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Variable</th><th>Default</th><th>Efecto en tests</th></tr></thead>
+            <tbody>
+              <tr><td><code>OTEL_EXPORT_ENABLED</code></td><td>false (forzado en conftest)</td><td>Langfuse noop; sin export real</td></tr>
+              <tr><td><code>SESSION_INTEGRATION_TEST_USE_REAL_LLM</code></td><td>false</td><td>Si true, smoke usa OpenAI; resto de integración se salta o usa fake según marker</td></tr>
+              <tr><td><code>SESSION_INTEGRATION_TEST_LLM_MODEL</code></td><td>OPENAI_MODEL</td><td>Modelo registrado en capturas del fake o en smoke</td></tr>
+              <tr><td><code>OPENAI_API_KEY</code></td><td>—</td><td>Solo requerida para smoke manual</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert info">
+          <strong>Regla del proyecto:</strong> los tests validan lógica propia (prompts, políticas, parsing, contratos HTTP), no la calidad estocástica del modelo.
+          Por eso el proveedor LLM siempre se sustituye salvo el smoke explícito documentado en el README.
+        </div>
+      </section>
+
+      <!-- 16. Infra -->
+      <section id="infra">
+        <h2><span class="num">16</span> Infraestructura Docker</h2>
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart TB
+    subgraph compose [docker compose]
+        APP[app :8000\nFastAPI + uvicorn]
+        WEB[web :5175\nnginx static React]
+        REDIS[redis :6379\nRedis Stack]
+        RI[redisinsight :5540]
+    end
+
+    Browser --> WEB
+    Browser --> APP
+    WEB -.->|VITE_API_BASE_URL| APP
+    APP --> REDIS
+    RI --> REDIS
+          </pre>
+        </div>
+        <div class="grid-3">
+          <div class="card"><h4>Desarrollo local</h4><p><code>uv run uvicorn app.main:app --reload</code> + <code>npm run dev</code> en web/</p></div>
+          <div class="card"><h4>Dev Docker</h4><p><code>docker compose -f docker-compose.yml -f docker-compose.dev.yml up</code> con bind-mount y reload</p></div>
+          <div class="card"><h4>Tests CI</h4><p><code>uv run pytest</code> — providers mockeados, sin network</p></div>
+        </div>
+      </section>
+
+      <footer>
+        <p>Generado para <strong>master-ia / Estimador CAG</strong> · Versión 0.1.0 · Basado en README.md y docs/technical/README.md</p>
+        <p style="margin-top:0.5rem">Abrir en navegador: <code>docs/arquitectura-estimador-cag.html</code> · Requiere conexión para Mermaid CDN</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // ── Mermaid ──
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.dataset.theme === "light" ? "default" : "dark",
+      securityLevel: "loose",
+      flowchart: { curve: "basis" },
+      themeVariables: { fontSize: "15px" }
+    });
+
+    // ── Theme toggle ──
+    const themeToggle = document.getElementById("themeToggle");
+    themeToggle.addEventListener("click", () => {
+      const isDark = document.body.dataset.theme === "dark";
+      document.body.dataset.theme = isDark ? "light" : "dark";
+      mermaid.initialize({
+        theme: isDark ? "default" : "dark",
+        themeVariables: { fontSize: "15px" }
+      });
+      document.querySelectorAll(".mermaid").forEach(el => {
+        const code = el.textContent;
+        el.removeAttribute("data-processed");
+        el.innerHTML = code;
+      });
+      mermaid.run();
+    });
+
+    // ── Scroll spy nav ──
+    const sections = document.querySelectorAll("section[id]");
+    const navLinks = document.querySelectorAll("nav.sidebar a");
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            navLinks.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + entry.target.id));
+          }
+        });
+      },
+      { rootMargin: "-20% 0px -60% 0px" }
+    );
+    sections.forEach(s => observer.observe(s));
+
+    // ── Section fade-in ──
+    const fadeObserver = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); }),
+      { threshold: 0.08 }
+    );
+    sections.forEach(s => fadeObserver.observe(s));
+
+    // ── File tree toggle ──
+    document.querySelectorAll(".tree-node").forEach(node => {
+      node.addEventListener("click", () => {
+        node.classList.toggle("open");
+        const children = node.nextElementSibling;
+        if (children && children.classList.contains("tree-children")) {
+          children.style.display = node.classList.contains("open") ? "block" : "none";
+        }
+      });
+    });
+
+    // ── Tabs ──
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(target).classList.add("active");
+      });
+    });
+
+    // ── Flow step animation ──
+    const flowTimers = {};
+
+    function resetFlow(flowId) {
+      clearInterval(flowTimers[flowId]);
+      document.querySelectorAll("#steps-" + flowId + " .flow-step").forEach(s => s.classList.remove("active"));
+    }
+
+    function playFlow(flowId) {
+      resetFlow(flowId);
+      const steps = document.querySelectorAll("#steps-" + flowId + " .flow-step");
+      let i = 0;
+      steps[i]?.classList.add("active");
+      flowTimers[flowId] = setInterval(() => {
+        steps[i]?.classList.remove("active");
+        i = (i + 1) % steps.length;
+        steps[i]?.classList.add("active");
+      }, 1800);
+    }
+
+    document.querySelectorAll("[data-action]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const flow = btn.dataset.flow;
+        if (btn.dataset.action === "play") playFlow(flow);
+        else resetFlow(flow);
+      });
+    });
+
+    // ── Token bars animation ──
+    document.getElementById("animateTokens").addEventListener("click", () => {
+      document.querySelectorAll(".token-bar-fill").forEach(bar => {
+        bar.style.width = "0";
+        setTimeout(() => { bar.style.width = bar.dataset.width + "%"; }, 100);
+      });
+    });
+
+    // Auto-animate token bars on scroll into view
+    const tokenSection = document.getElementById("tokens");
+    const tokenObserver = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          document.querySelectorAll(".token-bar-fill").forEach(bar => {
+            setTimeout(() => { bar.style.width = bar.dataset.width + "%"; }, 200);
+          });
+          tokenObserver.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+    tokenObserver.observe(tokenSection);
+
+    // ── Interactive architecture diagram ──
+    const ARCH_FLOWS = {
+      all: {
+        label: "Vista completa",
+        nodes: null,
+        steps: []
+      },
+      v1: {
+        label: "v1 Markdown / SSE",
+        nodes: ["client-api", "router-v1", "router-stream", "guard-input", "cag-prompts", "svc-es", "adapter-chain", "adapter-litellm", "adapter-fallback", "model-openai", "model-anthropic", "infra-langfuse"],
+        steps: [
+          "Cliente HTTP → POST /api/v1/estimate (o /stream)",
+          "Capa 2: validación router + domain guardrail",
+          "Capa 3: CAG prompts + EstimationService.estimate()",
+          "Capa 3: Provider chain → LiteLLM client (adapter)",
+          "Capa 5: llamada HTTPS a OpenAI / Anthropic",
+          "Capa 3: static fallback local si todos fallan",
+          "Capa 6: Langfuse trace async (opcional)"
+        ]
+      },
+      v2: {
+        label: "v2 Guarded",
+        nodes: ["client-api", "router-v2", "svc-gp", "guard-input", "guard-output", "guard-policy", "svc-sc", "cag-prompts", "svc-es", "adapter-instructor", "adapter-chain", "adapter-litellm", "model-openai", "model-embeddings", "infra-redis", "infra-langfuse"],
+        steps: [
+          "Cliente → POST /api/v2/estimate",
+          "Capa 4: LLMPipeline + input guardrails",
+          "Capa 3: SemanticCache lookup (lógica)",
+          "Capa 5: Embeddings API si cache activa",
+          "Capa 3: CAG + Instructor + provider adapters",
+          "Capa 5: OpenAI chat completion",
+          "Capa 4: output guardrails + policy audit",
+          "Capa 6: Redis write si safe_to_cache"
+        ]
+      },
+      session: {
+        label: "Sesiones Web",
+        nodes: ["client-web", "router-sessions", "svc-store", "svc-ss", "svc-gp", "guard-input", "cag-prompts", "svc-es", "adapter-instructor", "adapter-chain", "adapter-litellm", "model-openai", "infra-langfuse"],
+        steps: [
+          "Capa 1: Web UI → POST /sessions",
+          "Capa 3: SessionStore (RAM) + SessionService",
+          "Capa 4: LLMPipeline con historial",
+          "Capa 3: adjuntos + metadata merge + CAG",
+          "Capa 5: OpenAI structured via Instructor",
+          "Capa 6: Langfuse (opcional)"
+        ]
+      }
+    };
+
+    let activeArchFlow = "all";
+    let archAnimTimer = null;
+    let archStepIndex = 0;
+
+    const archNodes = document.querySelectorAll(".arch-node");
+    const archDetailTitle = document.getElementById("archDetailTitle");
+    const archDetailFile = document.getElementById("archDetailFile");
+    const archDetailDesc = document.getElementById("archDetailDesc");
+    const archDetailSteps = document.getElementById("archDetailSteps");
+    const archStepList = document.getElementById("archStepList");
+    const archPlayBtn = document.getElementById("archPlayBtn");
+
+    function applyArchFlow(flowKey) {
+      activeArchFlow = flowKey;
+      const flow = ARCH_FLOWS[flowKey];
+      document.querySelectorAll(".arch-flow-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.archFlow === flowKey);
+      });
+
+      archNodes.forEach(node => {
+        const id = node.dataset.id;
+        if (!flow.nodes) {
+          node.classList.remove("dimmed", "highlight", "pulse");
+        } else if (flow.nodes.includes(id)) {
+          node.classList.remove("dimmed");
+          node.classList.add("highlight");
+        } else {
+          node.classList.add("dimmed");
+          node.classList.remove("highlight", "pulse");
+        }
+      });
+
+      document.querySelectorAll(".arch-layer-band").forEach(band => {
+        const bandNodes = band.querySelectorAll(".arch-node");
+        if (!flow.nodes) {
+          band.classList.remove("band-dimmed", "band-active");
+          return;
+        }
+        const activeCount = [...bandNodes].filter(n => flow.nodes.includes(n.dataset.id)).length;
+        band.classList.toggle("band-dimmed", activeCount === 0);
+        band.classList.toggle("band-active", activeCount > 0 && activeCount < bandNodes.length);
+      });
+
+      document.querySelectorAll(".arch-layer-bridge").forEach(bridge => {
+        if (!flow.nodes) {
+          bridge.style.opacity = "";
+          return;
+        }
+        const stack = bridge.closest(".arch-layer-stack");
+        const bridgeIndex = [...stack.querySelectorAll(".arch-layer-bridge")].indexOf(bridge);
+        const bandAbove = stack.querySelectorAll(".arch-layer-band")[bridgeIndex];
+        const bandBelow = stack.querySelectorAll(".arch-layer-band")[bridgeIndex + 1];
+        const aboveActive = bandAbove && [...bandAbove.querySelectorAll(".arch-node")].some(n => flow.nodes.includes(n.dataset.id));
+        const belowActive = bandBelow && [...bandBelow.querySelectorAll(".arch-node")].some(n => flow.nodes.includes(n.dataset.id));
+        bridge.style.opacity = aboveActive && belowActive ? "1" : "0.25";
+      });
+
+      if (flow.steps.length) {
+        archDetailSteps.hidden = false;
+        archStepList.innerHTML = flow.steps.map((s, i) =>
+          `<li data-step-idx="${i}">${i + 1}. ${s}</li>`
+        ).join("");
+        archDetailTitle.textContent = "Flujo: " + flow.label;
+        archDetailFile.textContent = flowKey === "v1" ? "POST /api/v1/estimate" :
+          flowKey === "v2" ? "POST /api/v2/estimate" : "POST /api/v1/sessions/{id}/estimate";
+        archDetailDesc.textContent = "Usa «Animar recorrido» para recorrer los pasos secuencialmente, o haz clic en un componente resaltado.";
+      } else {
+        archDetailSteps.hidden = true;
+        archStepList.innerHTML = "";
+        if (archDetailTitle.textContent.startsWith("Flujo:")) {
+          archDetailTitle.textContent = "Selecciona un componente";
+          archDetailFile.textContent = "—";
+          archDetailDesc.textContent = "Haz clic en cualquier caja del diagrama para ver su responsabilidad, archivo fuente y rol en el flujo activo.";
+        }
+      }
+      stopArchAnimation();
+    }
+
+    function showArchNodeDetail(node) {
+      archDetailTitle.textContent = node.dataset.title;
+      archDetailFile.textContent = node.dataset.file;
+      archDetailDesc.textContent = node.dataset.desc;
+      archNodes.forEach(n => n.classList.remove("pulse"));
+      document.querySelectorAll(".arch-layer-band").forEach(b => b.classList.remove("band-active"));
+      if (!node.classList.contains("dimmed")) {
+        node.classList.add("pulse");
+        node.closest(".arch-layer-band")?.classList.add("band-active");
+      }
+    }
+
+    function stopArchAnimation() {
+      clearInterval(archAnimTimer);
+      archAnimTimer = null;
+      archStepIndex = 0;
+      archPlayBtn.textContent = "▶ Animar recorrido";
+      document.querySelectorAll(".arch-step-list li").forEach(li => li.classList.remove("active-step"));
+      archNodes.forEach(n => n.classList.remove("pulse"));
+      document.querySelectorAll(".arch-layer-band").forEach(b => b.classList.remove("band-active"));
+    }
+
+    function playArchAnimation() {
+      const flow = ARCH_FLOWS[activeArchFlow];
+      if (!flow.steps.length) {
+        applyArchFlow("v2");
+      }
+      const activeFlow = ARCH_FLOWS[activeArchFlow];
+      if (!activeFlow.steps.length) return;
+
+      if (archAnimTimer) {
+        stopArchAnimation();
+        return;
+      }
+
+      archPlayBtn.textContent = "⏹ Detener";
+      const stepLis = document.querySelectorAll(".arch-step-list li");
+      archStepIndex = 0;
+
+      function tick() {
+        stepLis.forEach(li => li.classList.remove("active-step"));
+        archNodes.forEach(n => n.classList.remove("pulse"));
+        if (stepLis[archStepIndex]) {
+          stepLis[archStepIndex].classList.add("active-step");
+          stepLis[archStepIndex].scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+        const flowNodes = activeFlow.nodes || [];
+        if (flowNodes.length) {
+          const nodeIdx = Math.min(
+            Math.floor((archStepIndex / activeFlow.steps.length) * flowNodes.length),
+            flowNodes.length - 1
+          );
+          const target = document.querySelector(`.arch-node[data-id="${flowNodes[nodeIdx]}"]`);
+          target?.classList.add("pulse");
+          document.querySelectorAll(".arch-layer-band").forEach(b => b.classList.remove("band-active"));
+          target?.closest(".arch-layer-band")?.classList.add("band-active");
+        }
+        archStepIndex = (archStepIndex + 1) % activeFlow.steps.length;
+      }
+
+      tick();
+      archAnimTimer = setInterval(tick, 1600);
+    }
+
+    document.querySelectorAll(".arch-flow-btn").forEach(btn => {
+      btn.addEventListener("click", () => applyArchFlow(btn.dataset.archFlow));
+    });
+
+    archNodes.forEach(node => {
+      node.addEventListener("click", () => showArchNodeDetail(node));
+    });
+
+    archPlayBtn.addEventListener("click", playArchAnimation);
+
+    // ── Simplified horizontal diagram ──
+    document.querySelectorAll(".simple-flow-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const flow = btn.dataset.simpleFlow;
+        document.querySelectorAll(".simple-flow-btn").forEach(b => {
+          b.classList.toggle("active", b === btn);
+        });
+        document.querySelectorAll(".arch-simple-col").forEach(col => {
+          const flows = (col.dataset.simpleFlows || "").split(/\s+/);
+          const on = flow === "all" || flows.includes(flow);
+          col.classList.toggle("dimmed", !on);
+          col.classList.toggle("active", on && flow !== "all");
+        });
+      });
+    });
+  </script>
+</body>
+</html>
