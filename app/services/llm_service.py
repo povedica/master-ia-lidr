@@ -14,16 +14,6 @@ from app.config import Settings
 from app.context.examples import EstimationExample, load_examples
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_result import EstimationResult as DomainEstimationResult
-from app.services.estimation_engine import (
-    EstimationMode,
-    assess_and_select_mode,
-    evaluate_mode_eligibility,
-    enforce_mode_eligibility,
-    InputAssessment,
-    ModeEligibility,
-    summarize_assessment,
-    validate_mode_output,
-)
 from app.services.domain_guardrails import check_estimation_domain
 from app.services.estimation_prompt_rendering import (
     render_estimation_prompt,
@@ -70,9 +60,6 @@ class LlmEstimationCallOutcome:
     provider: str
     model: str
     usage: UsageInfo | None
-    mode: EstimationMode = EstimationMode.STANDARD
-    assessment: InputAssessment | None = None
-    mode_eligibility: ModeEligibility | None = None
     degraded: bool = False
     finish_reason: str | None = None
 
@@ -83,39 +70,30 @@ class _PreparedCall:
 
     system_prompt: str
     user_text: str
-    mode: EstimationMode
     max_output_tokens: int
-    assessment: InputAssessment
-    mode_eligibility: ModeEligibility
     phase1_prep_in: int
     phase1_prep_out: int
 
 
 @dataclass(frozen=True)
 class StructuredEstimateBundle:
-    """Validated domain result plus routing metadata for v2 transport assembly."""
+    """Validated domain result plus metadata for v2 transport assembly."""
 
     result: DomainEstimationResult
     prompt_version: str
     examples_version: str
-    mode: EstimationMode
     model: str
     provider: str
     usage: UsageInfo | None
     degraded: bool
     finish_reason: str | None
-    assessment: InputAssessment
-    mode_eligibility: ModeEligibility
 
 
 @dataclass(frozen=True)
 class _StructuredPrelude:
-    """Shared prelude for structured estimation (guardrail, mode, preprocessing)."""
+    """Shared prelude for structured estimation (guardrail, preprocessing)."""
 
     preprocessed_markdown_for_template: str | None
-    mode: EstimationMode
-    assessment: InputAssessment
-    mode_eligibility: ModeEligibility
     phase1_prep_in: int
     phase1_prep_out: int
     max_output_tokens: int
@@ -126,19 +104,17 @@ StructuredPrelude = _StructuredPrelude
 
 def build_system_prompt(
     examples: list[EstimationExample],
-    mode: EstimationMode,
     *,
     inline_cleaning: bool = False,
     version: str | None = None,
 ) -> str:
-    """Compose the system message: mode Jinja partial plus static few-shot examples."""
+    """Compose the system message: Jinja partial plus static few-shot examples."""
 
     template_set = resolve_prompt_template_set("estimation", version)
     renderer = PromptRenderer()
     system_preamble = renderer.render_partial(
         template_set.system_instructions_template,
         {
-            "estimation_mode": mode.value,
             "detail_level": "medium",
             "output_format": "phases_table",
         },
@@ -273,7 +249,6 @@ class EstimationService:
                     "model": provider.model,
                     "attempt_index": attempt_index,
                     "max_output_tokens": prepared.max_output_tokens,
-                    "estimation_mode": prepared.mode.value,
                     "supports_streaming": isinstance(provider, StreamingLLMProvider),
                 },
             )
@@ -399,14 +374,14 @@ class EstimationService:
         preprocessing: str = "none",
         assessment_input: str | None = None,
     ) -> _PreparedCall:
-        """Run the shared prelude (guardrail, mode, preprocessing) for both estimate paths.
+        """Run the shared prelude (guardrail, preprocessing) for both estimate paths.
 
         Raises `EstimationError` for invalid input or `DomainGuardrailError` for
         out-of-domain transcriptions.
 
         ``transcription`` is the full user message sent to the model (after preprocessing).
-        When ``assessment_input`` is set, domain guardrail and adaptive mode selection run
-        on that narrower surface instead of the full templated message.
+        When ``assessment_input`` is set, domain guardrail runs on that narrower surface
+        instead of the full templated message.
         """
 
         text = transcription.strip()
@@ -422,11 +397,6 @@ class EstimationService:
                 logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
                 raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
-        raw_assessment, recommended_mode = assess_and_select_mode(surface)
-        assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
-        mode_eligibility = evaluate_mode_eligibility(assessment_summary)
-        mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
-
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")
 
@@ -438,17 +408,13 @@ class EstimationService:
 
         system_prompt = build_system_prompt(
             load_examples(),
-            mode,
             inline_cleaning=(preprocessing == "inline_cleaning"),
         )
         max_output_tokens = self._settings.estimation_output_tokens_max
         return _PreparedCall(
             system_prompt=system_prompt,
             user_text=user_text,
-            mode=mode,
             max_output_tokens=max_output_tokens,
-            assessment=assessment_summary,
-            mode_eligibility=mode_eligibility,
             phase1_prep_in=phase1_prep_in,
             phase1_prep_out=phase1_prep_out,
         )
@@ -506,10 +472,7 @@ class EstimationService:
         )
         system_prompt = system_prompt_override or prepared.system_prompt
         user_text = prepared.user_text
-        mode = prepared.mode
         max_output_tokens = prepared.max_output_tokens
-        assessment_summary = prepared.assessment
-        mode_eligibility = prepared.mode_eligibility
         phase1_prep_in = prepared.phase1_prep_in
         phase1_prep_out = prepared.phase1_prep_out
         provider_names = [provider.name for provider in self._providers]
@@ -524,7 +487,6 @@ class EstimationService:
                     "model": provider.model,
                     "attempt_index": attempt_index,
                     "max_output_tokens": max_output_tokens,
-                    "estimation_mode": mode.value,
                 },
             )
             try:
@@ -571,21 +533,6 @@ class EstimationService:
                 )
                 raise EstimationError("Unexpected provider failure.") from exc
 
-            if result.provider != "static_fallback" and not validate_mode_output(result.text, mode):
-                logger.warning(
-                    "provider_invalid_structure",
-                    extra={
-                        "provider": result.provider,
-                        "model": result.model,
-                        "mode": mode.value,
-                        "attempt_index": attempt_index,
-                    },
-                )
-                last_error = ProviderInvalidResponseError(
-                    f"Invalid markdown structure for mode '{mode.value}'."
-                )
-                continue
-
             logger.info(
                 "provider_succeeded",
                 extra={
@@ -608,9 +555,6 @@ class EstimationService:
                 provider=result.provider,
                 model=result.model,
                 usage=merged_usage,
-                mode=mode,
-                assessment=assessment_summary,
-                mode_eligibility=mode_eligibility,
                 degraded=degraded,
                 finish_reason=result.finish_reason,
             )
@@ -650,11 +594,6 @@ class EstimationService:
                 logger.info("guardrail_rejected", extra={"reason": domain_decision.reason})
                 raise DomainGuardrailError("Only software/project estimation requests are supported.")
 
-        raw_assessment, recommended_mode = assess_and_select_mode(surface)
-        assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
-        mode_eligibility = evaluate_mode_eligibility(assessment_summary)
-        mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
-
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")
 
@@ -669,9 +608,6 @@ class EstimationService:
         max_output_tokens = self._settings.estimation_output_tokens_max
         return _StructuredPrelude(
             preprocessed_markdown_for_template=pre_md,
-            mode=mode,
-            assessment=assessment_summary,
-            mode_eligibility=mode_eligibility,
             phase1_prep_in=phase1_prep_in,
             phase1_prep_out=phase1_prep_out,
             max_output_tokens=max_output_tokens,
@@ -684,7 +620,7 @@ class EstimationService:
         assessment_surface: str,
         skip_domain_guardrail: bool = False,
     ) -> StructuredPrelude:
-        """Resolve mode and preprocessing the same way as ``estimate_structured``."""
+        """Resolve preprocessing the same way as ``estimate_structured``."""
 
         return await self._prepare_structured_prelude(
             request,
@@ -721,7 +657,6 @@ class EstimationService:
         version_override = self._settings.prompt_estimation_version.strip() or None
         rendered = render_estimation_prompt(
             request,
-            mode=prelude.mode,
             examples=examples,
             preprocessing=request.preprocessing,  # type: ignore[arg-type]
             preprocessed_requirements=prelude.preprocessed_markdown_for_template,
@@ -758,12 +693,9 @@ class EstimationService:
             result=domain_result,
             prompt_version=rendered.prompt_version,
             examples_version=rendered.examples_version,
-            mode=prelude.mode,
             model=provider.model,
             provider=provider.name,
             usage=merged_usage,
             degraded=False,
             finish_reason=finish,
-            assessment=prelude.assessment,
-            mode_eligibility=prelude.mode_eligibility,
         )

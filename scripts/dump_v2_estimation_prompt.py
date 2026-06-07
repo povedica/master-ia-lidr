@@ -162,8 +162,6 @@ def build_markdown_report(
         f"- Prompt bundle label: `estimation/{bundle_version}`",
         f"- `prompt_version` (rendered): `{rendered.prompt_version}`",
         f"- `examples_version`: `{rendered.examples_version}`",
-        f"- Resolved estimation mode: `{prelude.mode.value}`",
-        f"- Recommended mode (assessment): `{prelude.assessment.recommended_mode.value}`",
         f"- Preprocessing: `{request.preprocessing}`",
         f"- Max output tokens (would send): `{prelude.max_output_tokens}`",
         f"- Model (from settings): `{model_hint}`",
@@ -172,7 +170,7 @@ def build_markdown_report(
         "",
         "## Pipeline context (not sent as chat messages)",
         "",
-        "Assessment surface (guardrails + adaptive mode routing):",
+        "Assessment surface (guardrails):",
         "",
         "```text",
         assessment_surface.strip(),
@@ -245,7 +243,6 @@ async def run_dump(
 
     rendered = render_estimation_prompt(
         request,
-        mode=prelude.mode,
         examples=load_examples(),
         preprocessing=preprocessing,  # type: ignore[arg-type]
         preprocessed_requirements=prelude.preprocessed_markdown_for_template,

@@ -1,4 +1,4 @@
-"""Map ``EstimationRequest`` and mode state into a Jinja-safe context dict."""
+"""Map ``EstimationRequest`` into a Jinja-safe context dict."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from typing import Any
 
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest, Industry, TargetAudience
-from app.services.estimation_engine import EstimationMode
 from app.services.prompt_renderer import PromptRenderer
 from app.services.prompt_versions import PromptTemplateSet, resolve_prompt_template_set
 
@@ -105,7 +104,6 @@ def build_prompt_render_context(
     request: EstimationRequest,
     *,
     template_set: PromptTemplateSet,
-    mode: EstimationMode,
     examples: Sequence[EstimationExample],
     estimation_user_message: str,
     preprocessing: str,
@@ -121,7 +119,6 @@ def build_prompt_render_context(
     ex_list = [ex.model_dump(mode="json") for ex in examples]
     ctx.update(
         {
-            "estimation_mode": mode.value,
             "system_instructions_template": template_set.system_instructions_template,
             "inline_cleaning_block": inline_cleaning_block,
             "examples": ex_list,
@@ -143,7 +140,6 @@ def build_prompt_render_context(
 def build_estimation_prompt_context(
     request: EstimationRequest,
     *,
-    mode: EstimationMode,
     examples: Sequence[EstimationExample],
     estimation_user_message: str,
     preprocessing: str,
@@ -161,7 +157,6 @@ def build_estimation_prompt_context(
     return build_prompt_render_context(
         request,
         template_set=template_set,
-        mode=mode,
         examples=examples,
         estimation_user_message=estimation_user_message,
         preprocessing=preprocessing,

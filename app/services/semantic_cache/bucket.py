@@ -47,7 +47,6 @@ def build_semantic_cache_bucket(
     guardrail_rules_version: str,
     operation: str,
     tenant_id: str,
-    estimation_mode: str,
 ) -> SemanticCacheBucket:
     """Hash prompt-affecting structured fields into a deterministic bucket."""
 
@@ -60,7 +59,6 @@ def build_semantic_cache_bucket(
     payload: dict[str, Any] = {
         "cache_schema_version": settings.semantic_cache_cache_schema_version.strip() or "1",
         "embedding_model_version": settings.semantic_cache_embedding_model_version.strip(),
-        "estimation_mode": estimation_mode,
         "examples_version": examples_version,
         "guardrail_rules_version": guardrail_rules_version.strip(),
         "operation": operation,

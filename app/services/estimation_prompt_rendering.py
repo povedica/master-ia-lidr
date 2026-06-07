@@ -5,7 +5,6 @@ from __future__ import annotations
 from app.config import Settings
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest
-from app.services.estimation_engine import EstimationMode
 from app.services.prompt_context import build_prompt_render_context, build_request_render_context
 from app.services.prompt_renderer import PromptRenderer, RenderedPrompt
 from app.services.prompt_versions import (
@@ -61,7 +60,7 @@ def render_assessment_surface(
     version: str | None = None,
     settings: Settings | None = None,
 ) -> str:
-    """Render narrow assessment text for guardrails and mode heuristics."""
+    """Render narrow assessment text for guardrails."""
 
     template_set = _template_set(version, settings)
     renderer = PromptRenderer()
@@ -113,7 +112,6 @@ def render_session_system_prompt(base_system: str, metadata: ProjectMetadata) ->
 def render_estimation_prompt(
     request: EstimationRequest,
     *,
-    mode: EstimationMode,
     examples: list[EstimationExample],
     preprocessing: str,
     preprocessed_requirements: str | None = None,
@@ -138,7 +136,6 @@ def render_estimation_prompt(
     context = build_prompt_render_context(
         request,
         template_set=template_set,
-        mode=mode,
         examples=examples,
         estimation_user_message=estimation_user_message,
         preprocessing=preprocessing,

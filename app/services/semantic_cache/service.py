@@ -270,7 +270,6 @@ class SemanticCacheService:
                 examples_version=top.artifact.examples_version,
                 model=top.artifact.model,
                 provider=top.artifact.provider,
-                mode=top.artifact.mode,
             )
         except Exception:
             logger.warning(
@@ -333,7 +332,6 @@ class SemanticCacheService:
                 examples_version=top.artifact.examples_version,
                 model=top.artifact.model,
                 provider=top.artifact.provider,
-                mode=top.artifact.mode,
             )
         except Exception:
             return None

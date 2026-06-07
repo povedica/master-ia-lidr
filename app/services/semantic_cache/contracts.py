@@ -77,10 +77,7 @@ class CachedEstimationArtifact(BaseModel):
     guardrail_rules_version: str = Field(..., min_length=1, max_length=64)
     provider: str = Field(..., min_length=1, max_length=64)
     model: str = Field(..., min_length=1, max_length=128)
-    mode: str = Field(..., min_length=1, max_length=32)
     result: dict[str, Any] = Field(..., description="Validated EstimationResult JSON.")
-    assessment: dict[str, Any]
-    mode_eligibility: dict[str, Any]
     usage: dict[str, Any] | None = None
     finish_reason: str | None = Field(default=None, max_length=64)
     safe_to_cache: bool = True

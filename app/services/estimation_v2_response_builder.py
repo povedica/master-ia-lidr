@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.guardrails.contracts import FinalResponseStatus
 from app.schemas.estimation_response import EstimationQualityView, EstimationResponse
-from app.schemas.estimations import AssessmentView, ModeEligibilityView, UsageView
+from app.schemas.estimations import UsageView
 from app.services.estimate_response_builder import estimate_cost_usd
 from app.services.llm_service import StructuredEstimateBundle
 
@@ -65,7 +65,6 @@ def assemble_estimation_v2_response(
             result=bundle.result,
             prompt_version=bundle.prompt_version,
             examples_version=bundle.examples_version,
-            mode=bundle.mode,
             score=score,
             quality=quality,
             **pipeline_kwargs,
@@ -86,7 +85,6 @@ def assemble_estimation_v2_response(
         result=bundle.result,
         prompt_version=bundle.prompt_version,
         examples_version=bundle.examples_version,
-        mode=bundle.mode,
         model=bundle.model,
         provider=bundle.provider,
         request_id=request_id,
@@ -96,16 +94,6 @@ def assemble_estimation_v2_response(
         score=score,
         usage=usage_view,
         finish_reason=bundle.finish_reason,
-        assessment=AssessmentView(
-            detail_level=bundle.assessment.detail_level,
-            recommended_mode=bundle.assessment.recommended_mode,
-            reason=bundle.assessment.reason,
-        ),
-        mode_eligibility=ModeEligibilityView(
-            allowed_modes=list(bundle.mode_eligibility.allowed_modes),
-            blocked_modes=list(bundle.mode_eligibility.blocked_modes),
-            reason=bundle.mode_eligibility.reason,
-        ),
         quality=quality,
         **pipeline_kwargs,
     )

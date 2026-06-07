@@ -95,14 +95,9 @@ class SimplifiedSessionEstimationService:
         user_prompt = _compose_user_prompt(guided_message, attachment_block)
 
         assessment_surface = render_estimation_assessment_surface(guided)
-        prelude = await self._estimation.prepare_structured_prelude(
-            guided,
-            assessment_surface=assessment_surface,
-        )
         examples = load_examples()
         rendered = render_estimation_prompt(
             guided,
-            mode=prelude.mode,
             examples=examples,
             preprocessing=guided.preprocessing,  # type: ignore[arg-type]
             preprocessed_requirements=None,

@@ -186,9 +186,6 @@ async def _execute_v2_estimate(
             provider=bundle.provider,
             model=bundle.model,
             usage=bundle.usage,
-            mode=bundle.mode,
-            assessment=bundle.assessment,
-            mode_eligibility=bundle.mode_eligibility,
             degraded=bundle.degraded,
             finish_reason=bundle.finish_reason,
         )
