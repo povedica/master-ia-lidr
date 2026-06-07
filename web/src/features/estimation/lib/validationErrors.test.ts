@@ -5,7 +5,6 @@ import {
   BACKEND_FIELD_TO_UI,
   humanizeZodIssuesToFieldErrors,
   parseStructuredEstimateFailure,
-  VALIDATION_SUMMARY_BANNER,
 } from './validationErrors'
 
 describe('parseStructuredEstimateFailure', () => {
