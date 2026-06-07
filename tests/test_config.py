@@ -151,3 +151,27 @@ def test_openai_litellm_model_id_passthrough_when_already_prefixed() -> None:
 def test_anthropic_litellm_model_id_prefixes_short_model_names() -> None:
     settings = Settings(_env_file=None, anthropic_api_key="ak-test", anthropic_model="claude-haiku-4-5-20251001")
     assert settings.anthropic_litellm_model_id() == "anthropic/claude-haiku-4-5-20251001"
+
+
+def test_acb_defaults_disabled_for_session_endpoint() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.acb_enabled is False
+    assert settings.acb_active_for_endpoint("session_estimate") is True
+    assert settings.acb_requested(None, endpoint="session_estimate") is False
+
+
+def test_acb_requested_honors_override_and_single_pass_escape() -> None:
+    settings = Settings(_env_file=None, acb_enabled=True)
+    assert settings.acb_requested("acb", endpoint="session_estimate") is True
+    assert settings.acb_requested("single_pass", endpoint="session_estimate") is False
+
+
+def test_acb_force_enabled_in_dev_when_local() -> None:
+    settings = Settings(
+        _env_file=None,
+        acb_enabled=False,
+        acb_force_enabled_in_dev=True,
+        dev_mode=True,
+        app_env="local",
+    )
+    assert settings.acb_requested(None, endpoint="session_estimate") is True

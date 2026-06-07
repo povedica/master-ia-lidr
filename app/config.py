@@ -283,6 +283,80 @@ class Settings(BaseSettings):
             "instead of FakeStructuredLLM (requires OPENAI_API_KEY)."
         ),
     )
+    # --- Actor-Critic-Boss orchestration (feature 026) ---
+    acb_enabled: bool = Field(
+        default=False,
+        description="Global kill switch for ACB orchestration on allowed endpoints.",
+    )
+    acb_enabled_endpoints: str = Field(
+        default="session_estimate",
+        max_length=512,
+        description="Comma-separated endpoint allowlist for ACB activation.",
+    )
+    acb_max_iterations: int = Field(
+        default=2,
+        ge=1,
+        le=3,
+        description="Maximum Actor passes per ACB run (inclusive of initial pass).",
+    )
+    acb_allow_synthesize: bool = Field(
+        default=True,
+        description="When true, Boss may synthesize a final estimate on budget exhaustion.",
+    )
+    acb_blocking_severities: str = Field(
+        default="critical,major",
+        max_length=64,
+        description="Comma-separated Critic severities treated as blocking for revision.",
+    )
+    acb_force_enabled_in_dev: bool = Field(
+        default=False,
+        description="When APP_ENV=local and DEV_MODE=true, force ACB on allowed endpoints.",
+    )
+    acb_critic_model: str = Field(
+        default="",
+        max_length=128,
+        description="Optional LiteLLM model override for Critic role (empty uses OPENAI_MODEL).",
+    )
+    acb_boss_model: str = Field(
+        default="",
+        max_length=128,
+        description="Optional LiteLLM model override for Boss role (empty uses OPENAI_MODEL).",
+    )
+    acb_prompt_version: str = Field(
+        default="v1",
+        max_length=16,
+        description="ACB prompt bundle version subdirectory under app/prompts/acb/.",
+    )
+
+    def acb_blocking_severities_set(self) -> frozenset[str]:
+        return frozenset(
+            part.strip()
+            for part in self.acb_blocking_severities.split(",")
+            if part.strip()
+        )
+
+    def acb_active_for_endpoint(self, endpoint: str) -> bool:
+        allowed = {p.strip() for p in self.acb_enabled_endpoints.split(",") if p.strip()}
+        if not allowed:
+            return False
+        return endpoint.strip() in allowed
+
+    def acb_requested(
+        self,
+        orchestration_override: str | None,
+        *,
+        endpoint: str,
+    ) -> bool:
+        override = (orchestration_override or "").strip().lower()
+        if override == "single_pass":
+            return False
+        if override == "acb":
+            return True
+        if override == "default" or not override:
+            if self.dev_mode and self.app_env == "local" and self.acb_force_enabled_in_dev:
+                return self.acb_active_for_endpoint(endpoint)
+            return self.acb_enabled and self.acb_active_for_endpoint(endpoint)
+        return self.acb_enabled and self.acb_active_for_endpoint(endpoint)
 
     def resolved_session_integration_test_openai_model(self) -> str:
         """Model id used by the session integration pytest harness."""
