@@ -465,16 +465,16 @@ No new env vars required for core deliverable.
 
 ## Implementation progress
 
-- [ ] Step 1 — Inspect and map (complete in Context §)
-- [ ] Step 2 — `turn_observed` builder + logging
-- [ ] Step 3 — Retrievable observation on GET session
-- [ ] Step 4 — Scenarios (`evals/stress/scenarios.py`)
-- [ ] Step 5 — PDF fixtures (`build_pdfs.py`)
-- [ ] Step 6 — Metrics (`evals/stress/metrics.py`)
-- [ ] Step 7 — Metric unit tests
-- [ ] Step 8 — Runner CLI
-- [ ] Step 9 — REPORT generation
-- [ ] Step 10 — Final verification + README
+- [x] Step 1 — Inspect and map (complete in Context §)
+- [x] Step 2 — `turn_observed` builder + logging
+- [x] Step 3 — Retrievable observation on GET session
+- [x] Step 4 — Scenarios (`evals/stress/scenarios.py`)
+- [x] Step 5 — PDF fixtures (`build_pdfs.py`)
+- [x] Step 6 — Metrics (`evals/stress/metrics.py`)
+- [x] Step 7 — Metric unit tests
+- [x] Step 8 — Runner CLI
+- [x] Step 9 — REPORT generation
+- [x] Step 10 — Final verification + README (automated; E2E HTTP run manual)
 
 ## Pull Request
 
@@ -485,3 +485,7 @@ No new env vars required for core deliverable.
 
 | Commit | Summary |
 | --- | --- |
+| docs(work-item) | Add feature-029 CAG stress testing spec |
+| feat(sessions) | Add turn_observed logging and session debug field |
+| feat(stress) | Add scenarios, metrics, report, and PDF fixtures |
+| feat(stress) | Add CLI runner and document stress workflow |
