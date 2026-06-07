@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.config import Settings
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest
+from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.llm_call_audit import record_prompt_render_audit
 from app.services.prompt_context import build_prompt_render_context, build_request_render_context
 from app.services.prompt_renderer import PromptRenderer, RenderedPrompt
@@ -16,6 +17,7 @@ from app.services.prompt_versions import (
 from app.services.sessions import ProjectMetadata
 
 _SESSION_METADATA_TEMPLATE = "estimation/v2/partials/session_project_metadata.md.j2"
+_SESSION_TURN_DELTA_TEMPLATE = "estimation/v2/partials/session_turn_delta.md.j2"
 
 
 def _resolve_version(version: str | None, settings: Settings | None) -> str:
@@ -95,6 +97,37 @@ def _metadata_render_context(metadata: ProjectMetadata) -> dict[str, object]:
     if metadata.rejected_options:
         ctx["rejected_options"] = list(metadata.rejected_options)
     return ctx
+
+
+def render_session_turn_user_message(
+    session_request: SessionEstimateRequest,
+    guided_request: EstimationRequest,
+    *,
+    is_first_turn: bool,
+    attachment_notes: list[str] | None = None,
+    version: str | None = None,
+    settings: Settings | None = None,
+) -> str:
+    """Render the user-role payload for one session submit.
+
+    First turn: full guided form (product context + description).
+    Subsequent turns: transcript delta only; persistent facts live in system metadata.
+    """
+
+    if is_first_turn:
+        return render_guided_user_message(guided_request, version=version, settings=settings)
+
+    template_set = _template_set(version, settings)
+    renderer = PromptRenderer()
+    ctx = build_request_render_context(guided_request)
+    ctx["transcript"] = session_request.transcript.strip()
+    if session_request.additional_extra_info:
+        ctx["additional_extra_info"] = session_request.additional_extra_info.strip()
+    notes = attachment_notes or []
+    ctx["has_attachments"] = bool(notes)
+    ctx["attachment_notes"] = notes
+    text = renderer.render_partial(_SESSION_TURN_DELTA_TEMPLATE, ctx)
+    return text.strip() + "\n"
 
 
 def render_session_system_prompt(base_system: str, metadata: ProjectMetadata) -> str:

@@ -8,9 +8,11 @@ from app.schemas.estimation_request import (
     ProjectType,
     TargetAudience,
 )
+from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.estimation_prompt_rendering import (
     render_estimation_prompt,
     render_session_system_prompt,
+    render_session_turn_user_message,
 )
 from app.services.sessions import ProjectMetadata
 
@@ -83,3 +85,31 @@ def test_render_session_system_prompt_sparse_metadata_without_team_size() -> Non
     composed = render_session_system_prompt("Base.", metadata)
     assert "Portal" in composed
     assert "team size" not in composed.lower()
+
+
+def test_render_session_turn_user_message_first_turn_uses_full_guided_form() -> None:
+    guided = _minimal_request()
+    session_req = SessionEstimateRequest(
+        project_name="Portal",
+        project_type=ProjectType.web_saas,
+        target_audience=TargetAudience.b2b_smb,
+        transcript="We need a customer portal with billing integration and role-based access control for SMB clients.",
+    )
+    text = render_session_turn_user_message(session_req, guided, is_first_turn=True)
+    assert "Contexto del producto" in text
+    assert guided.project_description[:40] in text
+
+
+def test_render_session_turn_user_message_subsequent_turn_is_delta_only() -> None:
+    guided = _minimal_request()
+    session_req = SessionEstimateRequest(
+        project_name="Portal",
+        project_type=ProjectType.web_saas,
+        target_audience=TargetAudience.b2b_smb,
+        transcript="Same portal project — add Redis caching for session tokens and keep the existing PostgreSQL datastore.",
+    )
+    text = render_session_turn_user_message(session_req, guided, is_first_turn=False)
+    assert "## Turn update" in text
+    assert "Redis caching" in text
+    assert "Established project facts" in text
+    assert guided.project_description not in text

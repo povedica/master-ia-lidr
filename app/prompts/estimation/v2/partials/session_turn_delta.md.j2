@@ -1,0 +1,22 @@
+## Turn update
+
+{{ transcript }}
+{% if additional_extra_info is defined and additional_extra_info %}
+
+## Additional context this turn
+
+{{ additional_extra_info }}
+{% endif %}
+{% if has_attachments %}
+
+## New or updated documents
+{% for note in attachment_notes -%}
+{{ note }}
+{% endfor -%}
+{% endif %}
+
+## Output preferences
+- **Profundidad de estimación:** {{ detail_level }}
+- **Formato de salida:** {{ output_format }}
+
+Established project facts are in the system message. Revise them only if this turn explicitly changes prior decisions.

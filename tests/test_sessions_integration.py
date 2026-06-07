@@ -94,8 +94,12 @@ async def test_two_linked_submits_enrich_metadata_and_inject_into_system_prompt(
     assert history[0]["role"] == "system"
     user_contents = [message["content"] for message in history if message["role"] == "user"]
     assert len(user_contents) == 2
-    assert all("[Simplified submit] Acme Portal" in content for content in user_contents)
+    assert user_contents[0].startswith("[Turn 1]")
+    assert user_contents[1].startswith("[Turn 2]")
     assert "Redis" in fake_structured_llm.calls[1].user_prompt
+    assert TURN_1["transcript"][:40] not in fake_structured_llm.calls[1].user_prompt
+    assistant_contents = [message["content"] for message in history if message["role"] == "assistant"]
+    assert all(content.startswith("Estimate «") for content in assistant_contents)
     assert len(fake_structured_llm.calls) == 2
     turn_2_messages = fake_structured_llm.calls[1].messages or []
     assert len(turn_2_messages) >= 4
