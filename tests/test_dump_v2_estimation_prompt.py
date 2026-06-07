@@ -19,7 +19,6 @@ from scripts.dump_v2_estimation_prompt import (
 def test_build_full_dummy_request_validates() -> None:
     req = build_full_dummy_request()
     assert req.project_name
-    assert len(req.deliverables) >= 3
     assert req.attachments
 
 

@@ -87,10 +87,11 @@ At minimum, the metadata should include:
 - `target_audience`
 - `industry`
 - `summary`
-- `derived_deliverables`
 - `detected_constraints`
 - `attachment_summary`
 - `confidence_notes`
+
+Removed from the estimation prompt contract in **`feature-028-remove-unused-estimation-request-fields.md`**: legacy guided-form fields such as `deliverables`, `out_of_scope`, integrations, data sensitivity, hosting, team context, UI languages, risk level, and external dependencies. Those are no longer structured inputs; the estimator reads them from the transcript when mentioned.
 
 The derived metadata should combine:
 
@@ -103,7 +104,7 @@ The derived metadata should combine:
 
 - The backend should not fail just because the simplified form omits fields that used to be explicit.
 - Instead, it should emit warnings when important context is missing or only inferred.
-- At minimum, warnings should cover missing urgency, depth expectations, output shape preference, data sensitivity uncertainty, or other obvious gaps that used to be explicit in the old guided form.
+- At minimum, warnings should cover missing industry when not supplied (see `collect_context_warnings` in the session adapter).
 - Missing context should reduce confidence notes in the metadata when applicable.
 
 ### FR-07: Estimation execution

@@ -20,13 +20,6 @@ def minimal_estimation_request_dict(**overrides: Any) -> dict[str, Any]:
             "Integrations with existing CRM are out of scope for the first milestone. "
             + "x" * 30
         ),
-        "deliverables": [
-            "Partner authentication with SSO and role-based access control",
-            "Configurable ticket intake forms and commenting threads",
-            "Operations dashboards with CSV export and saved filters",
-        ],
-        "delivery_urgency": "standard",
-        "data_sensitivity": "internal_business",
         "detail_level": "medium",
         "output_format": "phases_table",
         "preprocessing": "none",
@@ -45,9 +38,4 @@ def out_of_domain_estimation_request_dict() -> dict[str, Any]:
         project_type="other",
         target_audience="b2c_consumers",
         project_description=spam[:400],
-        deliverables=[
-            "Medir distancias orbitales entre planetas",
-            "Documentar variaciones estacionales observadas",
-            "Redactar resumen divulgativo para el público general",
-        ],
     )

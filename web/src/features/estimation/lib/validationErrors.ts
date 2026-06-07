@@ -24,49 +24,24 @@ export const BACKEND_FIELD_TO_UI: Record<string, string> = {
   target_audience: 'targetAudience',
   target_audience_other: 'targetAudienceOther',
   project_description: 'projectDescription',
-  deliverables: 'deliverablesText',
-  delivery_urgency: 'deliveryUrgency',
-  target_date: 'targetDate',
-  data_sensitivity: 'dataSensitivity',
   detail_level: 'detailLevel',
   output_format: 'outputFormat',
   attachments: 'attachments',
-  out_of_scope: 'outOfScopeText',
-  delivery_approach: 'deliveryApproach',
-  integration_categories: 'integrationCategories',
-  integration_custom_names: 'integrationCustomText',
   industry: 'industry',
   industry_other: 'industryOther',
-  hosting_constraints: 'hostingConstraints',
-  hosting_notes: 'hostingNotes',
-  team_context: 'teamContext',
-  ui_languages: 'uiLanguages',
-  risk_level: 'riskLevel',
-  external_dependencies: 'externalDependenciesText',
   preprocessing: 'preprocessing',
   evaluate: 'evaluate',
 }
 
-const DELIVERABLES_COUNT_MESSAGE = 'Add between 3 and 8 deliverables, one per line.'
-const DELIVERABLE_LINE_MAX_MESSAGE = 'Each deliverable must be at most 80 characters.'
 const SELECT_REQUIRED_MESSAGE = 'Required.'
 const SELECT_INVALID_MESSAGE = 'Invalid selection.'
-const TARGET_DATE_REQUIRED_MESSAGE = 'Please pick a target date for this urgency level.'
 const PROJECT_SUMMARY_LENGTH_MESSAGE =
   'One-line summary must be between 20 and 200 characters after trimming leading and trailing spaces.'
 const PROJECT_DESCRIPTION_LENGTH_MESSAGE =
   'Project description must be between 100 and 24,000 characters after trimming leading and trailing spaces.'
 const PROJECT_NAME_MAX_MESSAGE = 'Project name must be at most 120 characters.'
-const HOSTING_NOTES_MAX_MESSAGE = 'Hosting notes must be at most 200 characters.'
 const INDUSTRY_OTHER_REQUIRED_MESSAGE = 'Please add industry details when you select "other".'
 const TARGET_AUDIENCE_OTHER_REQUIRED_MESSAGE = 'Please add audience details when you select "other".'
-const INTEGRATION_NONE_EXCLUSIVE_MESSAGE =
-  'If you select "none" for integrations, it cannot be combined with other categories.'
-const INTEGRATION_CUSTOM_COUNT_MESSAGE = 'At most 3 custom integrations (one per line).'
-const EXTERNAL_DEP_COUNT_MESSAGE = 'At most 3 external dependencies (one per line).'
-const EXTERNAL_DEP_LINE_MAX_MESSAGE = 'Each external dependency line must be at most 100 characters.'
-const OUT_OF_SCOPE_COUNT_MESSAGE = 'At most 5 out-of-scope lines.'
-const OUT_OF_SCOPE_LINE_MAX_MESSAGE = 'Each out-of-scope line must be at most 80 characters.'
 const ATTACHMENTS_COUNT_MESSAGE = 'At most 3 attachments.'
 const ATTACHMENTS_TOTAL_SIZE_MESSAGE = 'Total decoded attachment size exceeds the allowed limit.'
 const ATTACHMENT_ITEM_MESSAGE = 'Please check the attachment (name, type, or base64 content).'
@@ -89,14 +64,8 @@ function uiKeyForBackendField(backendField: string): string {
 function inferBackendFieldFromMessage(msg: string): string | null {
   const lower = msg.toLowerCase()
   const hints: [string, string][] = [
-    ['integration_custom_names', 'integration_custom_names'],
     ['industry_other', 'industry_other'],
     ['target_audience_other', 'target_audience_other'],
-    ['target_date', 'target_date'],
-    ['deliverables', 'deliverables'],
-    ['out_of_scope', 'out_of_scope'],
-    ['external_dependencies', 'external_dependencies'],
-    ['integration_categories', 'integration_categories'],
     ['project_summary', 'project_summary'],
     ['project_description', 'project_description'],
     ['attachments', 'attachments'],
@@ -115,24 +84,6 @@ function humanMessageForBackendField(backendField: string, rawMsg: string): stri
   const msg = rawMsg.toLowerCase()
 
   switch (backendField) {
-    case 'integration_custom_names':
-      if (msg.includes('entries') && msg.includes('at most')) {
-        return INTEGRATION_CUSTOM_COUNT_MESSAGE
-      }
-      if (msg.includes('empty')) {
-        return CUSTOM_INTEGRATIONS_MESSAGE
-      }
-      return CUSTOM_INTEGRATIONS_MESSAGE
-    case 'deliverables':
-      if (msg.includes('between') || msg.includes('3') || msg.includes('8')) {
-        return DELIVERABLES_COUNT_MESSAGE
-      }
-      if (msg.includes('80') || msg.includes('at most')) {
-        return DELIVERABLE_LINE_MAX_MESSAGE
-      }
-      return DELIVERABLES_COUNT_MESSAGE
-    case 'target_date':
-      return TARGET_DATE_REQUIRED_MESSAGE
     case 'industry_other':
       return INDUSTRY_OTHER_REQUIRED_MESSAGE
     case 'target_audience_other':
@@ -151,20 +102,6 @@ function humanMessageForBackendField(backendField: string, rawMsg: string): stri
       return PROJECT_DESCRIPTION_LENGTH_MESSAGE
     case 'project_name':
       return PROJECT_NAME_MAX_MESSAGE
-    case 'hosting_notes':
-      return HOSTING_NOTES_MAX_MESSAGE
-    case 'out_of_scope':
-      if (msg.includes('5') || msg.includes('most')) {
-        return OUT_OF_SCOPE_COUNT_MESSAGE
-      }
-      return OUT_OF_SCOPE_LINE_MAX_MESSAGE
-    case 'external_dependencies':
-      if (msg.includes('3') || msg.includes('most')) {
-        return EXTERNAL_DEP_COUNT_MESSAGE
-      }
-      return EXTERNAL_DEP_LINE_MAX_MESSAGE
-    case 'integration_categories':
-      return INTEGRATION_NONE_EXCLUSIVE_MESSAGE
     case 'attachments':
       if (msg.includes('total') || msg.includes('bytes')) {
         return ATTACHMENTS_TOTAL_SIZE_MESSAGE
@@ -179,14 +116,9 @@ function humanMessageForBackendField(backendField: string, rawMsg: string): stri
       if (
         backendField === 'project_type' ||
         backendField === 'target_audience' ||
-        backendField === 'delivery_urgency' ||
-        backendField === 'data_sensitivity' ||
         backendField === 'detail_level' ||
         backendField === 'output_format' ||
-        backendField === 'industry' ||
-        backendField === 'delivery_approach' ||
-        backendField === 'team_context' ||
-        backendField === 'risk_level'
+        backendField === 'industry'
       ) {
         return SELECT_REQUIRED_MESSAGE
       }
@@ -291,15 +223,6 @@ function humanizeSingleZodIssue(issue: ZodIssue): string {
     return SELECT_REQUIRED_MESSAGE
   }
 
-  if (key === 'integrationCustomText') {
-    return issue.message
-  }
-  if (key === 'deliverablesText') {
-    return issue.message
-  }
-  if (key === 'targetDate') {
-    return issue.message
-  }
   if (key === 'targetAudienceOther') {
     return issue.message
   }
@@ -325,8 +248,6 @@ function humanizeSingleZodIssue(issue: ZodIssue): string {
   if (
     key === 'projectType' ||
     key === 'targetAudience' ||
-    key === 'deliveryUrgency' ||
-    key === 'dataSensitivity' ||
     key === 'detailLevel' ||
     key === 'outputFormat'
   ) {
@@ -335,7 +256,7 @@ function humanizeSingleZodIssue(issue: ZodIssue): string {
     }
     return SELECT_REQUIRED_MESSAGE
   }
-  if (key === 'industry' || key === 'deliveryApproach' || key === 'teamContext' || key === 'riskLevel') {
+  if (key === 'industry') {
     if (msg.toLowerCase().includes('invalid')) {
       return SELECT_INVALID_MESSAGE
     }
@@ -346,9 +267,6 @@ function humanizeSingleZodIssue(issue: ZodIssue): string {
   }
   if (key === 'attachments') {
     return ATTACHMENTS_COUNT_MESSAGE
-  }
-  if (key === 'uiLanguages') {
-    return 'Please select at most 3 UI languages.'
   }
 
   if (issue.path.length === 0 || key === '_form') {

@@ -253,13 +253,6 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/estimate \
     "project_type": "web_saas",
     "target_audience": "b2b_smb",
     "project_description": "Responsive web app for authenticated partners to submit structured tickets, follow approval workflows, and view status dashboards.",
-    "deliverables": [
-      "Partner authentication with SSO and role-based access control",
-      "Configurable ticket intake forms and commenting threads",
-      "Operations dashboards with CSV export and saved filters"
-    ],
-    "delivery_urgency": "standard",
-    "data_sensitivity": "internal_business",
     "detail_level": "medium",
     "output_format": "phases_table"
   }'
@@ -401,6 +394,7 @@ Copy `.env.example` for the full list. Key settings:
 | `DEV_MODE` | `false` | Include provider, timing, versions, and usage in responses |
 | `FRONTEND_ORIGINS` | *(local defaults)* | Comma-separated allowed CORS origins |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | `false` | Save successful outputs to `output-responses/` |
+| `LLM_CALL_PERSIST_ENABLED` | `false` | Save each LLM call request/response as JSON in `output-responses/` |
 | `ESTIMATION_STATS_LOG_ENABLED` | `false` | Append NDJSON usage metadata to `output-stats/` |
 | `MAX_ATTACHMENT_SIZE_BYTES` | `10485760` | Decoded attachment size cap (session submit) |
 | `ALLOWED_ATTACHMENT_MIME_TYPES` | see `.env.example` | Allowed MIME types for attachments |

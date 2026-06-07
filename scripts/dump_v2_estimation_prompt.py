@@ -20,7 +20,7 @@ import asyncio
 import base64
 import json
 import sys
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -33,20 +33,12 @@ from app.config import Settings  # noqa: E402
 from app.context.examples import load_examples  # noqa: E402
 from app.schemas.estimation_request import (  # noqa: E402
     Attachment,
-    DataSensitivity,
-    DeliveryApproach,
-    DeliveryUrgency,
     DetailLevel,
     EstimationRequest,
-    HostingConstraint,
     Industry,
-    IntegrationCategory,
     OutputFormat,
     ProjectType,
-    RiskLevel,
     TargetAudience,
-    TeamContext,
-    UiLanguage,
 )
 from app.schemas.estimation_result import EstimationResult as DomainEstimationResult  # noqa: E402
 from app.services.estimation_prompt_rendering import render_estimation_prompt  # noqa: E402
@@ -83,37 +75,6 @@ def build_full_dummy_request() -> EstimationRequest:
             "Non-functional requirements include 99.5% monthly uptime, audit logs for admin actions, "
             "and GDPR-aligned retention for ticket attachments stored in EU regions."
         ),
-        deliverables=[
-            "Partner authentication with SSO and role-based access control",
-            "Configurable ticket intake forms with validation and file uploads",
-            "Operations dashboards with filters, CSV export, and saved views",
-            "Email and in-app notifications for SLA breaches and escalations",
-            "Admin console for tenant configuration and user provisioning",
-        ],
-        out_of_scope=[
-            "Native mobile apps (responsive web only in this phase)",
-            "Full ERP bidirectional sync with legacy systems",
-            "Automated ML classification of inbound tickets",
-        ],
-        delivery_urgency=DeliveryUrgency.fixed_date,
-        target_date=date(2026, 9, 30),
-        delivery_approach=DeliveryApproach.phased_roadmap,
-        integration_categories=[
-            IntegrationCategory.crm,
-            IntegrationCategory.payments,
-            IntegrationCategory.identity_sso,
-        ],
-        integration_custom_names=["Legacy billing hub (read-only export)"],
-        data_sensitivity=DataSensitivity.pii_light,
-        hosting_constraints=[HostingConstraint.cloud_managed, HostingConstraint.hybrid],
-        hosting_notes="Production in EU (Frankfurt); DR warm standby in EU-West.",
-        team_context=TeamContext.mixed_team,
-        ui_languages=[UiLanguage.en, UiLanguage.es],
-        risk_level=RiskLevel.medium,
-        external_dependencies=[
-            "Identity provider SAML metadata from client security team",
-            "Third-party email provider API approval before go-live",
-        ],
         detail_level=DetailLevel.detailed,
         output_format=OutputFormat.phases_table,
         attachments=[

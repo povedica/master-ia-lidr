@@ -2,8 +2,6 @@
 
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import (
-    DataSensitivity,
-    DeliveryUrgency,
     DetailLevel,
     EstimationRequest,
     OutputFormat,
@@ -23,9 +21,6 @@ def _minimal_request() -> EstimationRequest:
         project_type=ProjectType.web_saas,
         target_audience=TargetAudience.b2b_smb,
         project_description="B" * 120,
-        deliverables=["d1", "d2", "d3"],
-        delivery_urgency=DeliveryUrgency.flexible,
-        data_sensitivity=DataSensitivity.public_only,
         detail_level=DetailLevel.medium,
         output_format=OutputFormat.phases_table,
     )
