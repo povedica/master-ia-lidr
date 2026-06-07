@@ -50,6 +50,224 @@ The following mistakes were made when code was written during `/write-feature` i
 
 **Reverted state:** Only this work item exists on disk; no feature-018 application code remains on `main`.
 
+### Evolution trigger — LLM call audit (feature-027, 2026-06-07)
+
+Persisted call `output-responses/llm-call-20260607-111134-003.json` (turn 2 of a simplified session) exposed role-boundary defects:
+
+| Role | Observed problem | Root cause |
+| --- | --- | --- |
+| **system** | Very long but structurally correct: identity, examples, output contract, `## Established project facts` | Metadata correctly injected via `render_session_system_prompt` |
+| **user (history)** | `[Simplified submit] Corporate NGO Website` — label only, no turn intent | History stored synthetic labels instead of transcript snippets |
+| **assistant (history)** | `Corporate NGO Website Development: A structured estimation for...` truncated mid-sentence | `_compact_estimation_summary` cut at 240 chars without word boundary |
+| **user (current)** | Full guided form (~2k chars) duplicated project description already present in system metadata | Every turn re-rendered `guided_request.md.j2` regardless of `submit_count` |
+
+**Impact:** redundant tokens, weak cross-turn signal in history, invalid assistant turns for the sliding-window contract enforced by `structured_llm_client._validate_messages_for_structured_completion`.
+
+**Phase 2 (this update):** separate live LLM payload from stored history compaction; first turn = full guided form; subsequent turns = transcript delta only.
+
+---
+
+## Multi-turn message role design (canonical spec)
+
+### 1. Executive summary
+
+Multi-turn estimation already persists sessions, derived metadata, and a sliding window, but the provider payload mixed **persistent facts**, **raw history**, and **current intent** in the wrong roles. Turn 2+ re-sent the entire guided form in `user` while the same facts lived in `system`, and `assistant` history stored truncated synthetic summaries instead of valid prior model outputs. This evolution enforces a four-layer model—**system context**, **persistent memory**, **recent history**, **current user intent**—so each LLM call minimizes tokens, preserves facts across window trims, and keeps role alternation valid for structured completion. Value: lower cost, fewer contradictions, traceable audits via feature-027 JSON, and compatibility with existing `SimplifiedSessionEstimationService`, Jinja v2 templates, and `messages_override`.
+
+### 2. Current problem
+
+An approach that relies on resending raw history and full form payloads each turn causes:
+
+- **Token growth:** project description + examples + metadata + full history on every call (3.2k+ prompt tokens on turn 2 in the audit sample).
+- **Contradictions:** the model sees the same scope in system metadata and again in the current user block with slightly different wording.
+- **Loss of useful context:** compact history labels (`[Simplified submit] …`) carry no revision signal; assistant history truncated mid-sentence is not usable recall.
+- **Role ambiguity:** instructions and stable facts leak into `user`; synthetic strings stand in for `assistant` outputs.
+- **Validation fragility:** `complete_structured` requires `system` first, alternating `user`/`assistant` pairs, and a final `user`—garbled assistant content breaks semantic continuity even when validation passes.
+
+### 3. Design goals
+
+| Principle | Rule |
+| --- | --- |
+| **System context** | Identity, estimation rules, examples, output contract, structured-output hints—stable per template version. |
+| **Persistent memory** | Distilled `ProjectMetadata` / `DerivedProjectMetadata` injected only in `system` (`session_project_metadata.md.j2`). |
+| **Recent history** | Last *N* user/assistant pairs—compact but semantically valid; no full form replay. |
+| **Current intent** | `user` carries only this turn's delta (transcript, extras, new attachments). |
+| **No duplication** | Facts in memory must not be re-expanded in current `user` on turn 2+. |
+| **Revision path** | Explicit user language ("switch to Next.js", "drop Redis") updates memory via merge/extractor. |
+| **Cost control** | Window cap (`max_turns`) + delta user messages + metadata block sized from populated fields only. |
+
+### 4. Functional proposal — per-turn cycle
+
+```text
+a) load session          → InMemorySessionStore.get_session
+b) build memory          → derive_project_metadata + merge_derived_metadata → ProjectMetadata
+c) render system prompt  → render_estimation_prompt + render_session_system_prompt
+d) build messages        → system + history_window + current_user_delta
+e) call model            → LLMPipeline.run_structured(messages_override=…)
+f) update history        → add compact user transcript + complete assistant summary
+g) update memory         → project_metadata / last_derived_metadata on session
+```
+
+**Turn index behaviour:**
+
+- **Turn 1 (`submit_count == 0`):** current `user` = full `guided_request.md.j2` (+ attachment block on first turn).
+- **Turn 2+:** current `user` = `session_turn_delta.md.j2` (transcript + optional extras/attachments + output prefs reminder).
+
+### 5. Prompt role design
+
+| Role | Must contain | Must not contain | Example (allowed) | Example (forbidden) |
+| --- | --- | --- | --- | --- |
+| **system** | Persona, rules, examples, output contract, established facts | Current turn transcript; raw chat log | `## Established project facts … Agreed scope: WordPress NGO site` | `Add Redis this turn` |
+| **user (current)** | Turn delta, explicit revisions, attachment deltas | Repeated full project description when memory exists | `## Turn update\nAdd Redis for session tokens.` | Re-posting entire `project_description` on turn 2+ |
+| **assistant (history)** | Prior estimate acknowledgement with title, summary fragment, totals | Mid-sentence truncation; JSON blobs | `Estimate «Portal»: B2B SaaS scope… Totals: 120h.` | `Corporate NGO Website Development: A structured estimation for the dev…` |
+| **user (history)** | Compact transcript snippet with turn index | Full guided form | `[Turn 2] Add Redis caching for session tokens.` | `[Simplified submit] Acme` only |
+
+**Anti-mixing rule:** if a fact is in `ProjectMetadata`, the current `user` message must reference it only when the user **changes** it this turn.
+
+### 6. Proposed data model
+
+| Field | Type | Purpose | Example | Persistent / derived |
+| --- | --- | --- | --- | --- |
+| `Session.session_id` | `str` | Identity | `b90b4079-…` | Persistent (in-memory) |
+| `Session.conversation_history` | `ConversationHistory` | Sliding window | system + 3 pairs | Persistent |
+| `Session.project_metadata` | `ProjectMetadata` | LLM-facing distilled facts | `agreed_scope: "WordPress NGO site"` | Persistent, derived |
+| `Session.last_derived_metadata` | `DerivedProjectMetadata` | UI + merge source | `detected_constraints: ["WordPress"]` | Persistent, derived |
+| `Session.submit_count` | `int` | Turn index for delta vs full | `2` | Persistent |
+| `ChatMessage.role` | `system\|user\|assistant` | Provider role | `user` | Derived per turn |
+| `ChatMessage.content` | `str` | Payload | `[Turn 1] We need…` | Derived |
+| `ProjectMetadata.agreed_scope` | `str?` | Scope summary | NGO WordPress site | Derived, in system |
+| `ProjectMetadata.explicit_constraints` | `list[str]` | Hard constraints | `["WordPress CMS"]` | Derived, in system |
+
+`ConversationSession` maps to `Session`; `Message` maps to `ChatMessage`; `ProjectMemory` maps to `ProjectMetadata` + `DerivedProjectMetadata`.
+
+### 7. Memory update strategy
+
+**Hybrid (recommended):**
+
+1. **Deterministic derive (primary for simplified flow):** `derive_project_metadata` from explicit fields + transcript + attachments on each submit; `merge_derived_metadata` across turns.
+2. **LLM extractor (conversational free-text path):** `metadata_extractor.extract_and_merge_metadata` after each turn in `ConversationalEstimationService`.
+
+**Promotion history → memory:** when a fact appears in ≥1 turn and is not superseded, merge into metadata; do not rely on history retention.
+
+**Revision detection:** explicit phrases ("instead", "no longer", "switch to", "remove", "olvida") trigger overwrite/remove in merge rules.
+
+**Conflict policy:** latest explicit user revision wins; `rejected_options` removes stale list items; scalars clear on explicit null from extractor.
+
+### 8. Technical changes on existing architecture
+
+| Component | Change type | Work |
+| --- | --- | --- |
+| `estimation_prompt_rendering.py` | **Extension** | `render_session_turn_user_message` |
+| `session_turn_delta.md.j2` | **New** | Delta template for turn 2+ |
+| `simplified_session_estimation_service.py` | **Refactor** | Delta user payload; history compaction helpers |
+| `sessions.py` | Unchanged | `ConversationHistory` window logic reused |
+| `structured_llm_client.py` | Unchanged | Role validation already correct |
+| `llm_call_audit` / feature-027 | Observability | Audit JSON confirms role shapes |
+| `conversational_estimation_service.py` | Follow-up | Align free-text path with same role rules |
+| Tests | **Extension** | Prompt + history + integration assertions |
+
+### 9. Per-turn orchestration algorithm
+
+```text
+function run_submit(session_id, request):
+    session = store.get(session_id)
+    request = apply_field_defaults(session, request)
+    derived = derive_metadata(request, attachments)
+    merged = merge_derived(session.last_derived_metadata, derived)
+    guided = adapt_to_estimation_request(request, …)
+    is_first = (session.submit_count == 0)
+
+    system = render_session_system_prompt(
+        render_estimation_prompt(guided).system_prompt,
+        to_project_metadata(merged),
+    )
+    session.conversation_history.set_system_prompt(system)
+
+    current_user = render_session_turn_user_message(request, guided, is_first_turn=is_first)
+    messages = session.conversation_history.to_messages_list() + [{role: user, content: current_user}]
+
+    outcome = pipeline.run_structured(…, messages_override=messages)
+
+    if outcome.success:
+        session.conversation_history.add_user_message(user_history(request, turn_index=session.submit_count+1))
+        session.conversation_history.add_assistant_message(assistant_history(outcome.result))
+        session.project_metadata = to_project_metadata(merged)
+        session.submit_count += 1
+    return outcome
+```
+
+### 10. End-to-end examples
+
+**Example A — Turn 1 (initial scope)**
+
+- **User message (API):** transcript describing WordPress NGO site.
+- **System (summary):** estimator persona + examples + `Established project facts: project_name, agreed_scope`.
+- **History window:** `[]` (no prior turns).
+- **Current user:** full guided form with product context + description.
+- **Assistant:** structured `EstimationResult` (not duplicated in spec).
+- **Memory after:** `project_name`, `agreed_scope`, constraints populated.
+
+**Example B — Turn 2 (additive)**
+
+- **User message:** `Same project — add Redis caching for sessions.`
+- **System:** same base + updated metadata including prior scope.
+- **History:** `[Turn 1] We need…` / `Estimate «NGO Site»: … Totals: 176h.`
+- **Current user:** `## Turn update\nAdd Redis caching…` (no full description).
+- **Memory after:** `explicit_constraints` includes Redis.
+
+**Example C — Turn 3 (explicit revision)**
+
+- **User message:** `Switch stack from WordPress to Next.js static site.`
+- **Current user:** delta with revision language only.
+- **Memory after:** `rejected_options` includes WordPress; scope updated; history still compact.
+
+### 11. Risks and edge cases
+
+| Case | Mitigation |
+| --- | --- |
+| Ambiguous input | Keep transcript verbatim in current `user`; warnings in response |
+| Contradictions | Revision keywords + merge rules; metadata timestamp via `updated_at` |
+| Stale memory | User delta explicitly revises; extractor path for free-text sessions |
+| Too much metadata | Render only populated fields; cap list lengths in merge |
+| Hallucinated facts | Never promote assistant output to memory without merge/extractor validation |
+| Partial session reset | `submit_count` + `last_derived_metadata` gate first-turn vs delta |
+
+### 12. Phased implementation plan
+
+| Phase | Scope | Impact | Risk | Acceptance |
+| --- | --- | --- | --- | --- |
+| **P1 (done 2026-05)** | Session store, metadata block, extractor, router | Baseline multi-turn | Extra LLM call | AC-01–14 original |
+| **P2 (2026-06)** | Delta user template, history compaction, audit validation | Token reduction, valid roles | Integration test updates | Turn 2+ user excludes full description; assistant history complete |
+| **P3 (follow-up)** | Align `ConversationalEstimationService` + wire extractor on simplified path | Single memory policy | Dual code paths | Same role rules in both entry points |
+| **P4 (follow-up)** | Optional LLM memory extractor for simplified submits | Better implicit revisions | Cost | Revision integration tests |
+
+### 13. Acceptance criteria (phase 2)
+
+- [x] AC-15: Turn 1 current `user` includes full guided form context.
+- [x] AC-16: Turn 2+ current `user` uses `session_turn_delta.md.j2` and excludes `project_description` body.
+- [x] AC-17: History user messages use `[Turn N] {transcript snippet}` not `[Simplified submit]`.
+- [x] AC-18: History assistant messages start with `Estimate «{title}»:` and end with complete `Totals: {hours}h.` when space allows.
+- [x] AC-19: `messages_override` still satisfies `structured_llm_client` role alternation.
+- [ ] AC-20: `ConversationalEstimationService` free-text path aligned (deferred P3).
+
+### 14. Testing strategy
+
+- **Unit:** `render_session_turn_user_message` first vs subsequent; `_user_history_message`; `_assistant_history_message`.
+- **Integration:** `test_two_linked_submits` asserts turn-2 `user_prompt` excludes turn-1 transcript body; sliding-window test unchanged.
+- **Contract:** feature-027 JSON review—`model_request.messages` roles and content shapes.
+- **Regression:** `uv run pytest tests/test_estimation_prompt_rendering.py tests/test_simplified_session_messages.py tests/test_sessions_integration.py`.
+
+### 15. Development deliverables
+
+- [x] Work item update (this section)
+- [x] `session_turn_delta.md.j2`
+- [x] `render_session_turn_user_message`
+- [x] `simplified_session_estimation_service` history helpers
+- [x] Unit + integration tests
+- [ ] README note on turn delta behaviour (optional one-liner)
+- [ ] P3: conversational service alignment
+
+---
+
 ## Scope
 
 ### Includes
@@ -269,6 +487,7 @@ Recommended baby steps for `/start-task` (TDD each logic step):
 - [x] Step 4: `conversational_estimation_service` orchestration + unit tests
 - [x] Step 5: `routers/sessions.py` + `test_sessions_router.py`; `--collect-only` clean
 - [x] Step 6: Register router in `main.py`, README, full `pytest`, sync AC checkboxes
+- [x] Step 7 (phase 2): Delta user template + history role compaction + tests (2026-06-07)
 
 ## Pull Request
 
@@ -324,7 +543,7 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 
 - **LLM extractor choice held in production:** see **Architecture Decision §4** — heuristics were rejected for bilingual/free-form revision language; the extractor reuses `complete_structured` + `ProjectMetadata` with deterministic merge (`model_fields_set` for partial patches, case-insensitive list dedupe, `rejected_options` driving technology removal).
 - **`system_prompt_override` on `EstimationService.estimate()`** was the smallest hook to inject metadata-enriched system prompts without forking the provider chain.
-- **v1 estimation is single-turn at the provider boundary:** `ConversationHistory` is persisted and trimmed, but `LLMProvider.complete(system, user)` only accepts one user message — v1 sends the **current turn** plus metadata in the system prompt, not full `to_messages_list()`. Cross-turn recall relies on distilled metadata, not raw transcript. **Follow-up:** extend provider/service to pass multi-message context when product requires it (FR-02 full intent).
+- **Multi-message provider wiring (2026-05+):** `SimplifiedSessionEstimationService` passes `messages_override = history.to_messages_list() + current_user` into `complete_structured`. Phase 2 (2026-06) fixed **what** goes into each role; sliding window + metadata separation remain as designed.
 - **`_prepare_call` runs twice per turn** today (orchestrator + `estimate()`); acceptable for v1 but worth deduplicating if latency becomes visible.
 - **Failed estimate after `add_user_message`** can orphan a user line in history; **failed metadata extraction after a successful estimate** returns 503 while the session already has the assistant turn — document as residual risk; consider best-effort metadata or transactional turn boundaries in a follow-up.
 
@@ -340,3 +559,11 @@ Domain types are persistence-agnostic. Swapping `InMemorySessionStore` for Redis
 | `d457ca2` | `feat(feature-018): add sessions router and integration tests` | HTTP routes without main registration. |
 | `2b64631` | `feat(feature-018): register sessions routes and document API` | main.py, README, AC-08 test, full regression. |
 | `f39ac51` | `docs(feature-018): expand learnings and LLM extractor architecture rationale` | Architecture decision table + implementation retrospective. |
+| `095b0d8` | `feat(feature-018): delta user turns and compact session history roles` | Phase 2: `session_turn_delta.md.j2`, `[Turn N]` history, `Estimate «title»` assistant compaction, integration tests. |
+
+### Verification (phase 2, 2026-06-07)
+
+- **Verified:** `uv run pytest tests/test_estimation_prompt_rendering.py tests/test_simplified_session_messages.py tests/test_sessions_integration.py` → 11 passed, 9 skipped.
+- **Verified (regression):** `uv run pytest` → 288 passed, 9 skipped (2026-06-07).
+- **Not verified:** live re-run with `LLM_CALL_PERSIST_ENABLED=true` to confirm JSON shape on turn 2+.
+- **Residual risk:** `ConversationalEstimationService` free-text path still uses full user message each turn (AC-20 deferred); `estimate_structured` still re-renders prompts and overwrites audit `variables_before_render` examples vs `system_prompt_override` content.

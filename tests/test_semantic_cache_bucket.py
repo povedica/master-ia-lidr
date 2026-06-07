@@ -24,7 +24,6 @@ def test_bucket_stable_for_same_inputs() -> None:
         guardrail_rules_version="registry-default",
         operation="estimation_v2",
         tenant_id="default",
-        estimation_mode="standard",
     )
     b2 = build_semantic_cache_bucket(
         request=body,
@@ -35,7 +34,6 @@ def test_bucket_stable_for_same_inputs() -> None:
         guardrail_rules_version="registry-default",
         operation="estimation_v2",
         tenant_id="default",
-        estimation_mode="standard",
     )
     assert b1.bucket_hash == b2.bucket_hash
 
@@ -52,7 +50,6 @@ def test_prompt_version_change_changes_bucket() -> None:
         guardrail_rules_version="registry-default",
         operation="estimation_v2",
         tenant_id="default",
-        estimation_mode="standard",
     )
     b = build_semantic_cache_bucket(
         request=body,
@@ -63,7 +60,6 @@ def test_prompt_version_change_changes_bucket() -> None:
         guardrail_rules_version="registry-default",
         operation="estimation_v2",
         tenant_id="default",
-        estimation_mode="standard",
     )
     assert a.bucket_hash != b.bucket_hash
 

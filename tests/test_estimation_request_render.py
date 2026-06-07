@@ -2,24 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 from app.schemas.estimation_request import (
     Attachment,
-    DataSensitivity,
-    DeliveryApproach,
-    DeliveryUrgency,
     DetailLevel,
     EstimationRequest,
-    HostingConstraint,
     Industry,
-    IntegrationCategory,
     OutputFormat,
     ProjectType,
-    RiskLevel,
     TargetAudience,
-    TeamContext,
-    UiLanguage,
 )
 from app.services.estimation_request_render import (
     render_estimation_assessment_surface,
@@ -41,20 +31,6 @@ def _full_request() -> EstimationRequest:
         target_audience=TargetAudience.b2b_smb,
         industry=Industry.fintech,
         project_description="x" * 100,
-        deliverables=["Alpha item one here", "Bravo item two here", "Charlie item three"],
-        out_of_scope=["Legacy ERP sync"],
-        delivery_urgency=DeliveryUrgency.fixed_date,
-        target_date=date(2026, 6, 1),
-        delivery_approach=DeliveryApproach.phased_roadmap,
-        integration_categories=[IntegrationCategory.payments, IntegrationCategory.crm],
-        integration_custom_names=["Legacy billing integration"],
-        data_sensitivity=DataSensitivity.pii_light,
-        hosting_constraints=[HostingConstraint.cloud_managed],
-        hosting_notes="EU region only",
-        team_context=TeamContext.mixed_team,
-        ui_languages=[UiLanguage.en, UiLanguage.es],
-        risk_level=RiskLevel.medium,
-        external_dependencies=["Vendor API approval"],
         detail_level=DetailLevel.detailed,
         output_format=OutputFormat.line_items,
         attachments=[
@@ -78,8 +54,6 @@ def test_render_estimation_assessment_surface_joins_core_fields() -> None:
     surface = render_estimation_assessment_surface(req)
     assert req.project_summary in surface
     assert req.project_description in surface
-    assert "Alpha item one here" in surface
-    assert "Legacy ERP sync" in surface
     assert "Contexto del producto" not in surface
 
 
@@ -91,19 +65,13 @@ def test_render_estimation_user_message_snapshot() -> None:
     assert "**Tipo de proyecto:** web_saas" in text
     assert "## Descripción del proyecto" in text
     assert "x" * 100 in text
-    assert "## Alcance" in text
-    assert "### Entregables" in text
-    assert "## Entrega y plazos" in text
-    assert "2026-06-01" in text
-    assert "## Integraciones y datos" in text
-    assert "payments" in text and "crm" in text
-    assert "## Restricciones y entorno" in text
-    assert "cloud_managed" in text
-    assert "## Riesgos" in text
     assert "## Preferencias de salida" in text
     assert "detailed" in text
     assert "## Documentos de apoyo" in text
     assert "Hello attachment." in text
+    assert "## Integraciones y datos" not in text
+    assert "## Riesgos" not in text
+    assert "## Alcance" not in text
 
 
 def test_v1_v2_guided_and_assessment_parity_on_full_fixture() -> None:

@@ -4,10 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from app.services.estimation_engine import EstimationMode
 
 # Resolve `.env` next to the `app/` package so settings work regardless of process CWD
 # (e.g. `uvicorn` launched from any working directory).
@@ -30,6 +28,7 @@ class Settings(BaseSettings):
     llm_auth_fallback: bool = False
     llm_domain_guardrail_enabled: bool = True
     estimation_output_persist_enabled: bool = False
+    llm_call_persist_enabled: bool = False
     estimation_stats_log_enabled: bool = False
     estimation_stats_log_path: str = ""
     openai_api_key: str = ""
@@ -51,7 +50,7 @@ class Settings(BaseSettings):
     # Canonical LiteLLM-style id for documentation defaults; runtime model ids come from OPENAI_MODEL / ANTHROPIC_MODEL.
     default_llm_model: str = "openai/gpt-4o-mini"
     gemini_api_key: str = ""
-    forced_estimation_mode: EstimationMode | None = None
+    estimation_output_tokens_max: int = Field(default=2048, ge=1)
     structured_output_max_attempts: int = Field(default=3, ge=1, le=10)
     max_attachment_size_bytes: int = Field(
         default=10_485_760,
@@ -77,11 +76,6 @@ class Settings(BaseSettings):
             "Empty uses v2 (default)."
         ),
     )
-    # Per-mode max completion tokens passed to OpenAI and Anthropic for that estimation mode.
-    estimation_basic_output_tokens_max: int = Field(default=1024, ge=1)
-    estimation_standard_output_tokens_max: int = Field(default=2048, ge=1)
-    estimation_professional_output_tokens_max: int = Field(default=4096, ge=1)
-    estimation_expert_review_output_tokens_max: int = Field(default=8192, ge=1)
     guardrail_rules_version: str = Field(
         default="",
         max_length=64,
@@ -379,29 +373,6 @@ class Settings(BaseSettings):
             return True
         allowed = {p.strip() for p in raw.split(",") if p.strip()}
         return tenant_id.strip() in allowed
-
-    def completion_token_cap_for_mode(self, mode: EstimationMode) -> int:
-        """Upper bound passed to providers as max output tokens for this mode."""
-
-        mapping: dict[EstimationMode, int] = {
-            EstimationMode.BASIC: self.estimation_basic_output_tokens_max,
-            EstimationMode.STANDARD: self.estimation_standard_output_tokens_max,
-            EstimationMode.PROFESSIONAL: self.estimation_professional_output_tokens_max,
-            EstimationMode.EXPERT_REVIEW: self.estimation_expert_review_output_tokens_max,
-        }
-        return mapping[mode]
-
-    @field_validator("forced_estimation_mode", mode="before")
-    @classmethod
-    def _parse_forced_estimation_mode(cls, value: object) -> EstimationMode | None:
-        if value is None:
-            return None
-        if isinstance(value, EstimationMode):
-            return value
-        text = str(value).strip().lower()
-        if not text or text in {"none", "null", "off", "false", "0"}:
-            return None
-        return EstimationMode(text)
 
 
 @lru_cache

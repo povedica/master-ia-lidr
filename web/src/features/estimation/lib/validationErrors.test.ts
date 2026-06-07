@@ -3,7 +3,6 @@ import type { ZodIssue } from 'zod'
 
 import {
   BACKEND_FIELD_TO_UI,
-  CUSTOM_INTEGRATIONS_MESSAGE,
   humanizeZodIssuesToFieldErrors,
   parseStructuredEstimateFailure,
   VALIDATION_SUMMARY_BANNER,
@@ -22,31 +21,7 @@ describe('parseStructuredEstimateFailure', () => {
       ],
     })
     const r = parseStructuredEstimateFailure(422, body)
-    expect(r.kind).toBe('validation')
-    if (r.kind === 'validation') {
-      expect(r.fieldErrors.integrationCustomText).toBe(CUSTOM_INTEGRATIONS_MESSAGE)
-      expect(r.formSummary).toBe(VALIDATION_SUMMARY_BANNER)
-    }
-    const serialized = JSON.stringify(r)
-    expect(serialized).not.toMatch(/HTTP 422|Value error|integration_custom_names/i)
-  })
-
-  it('maps deliverables count errors from body loc', () => {
-    const body = JSON.stringify({
-      detail: [
-        {
-          type: 'value_error',
-          loc: ['body', 'deliverables'],
-          msg: 'Value error, deliverables must contain between 3 and 8 items',
-        },
-      ],
-    })
-    const r = parseStructuredEstimateFailure(422, body)
-    expect(r.kind).toBe('validation')
-    if (r.kind === 'validation') {
-      expect(r.fieldErrors.deliverablesText).toContain('3')
-      expect(r.fieldErrors.deliverablesText).toContain('8')
-    }
+    expect(r.kind).toBe('generic')
   })
 
   it('maps model-level target_date message when loc is only body', () => {
@@ -60,10 +35,7 @@ describe('parseStructuredEstimateFailure', () => {
       ],
     })
     const r = parseStructuredEstimateFailure(422, body)
-    expect(r.kind).toBe('validation')
-    if (r.kind === 'validation') {
-      expect(r.fieldErrors.targetDate).toBeTruthy()
-    }
+    expect(r.kind).toBe('generic')
   })
 
   it('maps out_of_domain object detail to transcript', () => {
@@ -109,25 +81,11 @@ describe('BACKEND_FIELD_TO_UI', () => {
       'target_audience',
       'target_audience_other',
       'project_description',
-      'deliverables',
-      'delivery_urgency',
-      'target_date',
-      'data_sensitivity',
       'detail_level',
       'output_format',
       'attachments',
-      'out_of_scope',
-      'delivery_approach',
-      'integration_categories',
-      'integration_custom_names',
       'industry',
       'industry_other',
-      'hosting_constraints',
-      'hosting_notes',
-      'team_context',
-      'ui_languages',
-      'risk_level',
-      'external_dependencies',
       'preprocessing',
       'evaluate',
     ]
@@ -148,18 +106,5 @@ describe('humanizeZodIssuesToFieldErrors', () => {
     ]
     const m = humanizeZodIssuesToFieldErrors(issues)
     expect(m.projectType).toBe('Required.')
-  })
-
-  it('maps integration custom path to full Zod message (includes optional line hints)', () => {
-    const full = `${CUSTOM_INTEGRATIONS_MESSAGE} Line 1 is longer than 300 characters.`
-    const issues: ZodIssue[] = [
-      {
-        code: 'custom',
-        message: full,
-        path: ['integrationCustomText'],
-      } as ZodIssue,
-    ]
-    const m = humanizeZodIssuesToFieldErrors(issues)
-    expect(m.integrationCustomText).toBe(full)
   })
 })

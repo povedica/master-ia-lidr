@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 
 from app.config import Settings
 from app.context.examples import load_examples
-from app.services.estimation_engine import EstimationMode
 from app.services.estimation_prompt_rendering import render_estimation_prompt
 from scripts.dump_v2_estimation_prompt import (
     build_full_dummy_request,
@@ -20,25 +19,20 @@ from scripts.dump_v2_estimation_prompt import (
 def test_build_full_dummy_request_validates() -> None:
     req = build_full_dummy_request()
     assert req.project_name
-    assert len(req.deliverables) >= 3
     assert req.attachments
 
 
 def test_build_markdown_report_includes_system_and_user_sections() -> None:
     request = build_full_dummy_request()
     settings = Settings(_env_file=None, openai_api_key="sk-test")
-    mode = EstimationMode.STANDARD
     rendered = render_estimation_prompt(
         request,
-        mode=mode,
-        examples=load_examples(mode),
+        examples=load_examples(),
         preprocessing="none",
         examples_version="test",
         settings=settings,
     )
     prelude = SimpleNamespace(
-        mode=mode,
-        assessment=SimpleNamespace(recommended_mode=mode),
         max_output_tokens=2048,
         preprocessed_markdown_for_template=None,
     )
@@ -60,8 +54,6 @@ def test_run_dump_writes_file(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("scripts.dump_v2_estimation_prompt._OUTPUT_DIR", tmp_path)
     fake_prelude = SimpleNamespace(
         preprocessed_markdown_for_template=None,
-        mode=EstimationMode.STANDARD,
-        assessment=SimpleNamespace(recommended_mode=EstimationMode.STANDARD),
         max_output_tokens=1024,
     )
     with patch(

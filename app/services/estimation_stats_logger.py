@@ -47,7 +47,6 @@ def build_estimation_stats_record(
     stamp = ts.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
     record: dict[str, Any] = {
-        "mode": result.mode.value,
         "model": result.model,
         "provider": result.provider,
         "request_id": request_id,
@@ -57,20 +56,6 @@ def build_estimation_stats_record(
         "examples_version": examples_version,
         "degraded": result.degraded,
     }
-
-    if result.assessment is not None:
-        record["assessment"] = {
-            "detail_level": result.assessment.detail_level,
-            "recommended_mode": result.assessment.recommended_mode.value,
-            "reason": result.assessment.reason,
-        }
-
-    if result.mode_eligibility is not None:
-        record["mode_eligibility"] = {
-            "allowed_modes": [m.value for m in result.mode_eligibility.allowed_modes],
-            "blocked_modes": [m.value for m in result.mode_eligibility.blocked_modes],
-            "reason": result.mode_eligibility.reason,
-        }
 
     record["score"] = structure_score
     record["finish_reason"] = result.finish_reason

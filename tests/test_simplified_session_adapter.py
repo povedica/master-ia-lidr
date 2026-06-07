@@ -62,5 +62,4 @@ def test_adapt_to_estimation_request_builds_valid_guided_payload() -> None:
         attachment_context="",
     )
     assert guided.project_name == "Portal"
-    assert len(guided.deliverables) >= 3
     assert len(guided.project_description) >= 100

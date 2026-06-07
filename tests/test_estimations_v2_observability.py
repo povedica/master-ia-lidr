@@ -10,7 +10,6 @@ from app.config import Settings, get_settings
 from app.main import app
 from app.routers import estimations_v2
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
-from app.services.estimation_engine import EstimationMode, InputAssessment, ModeEligibility
 from app.services.llm_service import StructuredEstimateBundle, UsageInfo
 from tests.estimation_fixtures import minimal_estimation_request_dict
 
@@ -42,22 +41,11 @@ class _FakeStructuredEstimationService:
             result=result,
             prompt_version="estimation/v1",
             examples_version="fixture-ex",
-            mode=EstimationMode.STANDARD,
             model="gpt-4o-mini",
             provider="openai",
             usage=UsageInfo(prompt_tokens=10, completion_tokens=20, total_tokens=30),
             degraded=False,
             finish_reason="stop",
-            assessment=InputAssessment(
-                detail_level="medium",
-                recommended_mode=EstimationMode.STANDARD,
-                reason="fixture",
-            ),
-            mode_eligibility=ModeEligibility(
-                allowed_modes=(EstimationMode.STANDARD, EstimationMode.BASIC),
-                blocked_modes=(),
-                reason=None,
-            ),
         )
 
 

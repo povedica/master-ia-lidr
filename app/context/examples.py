@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import random
-import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-
-from app.services.estimation_engine import EstimationMode
 
 
 class EstimationExample(BaseModel):
@@ -20,7 +17,8 @@ class EstimationExample(BaseModel):
 
 _EXAMPLES_ROOT = Path(__file__).resolve().parent / "examples"
 _EXAMPLE_FILE_GLOB = "*.txt"
-_FALLBACK_MODE = EstimationMode.STANDARD
+
+
 def _normalize_example_text(raw_text: str) -> str:
     """Trim and normalize line endings; keep Markdown tables/headings intact for few-shot quality.
 
@@ -35,38 +33,31 @@ def _normalize_example_text(raw_text: str) -> str:
     return text
 
 
-def _load_example_pool(mode: EstimationMode) -> list[EstimationExample]:
-    """Build the full pool of examples for one estimation mode from its directory."""
+def _load_example_pool() -> list[EstimationExample]:
+    """Build the full pool of examples from the flat examples directory."""
 
-    mode_dir = _EXAMPLES_ROOT / mode.value
-    if not mode_dir.is_dir():
+    if not _EXAMPLES_ROOT.is_dir():
         return []
 
     examples: list[EstimationExample] = []
-    paths = sorted(p for p in mode_dir.glob(_EXAMPLE_FILE_GLOB) if p.is_file())
+    paths = sorted(p for p in _EXAMPLES_ROOT.glob(_EXAMPLE_FILE_GLOB) if p.is_file())
     for index, path in enumerate(paths, start=1):
         normalized = _normalize_example_text(path.read_text(encoding="utf-8"))
         if not normalized:
             continue
         examples.append(
             EstimationExample(
-                meeting_summary=f"Historical {mode.value} estimation sample {index:02d}.",
+                meeting_summary=f"Historical estimation sample {index:02d}.",
                 estimation=normalized,
             )
         )
     return examples
 
 
-def load_examples(mode: EstimationMode) -> list[EstimationExample]:
-    """Return a random subset (2–4) of file-based examples for the active mode.
+def load_examples() -> list[EstimationExample]:
+    """Return a random subset (2–4) of file-based examples from the unified pool."""
 
-    If the mode directory has no usable samples, falls back to ``standard`` so
-    callers still get few-shot context until mode-specific corpora exist.
-    """
-
-    pool = _load_example_pool(mode)
-    if not pool and mode is not _FALLBACK_MODE:
-        pool = _load_example_pool(_FALLBACK_MODE)
+    pool = _load_example_pool()
     if len(pool) <= 2:
         return pool
     sample_size = random.randint(2, min(4, len(pool)))

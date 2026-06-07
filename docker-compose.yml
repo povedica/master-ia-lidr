@@ -40,6 +40,9 @@ services:
       - .env
     environment:
       FRONTEND_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:5175,http://127.0.0.1:5175
+    volumes:
+      - ./output-responses:/app/output-responses
+      - ./output-stats:/app/output-stats
     healthcheck:
       test:
         [

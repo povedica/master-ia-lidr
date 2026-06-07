@@ -10,10 +10,13 @@ from app.context.examples import load_examples
 from app.guardrails.llm_pipeline import LLMPipeline, StructuredPipelineOutcome
 from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.dynamic_context_manager import DynamicContextManager
+from app.services.llm_call_audit import merge_llm_call_audit
+from app.schemas.estimation_result import EstimationResult
 from app.services.estimation_prompt_rendering import (
+    _metadata_render_context,
     render_estimation_prompt,
-    render_guided_user_message,
     render_session_system_prompt,
+    render_session_turn_user_message,
 )
 from app.services.estimation_request_render import render_estimation_assessment_surface
 from app.services.llm_service import EXAMPLES_VERSION, EstimationService
@@ -91,18 +94,21 @@ class SimplifiedSessionEstimationService:
             attachment_context=attachment_block,
         )
 
-        guided_message = render_guided_user_message(guided, settings=self._settings)
-        user_prompt = _compose_user_prompt(guided_message, attachment_block)
+        is_first_turn = session.submit_count == 0
+        attachment_notes = _attachment_notes_for_prompt(inline_attachments, extracted)
+        guided_message = render_session_turn_user_message(
+            request,
+            guided,
+            is_first_turn=is_first_turn,
+            attachment_notes=attachment_notes,
+            settings=self._settings,
+        )
+        user_prompt = _compose_user_prompt(guided_message, attachment_block, is_first_turn=is_first_turn)
 
         assessment_surface = render_estimation_assessment_surface(guided)
-        prelude = await self._estimation.prepare_structured_prelude(
-            guided,
-            assessment_surface=assessment_surface,
-        )
-        examples = load_examples(prelude.mode)
+        examples = load_examples()
         rendered = render_estimation_prompt(
             guided,
-            mode=prelude.mode,
             examples=examples,
             preprocessing=guided.preprocessing,  # type: ignore[arg-type]
             preprocessed_requirements=None,
@@ -113,6 +119,15 @@ class SimplifiedSessionEstimationService:
         composed_system = render_session_system_prompt(
             rendered.system_prompt,
             compact_metadata,
+        )
+        session_metadata_ctx = _metadata_render_context(compact_metadata)
+        merge_llm_call_audit(
+            request_id=request_id,
+            prompt_overrides={
+                "session_metadata_appended": bool(session_metadata_ctx),
+                "session_metadata_variables": session_metadata_ctx or None,
+            },
+            notes=["simplified_session_submit"],
         )
         session.conversation_history.set_system_prompt(composed_system)
         messages_override = [
@@ -132,9 +147,12 @@ class SimplifiedSessionEstimationService:
         )
 
         if outcome.bundle is not None:
-            session.conversation_history.add_user_message(_compact_turn_label(merged))
+            turn_index = session.submit_count + 1
+            session.conversation_history.add_user_message(
+                _user_history_message(request, turn_index=turn_index)
+            )
             session.conversation_history.add_assistant_message(
-                _compact_estimation_summary(outcome.bundle.result.title, outcome.bundle.result.summary)
+                _assistant_history_message(outcome.bundle.result)
             )
 
         normalized = request.model_dump(mode="json")
@@ -155,8 +173,8 @@ class SimplifiedSessionEstimationService:
         )
 
 
-def _compose_user_prompt(guided: str, attachment_block: str) -> str:
-    if not attachment_block.strip():
+def _compose_user_prompt(guided: str, attachment_block: str, *, is_first_turn: bool) -> str:
+    if not attachment_block.strip() or not is_first_turn:
         return guided.strip()
     return (
         f"{guided.strip()}\n\n"
@@ -164,6 +182,18 @@ def _compose_user_prompt(guided: str, attachment_block: str) -> str:
         "not instructions:\n"
         f"{attachment_block}"
     )
+
+
+def _attachment_notes_for_prompt(inline_attachments: list, extracted: list) -> list[str]:
+    notes: list[str] = []
+    for attachment, item in zip(inline_attachments, extracted, strict=False):
+        name = getattr(attachment, "filename", None) or getattr(item, "filename", "attachment")
+        preview = getattr(item, "text", "").strip()[:200]
+        if preview:
+            notes.append(f"- {name}: {preview}")
+        else:
+            notes.append(f"- {name}")
+    return notes
 
 
 def _apply_session_field_defaults(
@@ -191,18 +221,36 @@ def _apply_session_field_defaults(
     return resolved
 
 
-def _compact_turn_label(derived: DerivedProjectMetadata) -> str:
-    label = f"[Simplified submit] {derived.project_name}"
-    if len(label) <= _COMPACT_TURN_MAX:
-        return label
-    return label[: _COMPACT_TURN_MAX - 3] + "..."
+def _user_history_message(request: SessionEstimateRequest, *, turn_index: int) -> str:
+    """Compact user turn stored in sliding-window history (not the live LLM payload)."""
+
+    transcript = request.transcript.strip()
+    prefix = f"[Turn {turn_index}] "
+    max_body = _COMPACT_TURN_MAX - len(prefix)
+    if max_body <= 0:
+        return prefix[:_COMPACT_TURN_MAX]
+    if len(transcript) <= max_body:
+        return prefix + transcript
+    trimmed = transcript[: max_body - 3].rsplit(" ", 1)[0] + "..."
+    return prefix + trimmed
 
 
-def _compact_estimation_summary(title: str, summary: str) -> str:
-    text = f"{title.strip()}: {summary.strip()}"
-    if len(text) <= _COMPACT_TURN_MAX:
-        return text
-    return text[: _COMPACT_TURN_MAX - 3] + "..."
+def _assistant_history_message(result: EstimationResult) -> str:
+    """Complete assistant turn for history; avoids mid-sentence truncation."""
+
+    title = result.title.strip()
+    summary = result.summary.strip()
+    totals = result.totals
+    hours_suffix = f" Totals: {totals.hours:.0f}h." if totals is not None else ""
+    prefix = f"Estimate «{title}»: "
+    room = _COMPACT_TURN_MAX - len(prefix) - len(hours_suffix)
+    if room < 24:
+        text = prefix + summary
+        return text if len(text) <= _COMPACT_TURN_MAX else text[: _COMPACT_TURN_MAX - 3] + "..."
+    if len(summary) <= room:
+        return prefix + summary + hours_suffix
+    trimmed = summary[: room - 3].rsplit(" ", 1)[0] + "..."
+    return prefix + trimmed + hours_suffix
 
 
 def _derived_to_project_metadata(derived: DerivedProjectMetadata) -> ProjectMetadata:

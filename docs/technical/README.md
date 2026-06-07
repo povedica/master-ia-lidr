@@ -35,10 +35,10 @@ The goal is documentation that supports development, debugging, and growth witho
 
 The project uses **Context-Augmented Generation (CAG)** in a deliberately small form:
 
-- Few-shot reference text lives under `app/context/examples/<basic|standard|professional|expert_review>/` as `*.txt` files; `app/context/examples.py` loads the pool for the active mode and returns a **random subset** (2–4 examples) per request, falling back to `standard` when a mode folder has no samples. Tests seed RNG where non-determinism would break assertions.
-- The app builds a `system prompt` with instructions and prior examples.
-- The live transcription is sent as the `user` message.
-- A deterministic assessment classifies the request into one mode (`basic`, `standard`, `professional`, `expert_review`).
+- Few-shot reference text lives under `app/context/examples/*.txt` as a flat pool; `app/context/examples.py` returns a **random subset** (2–4 examples) per request. Tests seed RNG where non-determinism would break assertions.
+- The app builds a `system prompt` with Jinja2 instructions and prior examples.
+- The live transcription or guided-form brief is sent as the `user` message.
+- Depth and layout preferences come from guided-form fields (`detail_level`, `output_format`) when present.
 - A provider chain (`openai,anthropic` by default) returns an estimate with assumptions, a task/hours table, and delivery notes.
 
 The baseline does not include authentication, a frontend, or production deployment. **Optional** filesystem persistence of successful `200` responses exists behind `ESTIMATION_OUTPUT_PERSIST_ENABLED` (see §5 and §14). It is an AI Engineering baseline meant for learning and safe iteration.
@@ -134,9 +134,10 @@ Variables documented in `.env.example`:
 | `ANTHROPIC_TIMEOUT_SECONDS` | No | `30` | Anthropic client timeout. |
 | `ANTHROPIC_MAX_TOKENS` | No | `2048` | Max output tokens for Anthropic generations. |
 | `APP_ENV` | No | `local` | Logical runtime environment. Logged at startup. |
-| `DEV_MODE` | No | `false` | When `true`, responses include routing metadata, `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
-| `FORCED_ESTIMATION_MODE` | No | empty | When set to `basic`, `standard`, `professional`, or `expert_review`, skips adaptive routing and fixes the output mode. |
+| `DEV_MODE` | No | `false` | When `true`, responses include `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
+| `ESTIMATION_OUTPUT_TOKENS_MAX` | No | `2048` | Max completion output tokens for estimation provider calls. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
+| `LLM_CALL_PERSIST_ENABLED` | No | `false` | When `true`, each successful LLM provider call persists request + response JSON to `output-responses/llm-call-YYYYmmdd-HHMMSS-NNN.json` (UTC). Best-effort; failures do not affect API responses. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
 | `SEMANTIC_CACHE_ENABLED` | No | `false` | Allows serving validated semantic cache hits when the store and rollout allow it. |
 | `SEMANTIC_CACHE_LOG_ONLY` | No | `true` | Runs semantic cache diagnostics without bypassing the LLM. |
@@ -193,23 +194,13 @@ proyectos/estimador-cag/
 │   │   ├── __init__.py
 │   │   ├── examples.py
 │   │   ├── examples/
-│   │   │   ├── basic/
-│   │   │   ├── expert_review/
-│   │   │   ├── professional/
-│   │   │   └── standard/
-│   │   │       └── *.txt
-│   │   └── prompts/
-│   │       ├── basic.txt
-│   │       ├── standard.txt
-│   │       ├── professional.txt
-│   │       └── expert_review.txt
+│   │   │   └── sample-*.txt
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   └── estimations.py
 │   └── services/
 │       ├── __init__.py
 │       ├── domain_guardrails.py
-│       ├── estimation_engine.py
 │       ├── llm_service.py
 │       └── response_output_writer.py
 ├── api-collection/
@@ -223,7 +214,6 @@ proyectos/estimador-cag/
 │   ├── conftest.py
 │   ├── test_api.py
 │   ├── test_config.py
-│   ├── test_estimation_engine.py
 │   ├── test_examples.py
 │   ├── test_prompt_loader.py
 │   ├── test_llm_service.py
@@ -245,10 +235,11 @@ Responsibilities:
 | `app/routers/estimations.py` | HTTP boundary: Pydantic schemas, validation, response metadata, HTTP errors. |
 | `app/services/domain_guardrails.py` | Deterministic domain filter to reject non-estimation prompts before provider calls. |
 | `app/services/llm_service.py` | CAG logic, prompt construction, provider-chain orchestration, fallback policy. |
-| `app/prompts/estimation/v2/partials/system_instructions.md.j2` | Single system preamble for all adaptive modes (routing metadata in template context). |
+| `app/prompts/estimation/v2/partials/system_instructions.md.j2` | Unified system preamble (uses `detail_level` / `output_format` from guided form). |
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
-| `app/context/examples.py` | Loads few-shot pool from `app/context/examples/<mode>/` (fallback `standard`) and returns a random subset per request. |
+| `app/context/examples.py` | Loads few-shot pool from `app/context/examples/*.txt` and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
+| `app/services/llm_call_persistence.py` | Optional JSON persistence of LLM request/response pairs to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
 | `docs/` | Versioned mirror of Second Brain notes, sessions, work items, and technical docs. |
@@ -295,12 +286,10 @@ sequenceDiagram
     Client->>Router: POST /api/v1/estimate { transcription }
     Router->>Router: Validate EstimateRequest
     Router->>Service: estimate(transcription)
-    Service->>Service: input_assessment(detail, ambiguity, complexity, risk)
-    Service->>Service: mode_eligibility_guardrail(allowed/blocked modes)
-    Service->>Service: route_mode_from_context_quality
+    Service->>Service: check_estimation_domain (optional)
     Service->>Context: load_examples()
     Context-->>Service: list[EstimationExample]
-    Service->>Service: build_system_prompt(examples, mode)
+    Service->>Service: build_system_prompt(examples)
     Service->>Chain: iterate providers by priority
     alt OpenAI succeeds
         Chain->>OpenAI: completion request
@@ -318,15 +307,7 @@ sequenceDiagram
     Router-->>Client: EstimateResponse
 ```
 
-Mode assessment reference contract:
-
-```json
-{
-  "detail_level": "low | medium | high | expert",
-  "recommended_mode": "basic | standard | professional | expert_review",
-  "reason": "The input includes authentication and mobile features, but lacks roles, backend constraints, integrations and non-functional requirements."
-}
-```
+Guided-form depth and layout flow into prompt rendering via `detail_level` and `output_format` on `EstimationRequest`.
 
 Recommended effort range shape:
 
@@ -339,16 +320,6 @@ Recommended effort range shape:
     "max": 230
   },
   "confidence": "medium"
-}
-```
-
-Business guardrail response when context quality is insufficient:
-
-```json
-{
-  "allowed_modes": ["basic", "standard"],
-  "blocked_modes": ["professional", "expert_review"],
-  "reason": "Input detail is insufficient."
 }
 ```
 
@@ -377,13 +348,13 @@ Message pattern:
 
 `build_system_prompt()` includes:
 
-- Full system instructions for the active mode, loaded from `app/context/prompts/<mode>.txt` (editable without changing Python code).
+- Unified system instructions from Jinja2 partials under `app/prompts/estimation/` (editable without changing Python code).
 - A trailing section `## Reference estimation examples` with few-shot examples from `load_examples()` (sampled from the on-disk pool).
 
 Versioning:
 
-- `PROMPT_VERSION = "v5"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
-- `EXAMPLES_VERSION = "file-mode-v3"` in `app/services/llm_service.py` (bump when per-mode folders, files, glob pattern, fallback rules, or sampling rules change).
+- `PROMPT_VERSION = "v7-guided-input"` in `app/services/llm_service.py` (bump when prompt composition or default prompt-file wording materially changes behavior).
+- `EXAMPLES_VERSION = "file-flat-v1-unified-pool"` in `app/services/llm_service.py` (bump when example files, glob pattern, or sampling rules change).
 
 ## 11. API contract
 
@@ -399,7 +370,7 @@ The guided-form **`EstimationRequest`** is the **inbound** contract for both v1 
 | --- | --- |
 | `render_estimation_prompt()` | Full system + user for LLM (`estimation_prompt_rendering.py`) |
 | `render_guided_user_message()` | Guided Markdown body (guardrails, cache, tests) |
-| `render_assessment_surface()` | Narrow text for domain guardrail + mode heuristics (no `##` headers) |
+| `render_assessment_surface()` | Narrow text for domain guardrail (no `##` headers) |
 
 Rendering uses **`StrictUndefined`**, `FileSystemLoader`, `trim_blocks`, and `lstrip_blocks`. Context keys are built in Python (`build_prompt_render_context()` in `prompt_context.py`); templates must not reference raw `EstimationRequest` fields.
 
@@ -492,14 +463,13 @@ Response with `DEV_MODE=true`:
 ```json
 {
   "estimation": "## Estimation: ...",
-  "mode": "standard",
   "model": "gpt-4o-mini",
   "provider": "openai",
   "request_id": "est_abc123def456",
   "timestamp": "2026-04-27T10:00:00Z",
   "latency_ms": 1800,
-  "prompt_version": "v5",
-  "examples_version": "file-mode-v3",
+  "prompt_version": "v7-guided-input",
+  "examples_version": "file-flat-v1-unified-pool",
   "usage": {
     "prompt_tokens": 920,
     "completion_tokens": 410,
@@ -522,8 +492,6 @@ When `DEV_MODE=true`, the following are included in addition to `estimation`:
 - `examples_version`: few-shot context version.
 - `provider`: provider that produced the response (`openai`, `anthropic`, `static_fallback`).
 - `model`: model identifier reported by the provider implementation.
-- `mode`: adaptive estimation mode selected by service-level deterministic routing.
-- `assessment` / `mode_eligibility`: routing diagnostics when present.
 - `degraded`: only present when static fallback is used.
 - `usage` (when the provider returns token counts): `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional `estimated_cost_usd` (local approximation from known model pricing).
 
@@ -606,7 +574,6 @@ Current coverage:
 - `tests/test_config.py`: settings and environment overrides.
 - `tests/test_llm_service.py`: prompt construction, transcription validation, timeout, empty content, mocked success path.
 - `tests/test_examples.py`: example pool loading and sampling behavior.
-- `tests/test_estimation_engine.py`: adaptive routing and guardrails.
 - `tests/test_prompt_loader.py`: unified system instructions partial.
 - `tests/test_system_instructions_template.py`: v2 bundle has no `partials/modes/`.
 - `tests/test_response_output_writer.py`: output path and UTF-8 write behavior.

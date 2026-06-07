@@ -1,4 +1,4 @@
-"""Map ``EstimationRequest`` and mode state into a Jinja-safe context dict."""
+"""Map ``EstimationRequest`` into a Jinja-safe context dict."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from typing import Any
 
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest, Industry, TargetAudience
-from app.services.estimation_engine import EstimationMode
 from app.services.prompt_renderer import PromptRenderer
 from app.services.prompt_versions import PromptTemplateSet, resolve_prompt_template_set
 
@@ -38,9 +37,6 @@ def build_assessment_chunks(request: EstimationRequest) -> list[str]:
     """Narrow assessment surface chunks (no Markdown section headers)."""
 
     chunks: list[str] = [request.project_summary, request.project_description]
-    chunks.extend(request.deliverables)
-    if request.out_of_scope:
-        chunks.extend(request.out_of_scope)
     return [c.strip() for c in chunks if c and c.strip()]
 
 
@@ -63,9 +59,6 @@ def _industry_display(request: EstimationRequest) -> str | None:
 def build_request_render_context(request: EstimationRequest) -> dict[str, Any]:
     """Context for guided and assessment partials (no few-shot examples)."""
 
-    integration_cats = [c.value for c in request.integration_categories]
-    hosting = [h.value for h in (request.hosting_constraints or [])]
-    ui_langs = [u.value for u in request.ui_languages]
     return {
         "project_name": request.project_name,
         "project_summary": request.project_summary,
@@ -73,26 +66,6 @@ def build_request_render_context(request: EstimationRequest) -> dict[str, Any]:
         "target_audience_display": _audience_display(request),
         "industry_display": _industry_display(request),
         "project_description": request.project_description.strip(),
-        "deliverables": list(request.deliverables),
-        "out_of_scope": list(request.out_of_scope or []),
-        "has_out_of_scope": bool(request.out_of_scope),
-        "delivery_urgency": request.delivery_urgency.value,
-        "target_date": request.target_date.isoformat() if request.target_date else None,
-        "delivery_approach": request.delivery_approach.value if request.delivery_approach else None,
-        "has_integration_categories": bool(request.integration_categories),
-        "integration_categories_display": ", ".join(integration_cats),
-        "has_integration_custom_names": bool(request.integration_custom_names),
-        "integration_custom_names_display": "; ".join(request.integration_custom_names or []),
-        "data_sensitivity": request.data_sensitivity.value,
-        "has_hosting_constraints": bool(request.hosting_constraints),
-        "hosting_constraints_display": ", ".join(hosting),
-        "hosting_notes": request.hosting_notes,
-        "team_context": request.team_context.value if request.team_context else None,
-        "has_ui_languages": bool(request.ui_languages),
-        "ui_languages_display": ", ".join(ui_langs),
-        "risk_level": request.risk_level.value if request.risk_level else None,
-        "external_dependencies": list(request.external_dependencies or []),
-        "has_external_dependencies": bool(request.external_dependencies),
         "detail_level": request.detail_level.value,
         "output_format": request.output_format.value,
         "has_attachments": bool(request.attachments),
@@ -105,7 +78,6 @@ def build_prompt_render_context(
     request: EstimationRequest,
     *,
     template_set: PromptTemplateSet,
-    mode: EstimationMode,
     examples: Sequence[EstimationExample],
     estimation_user_message: str,
     preprocessing: str,
@@ -116,12 +88,10 @@ def build_prompt_render_context(
 ) -> dict[str, Any]:
     """Build full context for estimation system/user/examples templates."""
 
-    r = renderer or PromptRenderer()
     ctx = build_request_render_context(request)
     ex_list = [ex.model_dump(mode="json") for ex in examples]
     ctx.update(
         {
-            "estimation_mode": mode.value,
             "system_instructions_template": template_set.system_instructions_template,
             "inline_cleaning_block": inline_cleaning_block,
             "examples": ex_list,
@@ -132,9 +102,6 @@ def build_prompt_render_context(
             "guided_request_template": template_set.guided_request_template,
             "structured_output_hint_template": template_set.structured_output_hint_template,
             "attachment_filenames": [a.filename for a in request.attachments],
-            "integration_categories": [c.value for c in request.integration_categories],
-            "hosting_constraints": [h.value for h in (request.hosting_constraints or [])],
-            "ui_languages": [u.value for u in request.ui_languages],
         }
     )
     return ctx
@@ -143,7 +110,6 @@ def build_prompt_render_context(
 def build_estimation_prompt_context(
     request: EstimationRequest,
     *,
-    mode: EstimationMode,
     examples: Sequence[EstimationExample],
     estimation_user_message: str,
     preprocessing: str,
@@ -161,7 +127,6 @@ def build_estimation_prompt_context(
     return build_prompt_render_context(
         request,
         template_set=template_set,
-        mode=mode,
         examples=examples,
         estimation_user_message=estimation_user_message,
         preprocessing=preprocessing,

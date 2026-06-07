@@ -8,7 +8,6 @@ from app.config import Settings
 from app.services.prompt_renderer import PromptRenderer
 from app.services.prompt_versions import resolve_prompt_template_set
 from app.services.ai_model_service import LiteLLMChatOutcome
-from app.services.estimation_engine import EstimationMode
 from app.services.llm_chain import LitellmChainProvider, StaticFallbackProvider
 from app.services.llm_types import (
     ProviderConfigError,
@@ -236,36 +235,13 @@ async def test_static_fallback_provider_returns_degraded_payload() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("mode", "must_contain", "must_not_contain"),
-    [
-        (EstimationMode.BASIC, "## mvp scope", "## budget (indicative)"),
-        (EstimationMode.STANDARD, "## budget (indicative)", "scenario bands"),
-        (EstimationMode.PROFESSIONAL, "scenario bands", "worst case: 40 hours"),
-        (
-            EstimationMode.EXPERT_REVIEW,
-            "## profile breakdown",
-            "scenario bands",
-        ),
-    ],
-)
-async def test_static_fallback_budget_shape_follows_mode(
-    mode: EstimationMode,
-    must_contain: str,
-    must_not_contain: str,
-) -> None:
-    """Degraded markdown should mirror live-mode budget expectations (range vs breakdown)."""
+async def test_static_fallback_uses_unified_degraded_template() -> None:
+    """Degraded markdown uses a single standard-shaped fallback regardless of system prompt."""
 
-    ts = resolve_prompt_template_set("estimation", "v2")
-    system = PromptRenderer().render_partial(
-        ts.system_instructions_template,
-        {
-            "estimation_mode": mode.value,
-            "detail_level": "medium",
-            "output_format": "phases_table",
-        },
-    )
-    result = await StaticFallbackProvider().complete(system, "user", max_output_tokens=512)
+    result = await StaticFallbackProvider().complete("any system prompt", "user", max_output_tokens=512)
     lowered = result.text.lower()
-    assert must_contain in lowered
-    assert must_not_contain not in lowered
+    assert "degraded mode" in lowered
+    assert "## budget (indicative)" in lowered
+    assert "scenario bands" not in lowered
+    assert "## mvp scope" not in lowered
+    assert "## profile breakdown" not in lowered

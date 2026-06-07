@@ -23,6 +23,7 @@ from app.services.estimation_stats_logger import (
 )
 from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
 from app.services.estimate_response_builder import estimate_cost_usd
+from app.services.llm_call_audit import merge_llm_call_audit
 from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import (
     EXAMPLES_VERSION,
@@ -108,6 +109,8 @@ async def _execute_v2_estimate(
     pipeline = LLMPipeline(service, settings)
     observability = get_observability()
 
+    merge_llm_call_audit(request_id=request_id)
+
     with observability.start_span("estimator.pipeline.structured"):
         try:
             outcome = await pipeline.run_structured(
@@ -186,9 +189,6 @@ async def _execute_v2_estimate(
             provider=bundle.provider,
             model=bundle.model,
             usage=bundle.usage,
-            mode=bundle.mode,
-            assessment=bundle.assessment,
-            mode_eligibility=bundle.mode_eligibility,
             degraded=bundle.degraded,
             finish_reason=bundle.finish_reason,
         )

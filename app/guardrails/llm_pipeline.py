@@ -21,12 +21,6 @@ from app.guardrails.pipeline_context import CacheMetadata, PipelineContext, Rend
 from app.guardrails.policy_executor import PolicyExecutor
 from app.guardrails.policy_registry import guardrail_declaration_by_id
 from app.schemas.estimation_request import EstimationRequest
-from app.services.estimation_engine import (
-    assess_and_select_mode,
-    enforce_mode_eligibility,
-    evaluate_mode_eligibility,
-    summarize_assessment,
-)
 from app.services.estimation_prompt_rendering import render_guided_user_message
 from app.services.llm_service import (
     EXAMPLES_VERSION,
@@ -143,22 +137,15 @@ class LLMPipeline:
             degraded_result = build_degraded_estimation_result(
                 user_summary=input_phase.degrade_user_message or "Unable to complete this estimation.",
             )
-            raw, rec_mode = assess_and_select_mode(surface)
-            assessment = summarize_assessment(raw, rec_mode)
-            eligibility = evaluate_mode_eligibility(assessment)
-            mode = enforce_mode_eligibility(rec_mode, eligibility)
             bundle = StructuredEstimateBundle(
                 result=degraded_result,
                 prompt_version="guardrail/degraded",
                 examples_version="guardrail/degraded",
-                mode=mode,
                 model="guardrail",
                 provider="guardrail",
                 usage=None,
                 degraded=True,
                 finish_reason="guardrail_filter",
-                assessment=assessment,
-                mode_eligibility=eligibility,
             )
             combined_policies = tuple(policy_parts)
             return StructuredPipelineOutcome(
@@ -201,7 +188,6 @@ class LLMPipeline:
                 guardrail_rules_version=rules_version,
                 operation="estimation_v2",
                 tenant_id="default",
-                estimation_mode=prelude.mode.value,
             )
             vector_text_cache = build_vector_text_surface(
                 request=request,
@@ -319,14 +305,11 @@ class LLMPipeline:
                     result=build_degraded_estimation_result(user_summary=degrade_message),
                     prompt_version=bundle.prompt_version,
                     examples_version=bundle.examples_version,
-                    mode=bundle.mode,
                     model=bundle.model,
                     provider=bundle.provider,
                     usage=bundle.usage,
                     degraded=True,
                     finish_reason="output_guardrail_filter",
-                    assessment=bundle.assessment,
-                    mode_eligibility=bundle.mode_eligibility,
                 )
                 break
 
@@ -378,10 +361,7 @@ class LLMPipeline:
                     guardrail_rules_version=rules_version,
                     provider=final_bundle.provider,
                     model=final_bundle.model,
-                    mode=final_bundle.mode.value,
                     result=fields["result"],
-                    assessment=fields["assessment"],
-                    mode_eligibility=fields["mode_eligibility"],
                     usage=fields["usage"],
                     finish_reason=fields.get("finish_reason"),
                     safe_to_cache=True,

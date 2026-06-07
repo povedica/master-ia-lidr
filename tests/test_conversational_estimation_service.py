@@ -11,7 +11,6 @@ from app.services.conversational_estimation_service import (
     ConversationalEstimationService,
     SessionNotFoundError,
 )
-from app.services.estimation_engine import EstimationMode
 from app.services.llm_service import EstimationService, LlmEstimationCallOutcome, UsageInfo
 from app.services.sessions import InMemorySessionStore, ProjectMetadata
 
@@ -35,9 +34,6 @@ def _fake_outcome(text: str = "## Estimation\n\nDone.") -> LlmEstimationCallOutc
         provider="openai",
         model="gpt-4o-mini",
         usage=UsageInfo(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-        mode=EstimationMode.BASIC,
-        assessment=None,
-        mode_eligibility=None,
         finish_reason="stop",
     )
 

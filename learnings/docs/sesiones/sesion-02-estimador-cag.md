@@ -26,6 +26,10 @@
 
 La tabla canónica de hashes del feature de persistencia y ejemplos aleatorios está en [feature-004-save-estimation-response-output.md](../work-items/feature-004-save-estimation-response-output.md) (`## Repository commits (master-ia)`).
 
+## Actualización (feature-025, 2026-06)
+
+Los modos adaptativos (`basic` / `standard` / `professional` / `expert_review`) se retiraron del código. La estimación sigue un único camino: pool plano `app/context/examples/*.txt`, cap unificado `ESTIMATION_OUTPUT_TOKENS_MAX`, y profundidad/formato vía `detail_level` / `output_format` del formulario guiado. Ver `docs/work-items/feature-025-remove-adaptive-estimation-modes.md`.
+
 ## Dudas / seguimiento
 
 - Renombrado / reorganización de fixtures YAML bajo `api-collection/Estimador CAG/estimations/` (p. ej. `Detail` / `Small` / `Medium` / `Large`): si sigue en el árbol de trabajo sin commit, cerrar con un commit dedicado (`chore` o `docs`) y actualizar la tabla del work item si aplica.

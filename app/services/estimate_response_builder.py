@@ -6,14 +6,11 @@ import json
 from datetime import datetime
 
 from app.schemas.estimations import (
-    AssessmentView,
     EstimateResponse,
-    ModeEligibilityView,
     StructureCheckView,
     UsageView,
 )
 from app.services.evaluation import StructureCheck, evaluate_estimation_structure
-from app.services.estimation_output_validation import evaluate_estimation_output
 from app.services.llm_service import PROMPT_VERSION, EXAMPLES_VERSION, LlmEstimationCallOutcome
 
 
@@ -56,18 +53,12 @@ def assemble_estimate_response(
 
     degraded_value = True if result.degraded else None
 
-    output_validation = None
     structure_evaluation: StructureCheckView | None = None
     structure_check = None
     if evaluate or stats_log_enabled:
         finish = (result.finish_reason or "").strip() or "stop"
         structure_check = evaluate_estimation_structure(result.estimation, finish)
     if evaluate and structure_check is not None:
-        output_validation = evaluate_estimation_output(
-            result.estimation,
-            result.mode,
-            result.finish_reason,
-        )
         structure_evaluation = StructureCheckView(
             has_title=structure_check.has_title,
             has_breakdown_table=structure_check.has_breakdown_table,
@@ -93,7 +84,6 @@ def assemble_estimate_response(
                 estimation=result.estimation,
                 score=response_score,
                 degraded=degraded_value,
-                output_validation=output_validation,
                 structure_evaluation=structure_evaluation,
             ),
             structure_check,
@@ -114,7 +104,6 @@ def assemble_estimate_response(
         EstimateResponse(
             estimation=result.estimation,
             score=response_score,
-            mode=result.mode,
             model=result.model,
             provider=result.provider,
             request_id=request_id,
@@ -122,28 +111,9 @@ def assemble_estimate_response(
             latency_ms=latency_ms,
             prompt_version=PROMPT_VERSION,
             examples_version=EXAMPLES_VERSION,
-            assessment=(
-                AssessmentView(
-                    detail_level=result.assessment.detail_level,
-                    recommended_mode=result.assessment.recommended_mode,
-                    reason=result.assessment.reason,
-                )
-                if result.assessment
-                else None
-            ),
-            mode_eligibility=(
-                ModeEligibilityView(
-                    allowed_modes=list(result.mode_eligibility.allowed_modes),
-                    blocked_modes=list(result.mode_eligibility.blocked_modes),
-                    reason=result.mode_eligibility.reason,
-                )
-                if result.mode_eligibility
-                else None
-            ),
             degraded=degraded_value,
             usage=usage,
             finish_reason=result.finish_reason,
-            output_validation=output_validation,
             structure_evaluation=structure_evaluation,
         ),
         structure_check,

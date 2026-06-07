@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.guardrails.contracts import FinalResponseStatus
 from app.schemas.estimation_result import EstimationResult
-from app.schemas.estimations import AssessmentView, ModeEligibilityView, UsageView
-from app.services.estimation_engine import EstimationMode
+from app.schemas.estimations import UsageView
 
 
 class EstimationQualityView(BaseModel):
@@ -20,12 +19,11 @@ class EstimationQualityView(BaseModel):
 
 
 class EstimationResponse(BaseModel):
-    """Typed estimation result plus routing metadata."""
+    """Typed estimation result plus metadata."""
 
     result: EstimationResult
     prompt_version: str
     examples_version: str
-    mode: EstimationMode | None = None
     model: str | None = None
     provider: str | None = None
     request_id: str | None = None
@@ -40,8 +38,6 @@ class EstimationResponse(BaseModel):
     )
     usage: UsageView | None = None
     finish_reason: str | None = None
-    assessment: AssessmentView | None = None
-    mode_eligibility: ModeEligibilityView | None = None
     quality: EstimationQualityView | None = Field(
         default=None,
         description="Present when evaluate=true.",
