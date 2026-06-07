@@ -478,7 +478,8 @@ No new env vars required for core deliverable.
 
 ## Pull Request
 
-_(Filled after draft PR is created.)_
+- Draft: https://github.com/povedica/master-ia-lidr/pull/24
+- Branch: `feature/029-cag-stress-testing`
 
 ## Repository commits (master-ia)
 

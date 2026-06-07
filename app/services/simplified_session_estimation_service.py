@@ -39,6 +39,8 @@ class SimplifiedSessionSubmitOutcome:
     normalized_payload: dict[str, object]
     derived_metadata: DerivedProjectMetadata
     attachment_statuses: list
+    enriched_transcript_chars: int = 0
+    attachments_total_chars: int = 0
 
 
 class SessionNotFoundError(LookupError):
@@ -180,6 +182,7 @@ class SimplifiedSessionEstimationService:
         session.last_attachment_statuses = attachment_statuses
         session.submit_count += 1
         session.updated_at = datetime.now(UTC)
+        attachments_total_chars = sum(len(getattr(item, "text", "") or "") for item in extracted)
 
         return SimplifiedSessionSubmitOutcome(
             session=session,
@@ -188,6 +191,8 @@ class SimplifiedSessionEstimationService:
             normalized_payload=normalized,
             derived_metadata=merged,
             attachment_statuses=attachment_statuses,
+            enriched_transcript_chars=len(user_prompt),
+            attachments_total_chars=attachments_total_chars,
         )
 
 
