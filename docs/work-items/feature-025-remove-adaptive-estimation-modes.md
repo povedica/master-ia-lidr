@@ -293,3 +293,9 @@ Medium refactor (~15–25 files). Low runtime risk if tests are updated systemat
 
 | Commit | Summary |
 |--------|---------|
+| `34e3f87` | docs(feature-025): add estimation plan and implementation progress |
+| `ba6b63b` | feat(config): replace per-mode token caps with ESTIMATION_OUTPUT_TOKENS_MAX |
+| `89d452c` | feat(examples): flatten few-shot pool and parameterless load_examples() |
+| `4236e71` | feat(estimation): remove adaptive mode routing and API fields |
+| `c9256c1` | test(estimation): align suite with unified estimation path |
+| `1b3e5f4` | docs(feature-025): document single estimation path and retire mode table |
