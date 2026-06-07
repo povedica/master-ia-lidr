@@ -39,5 +39,8 @@ output-responses/
 output-prompt/
 output-stats/
 
+# Session eval judge artifacts (local debug only)
+tests/evals/artifacts/
+
 # Architext generated static builds.
 docs/architext/dist/

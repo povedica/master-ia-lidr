@@ -23,9 +23,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "deepeval>=4.0.5",
     "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
+    "pyyaml>=6.0.3",
 ]
 
 [build-system]
@@ -40,3 +42,9 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "evals: session estimation evaluation suite (golden dataset)",
+    "judge: LLM-as-judge tests requiring judge model credentials",
+    "slow: expensive or multi-run tests",
+    "soft: soft consistency multi-run tests",
+]
