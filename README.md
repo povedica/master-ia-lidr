@@ -483,7 +483,28 @@ OPENAI_API_KEY=sk-... \
 uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v
 ```
 
-**Coverage highlights:** prompt construction, adaptive routing, guardrails, semantic cache (mocked Redis), session multipart uploads, attachment text extraction (PDF/DOCX built in-process).
+### Evaluation suite (session quality pyramid)
+
+Maintainable evals for estimate **quality** and **context use** on the session endpoint. See [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md).
+
+```bash
+# Hard deterministic layer — no API keys
+uv run pytest tests/evals -m "evals and not slow"
+
+# Judge layer — live estimator + judge (costs tokens)
+EVAL_ESTIMATOR_USE_REAL_LLM=true EVAL_JUDGE_API_KEY=sk-... uv run pytest -m judge
+```
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EVAL_ESTIMATOR_USE_REAL_LLM` | `false` | Real structured LLM for soft/judge evals |
+| `EVAL_ESTIMATOR_MODEL` | _(empty → `OPENAI_MODEL`)_ | Estimator override |
+| `EVAL_JUDGE_PROVIDER` | `openai` | Judge provider |
+| `EVAL_JUDGE_MODEL` | `gpt-4o-mini` | Judge model |
+| `EVAL_JUDGE_API_KEY` | _(empty)_ | Judge key (falls back to provider key) |
+| `EVAL_JUDGE_THRESHOLD_MODE` | `warn` | `strict` fails sub-threshold judge scores |
+
+**Coverage highlights:** prompt construction, adaptive routing, guardrails, semantic cache (mocked Redis), session multipart uploads, attachment text extraction (PDF/DOCX built in-process), session eval golden dataset.
 
 ---
 
@@ -491,7 +512,7 @@ uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_
 
 | Resource | Description |
 |----------|-------------|
-| [docs/technical/README.md](docs/technical/README.md) | Extended technical baseline: flows, logging, error mapping, evolution guide |
+| [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md) | Session eval pyramid: goldens, hard/soft/judge runs, calibration |
 | [web/README.md](web/README.md) | Frontend setup, scripts, theming |
 | [docs/work-items/](docs/work-items/) | Feature specs and implementation notes |
 | [api-collection/](api-collection/) | Manual HTTP requests (OpenCollection/Bruno) |
