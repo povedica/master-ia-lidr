@@ -1,11 +1,9 @@
 """Settings loading tests."""
 
 import pytest
-from pydantic import ValidationError
 
 import app.config as app_config
 from app.config import Settings, get_settings
-from app.services.estimation_engine import EstimationMode
 
 
 def test_default_env_file_is_beside_app_package() -> None:
@@ -42,7 +40,16 @@ def test_optional_anthropic_fields_have_safe_defaults(
     assert settings.anthropic_api_key == ""
     assert settings.anthropic_model == "claude-haiku-4-5-20251001"
     assert settings.anthropic_timeout_seconds == 30.0
-    assert settings.completion_token_cap_for_mode(EstimationMode.STANDARD) == 2048
+    assert settings.estimation_output_tokens_max == 2048
+
+
+def test_estimation_output_tokens_max_can_be_overridden_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ESTIMATION_OUTPUT_TOKENS_MAX", "3000")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None, openai_api_key="sk-test")
+    assert settings.estimation_output_tokens_max == 3000
 
 
 def test_provider_chain_defaults() -> None:
@@ -73,57 +80,6 @@ def test_estimation_output_persist_can_be_enabled_from_env(
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.estimation_output_persist_enabled is True
-
-
-def test_forced_estimation_mode_parses_enum_value() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="expert_review",
-    )
-    assert settings.forced_estimation_mode == EstimationMode.EXPERT_REVIEW
-
-
-def test_forced_estimation_mode_none_when_blank() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="",
-    )
-    assert settings.forced_estimation_mode is None
-
-
-def test_forced_estimation_mode_none_when_off_sentinel() -> None:
-    settings = Settings(
-        _env_file=None,
-        openai_api_key="sk-test",
-        forced_estimation_mode="off",
-    )
-    assert settings.forced_estimation_mode is None
-
-
-def test_forced_estimation_mode_rejects_invalid_value() -> None:
-    with pytest.raises(ValidationError):
-        Settings(
-            _env_file=None,
-            openai_api_key="sk-test",
-            forced_estimation_mode="not-a-mode",
-        )
-
-
-def test_completion_token_cap_per_mode_defaults() -> None:
-    settings = Settings(_env_file=None, openai_api_key="sk-test")
-    assert settings.completion_token_cap_for_mode(EstimationMode.BASIC) == 1024
-    assert settings.completion_token_cap_for_mode(EstimationMode.EXPERT_REVIEW) == 8192
-
-
-def test_completion_token_cap_can_be_overridden_from_env(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("ESTIMATION_PROFESSIONAL_OUTPUT_TOKENS_MAX", "6000")
-    get_settings.cache_clear()
-    settings = Settings(_env_file=None, openai_api_key="sk-test")
-    assert settings.completion_token_cap_for_mode(EstimationMode.PROFESSIONAL) == 6000
 
 
 def test_default_llm_provider_and_model_have_documented_defaults(

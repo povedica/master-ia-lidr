@@ -287,7 +287,7 @@ Medium refactor (~15–25 files). Low runtime risk if tests are updated systemat
 
 ## Pull Request
 
-_To be filled during `/start-task`._
+- Draft: https://github.com/povedica/master-ia-lidr/pull/21
 
 ## Repository commits (master-ia)
 

@@ -426,15 +426,6 @@ class EstimationService:
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
-        if self._settings.forced_estimation_mode is not None:
-            mode = self._settings.forced_estimation_mode
-            logger.info(
-                "estimation_mode_forced",
-                extra={
-                    "mode": mode.value,
-                    "recommended_mode": recommended_mode.value,
-                },
-            )
 
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")
@@ -450,7 +441,7 @@ class EstimationService:
             mode,
             inline_cleaning=(preprocessing == "inline_cleaning"),
         )
-        max_output_tokens = self._settings.completion_token_cap_for_mode(mode)
+        max_output_tokens = self._settings.estimation_output_tokens_max
         return _PreparedCall(
             system_prompt=system_prompt,
             user_text=user_text,
@@ -467,7 +458,7 @@ class EstimationService:
 
         cap = min(
             _EXTRACTION_MAX_TOKENS,
-            self._settings.estimation_standard_output_tokens_max,
+            self._settings.estimation_output_tokens_max,
         )
         for provider in self._providers:
             if provider.name == "static_fallback":
@@ -663,15 +654,6 @@ class EstimationService:
         assessment_summary = summarize_assessment(raw_assessment, recommended_mode)
         mode_eligibility = evaluate_mode_eligibility(assessment_summary)
         mode = enforce_mode_eligibility(recommended_mode, mode_eligibility)
-        if self._settings.forced_estimation_mode is not None:
-            mode = self._settings.forced_estimation_mode
-            logger.info(
-                "estimation_mode_forced",
-                extra={
-                    "mode": mode.value,
-                    "recommended_mode": recommended_mode.value,
-                },
-            )
 
         if preprocessing not in {"none", "inline_cleaning", "two_phase"}:
             raise EstimationError("Invalid preprocessing mode.")
@@ -684,7 +666,7 @@ class EstimationService:
             user_llm, phase1_prep_in, phase1_prep_out = await self._extract_requirements_two_phase(guided)
             pre_md = user_llm
 
-        max_output_tokens = self._settings.completion_token_cap_for_mode(mode)
+        max_output_tokens = self._settings.estimation_output_tokens_max
         return _StructuredPrelude(
             preprocessed_markdown_for_template=pre_md,
             mode=mode,
