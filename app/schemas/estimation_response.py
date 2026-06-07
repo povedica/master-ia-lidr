@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.guardrails.contracts import FinalResponseStatus
+from app.schemas.acb.trace import AcbTrace
 from app.schemas.estimation_result import EstimationResult
 from app.schemas.estimations import UsageView
 
@@ -84,4 +85,8 @@ class EstimationResponse(BaseModel):
         default=None,
         max_length=64,
         description="Stable miss reason when semantic cache did not serve a hit.",
+    )
+    acb_trace: AcbTrace | None = Field(
+        default=None,
+        description="Dev-only Actor-Critic-Boss orchestration trace.",
     )

@@ -239,6 +239,7 @@ async def estimate_in_session(
         pipeline_cache_score=outcome.cache_score,
         pipeline_cache_bucket=outcome.cache_bucket,
         pipeline_cache_miss_reason=outcome.cache_miss_reason,
+        acb_trace=outcome.acb_trace,
     )
 
     estimate_payload = estimate.model_dump(mode="json")

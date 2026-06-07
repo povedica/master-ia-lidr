@@ -1,0 +1,26 @@
+Decide the next process action for this estimation iteration.
+
+## Iteration state
+- Current iteration: {{ iteration }}
+- Max iterations: {{ max_iterations }}
+- Actor budget remaining (inclusive): {{ budget_remaining }}
+
+## Critic feedback summary
+{{ critic_feedback.summary }}
+
+Overall assessment: {{ critic_feedback.overall_assessment }}
+Issue count: {{ critic_feedback.issues | length }}
+
+{% if critic_feedback.issues %}
+### Issues
+{% for issue in critic_feedback.issues %}
+- [{{ issue.severity.value }}/{{ issue.category.value }}] {{ issue.message }}
+{% endfor %}
+{% endif %}
+
+## Actor candidate (JSON)
+```json
+{{ candidate_json }}
+```
+
+Return BossDecision JSON with action, reasoning, optional revision_instructions, confidence_in_decision.

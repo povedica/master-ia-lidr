@@ -35,6 +35,10 @@ def install_fake_structured_llm(monkeypatch: pytest.MonkeyPatch, fake: FakeStruc
         "app.services.llm_service.complete_structured",
         _complete_structured,
     )
+    monkeypatch.setattr(
+        "app.guardrails.acb.orchestrator.complete_structured",
+        _complete_structured,
+    )
 
 
 @asynccontextmanager

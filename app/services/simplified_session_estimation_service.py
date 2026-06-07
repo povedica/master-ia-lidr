@@ -10,7 +10,7 @@ from app.context.examples import load_examples
 from app.guardrails.llm_pipeline import LLMPipeline, StructuredPipelineOutcome
 from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.dynamic_context_manager import DynamicContextManager
-from app.services.llm_call_audit import merge_llm_call_audit
+from app.services.llm_call_audit import merge_llm_call_audit, record_acb_orchestration_audit
 from app.schemas.estimation_result import EstimationResult
 from app.services.estimation_prompt_rendering import (
     _metadata_render_context,
@@ -136,15 +136,33 @@ class SimplifiedSessionEstimationService:
         ]
 
         pipeline = LLMPipeline(self._estimation, self._settings)
-        outcome = await pipeline.run_structured(
-            guided,
-            assessment_surface=assessment_surface,
-            request_id=request_id,
-            guided_user_message=user_prompt,
-            system_prompt_override=composed_system,
-            user_prompt_override=user_prompt,
-            messages_override=messages_override,
+        metadata_ctx = session_metadata_ctx or {}
+        acb_active = self._settings.acb_requested(request.orchestration, endpoint="session_estimate")
+        record_acb_orchestration_audit(
+            acb_enabled=acb_active,
+            mode=_session_orchestration_mode(request, acb_active),
         )
+        if acb_active:
+            outcome = await pipeline.run_structured_with_acb(
+                guided,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+                project_metadata=metadata_ctx,
+                guided_user_message=user_prompt,
+                system_prompt_override=composed_system,
+                user_prompt_override=user_prompt,
+                messages_override=messages_override,
+            )
+        else:
+            outcome = await pipeline.run_structured(
+                guided,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+                guided_user_message=user_prompt,
+                system_prompt_override=composed_system,
+                user_prompt_override=user_prompt,
+                messages_override=messages_override,
+            )
 
         if outcome.bundle is not None:
             turn_index = session.submit_count + 1
@@ -171,6 +189,17 @@ class SimplifiedSessionEstimationService:
             derived_metadata=merged,
             attachment_statuses=attachment_statuses,
         )
+
+
+def _session_orchestration_mode(request: SessionEstimateRequest, acb_active: bool) -> str:
+    override = (request.orchestration or "").strip().lower()
+    if override == "acb":
+        return "acb"
+    if override == "single_pass":
+        return "single_pass"
+    if acb_active:
+        return "acb"
+    return "default"
 
 
 def _compose_user_prompt(guided: str, attachment_block: str, *, is_first_turn: bool) -> str:

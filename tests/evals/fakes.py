@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import unicodedata
 
+from pydantic import BaseModel
+
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
 from tests.evals.models import SuccessCriteria
 from tests.fakes.fake_llm_provider import FakeStructuredLLM
@@ -24,10 +26,10 @@ class EvalStructuredLLM(FakeStructuredLLM):
     def clear_success_criteria(self) -> None:
         self._criteria = None
 
-    def _dispatch(self, user_prompt: str) -> EstimationResult:
-        if self._criteria is not None:
+    def _dispatch(self, response_model: type[BaseModel], user_prompt: str) -> BaseModel:
+        if self._criteria is not None and issubclass(response_model, EstimationResult):
             return build_estimation_from_criteria(self._criteria, user_prompt=user_prompt)
-        return super()._dispatch(user_prompt)
+        return super()._dispatch(response_model, user_prompt)
 
 
 def build_estimation_from_criteria(

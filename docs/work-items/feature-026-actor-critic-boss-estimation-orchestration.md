@@ -16,6 +16,37 @@ This feature embodies the product thesis that **generation, evaluation, and proc
 
 ACB must **not** be applied to every LLM call (metadata extraction, guardrails, preprocessing, `/api/v2/estimate`, etc.). It applies only where quality matters most and extra latency/cost is acceptable.
 
+## How it works
+
+ACB is an **optional quality loop** on the session estimate critical path. A single monolithic prompt cannot reliably combine generation, defect detection, and process governance; ACB splits those into three typed LLM roles with a hard iteration budget.
+
+### End-to-end flow
+
+1. **Session submit** (`SimplifiedSessionEstimationService.run_submit`) builds transcript context, merged metadata, and `messages_override` as today.
+2. **Activation gate** — `Settings.acb_requested(request.orchestration, endpoint="session_estimate")` decides between legacy single-pass and ACB. Default is off globally.
+3. **Guarded pipeline (ACB path)** — `LLMPipeline.run_structured_with_acb`:
+   - Runs existing **input semantic guardrails** (unchanged).
+   - **Skips semantic cache serve** when ACB is active (`acb_cache_bypassed` log).
+   - Delegates to **`ActorCriticBossOrchestrator`**.
+4. **Orchestration loop** (max `ACB_MAX_ITERATIONS` Actor passes):
+   - **Actor** — `EstimationService.estimate_structured` with ACB actor prompt; on revision iterations, appends Boss `revision_instructions` via `actor_revision.j2`.
+   - **Critic** — `complete_structured(CriticFeedback)`; structured issues only, never a replacement estimate.
+   - **Boss** — `complete_structured(BossDecision)` with action `accept | revise | synthesize`.
+   - **Policy** — `normalize_boss_decision()` clamps LLM output to budget and severity rules in `policy.py`.
+5. **Finalization** — output semantic guardrails run on the **final** `EstimationResult` only (not intermediate Actor candidates).
+6. **Response** — `SessionEstimateResponse.estimate` shape unchanged; with `DEV_MODE=true`, nested `acb_trace` exposes iteration summaries.
+
+### What changes for operators
+
+| ACB off (default) | ACB on |
+| --- | --- |
+| One structured LLM call via `run_structured` | 3+ LLM calls per iteration (Actor + Critic + Boss) |
+| Semantic cache may serve hits on session path when enabled | Cache serve bypassed |
+| No `acb_trace` in response | `estimate.acb_trace` when `DEV_MODE=true` |
+| Same `EstimationResult` contract | Same contract |
+
+See also: [docs/technical/actor-critic-boss-orchestration.md](../technical/actor-critic-boss-orchestration.md) and [docs/arquitectura-estimador-cag.html](../arquitectura-estimador-cag.html#acb).
+
 ## Context
 
 ### Production surface (authoritative)
@@ -55,6 +86,7 @@ sessions.estimate_in_session
 
 - **feature-025** removes adaptive estimation modes (`basic` / `standard` / `professional` / `expert_review`). ACB prompts and schemas must **not** depend on `EstimationMode`. Implement after feature-025 lands, or in the same branch only if mode fields are already gone.
 - **feature-024** adds offline LLM-as-judge evals. ACB is **online production orchestration**; evals validate outcomes but do not replace Critic/Boss roles.
+- **feature-027** persists LLM calls to `output-responses/llm-call-*.json`. FR-13 extends that audit trail with ACB role/orchestration metadata so local debugging can confirm Actor → Critic → Boss sequencing.
 
 ### Architectural constraints (non-negotiable)
 
@@ -275,6 +307,26 @@ Langfuse (when export active):
 
 Attach sanitized `AcbTrace` summary to `PipelineContext.provider_metadata` (counts and decisions only; no full prompts).
 
+### FR-13: LLM call persistence (`LLM_CALL_PERSIST_ENABLED`)
+
+When feature-027 JSON persistence is enabled, each ACB role call must be distinguishable in `output-responses/llm-call-*.json`.
+
+**Observed gap (2026-06-07):** A local session submit produced a single file (`llm-call-20260607-134621-001.json`) with only `response_model: EstimationResult`, templates `estimation/v2`, and **no** `orchestration` / `acb_role` metadata — indistinguishable from legacy single-pass even when debugging ACB.
+
+Requirements:
+
+- Add a `preparation.orchestration` object on every persisted structured call during session estimate:
+  - `acb_enabled: bool`
+  - `mode: "acb" | "single_pass" | "default"`
+  - `acb_role: "actor" | "critic" | "boss" | "synthesize" | null` (null when ACB off)
+  - `acb_iteration: int | null`
+  - `prompt_version_acb: str | null` (e.g. `acb/v1` when ACB role prompts used)
+- **Actor** calls (via `estimate_structured`) must set `acb_role=actor` before the provider call when ACB is active.
+- **Critic** / **Boss** / **Synthesize** calls must set the matching role and include `response_model` (`CriticFeedback`, `BossDecision`, or `EstimationResult`) in `model_request` as today.
+- When ACB is off, persisted files must show `acb_enabled=false` and `acb_role=null` (matches legacy appearance except explicit `mode`).
+- One HTTP session estimate with ACB on and one iteration must produce **at least three** JSON files when persistence is enabled (Actor + Critic + Boss), optionally a fourth on synthesize.
+- Implementation via request-scoped `llm_call_audit` helpers (no secrets); orchestrator sets role context immediately before each LLM invocation.
+
 ### FR-11: Response contract and debug traces
 
 - Production response (`dev_mode=false`): **no change** to `SessionEstimateResponse` top-level fields.
@@ -403,22 +455,24 @@ Add typed fields + helpers on `Settings`:
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** With `ACB_ENABLED=false`, `POST /api/v1/sessions/{id}/estimate` behavior is byte-for-byte equivalent to pre-feature paths (same response schema, no extra LLM calls).
-- [ ] **AC-02:** With ACB enabled, session estimate path runs Actor → Critic → Boss at least once and returns valid `EstimationResult` JSON in `SessionEstimateResponse.estimate`.
-- [ ] **AC-03:** Critic output is validated against `CriticFeedback` schema; tests fail if Critic returns free-form only.
-- [ ] **AC-04:** Critic never returns a full replacement estimate (schema enforces this).
-- [ ] **AC-05:** Boss decisions are validated against `BossDecision` schema with `accept|revise|synthesize` actions.
-- [ ] **AC-06:** Orchestration never exceeds `ACB_MAX_ITERATIONS` Actor passes; tests assert loop termination with mocked always-REVISE Boss.
-- [ ] **AC-07:** On budget exhaustion with blocking issues, Boss SYNTHESIZE path runs (when allowed) and returns schema-valid final estimate.
-- [ ] **AC-08:** ACCEPT path returns Actor candidate unchanged (modulo existing server-side totals alignment on `EstimationResult`).
-- [ ] **AC-09:** REVISE path re-invokes Actor with Boss `revision_instructions` visible in Actor prompt artifacts (unit test on rendered prompt).
-- [ ] **AC-10:** ACB is not invoked for metadata extraction or non-session endpoints.
-- [ ] **AC-11:** Semantic cache serve is bypassed when ACB is active; log/metric `acb_cache_bypassed` emitted.
-- [ ] **AC-12:** Structured logs include iteration count, final path, and critic issue aggregates.
-- [ ] **AC-13:** `dev_mode=true` exposes compact `acb_trace` in estimate diagnostics; `dev_mode=false` does not.
-- [ ] **AC-14:** Per-request `orchestration="single_pass"` disables ACB even when globally enabled.
-- [ ] **AC-15:** All new tests pass via `uv run pytest` without real API keys.
-- [ ] **AC-16:** README and `docs/technical/actor-critic-boss-orchestration.md` document activation, policy, and local testing.
+- [x] **AC-01:** With `ACB_ENABLED=false`, `POST /api/v1/sessions/{id}/estimate` behavior is byte-for-byte equivalent to pre-feature paths (same response schema, no extra LLM calls).
+- [x] **AC-02:** With ACB enabled, session estimate path runs Actor → Critic → Boss at least once and returns valid `EstimationResult` JSON in `SessionEstimateResponse.estimate`.
+- [x] **AC-03:** Critic output is validated against `CriticFeedback` schema; tests fail if Critic returns free-form only.
+- [x] **AC-04:** Critic never returns a full replacement estimate (schema enforces this).
+- [x] **AC-05:** Boss decisions are validated against `BossDecision` schema with `accept|revise|synthesize` actions.
+- [x] **AC-06:** Orchestration never exceeds `ACB_MAX_ITERATIONS` Actor passes; tests assert loop termination with mocked always-REVISE Boss.
+- [x] **AC-07:** On budget exhaustion with blocking issues, Boss SYNTHESIZE path runs (when allowed) and returns schema-valid final estimate.
+- [x] **AC-08:** ACCEPT path returns Actor candidate unchanged (modulo existing server-side totals alignment on `EstimationResult`).
+- [x] **AC-09:** REVISE path re-invokes Actor with Boss `revision_instructions` visible in Actor prompt artifacts (unit test on rendered prompt).
+- [x] **AC-10:** ACB is not invoked for metadata extraction or non-session endpoints.
+- [x] **AC-11:** Semantic cache serve is bypassed when ACB is active; log/metric `acb_cache_bypassed` emitted.
+- [x] **AC-12:** Structured logs include iteration count, final path, and critic issue aggregates.
+- [x] **AC-13:** `dev_mode=true` exposes compact `acb_trace` in estimate diagnostics; `dev_mode=false` does not.
+- [x] **AC-14:** Per-request `orchestration="single_pass"` disables ACB even when globally enabled.
+- [x] **AC-15:** All new tests pass via `uv run pytest` without real API keys.
+- [x] **AC-16:** README and `docs/technical/actor-critic-boss-orchestration.md` document activation, policy, and local testing.
+- [x] **AC-17:** With `LLM_CALL_PERSIST_ENABLED=true` and ACB active, each role produces a separate JSON file whose `preparation.orchestration` includes `acb_enabled`, `mode`, `acb_role`, and `acb_iteration`; a one-iteration ACB run produces ≥3 files. **Verified** via `tests/test_llm_call_persistence.py` + orchestrator audit wiring; manual multi-file run **Not verified**.
+- [x] **AC-18:** With ACB off, persisted JSON shows `acb_enabled=false` and no `acb_role` (legacy-compatible single file per LLM call). **Verified** via session-service audit snapshot test.
 
 ## Test Plan
 
@@ -435,6 +489,7 @@ Add typed fields + helpers on `Settings`:
 | File | Focus |
 | --- | --- |
 | `tests/test_sessions_acb_integration.py` | httpx session client with ACB enabled via settings fixture; fake LLM returns scripted Actor/Critic/Boss payloads |
+| `tests/test_llm_call_persistence.py` | `preparation.orchestration` includes ACB role metadata when audit helper is used |
 
 Scenarios:
 
@@ -444,6 +499,7 @@ Scenarios:
 4. **Structured Critic** — assert parsed issues populate trace counts.
 5. **single_pass override** — ACB enabled globally but request disables; single LLM call path.
 6. **Session memory** — multi-turn session still merges metadata and appends history after ACB estimate.
+7. **LLM call JSON** — with `LLM_CALL_PERSIST_ENABLED=true`, ACB accept path writes ≥3 files tagged by `acb_role`.
 
 ### Manual checks
 
@@ -451,18 +507,21 @@ Scenarios:
 2. Submit session estimate via UI or curl; confirm latency increase (~3+ LLM calls).
 3. With `DEV_MODE=true`, inspect `estimate.acb_trace` in JSON response.
 4. With Langfuse keys, confirm nested spans for actor/critic/boss.
+5. With `LLM_CALL_PERSIST_ENABLED=true` and ACB on, confirm multiple `llm-call-*.json` files with `preparation.orchestration.acb_role` per role.
 
 ## Verification
 
 ### Automated
 
-- `uv run pytest tests/test_acb_schemas.py tests/test_acb_policy.py tests/test_acb_orchestrator.py tests/test_sessions_acb_integration.py`
-- Full suite: `uv run pytest` (no regressions)
+- `uv run pytest tests/test_acb_schemas.py tests/test_acb_policy.py tests/test_acb_orchestrator.py tests/test_sessions_acb_integration.py` — **Verified**
+- `uv run pytest tests/test_llm_call_persistence.py tests/test_acb_orchestrator.py` — **Verified** (11 passed)
+- Full suite (`EVAL_ESTIMATOR_USE_REAL_LLM=false`, `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false`): `uv run pytest` — **Verified** (347 passed, 9 skipped) at task closure
 
 ### Manual
 
-- Local session estimate with ACB on/off comparison
-- Log inspection for `acb_*` events
+- Local session estimate with ACB on/off comparison — **Not verified** in this session (requires operator run)
+- Log inspection for `acb_*` events — **Not verified**
+- Langfuse nested spans (`acb_orchestration`, `acb_actor`, …) — **Not verified** (requires `OTEL_EXPORT_ENABLED=true`)
 
 ### Not verified yet
 
@@ -476,23 +535,23 @@ Scenarios:
 | `docs/technical/actor-critic-boss-orchestration.md` | **New** — architecture, roles, policy, rollout, anti-patterns, local testing |
 | `README.md` | Short section + env vars |
 | `.env.example` | All `ACB_*` variables |
-| `docs/arquitectura-estimador-cag.html` | Optional diagram update (follow-up if heavy) |
+| `docs/arquitectura-estimador-cag.html` | **Done** — ACB section (#acb), session flow, architecture nodes |
 | Second Brain session note | Learning summary after implementation |
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Add `app/schemas/acb/*` + schema unit tests (no LLM).
-- [ ] **Step 2:** Add `app/guardrails/acb/policy.py` + policy unit tests.
-- [ ] **Step 3:** Add ACB prompt bundle `app/prompts/acb/v1/` + rendering service + snapshot tests for prompt distinctness.
-- [ ] **Step 4:** Implement `ActorCriticBossOrchestrator` with mocked LLM tests (ACCEPT / REVISE / SYNTHESIZE / budget).
-- [ ] **Step 5:** Add `Settings` fields + `.env.example` + config tests.
-- [ ] **Step 6:** Add `LLMPipeline.run_structured_with_acb` integrating orchestrator + output guardrails on final only.
-- [ ] **Step 7:** Wire activation in `SimplifiedSessionEstimationService`; optional `SessionEstimateRequest.orchestration` field.
-- [ ] **Step 8:** Observability hooks (logs + Langfuse metadata).
-- [ ] **Step 9:** Dev-only `acb_trace` in `assemble_estimation_v2_response`.
-- [ ] **Step 10:** Session integration tests + README + technical doc.
+- [x] **Step 1:** Add `app/schemas/acb/*` + schema unit tests (no LLM).
+- [x] **Step 2:** Add `app/guardrails/acb/policy.py` + policy unit tests.
+- [x] **Step 3:** Add ACB prompt bundle `app/prompts/acb/v1/` + rendering service + snapshot tests for prompt distinctness.
+- [x] **Step 4:** Implement `ActorCriticBossOrchestrator` with mocked LLM tests (ACCEPT / REVISE / SYNTHESIZE / budget).
+- [x] **Step 5:** Add `Settings` fields + `.env.example` + config tests.
+- [x] **Step 6:** Add `LLMPipeline.run_structured_with_acb` integrating orchestrator + output guardrails on final only.
+- [x] **Step 7:** Wire activation in `SimplifiedSessionEstimationService`; optional `SessionEstimateRequest.orchestration` field.
+- [x] **Step 8:** Observability hooks (logs + Langfuse metadata).
+- [x] **Step 9:** LLM call persistence — `preparation.orchestration` + per-role audit context (FR-13).
+- [x] **Step 10:** Session integration tests + README + technical doc.
 
-Suggested commit boundaries: steps 1–2, 3, 4, 5–6, 7–9, 10.
+Suggested commit boundaries: steps 1–2, 3, 4, 5–6, 7–8, 9, 10.
 
 ## Learnings
 
@@ -530,12 +589,42 @@ Suggested commit boundaries: steps 1–2, 3, 4, 5–6, 7–9, 10.
 
 ## Estimation
 
-Medium–large: ~8–12 focused commits, ~1500–2500 LOC including tests and prompts.
+- Size: L
+- Estimated time: 8–12 hours
+- Planned steps: 8
+
+## Open decisions (resolved at `/start-task`)
+
+1. **Actor implementation:** Reuse `EstimationService.estimate_structured` for all Actor passes; inject Boss `revision_instructions` via deterministic `actor_revision.j2` appendix on iterations > 1.
+2. **`ACB_CRITIC_MODEL` / `ACB_BOSS_MODEL`:** Default empty → fall back to `OPENAI_MODEL` (same as Actor).
+3. **Non-dev trace exposure:** Structured logs + `provider_metadata` counts only; HTTP `acb_trace` remains `dev_mode=true` only.
 
 ## Implementation progress
 
-_Not started — spec only._
+- [x] Step 1: ACB Pydantic schemas + `tests/test_acb_schemas.py`
+- [x] Step 2: `policy.py` + `tests/test_acb_policy.py`
+- [x] Step 3: Prompt bundle `app/prompts/acb/v1/` + rendering + distinctness tests
+- [x] Step 4: `ActorCriticBossOrchestrator` + `tests/test_acb_orchestrator.py`
+- [x] Step 5: Settings fields + `.env.example` + config tests
+- [x] Step 6: `LLMPipeline.run_structured_with_acb`
+- [x] Step 7: Session service activation + `SessionEstimateRequest.orchestration`
+- [x] Step 8: Observability (Langfuse spans), README + `docs/technical/actor-critic-boss-orchestration.md`, architecture HTML, integration tests
+- [x] Step 9: LLM call persistence — `record_acb_orchestration_audit()`, orchestrator + session wiring, `tests/test_llm_call_persistence.py`
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| `f3fea45` | fix(web): remove unused import blocking Docker build |
+| `9d16f32` | feat(acb): tag persisted LLM calls with orchestration metadata (step 9, FR-13) |
+| `891991a` | docs(feature-026): complete step 8 docs, HTML guide, and Langfuse spans |
+| `07fbd2b` | feat(acb): wire pipeline, session path, integration tests (steps 6–7) |
+| `0a5b318` | feat(acb): orchestrator, settings, mocked loop tests (steps 4–5) |
+| `2dc675d` | feat(acb): v1 prompt bundle and rendering (step 3) |
+| `3dce3fc` | feat(acb): iteration policy helpers (step 2) |
+| `11b484c` | feat(acb): Critic, Boss, trace schemas (step 1) |
+| `23d1656` | docs(feature-026): estimation plan and resolved open decisions |
 
 ## Pull Request
 
-_TBD during `/start-task`._
+- https://github.com/povedica/master-ia-lidr/pull/23

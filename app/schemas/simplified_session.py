@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -90,6 +90,10 @@ class SessionEstimateRequest(BaseModel):
     industry: Industry | None = None
     additional_extra_info: str | None = Field(default=None, max_length=_ADDITIONAL_EXTRA_INFO_MAX)
     attachments: list[AttachmentRef] = Field(default_factory=list, max_length=_MAX_ATTACHMENTS)
+    orchestration: Literal["default", "acb", "single_pass"] | None = Field(
+        default=None,
+        description="Optional ACB override: default follows settings; acb forces on; single_pass disables.",
+    )
 
     @field_validator("project_name", "transcript", "one_line_summary", "additional_extra_info")
     @classmethod
