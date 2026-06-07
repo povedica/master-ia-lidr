@@ -29,6 +29,7 @@ from app.services.acb_prompt_rendering import (
     render_acb_boss_prompts,
     render_acb_critic_prompts,
 )
+from app.services.llm_call_audit import record_acb_orchestration_audit
 from app.services.llm_service import EstimationService, StructuredEstimateBundle
 from app.services.llm_types import UsageInfo
 from app.services.observability.bootstrap import get_observability
@@ -117,6 +118,13 @@ class ActorCriticBossOrchestrator:
         final_result: EstimationResult | None = None
 
         for iteration in range(1, max_iter + 1):
+            record_acb_orchestration_audit(
+                acb_enabled=True,
+                mode="acb",
+                role="actor",
+                iteration=iteration,
+                prompt_version_acb=ACB_PROMPT_VERSION,
+            )
             with observability.start_span("acb_actor", attributes={"iteration": iteration}):
                 actor_started = perf_counter()
                 actor_bundle = await self._run_actor(
@@ -139,6 +147,13 @@ class ActorCriticBossOrchestrator:
             )
 
             with observability.start_span("acb_critic", attributes={"iteration": iteration}):
+                record_acb_orchestration_audit(
+                    acb_enabled=True,
+                    mode="acb",
+                    role="critic",
+                    iteration=iteration,
+                    prompt_version_acb=ACB_PROMPT_VERSION,
+                )
                 critic_started = perf_counter()
                 critic_feedback, critic_usage, critic_model_used = await self._run_critic(
                     ctx,
@@ -160,6 +175,13 @@ class ActorCriticBossOrchestrator:
             )
 
             with observability.start_span("acb_boss", attributes={"iteration": iteration}):
+                record_acb_orchestration_audit(
+                    acb_enabled=True,
+                    mode="acb",
+                    role="boss",
+                    iteration=iteration,
+                    prompt_version_acb=ACB_PROMPT_VERSION,
+                )
                 boss_started = perf_counter()
                 boss_decision, boss_usage, boss_model_used = await self._run_boss(
                     ctx,
@@ -215,6 +237,13 @@ class ActorCriticBossOrchestrator:
 
             if normalized.action == BossAction.synthesize:
                 with observability.start_span("acb_synthesize", attributes={"iteration": iteration}):
+                    record_acb_orchestration_audit(
+                        acb_enabled=True,
+                        mode="acb",
+                        role="synthesize",
+                        iteration=iteration,
+                        prompt_version_acb=ACB_PROMPT_VERSION,
+                    )
                     synth_started = perf_counter()
                     synth_result, synth_bundle = await self._run_synthesize(
                         ctx,

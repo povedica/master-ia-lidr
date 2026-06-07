@@ -79,6 +79,22 @@ When `OTEL_EXPORT_ENABLED=true` and Langfuse keys are set:
 
 With `DEV_MODE=true`, `SessionEstimateResponse.estimate.acb_trace` includes iteration summaries (counts, decisions, timings). Production responses (`dev_mode=false`) omit this field.
 
+### LLM call JSON (`LLM_CALL_PERSIST_ENABLED`)
+
+When feature-027 persistence is on, each provider call writes `output-responses/llm-call-*.json`. ACB runs set `preparation.orchestration`:
+
+```json
+{
+  "acb_enabled": true,
+  "mode": "acb",
+  "acb_role": "critic",
+  "acb_iteration": 1,
+  "prompt_version_acb": "acb/v1"
+}
+```
+
+A one-iteration ACB accept path produces **≥3 files** (actor, critic, boss). Legacy single-pass shows `acb_enabled: false` and `acb_role: null`.
+
 ## Environment variables
 
 See `.env.example` (`ACB_*`). Key fields:

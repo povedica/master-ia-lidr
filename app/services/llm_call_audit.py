@@ -107,6 +107,27 @@ def record_prompt_render_audit(
     )
 
 
+def record_acb_orchestration_audit(
+    *,
+    acb_enabled: bool,
+    mode: str,
+    role: str | None = None,
+    iteration: int | None = None,
+    prompt_version_acb: str | None = None,
+) -> None:
+    """Tag the next persisted LLM call with ACB orchestration context."""
+
+    merge_llm_call_audit(
+        orchestration={
+            "acb_enabled": acb_enabled,
+            "mode": mode,
+            "acb_role": role,
+            "acb_iteration": iteration,
+            "prompt_version_acb": prompt_version_acb,
+        }
+    )
+
+
 def record_structured_call_overrides(
     *,
     system_prompt_override: str | None = None,

@@ -100,6 +100,37 @@ def test_build_llm_call_record_merges_preparation_snapshot() -> None:
         restore_llm_call_audit(token)
 
 
+def test_record_acb_orchestration_audit_in_preparation_snapshot() -> None:
+    from app.services.llm_call_audit import (
+        record_acb_orchestration_audit,
+        reset_llm_call_audit,
+        restore_llm_call_audit,
+    )
+
+    token = reset_llm_call_audit()
+    try:
+        record_acb_orchestration_audit(
+            acb_enabled=True,
+            mode="acb",
+            role="critic",
+            iteration=1,
+            prompt_version_acb="acb/v1",
+        )
+        record = llm_call_persistence.build_llm_call_record(
+            call_kind="structured",
+            model_request={"response_model": "CriticFeedback", "messages": []},
+            response={"structured_output": {}},
+        )
+        orchestration = record["preparation"]["orchestration"]
+        assert orchestration["acb_enabled"] is True
+        assert orchestration["mode"] == "acb"
+        assert orchestration["acb_role"] == "critic"
+        assert orchestration["acb_iteration"] == 1
+        assert orchestration["prompt_version_acb"] == "acb/v1"
+    finally:
+        restore_llm_call_audit(token)
+
+
 def test_usage_to_dict_handles_none_and_dataclass() -> None:
     from app.services.llm_types import UsageInfo
 
