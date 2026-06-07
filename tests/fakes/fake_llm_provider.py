@@ -7,6 +7,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from app.schemas.acb.boss import BossAction, BossDecision
+from app.schemas.acb.critic import CriticFeedback
 from app.schemas.estimation_result import EstimationLineItem, EstimationResult, EstimationTotals
 from app.services.llm_types import UsageInfo
 
@@ -29,9 +31,11 @@ class CapturedLLMCall:
 
 @dataclass
 class FakeStructuredLLM:
-    """Records prompts and returns deterministic ``EstimationResult`` instances."""
+    """Records prompts and returns deterministic structured completions."""
 
     calls: list[CapturedLLMCall] = field(default_factory=list)
+    acb_critic_feedback: CriticFeedback | None = None
+    acb_boss_action: BossAction = BossAction.accept
 
     def reset(self) -> None:
         self.calls.clear()
@@ -67,14 +71,28 @@ class FakeStructuredLLM:
                 messages=messages,
             )
         )
-        result = self._dispatch(user_prompt)
-        if not issubclass(response_model, EstimationResult):
-            raise TypeError(f"Unsupported response_model for fake: {response_model!r}")
+        result = self._dispatch(response_model, user_prompt)
         validated = response_model.model_validate(result.model_dump())
         usage = UsageInfo(prompt_tokens=1, completion_tokens=1, total_tokens=2)
-        return validated, usage, "stop"
+        return validated, usage, "stop"  # type: ignore[return-value]
 
-    def _dispatch(self, user_prompt: str) -> EstimationResult:
+    def _dispatch(self, response_model: type[BaseModel], user_prompt: str) -> BaseModel:
+        if response_model is CriticFeedback:
+            return self.acb_critic_feedback or CriticFeedback(
+                schema_version="1",
+                overall_assessment="pass",
+                issues=[],
+                summary="Fake critic pass.",
+            )
+        if response_model is BossDecision:
+            return BossDecision(
+                action=self.acb_boss_action,
+                reasoning="Fake boss decision for integration test.",
+                revision_instructions=None,
+                confidence_in_decision=0.9,
+            )
+        if not issubclass(response_model, EstimationResult):
+            raise TypeError(f"Unsupported response_model for fake: {response_model!r}")
         if "ATTACH_MARKER:USE_REDIS" in user_prompt:
             return _estimation_result(
                 title="Estimate",

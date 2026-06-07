@@ -542,14 +542,14 @@ Suggested commit boundaries: steps 1–2, 3, 4, 5–6, 7–9, 10.
 
 ## Implementation progress
 
-- [ ] Step 1: ACB Pydantic schemas + `tests/test_acb_schemas.py`
-- [ ] Step 2: `policy.py` + `tests/test_acb_policy.py`
-- [ ] Step 3: Prompt bundle `app/prompts/acb/v1/` + rendering + distinctness tests
-- [ ] Step 4: `ActorCriticBossOrchestrator` + `tests/test_acb_orchestrator.py`
-- [ ] Step 5: Settings fields + `.env.example` + config tests
-- [ ] Step 6: `LLMPipeline.run_structured_with_acb`
-- [ ] Step 7: Session service activation + `SessionEstimateRequest.orchestration`
-- [ ] Step 8: Observability, dev trace, integration tests, README + technical doc
+- [x] Step 1: ACB Pydantic schemas + `tests/test_acb_schemas.py`
+- [x] Step 2: `policy.py` + `tests/test_acb_policy.py`
+- [x] Step 3: Prompt bundle `app/prompts/acb/v1/` + rendering + distinctness tests
+- [x] Step 4: `ActorCriticBossOrchestrator` + `tests/test_acb_orchestrator.py`
+- [x] Step 5: Settings fields + `.env.example` + config tests
+- [x] Step 6: `LLMPipeline.run_structured_with_acb`
+- [x] Step 7: Session service activation + `SessionEstimateRequest.orchestration`
+- [ ] Step 8: Observability (Langfuse spans), README + `docs/technical/actor-critic-boss-orchestration.md`, integration tests unskipped locally
 
 ## Pull Request
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.guardrails.contracts import FinalResponseStatus
+from app.schemas.acb.trace import AcbTrace
 from app.schemas.estimation_response import EstimationQualityView, EstimationResponse
 from app.schemas.estimations import UsageView
 from app.services.estimate_response_builder import estimate_cost_usd
@@ -30,6 +31,7 @@ def assemble_estimation_v2_response(
     pipeline_cache_score: float | None = None,
     pipeline_cache_bucket: str | None = None,
     pipeline_cache_miss_reason: str | None = None,
+    acb_trace: AcbTrace | None = None,
 ) -> EstimationResponse:
     """Build the HTTP envelope from a structured estimation bundle."""
 
@@ -95,5 +97,6 @@ def assemble_estimation_v2_response(
         usage=usage_view,
         finish_reason=bundle.finish_reason,
         quality=quality,
+        acb_trace=acb_trace,
         **pipeline_kwargs,
     )

@@ -136,15 +136,28 @@ class SimplifiedSessionEstimationService:
         ]
 
         pipeline = LLMPipeline(self._estimation, self._settings)
-        outcome = await pipeline.run_structured(
-            guided,
-            assessment_surface=assessment_surface,
-            request_id=request_id,
-            guided_user_message=user_prompt,
-            system_prompt_override=composed_system,
-            user_prompt_override=user_prompt,
-            messages_override=messages_override,
-        )
+        metadata_ctx = session_metadata_ctx or {}
+        if self._settings.acb_requested(request.orchestration, endpoint="session_estimate"):
+            outcome = await pipeline.run_structured_with_acb(
+                guided,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+                project_metadata=metadata_ctx,
+                guided_user_message=user_prompt,
+                system_prompt_override=composed_system,
+                user_prompt_override=user_prompt,
+                messages_override=messages_override,
+            )
+        else:
+            outcome = await pipeline.run_structured(
+                guided,
+                assessment_surface=assessment_surface,
+                request_id=request_id,
+                guided_user_message=user_prompt,
+                system_prompt_override=composed_system,
+                user_prompt_override=user_prompt,
+                messages_override=messages_override,
+            )
 
         if outcome.bundle is not None:
             turn_index = session.submit_count + 1
