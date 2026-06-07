@@ -246,7 +246,7 @@ async def run_dump(
     rendered = render_estimation_prompt(
         request,
         mode=prelude.mode,
-        examples=load_examples(prelude.mode),
+        examples=load_examples(),
         preprocessing=preprocessing,  # type: ignore[arg-type]
         preprocessed_requirements=prelude.preprocessed_markdown_for_template,
         version=version_override,

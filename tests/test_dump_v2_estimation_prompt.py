@@ -31,7 +31,7 @@ def test_build_markdown_report_includes_system_and_user_sections() -> None:
     rendered = render_estimation_prompt(
         request,
         mode=mode,
-        examples=load_examples(mode),
+        examples=load_examples(),
         preprocessing="none",
         examples_version="test",
         settings=settings,

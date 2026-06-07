@@ -24,17 +24,17 @@ from app.services.llm_types import (
 
 
 def test_build_system_prompt_includes_inline_cleaning_when_enabled() -> None:
-    examples = load_examples(EstimationMode.STANDARD)
+    examples = load_examples()
     prompt = build_system_prompt(examples, EstimationMode.STANDARD, inline_cleaning=True)
     assert "Extract ONLY the functional" in prompt
 
 
 def test_build_system_prompt_includes_both_example_summaries() -> None:
-    examples = load_examples(EstimationMode.STANDARD)
+    examples = load_examples()
     prompt = build_system_prompt(examples, EstimationMode.STANDARD)
     assert len(examples) >= 2
     assert "Reference estimation examples" in prompt
-    assert "Historical standard estimation sample" in prompt
+    assert "Historical estimation sample" in prompt
     assert "Example 1 — meeting summary" in prompt
     assert "estimation profile (routing): standard" in prompt.lower()
     assert "practical estimation" in prompt.lower()

@@ -99,7 +99,7 @@ class SimplifiedSessionEstimationService:
             guided,
             assessment_surface=assessment_surface,
         )
-        examples = load_examples(prelude.mode)
+        examples = load_examples()
         rendered = render_estimation_prompt(
             guided,
             mode=prelude.mode,

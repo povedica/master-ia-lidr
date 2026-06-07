@@ -48,7 +48,7 @@ from app.services.llm_types import (
 
 logger = logging.getLogger(__name__)
 PROMPT_VERSION = "v7-guided-input"
-EXAMPLES_VERSION = "file-mode-v4-estimator-layout"
+EXAMPLES_VERSION = "file-flat-v1-unified-pool"
 
 _EXTRACTION_MAX_TOKENS = 1500
 
@@ -437,7 +437,7 @@ class EstimationService:
             user_text, phase1_prep_in, phase1_prep_out = await self._extract_requirements_two_phase(text)
 
         system_prompt = build_system_prompt(
-            load_examples(mode),
+            load_examples(),
             mode,
             inline_cleaning=(preprocessing == "inline_cleaning"),
         )
@@ -717,7 +717,7 @@ class EstimationService:
             request.preprocessing,
             skip_domain_guardrail=skip_domain_guardrail,
         )
-        examples = load_examples(prelude.mode)
+        examples = load_examples()
         version_override = self._settings.prompt_estimation_version.strip() or None
         rendered = render_estimation_prompt(
             request,
