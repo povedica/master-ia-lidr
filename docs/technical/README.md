@@ -137,6 +137,7 @@ Variables documented in `.env.example`:
 | `DEV_MODE` | No | `false` | When `true`, responses include `prompt_version`, `examples_version`, timing, optional `usage`, and approximate `estimated_cost_usd` when usage is available. |
 | `ESTIMATION_OUTPUT_TOKENS_MAX` | No | `2048` | Max completion output tokens for estimation provider calls. |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | No | `false` | When `true`, successful `200` responses persist the `estimation` string to `output-responses/response-YYYYmmdd-hhmmss.md` (UTC). Persistence failure returns `503`. |
+| `LLM_CALL_PERSIST_ENABLED` | No | `false` | When `true`, each successful LLM provider call persists request + response JSON to `output-responses/llm-call-YYYYmmdd-HHMMSS-NNN.json` (UTC). Best-effort; failures do not affect API responses. |
 | `LOG_LEVEL` | No | `INFO` | Base logging level. |
 | `SEMANTIC_CACHE_ENABLED` | No | `false` | Allows serving validated semantic cache hits when the store and rollout allow it. |
 | `SEMANTIC_CACHE_LOG_ONLY` | No | `true` | Runs semantic cache diagnostics without bypassing the LLM. |
@@ -238,6 +239,7 @@ Responsibilities:
 | `app/services/providers/` | Provider implementations (`openai`, `anthropic`, `static_fallback`) and chain registry. |
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/*.txt` and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
+| `app/services/llm_call_persistence.py` | Optional JSON persistence of LLM request/response pairs to `output-responses/`. |
 | `tests/` | Unit and API tests with a mocked provider. |
 | `api-collection/` | Manual endpoint collection and local environment. |
 | `docs/` | Versioned mirror of Second Brain notes, sessions, work items, and technical docs. |

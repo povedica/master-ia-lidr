@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     llm_auth_fallback: bool = False
     llm_domain_guardrail_enabled: bool = True
     estimation_output_persist_enabled: bool = False
+    llm_call_persist_enabled: bool = False
     estimation_stats_log_enabled: bool = False
     estimation_stats_log_path: str = ""
     openai_api_key: str = ""

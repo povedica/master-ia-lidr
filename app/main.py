@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.cors import configure_cors
+from app.middleware.llm_call_audit_middleware import llm_call_audit_middleware
 from app.routers import estimations, estimations_v2, sessions
 from app.services.llm_chain import build_provider_chain
 from app.services.observability.bootstrap import init_observability, shutdown_observability
@@ -61,6 +62,7 @@ app = FastAPI(
 )
 
 configure_cors(app, get_settings())
+app.middleware("http")(llm_call_audit_middleware)
 
 app.include_router(estimations.router, prefix="/api/v1")
 app.include_router(estimations_v2.router, prefix="/api/v2")

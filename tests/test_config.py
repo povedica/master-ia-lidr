@@ -82,6 +82,15 @@ def test_estimation_output_persist_can_be_enabled_from_env(
     assert settings.estimation_output_persist_enabled is True
 
 
+def test_llm_call_persist_can_be_enabled_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_CALL_PERSIST_ENABLED", "true")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.llm_call_persist_enabled is True
+
+
 def test_default_llm_provider_and_model_have_documented_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

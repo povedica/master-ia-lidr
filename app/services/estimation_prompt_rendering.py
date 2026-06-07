@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.config import Settings
 from app.context.examples import EstimationExample
 from app.schemas.estimation_request import EstimationRequest
+from app.services.llm_call_audit import record_prompt_render_audit
 from app.services.prompt_context import build_prompt_render_context, build_request_render_context
 from app.services.prompt_renderer import PromptRenderer, RenderedPrompt
 from app.services.prompt_versions import (
@@ -144,4 +145,11 @@ def render_estimation_prompt(
         use_preprocessed_user_message=bool(use_preprocessed),
         renderer=renderer,
     )
-    return renderer.render(template_set, context, examples_version=examples_version)
+    rendered = renderer.render(template_set, context, examples_version=examples_version)
+    record_prompt_render_audit(
+        template_set=template_set,
+        variables_before_render=context,
+        rendered=rendered,
+        examples_version=examples_version,
+    )
+    return rendered

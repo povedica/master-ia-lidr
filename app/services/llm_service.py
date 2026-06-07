@@ -15,6 +15,11 @@ from app.context.examples import EstimationExample, load_examples
 from app.schemas.estimation_request import EstimationRequest
 from app.schemas.estimation_result import EstimationResult as DomainEstimationResult
 from app.services.domain_guardrails import check_estimation_domain
+from app.services.llm_call_audit import (
+    merge_llm_call_audit,
+    record_structured_call_overrides,
+    record_v1_system_prompt_audit,
+)
 from app.services.estimation_prompt_rendering import (
     render_estimation_prompt,
     render_guided_user_message,
@@ -112,6 +117,13 @@ def build_system_prompt(
 
     template_set = resolve_prompt_template_set("estimation", version)
     renderer = PromptRenderer()
+    record_v1_system_prompt_audit(
+        template_set=template_set,
+        detail_level="medium",
+        output_format="phases_table",
+        inline_cleaning=inline_cleaning,
+        examples_version=EXAMPLES_VERSION,
+    )
     system_preamble = renderer.render_partial(
         template_set.system_instructions_template,
         {
@@ -426,6 +438,17 @@ class EstimationService:
             _EXTRACTION_MAX_TOKENS,
             self._settings.estimation_output_tokens_max,
         )
+        version_override = self._settings.prompt_estimation_version.strip() or None
+        template_set = resolve_prompt_template_set("estimation", version_override)
+        merge_llm_call_audit(
+            templates={
+                "manifest": {
+                    "two_phase_extraction_system_template": template_set.two_phase_extraction_system_template,
+                }
+            },
+            variables_before_render={"transcription_chars": len(transcription)},
+            notes=["two_phase_preprocessing_extraction"],
+        )
         for provider in self._providers:
             if provider.name == "static_fallback":
                 continue
@@ -667,6 +690,11 @@ class EstimationService:
         litellm_model, api_key, timeout = provider.litellm_route()
         system_prompt = system_prompt_override or rendered.system_prompt
         user_prompt = user_prompt_override or rendered.user_prompt
+        record_structured_call_overrides(
+            system_prompt_override=system_prompt_override,
+            user_prompt_override=user_prompt_override,
+            messages_override=messages_override,
+        )
         try:
             domain_result, raw_usage, finish = await complete_structured(
                 litellm_model=litellm_model,

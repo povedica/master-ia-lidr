@@ -10,7 +10,9 @@ from app.context.examples import load_examples
 from app.guardrails.llm_pipeline import LLMPipeline, StructuredPipelineOutcome
 from app.schemas.simplified_session import SessionEstimateRequest
 from app.services.dynamic_context_manager import DynamicContextManager
+from app.services.llm_call_audit import merge_llm_call_audit
 from app.services.estimation_prompt_rendering import (
+    _metadata_render_context,
     render_estimation_prompt,
     render_guided_user_message,
     render_session_system_prompt,
@@ -108,6 +110,15 @@ class SimplifiedSessionEstimationService:
         composed_system = render_session_system_prompt(
             rendered.system_prompt,
             compact_metadata,
+        )
+        session_metadata_ctx = _metadata_render_context(compact_metadata)
+        merge_llm_call_audit(
+            request_id=request_id,
+            prompt_overrides={
+                "session_metadata_appended": bool(session_metadata_ctx),
+                "session_metadata_variables": session_metadata_ctx or None,
+            },
+            notes=["simplified_session_submit"],
         )
         session.conversation_history.set_system_prompt(composed_system)
         messages_override = [

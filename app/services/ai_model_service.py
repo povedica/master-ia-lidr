@@ -20,6 +20,12 @@ from app.services.llm_types import (
     ProviderUnavailableError,
     UsageInfo,
 )
+from app.services.llm_call_persistence import (
+    build_llm_call_record,
+    maybe_persist_llm_call,
+    sanitize_request_kwargs,
+    usage_to_dict,
+)
 from app.services.observability.bootstrap import get_observability
 from app.services.observability.llm_instrumentation import (
     LLM_GENERATION_NAME,
@@ -199,6 +205,16 @@ async def acomplete_chat(
     if api_key:
         kwargs["api_key"] = api_key
 
+    request_snapshot = {
+        "litellm_model": litellm_model,
+        "chain_provider": chain_provider,
+        "messages": messages,
+        "max_output_tokens": max_output_tokens,
+        "timeout_seconds": timeout_seconds,
+        "stream": False,
+        "extra_kwargs": sanitize_request_kwargs(kwargs),
+    }
+
     observability = get_observability()
     with observability.start_generation(
         LLM_GENERATION_NAME,
@@ -274,6 +290,19 @@ async def acomplete_chat(
             "llm_vendor": vendor,
             "chain_provider": chain_provider,
         },
+    )
+
+    maybe_persist_llm_call(
+        build_llm_call_record(
+            call_kind="chat",
+            model_request=request_snapshot,
+            response={
+                "text": content,
+                "resolved_model": resolved_model,
+                "finish_reason": str(finish),
+                "usage": usage_to_dict(usage_info),
+            },
+        )
     )
 
     return LiteLLMChatOutcome(
@@ -376,6 +405,16 @@ async def astream_chat(
     if infer_llm_vendor(litellm_model) == "openai":
         kwargs["stream_options"] = {"include_usage": True}
 
+    request_snapshot = {
+        "litellm_model": litellm_model,
+        "chain_provider": chain_provider,
+        "messages": messages,
+        "max_output_tokens": max_output_tokens,
+        "timeout_seconds": timeout_seconds,
+        "stream": True,
+        "extra_kwargs": sanitize_request_kwargs(kwargs),
+    }
+
     observability = get_observability()
     with observability.start_generation(
         LLM_GENERATION_NAME,
@@ -475,6 +514,19 @@ async def astream_chat(
             "chain_provider": chain_provider,
             "usage_reported": last_usage is not None,
         },
+    )
+    aggregated_text = "".join(text_parts)
+    maybe_persist_llm_call(
+        build_llm_call_record(
+            call_kind="stream",
+            model_request=request_snapshot,
+            response={
+                "text": aggregated_text,
+                "resolved_model": litellm_model,
+                "finish_reason": "stop",
+                "usage": usage_to_dict(last_usage),
+            },
+        )
     )
     if last_usage is not None:
         yield last_usage

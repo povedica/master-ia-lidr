@@ -9,6 +9,7 @@ import instructor
 from litellm import acompletion
 from pydantic import BaseModel, ValidationError
 
+from app.services.llm_call_persistence import build_llm_call_record, maybe_persist_llm_call, sanitize_request_kwargs, usage_to_dict
 from app.services.llm_types import UsageInfo
 from app.services.observability.bootstrap import get_observability
 from app.services.observability.llm_instrumentation import (
@@ -106,6 +107,22 @@ async def complete_structured(
         messages=messages,
     )
 
+    request_snapshot = {
+        "litellm_model": litellm_model,
+        "chain_provider": chain_provider,
+        "messages": completion_messages,
+        "max_output_tokens": max_output_tokens,
+        "timeout_seconds": timeout_seconds,
+        "response_model": response_model.__name__,
+        "extra_kwargs": sanitize_request_kwargs(
+            {
+                "api_key": api_key,
+                "timeout": timeout_seconds,
+                "max_tokens": max_output_tokens,
+            }
+        ),
+    }
+
     # Do not pass max_retries here: Instructor forwards it into LiteLLM's ``acompletion``,
     # which then collides with Instructor's own kwargs (``TypeError: multiple values for max_retries``).
     client = instructor.from_litellm(acompletion)
@@ -174,6 +191,18 @@ async def complete_structured(
                 usage=usage,
                 finish_reason=finish or "stop",
                 output_text=parsed.model_dump_json(),
+            )
+            maybe_persist_llm_call(
+                build_llm_call_record(
+                    call_kind="structured",
+                    model_request=request_snapshot,
+                    response={
+                        "structured_output": parsed.model_dump(mode="json"),
+                        "resolved_model": resolved_model,
+                        "finish_reason": finish or "stop",
+                        "usage": usage_to_dict(usage),
+                    },
+                )
             )
             return parsed, usage, finish
 

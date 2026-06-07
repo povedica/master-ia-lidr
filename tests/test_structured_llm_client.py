@@ -55,6 +55,47 @@ async def test_complete_structured_returns_validated_model() -> None:
 
 
 @pytest.mark.asyncio
+async def test_complete_structured_persists_record_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = _sample_domain()
+    persisted: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "app.services.structured_llm_client.maybe_persist_llm_call",
+        lambda record: persisted.append(record) or None,
+    )
+
+    async def fake_create_with_completion(
+        messages: object,
+        response_model: type[EstimationResult],
+        **kwargs: object,
+    ) -> tuple[EstimationResult, object]:
+        del messages, kwargs
+        return expected, object()
+
+    fake_client = AsyncMock()
+    fake_client.chat.completions.create_with_completion = fake_create_with_completion
+
+    with patch("app.services.structured_llm_client.instructor") as mock_inst:
+        mock_inst.from_litellm.return_value = fake_client
+        await complete_structured(
+            litellm_model="openai/gpt-4o-mini",
+            chain_provider="openai",
+            api_key="sk-test",
+            timeout_seconds=5.0,
+            system_prompt="sys",
+            user_prompt="user",
+            max_output_tokens=800,
+            response_model=EstimationResult,
+            max_attempts=2,
+        )
+
+    assert len(persisted) == 1
+    assert persisted[0]["call_kind"] == "structured"
+    assert persisted[0]["model_request"]["response_model"] == "EstimationResult"
+    assert persisted[0]["response"]["structured_output"]["title"] == expected.title
+
+
+@pytest.mark.asyncio
 async def test_complete_structured_raises_after_retries() -> None:
     async def always_fail(
         messages: object,

@@ -27,6 +27,7 @@ from app.services.session_estimate_request_parser import (
 )
 from app.services.attachment_errors import AttachmentError
 from app.services.estimation_v2_response_builder import assemble_estimation_v2_response
+from app.services.llm_call_audit import merge_llm_call_audit
 from app.services.llm_chain import build_provider_chain
 from app.services.llm_service import (
     DomainGuardrailError,
@@ -172,6 +173,7 @@ async def estimate_in_session(
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
     try:
+        merge_llm_call_audit(request_id=request_id)
         submit = await service.run_submit(session_id, body, request_id=request_id)
     except DomainGuardrailError as exc:
         raise HTTPException(

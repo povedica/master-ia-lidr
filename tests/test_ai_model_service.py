@@ -319,3 +319,76 @@ async def test_astream_chat_rejects_empty_user_message_without_calling_provider(
             ):
                 pass
     mocked.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_acomplete_chat_persists_record_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_message = SimpleNamespace(content="hello")
+    mock_choice = SimpleNamespace(message=mock_message, finish_reason="stop")
+    mock_resp = SimpleNamespace(choices=[mock_choice], model="openai/gpt-4o-mini", usage=None)
+    persisted: list[dict[str, object]] = []
+
+    def _capture(record: dict[str, object]) -> None:
+        persisted.append(record)
+
+    monkeypatch.setattr(
+        "app.services.ai_model_service.maybe_persist_llm_call",
+        lambda record: _capture(record) or None,
+    )
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(return_value=mock_resp)):
+        await acomplete_chat(
+            litellm_model="openai/gpt-4o-mini",
+            system_message="sys",
+            user_message="usr",
+            max_output_tokens=256,
+            timeout_seconds=12.0,
+            chain_provider="openai",
+            api_key="sk-test",
+        )
+
+    assert len(persisted) == 1
+    record = persisted[0]
+    assert record["call_kind"] == "chat"
+    assert "preparation" in record
+    assert "model_request" in record
+    model_request = record["model_request"]
+    assert isinstance(model_request, dict)
+    assert model_request["messages"][0]["content"] == "sys"
+    assert model_request["extra_kwargs"] == {"timeout": 12.0}
+    response = record["response"]
+    assert isinstance(response, dict)
+    assert response["text"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_astream_chat_persists_aggregated_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    persisted: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "app.services.ai_model_service.maybe_persist_llm_call",
+        lambda record: persisted.append(record) or None,
+    )
+
+    async def _fake_completion(**kwargs: object) -> _AsyncDeltaStream:
+        del kwargs
+        return _AsyncDeltaStream([_delta_chunk("hel"), _delta_chunk("lo")])
+
+    with patch("app.services.ai_model_service.acompletion", AsyncMock(side_effect=_fake_completion)):
+        parts: list[str] = []
+        async for delta in astream_chat(
+            litellm_model="openai/gpt-4o-mini",
+            system_message="sys",
+            user_message="usr",
+            max_output_tokens=64,
+            timeout_seconds=5.0,
+            chain_provider="openai",
+        ):
+            if isinstance(delta, str):
+                parts.append(delta)
+
+    assert "".join(parts) == "hello"
+    assert len(persisted) == 1
+    assert persisted[0]["call_kind"] == "stream"
+    assert persisted[0]["model_request"]["messages"][0]["content"] == "sys"
+    assert persisted[0]["response"]["text"] == "hello"
