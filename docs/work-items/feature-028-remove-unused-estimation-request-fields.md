@@ -111,4 +111,4 @@ It must **not** render empty or placeholder sections for integrations, data sens
 |--------|---------|
 | `11bbbf4` | `feat(llm): persist provider calls as JSON audit files` — prerequisite audit surface used to diagnose prompt noise (`feature-027`) |
 | `eaf1818` | `refactor(estimation): remove unused guided-form fields from request and prompts` — schema, adapter, Jinja partials, semantic cache, tests, frontend validation |
-| `cf7998d` | `docs(feature-028): record verification and implementation commits` — completion section for this work item |
+| `5748f3c` | `docs(feature-028): record verification and implementation commits` — completion section for this work item |
