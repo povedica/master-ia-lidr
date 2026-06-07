@@ -154,7 +154,7 @@ def test_anthropic_litellm_model_id_prefixes_short_model_names() -> None:
 
 
 def test_acb_defaults_disabled_for_session_endpoint() -> None:
-    settings = Settings(_env_file=None)
+    settings = Settings(_env_file=None, acb_enabled=False)
     assert settings.acb_enabled is False
     assert settings.acb_active_for_endpoint("session_estimate") is True
     assert settings.acb_requested(None, endpoint="session_estimate") is False
