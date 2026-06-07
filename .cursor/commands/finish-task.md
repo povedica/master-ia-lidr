@@ -31,7 +31,7 @@ If you only need to **prepare commits** without merging a PR, prefer `/commit-pe
 
 - [ ] PR approved (or team policy allows merge).
 - [ ] CI/CD checks passing on the PR.
-- [ ] No uncommitted changes (`git status` clean) unless the task is explicitly to commit first.
+- [ ] **Clean working tree** — `git status` must show no modified or untracked task-related files before closing (see **A.5**).
 - [ ] On the branch that tracks the PR (or you know the PR number).
 - [ ] GitHub CLI (`gh`) installed and authenticated for automated merge steps.
 
@@ -82,7 +82,18 @@ When FastAPI or Python scope applies, you may use the **`validation-pass-fastapi
 - Update `README.md`, `.env.example`, and the canonical work-item if behavior, setup, or architecture changed.
 - Update Second Brain / session material when the session or learning outcome changed (see workspace **Definition of Done**).
 
-### A.5 Summarize with evidence blocks (mandatory)
+### A.5 Commit and push all pending work (mandatory)
+
+Before Part B (or before declaring the task done when skipping merge), **every file changed during the task must be committed and pushed**. Do not leave documentation, work-items, or rule updates uncommitted.
+
+1. Run `git status` and review modified/untracked files.
+2. Stage and commit all task-related changes (use `/commit-pending` or commit directly with a focused message).
+3. Push to `origin` (`git push -u origin HEAD` on a feature branch, or `git push origin main` on default branch).
+4. Re-run `git status` — it must be clean before the task is considered finished.
+
+If unrelated local dirt exists, stash or exclude it explicitly; do not mix unrelated work into the task commits.
+
+### A.6 Summarize with evidence blocks (mandatory)
 
 Include explicit blocks:
 
@@ -215,12 +226,13 @@ git fetch --prune
 - [ ] Canonical work-item (and mirror if used) updated; Second Brain updated when learning or session outcomes require it.
 - [ ] Follow-up tasks are explicit.
 - [ ] Response includes **Verified / Not verified / Residual risk**.
+- [ ] **All task-related files committed and pushed; `git status` clean.**
 
 ## PR completion checklist (default; or document skip)
 
 - [ ] Retrospective / canonical doc complete **before** merge (when merge runs).
 - [ ] PR approved and CI green per team rules (when merge runs).
-- [ ] PR merged (via `gh` or UI); on default branch locally; `git status` clean—or **Skip Part B** documented with reason and follow-ups.
+- [ ] PR merged (via `gh` or UI); on default branch locally; **all pending commits pushed; `git status` clean**—or **Skip Part B** documented with reason and follow-ups.
 - [ ] Feature branch removed locally after merge; `git fetch --prune` done—or same skip note.
 
 ---
@@ -233,6 +245,7 @@ git fetch --prune
 - If requirements or design changed materially during implementation, the canonical document must reflect that before closing.
 - Never close a task without the **Verified / Not verified / Residual risk** summary.
 - **Default:** after Part A, run Part B (merge + sync + cleanup) when a PR exists and policy allows; only skip when the user opts out or a blocker is documented.
+- **Never leave uncommitted files** at task closure. Commit and push all task-related changes (including docs and work-items) before reporting done.
 
 ## Related
 
@@ -243,5 +256,5 @@ git fetch --prune
 
 ---
 
-**Last updated:** 2026-05-13  
+**Last updated:** 2026-06-07  
 **Status:** Active

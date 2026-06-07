@@ -1275,6 +1275,29 @@
       border-color: rgba(52, 211, 153, 0.45);
     }
 
+    .test-pyramid-tier.t-eval-judge {
+      --tier-width: 42%;
+      background: rgba(248, 113, 113, 0.1);
+      border-color: rgba(248, 113, 113, 0.4);
+    }
+
+    .test-pyramid-tier.t-eval-soft {
+      --tier-width: 62%;
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+
+    .test-pyramid-tier.t-eval-hard {
+      --tier-width: 100%;
+      background: rgba(56, 189, 248, 0.1);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .eval-doc-link {
+      font-size: var(--text-sm);
+      color: var(--accent);
+    }
+
     .test-pyramid-legend {
       flex: 1;
       min-width: 260px;
@@ -1367,6 +1390,7 @@
         <li><a href="#bottlenecks">Cuellos de botella</a></li>
         <li><a href="#api">API y endpoints</a></li>
         <li><a href="#tests">Tests y pirámide</a></li>
+        <li><a href="#evals" style="padding-left:2rem;font-size:0.85em">↳ Evals sesión</a></li>
         <li><a href="#infra">Infraestructura</a></li>
       </ul>
     </nav>
@@ -1450,7 +1474,7 @@
               <tr><td>Caché</td><td>Redis Stack</td><td>RediSearch vectors</td><td>Similitud semántica opcional</td></tr>
               <tr><td>Observabilidad</td><td>Langfuse + OTEL</td><td>opt-in</td><td>Trazas de generación LLM</td></tr>
               <tr><td>Frontend</td><td>React + Vite + TS</td><td>Node 20+</td><td>Workbench con sesiones y temas</td></tr>
-              <tr><td>Tests</td><td>pytest + Vitest</td><td>mocked providers</td><td>Suite determinista sin API keys</td></tr>
+              <tr><td>Tests</td><td>pytest + Vitest + DeepEval (evals)</td><td>mocked providers · opt-in judge</td><td>Suite determinista; evals hard sin API keys</td></tr>
               <tr><td>Adjuntos</td><td>pypdf + python-docx</td><td>—</td><td>Extracción local Path B</td></tr>
             </tbody>
           </table>
@@ -1966,7 +1990,11 @@
               <div class="tree-leaf">src/theme/ <span class="comment">— apariencia claro/oscuro</span></div>
             </div>
             <div class="tree-node">tests/ <span class="comment">— pytest con providers mockeados</span></div>
-            <div class="tree-node">docs/ <span class="comment">— work-items, technical, este HTML</span></div>
+            <div class="tree-node open">docs/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">evals/session-estimation-evals.md <span class="comment">— pirámide hard/soft/judge</span></div>
+              <div class="tree-leaf">work-items/ · technical/ · arquitectura-estimador-cag.html</div>
+            </div>
             <div class="tree-leaf">docker-compose.yml · pyproject.toml · uv.lock</div>
           </div>
         </div>
@@ -2200,9 +2228,10 @@ flowchart TD
         <div class="alert warning">
           <strong>Limitación de producción:</strong> las sesiones se pierden al reiniciar el proceso y no se comparten entre workers Uvicorn. Para producción real se necesitaría Redis/PostgreSQL + sticky sessions o IDs externos.
         </div>
-      </section>
-
-      <!-- 11. Tokens -->
+        <div class="alert info">
+          <strong>Verificación:</strong> <code>test_sessions_integration.py</code> valida memoria, metadata y adjuntos (mecánica).
+          La calidad de la estimación multi-turno se mide en <code>tests/evals/</code> — ver <a href="#evals">Evals sesión (§15)</a>.
+        </div>
       <section id="tokens">
         <h2><span class="num">11</span> Consumo de tokens y coste</h2>
         <p class="lead">Estimación orientativa para una petición típica con <code>gpt-4o-mini</code>. Valores reales dependen del tamaño del transcript, adjuntos y modo.</p>
@@ -2341,7 +2370,7 @@ flowchart TD
 
         <div style="margin-bottom:1rem">
           <span class="test-no-ai">✓ CI / default: sin IA real</span>
-          <span class="test-no-ai test-ai-optional" style="margin-left:0.5rem">⚠ 1 smoke opcional con OpenAI</span>
+          <span class="test-no-ai test-ai-optional" style="margin-left:0.5rem">⚠ smoke + evals soft/judge opcionales con OpenAI</span>
         </div>
 
         <h3>Estructura del repositorio</h3>
@@ -2363,7 +2392,14 @@ flowchart TD
               <div class="tree-leaf">app_factory.py <span class="comment">— AsyncClient ASGI + patch stores/fake LLM</span></div>
               <div class="tree-leaf">multipart_submit.py · integration_settings.py · session_integration_markers.py</div>
             </div>
-            <div class="tree-leaf">test_*.py <span class="comment">— ~60 módulos · ~290 tests (pytest)</span></div>
+            <div class="tree-node open">evals/ <span class="comment">— calidad estimación sesión (feature-024)</span></div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">fixtures/golden_sessions/ <span class="comment">— 6 YAML multi-turno</span></div>
+              <div class="tree-leaf">session_runner.py · fakes.py · assertions.py · serialization.py</div>
+              <div class="tree-leaf">judge/ <span class="comment">— DeepEval GEval · config · metrics</span></div>
+              <div class="tree-leaf">test_hard_deterministic.py · test_soft_consistency.py</div>
+            </div>
+            <div class="tree-leaf">test_*.py <span class="comment">— ~65 módulos · ~325 tests (pytest)</span></div>
           </div>
           <div class="tree-node">web/src/**/*.test.ts</div>
           <div class="tree-children">
@@ -2407,6 +2443,27 @@ flowchart TD
                 <td><code>test_sessions_integration.py</code></td>
               </tr>
               <tr>
+                <td><strong>Evals hard (sesión)</strong></td>
+                <td>Dataset golden YAML · replay HTTP multi-turn · checks deterministas (schema, horas, componentes)</td>
+                <td>No · <code>EvalStructuredLLM</code></td>
+                <td>pytest · marks <code>evals</code></td>
+                <td><code>tests/evals/test_hard_deterministic.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Evals soft (sesión)</strong></td>
+                <td>Estabilidad multi-run (±15% horas) en subset de goldens</td>
+                <td>Sí · opt-in</td>
+                <td>pytest · <code>slow</code> + <code>soft</code></td>
+                <td><code>tests/evals/test_soft_consistency.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Evals judge (sesión)</strong></td>
+                <td>Calidad subjetiva vía DeepEval GEval (contexto multi-turno, coherencia, justificación)</td>
+                <td>Sí · estimador + juez</td>
+                <td>deepeval · <code>slow</code> + <code>judge</code></td>
+                <td><code>tests/evals/judge/test_judge_session_quality.py</code></td>
+              </tr>
+              <tr>
                 <td><strong>Frontend unit</strong></td>
                 <td>Validación de formulario, mapeo de errores, cliente API mockeado, hooks de paneles</td>
                 <td>No</td>
@@ -2432,8 +2489,10 @@ flowchart TD
               <li><code>pytest</code> — runner</li>
               <li><code>pytest-asyncio</code> — tests async (<code>asyncio_mode = auto</code>)</li>
               <li><code>httpx</code> — <code>TestClient</code> / <code>AsyncClient</code> ASGI</li>
+              <li><code>deepeval</code> — GEval LLM-as-judge (solo <code>tests/evals/judge/</code>)</li>
+              <li><code>pyyaml</code> — carga de goldens en <code>tests/evals/fixtures/</code></li>
             </ul>
-            <p style="margin-top:0.5rem">No se añaden SDKs de test extra: Redis, Langfuse y LiteLLM se simulan o desactivan en <code>conftest.py</code>.</p>
+            <p style="margin-top:0.5rem">Redis, Langfuse y LiteLLM se simulan o desactivan en <code>conftest.py</code>. Evals no importan <code>deepeval</code> en <code>app/</code>.</p>
           </div>
           <div class="card">
             <h4>Frontend</h4>
@@ -2450,10 +2509,10 @@ flowchart TD
 
         <div class="test-pyramid-wrap">
           <div class="test-pyramid" aria-label="Pirámide de tests">
-            <div class="test-pyramid-tier t-e2e" title="Smoke manual, no CI">
-              <strong>E2E / smoke LLM</strong>
-              <span>1 test opcional · OpenAI real</span>
-              <span class="tier-count">~1</span>
+            <div class="test-pyramid-tier t-e2e" title="Smoke manual + evals judge/soft, no CI">
+              <strong>E2E / LLM real (opt-in)</strong>
+              <span>1 smoke sesiones · 6 judge · 2 soft</span>
+              <span class="tier-count">~9</span>
             </div>
             <div class="test-pyramid-tier t-integration" title="App completa, fake structured LLM">
               <strong>Integración sesiones</strong>
@@ -2466,9 +2525,9 @@ flowchart TD
               <span class="tier-count">~45</span>
             </div>
             <div class="test-pyramid-tier t-unit" title="Mayoría de la suite">
-              <strong>Unitarios (+ frontend)</strong>
-              <span>pytest dominio/servicios · Vitest UI (~33)</span>
-              <span class="tier-count">~245 + 33</span>
+              <strong>Unitarios (+ evals hard + frontend)</strong>
+              <span>pytest dominio/servicios · evals ~20 · Vitest UI (~33)</span>
+              <span class="tier-count">~260 + 33</span>
             </div>
           </div>
 
@@ -2477,17 +2536,81 @@ flowchart TD
             <ul>
               <li><strong>Base ancha — unitarios</strong> Prompts, guardrails, schemas, caché (fake Redis), observabilidad noop. Rápidos, sin I/O de red.</li>
               <li><strong>API HTTP</strong> Contrato REST/SSE, códigos de error, guardrails en transporte. Servicios reemplazados por <code>_FakeEstimationService</code>.</li>
-              <li><strong>Integración sesiones</strong> Única franja que levanta la app entera con <code>FakeStructuredLLM</code> registrando prompts y <code>messages</code>.</li>
-              <li><strong>Cima — smoke</strong> Solo si <code>SESSION_INTEGRATION_TEST_USE_REAL_LLM=true</code> y <code>OPENAI_API_KEY</code>. No forma parte del gate CI habitual.</li>
+              <li><strong>Integración sesiones</strong> App entera con <code>FakeStructuredLLM</code> (feature-022). Complementa evals: integración valida <em>mecánica</em>; evals validan <em>calidad</em> de estimación.</li>
+              <li><strong>Cima — LLM real</strong> Smoke de sesiones (<code>SESSION_INTEGRATION_TEST_*</code>) y capas soft/judge de evals (<code>EVAL_*</code>). Fuera del gate CI habitual.</li>
             </ul>
           </div>
+        </div>
+
+        <h3 id="evals">Pirámide de evals — calidad en sesiones</h3>
+        <p class="lead">
+          Suite paralela en <code>tests/evals/</code> (feature-024). Superficie evaluada:
+          <code>POST /api/v1/sessions/{id}/estimate</code>. Código aislado del runtime de producción.
+          Guía: <a class="eval-doc-link" href="evals/session-estimation-evals.md">docs/evals/session-estimation-evals.md</a>
+        </p>
+
+        <div class="test-pyramid-wrap">
+          <div class="test-pyramid" aria-label="Pirámide de evals de sesión">
+            <div class="test-pyramid-tier t-eval-judge" title="DeepEval GEval, 6 métricas">
+              <strong>LLM-as-judge</strong>
+              <span>SessionContextUse · ScopeCoherence · JustificationQuality · …</span>
+              <span class="tier-count">6×6 casos</span>
+            </div>
+            <div class="test-pyramid-tier t-eval-soft" title="Multi-run live estimator">
+              <strong>Soft consistency</strong>
+              <span>±15% horas · componentes en ≥2/3 runs</span>
+              <span class="tier-count">2 casos</span>
+            </div>
+            <div class="test-pyramid-tier t-eval-hard" title="Sin API keys, fake alineado al golden">
+              <strong>Hard deterministic</strong>
+              <span>6 goldens YAML · schema · rangos · metadata heurística</span>
+              <span class="tier-count">7 tests</span>
+            </div>
+          </div>
+
+          <div class="test-pyramid-legend card" style="box-shadow:var(--shadow)">
+            <h4 style="color:var(--accent);margin-bottom:0.75rem">Capas de evaluación</h4>
+            <ul>
+              <li><strong>Hard</strong> <code>EvalStructuredLLM</code> genera respuestas alineadas con <code>success_criteria</code> del golden. Incluido en <code>uv run pytest -m "not slow"</code>.</li>
+              <li><strong>Soft</strong> Estimador real; requiere <code>EVAL_ESTIMATOR_USE_REAL_LLM=true</code>. Marca <code>@pytest.mark.soft</code>.</li>
+              <li><strong>Judge</strong> Estimador + modelo juez (DeepEval). Artefactos JSON en <code>tests/evals/artifacts/</code> si falla. Marca <code>@pytest.mark.judge</code>.</li>
+              <li><strong>Separación de flags</strong> <code>SESSION_INTEGRATION_TEST_*</code> ≠ <code>EVAL_*</code> para no activar LLM real en pytest rutinario.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="diagram-box" style="margin-top:1rem">
+          <pre class="mermaid">
+flowchart TB
+    subgraph goldens [Golden dataset]
+        YAML[YAML 6 categorías]
+        Models[Pydantic loader]
+    end
+    subgraph runner [SessionEvalRunner]
+        HTTP[httpx AsyncClient ASGI]
+        EP[POST /api/v1/sessions/.../estimate]
+    end
+    subgraph pyramid [Eval pyramid]
+        Hard[Hard deterministic]
+        Soft[Soft consistency]
+        Judge[LLM-as-judge GEval]
+    end
+    YAML --> Models --> runner
+    HTTP --> EP
+    runner --> Hard
+    runner --> Soft
+    runner --> Judge
+          </pre>
         </div>
 
         <h3>Cómo ejecutar</h3>
         <p class="lead">Comandos desde la raíz del repo salvo Vitest.</p>
 
-        <div class="cmd-block"># Suite backend completa (~290 tests, sin API keys)
+        <div class="cmd-block"># Suite backend completa (~317 tests rápidos, sin API keys)
 uv sync --group dev
+uv run pytest -m "not slow"
+
+# Suite completa incluyendo slow (judge/soft se saltan sin credenciales)
 uv run pytest
 
 # Verbose
@@ -2499,6 +2622,19 @@ uv run pytest tests/test_api.py::test_health_returns_ok -v
 
 # Integración sesiones (fake LLM, sin red)
 uv run pytest tests/test_sessions_integration.py -v
+
+# Evals hard — deterministas, sin API keys
+uv run pytest tests/evals -m "evals and not slow" -v
+
+# Evals soft — estimador real, multi-run
+EVAL_ESTIMATOR_USE_REAL_LLM=true \
+OPENAI_API_KEY=sk-... \
+uv run pytest tests/evals/test_soft_consistency.py -m soft -v
+
+# Evals judge — estimador + juez DeepEval
+EVAL_ESTIMATOR_USE_REAL_LLM=true \
+EVAL_JUDGE_API_KEY=sk-... \
+uv run pytest -m judge -v
 
 # Docker dev
 docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv run pytest
@@ -2518,14 +2654,21 @@ uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_
               <tr><td><code>OTEL_EXPORT_ENABLED</code></td><td>false (forzado en conftest)</td><td>Langfuse noop; sin export real</td></tr>
               <tr><td><code>SESSION_INTEGRATION_TEST_USE_REAL_LLM</code></td><td>false</td><td>Si true, smoke usa OpenAI; resto de integración se salta o usa fake según marker</td></tr>
               <tr><td><code>SESSION_INTEGRATION_TEST_LLM_MODEL</code></td><td>OPENAI_MODEL</td><td>Modelo registrado en capturas del fake o en smoke</td></tr>
-              <tr><td><code>OPENAI_API_KEY</code></td><td>—</td><td>Solo requerida para smoke manual</td></tr>
+              <tr><td><code>EVAL_ESTIMATOR_USE_REAL_LLM</code></td><td>false</td><td>Si true, soft/judge evals usan estimador real (<code>OPENAI_API_KEY</code>)</td></tr>
+              <tr><td><code>EVAL_ESTIMATOR_MODEL</code></td><td>OPENAI_MODEL</td><td>Override del modelo estimador en evals</td></tr>
+              <tr><td><code>EVAL_JUDGE_PROVIDER</code></td><td>openai</td><td>Proveedor del modelo juez (openai / anthropic)</td></tr>
+              <tr><td><code>EVAL_JUDGE_MODEL</code></td><td>gpt-4o-mini</td><td>Modelo juez DeepEval GEval</td></tr>
+              <tr><td><code>EVAL_JUDGE_API_KEY</code></td><td>—</td><td>Clave juez; fallback a clave del proveedor</td></tr>
+              <tr><td><code>EVAL_JUDGE_THRESHOLD_MODE</code></td><td>warn</td><td><code>strict</code> falla tests bajo umbral GEval</td></tr>
+              <tr><td><code>OPENAI_API_KEY</code></td><td>—</td><td>Solo para smoke / evals soft / evals judge</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="alert info">
-          <strong>Regla del proyecto:</strong> los tests validan lógica propia (prompts, políticas, parsing, contratos HTTP), no la calidad estocástica del modelo.
-          Por eso el proveedor LLM siempre se sustituye salvo el smoke explícito documentado en el README.
+          <strong>Regla del proyecto:</strong> la suite principal valida lógica propia (prompts, políticas, parsing, contratos HTTP) con proveedores sustituidos.
+          La calidad estocástica del modelo se evalúa de forma <strong>opt-in</strong> en <code>tests/evals/</code> (hard sin keys; soft/judge con <code>EVAL_*</code>).
+          Mantener <code>SESSION_INTEGRATION_TEST_*</code> y <code>EVAL_*</code> separados evita llamadas LLM accidentales en CI.
         </div>
       </section>
 
@@ -2552,12 +2695,12 @@ flowchart TB
         <div class="grid-3">
           <div class="card"><h4>Desarrollo local</h4><p><code>uv run uvicorn app.main:app --reload</code> + <code>npm run dev</code> en web/</p></div>
           <div class="card"><h4>Dev Docker</h4><p><code>docker compose -f docker-compose.yml -f docker-compose.dev.yml up</code> con bind-mount y reload</p></div>
-          <div class="card"><h4>Tests CI</h4><p><code>uv run pytest</code> — providers mockeados, sin network</p></div>
+          <div class="card"><h4>Tests CI</h4><p><code>uv run pytest -m "not slow"</code> — sin red; incluye evals hard</p></div>
         </div>
       </section>
 
       <footer>
-        <p>Generado para <strong>master-ia / Estimador CAG</strong> · Versión 0.1.0 · Basado en README.md y docs/technical/README.md</p>
+        <p>Generado para <strong>master-ia / Estimador CAG</strong> · Versión 0.1.0 · Basado en README.md, docs/technical/README.md y docs/evals/session-estimation-evals.md</p>
         <p style="margin-top:0.5rem">Abrir en navegador: <code>docs/arquitectura-estimador-cag.html</code> · Requiere conexión para Mermaid CDN</p>
       </footer>
     </main>

@@ -499,12 +499,13 @@ or explicit_constraints in the metadata.
 - Run judge suite with real credentials on 1–2 goldens; inspect artifact JSON and DeepEval verbose output.
 - Confirm README run commands match actual pytest behavior.
 
-### Verified (2026-06-07)
+### Verified (2026-06-07, finish-task re-run)
 
-- `uv run pytest tests/evals/test_loader.py tests/evals/test_serialization.py` — **20 passed** (full eval folder including unit layers).
+- `uv run pytest tests/evals/test_loader.py tests/evals/test_serialization.py` — **7 passed** (loader + serialization unit layer).
 - `uv run pytest tests/evals -m "evals and not slow"` — **7 passed** (hard deterministic parametrized cases + runner).
-- `uv run pytest -m "not slow"` — **308 passed**, 9 skipped (no regression).
-- Judge and soft suites **skip cleanly** without `EVAL_*` credentials (8 skipped in full eval folder).
+- `uv run pytest -m "not slow"` — **308 passed**, 9 skipped (no regression in fast suite).
+- Judge and soft suites **skip cleanly** without `EVAL_*` credentials.
+- No secrets in staged/committed files; `.env.example` documents all `EVAL_*` variables.
 
 ### Not verified (requires live keys)
 
@@ -592,9 +593,13 @@ or explicit_constraints in the metadata.
 
 ## Pull Request
 
-- **Draft PR:** https://github.com/povedica/master-ia-lidr/pull/22
-- **Branch:** `feature/024-llm-as-judge-session-evals`
-- **Label:** `wip`
+- **PR:** https://github.com/povedica/master-ia-lidr/pull/22 (merged 2026-06-07)
+- **Branch:** `feature/024-llm-as-judge-session-evals` (deleted after merge)
+
+## Follow-up
+
+- Second Brain session note on eval pyramid calibration (optional).
+- CI gating on judge thresholds (out of scope for this feature).
 
 ## Repository commits (master-ia)
 
@@ -607,3 +612,4 @@ or explicit_constraints in the metadata.
 | `feat(evals): add judge config, GEval metrics, and serialization` | DeepEval metrics, judge config, context serialization |
 | `feat(evals): add soft consistency and LLM-as-judge test suites` | Soft multi-run tests, judge runner, failure artifacts |
 | `docs(evals): add session eval guide and EVAL_* env documentation` | Team guide, README section, `.env.example` |
+| `docs(evals): add eval pyramid to architecture HTML and close work-item` | §15 evals in `arquitectura-estimador-cag.html`, finish-task verification |

@@ -144,7 +144,7 @@ git log --oneline -n 10
 
 Confirm:
 
-- clean tree or intentional leftovers
+- clean tree (no uncommitted task-related files; intentional unrelated leftovers must be explicit)
 - commits are clear and small
 - feature table (and session, if used) lists every new hash
 

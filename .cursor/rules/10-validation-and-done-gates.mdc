@@ -23,7 +23,12 @@ Make "done" mean verified, documented, and safe to commit.
 - Docs synchronized.
 - Follow-ups explicit.
 
+## Task Closure Gate
+- All files changed during the task are **committed and pushed** before the task is marked done.
+- `git status` must be **clean** at closure (no modified or untracked task-related files).
+- Use `/commit-pending` or commit directly, then push; do not defer docs or work-item updates.
+
 ---
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-06-07
 **Status:** Active
