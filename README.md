@@ -527,6 +527,29 @@ EVAL_ESTIMATOR_USE_REAL_LLM=true EVAL_JUDGE_API_KEY=sk-... uv run pytest -m judg
 
 **Coverage highlights:** prompt construction, adaptive routing, guardrails, semantic cache (mocked Redis), session multipart uploads, attachment text extraction (PDF/DOCX built in-process), session eval golden dataset.
 
+### CAG stress testing
+
+Instrumented stress runs for the session CAG baseline (multi-turn scenarios, attachment sizes, deterministic budgets). See [evals/stress/README.md](evals/stress/README.md).
+
+```bash
+# Unit tests (no API keys)
+uv run pytest tests/test_stress_metrics.py tests/test_stress_scenarios.py
+
+# Regenerate PDF fixtures
+uv run python -m evals.stress.fixtures.build_pdfs
+
+# End-to-end against local uvicorn (requires OPENAI_API_KEY)
+uv run python -m evals.stress.run \
+  --http http://localhost:8000 \
+  --scenarios growing,pivot,contradiction \
+  --attachment-sizes 0,5,20,50,100 \
+  --repeats 3 \
+  --output evals/stress/results.csv \
+  --write-report
+```
+
+Deliverables: `evals/stress/results.csv` (one row per turn) and `evals/stress/REPORT.md` (summary tables + interpretation).
+
 ---
 
 ## Documentation
