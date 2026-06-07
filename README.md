@@ -2,7 +2,7 @@
 
 **Context-Augmented Generation (CAG) API for software project estimation.**
 
-A FastAPI service that turns structured project context — meeting transcripts, briefs, and attachments — into software estimates. Few-shot reference examples are injected per estimation mode into the system prompt; the composed project brief is sent as the user message to the configured LLM provider.
+A FastAPI service that turns structured project context — meeting transcripts, briefs, and attachments — into software estimates. Few-shot reference examples are sampled from a unified flat pool under `app/context/examples/` and injected into the system prompt; the composed project brief is sent as the user message to the configured LLM provider.
 
 Built as an **AI Engineering learning baseline**: typed settings, provider abstraction, guardrails, optional semantic cache, session memory, and a React web UI — without production auth or persistent storage by default.
 
@@ -12,7 +12,7 @@ Built as an **AI Engineering learning baseline**: typed settings, provider abstr
 
 | Area | What you get |
 |------|----------------|
-| **CAG** | Mode-specific few-shot examples from `app/context/examples/` with adaptive routing (`basic` → `expert_review`). |
+| **CAG** | Few-shot examples from a flat `app/context/examples/*.txt` pool (2–4 samples per request); depth and layout come from guided-form fields (`detail_level`, `output_format`). |
 | **API surfaces** | Text (v1), structured JSON (v2), SSE streaming (v1), and session-based simplified submit. |
 | **Guardrails** | Domain filter, prompt-injection heuristics, PII checks, and output semantic validation on the v2 pipeline. |
 | **Sessions** | In-memory multi-turn sessions with sliding-window history, derived metadata merge, and attachment ingestion. |
@@ -322,18 +322,9 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/sessions/<session_id>/estimate \
   }' | jq
 ```
 
-### Estimation modes
+### Estimation path
 
-The service routes each request to one of four depth modes based on decision context:
-
-| Mode | Primary use |
-|------|------------|
-| `basic` | Quick sizing, early discovery |
-| `standard` | Internal planning (default) |
-| `professional` | Presales and client-facing proposals |
-| `expert_review` | High-stakes validation and risk surfacing |
-
-Mode-specific system instructions live in `app/context/prompts/` (`basic.txt`, `standard.txt`, `professional.txt`, `expert_review.txt`). Jinja2 bundles under `app/prompts/estimation/v2/` are the default for structured output.
+Every estimate request (v1 markdown, v2 structured, session submit) follows the same pipeline: domain guardrail → optional preprocessing → Jinja2 prompt render (with `detail_level` / `output_format` when the guided form is used) → provider chain. Completion output is capped by `ESTIMATION_OUTPUT_TOKENS_MAX` (default `2048`).
 
 ---
 
@@ -406,8 +397,8 @@ Copy `.env.example` for the full list. Key settings:
 | `LLM_AUTH_FALLBACK` | `false` | Treat auth failures as fallback instead of `503` |
 | `STATIC_FALLBACK_ENABLED` | `true` | Append deterministic local fallback when all providers fail |
 | `LLM_DOMAIN_GUARDRAIL_ENABLED` | `true` | Reject out-of-domain requests before provider calls |
-| `FORCED_ESTIMATION_MODE` | — | Override adaptive routing |
-| `DEV_MODE` | `false` | Include provider, routing, timing, versions, and usage in responses |
+| `ESTIMATION_OUTPUT_TOKENS_MAX` | `2048` | Max completion tokens for estimation calls |
+| `DEV_MODE` | `false` | Include provider, timing, versions, and usage in responses |
 | `FRONTEND_ORIGINS` | *(local defaults)* | Comma-separated allowed CORS origins |
 | `ESTIMATION_OUTPUT_PERSIST_ENABLED` | `false` | Save successful outputs to `output-responses/` |
 | `ESTIMATION_STATS_LOG_ENABLED` | `false` | Append NDJSON usage metadata to `output-stats/` |

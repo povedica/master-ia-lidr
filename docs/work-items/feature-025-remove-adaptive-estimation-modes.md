@@ -276,14 +276,14 @@ Medium refactor (~15–25 files). Low runtime risk if tests are updated systemat
 
 ## Implementation progress
 
-- [ ] Step 1: Unified `ESTIMATION_OUTPUT_TOKENS_MAX` in config + tests
-- [ ] Step 2: Flatten example corpus; parameterless `load_examples()`
-- [ ] Step 3: Remove mode prelude from `llm_service` / `llm_pipeline`
-- [ ] Step 4: Delete `estimation_engine.py`, output validation, simplify `llm_chain`
-- [ ] Step 5: Schemas, response builders, stats logger, semantic cache
-- [ ] Step 6: Prompt context + Jinja2 partials (v1/v2)
-- [ ] Step 7: Fix remaining tests; full pytest + grep gate
-- [ ] Step 8: Sync README, technical docs, `.env.example`, Second Brain note
+- [x] Step 1: Unified `ESTIMATION_OUTPUT_TOKENS_MAX` in config + tests
+- [x] Step 2: Flatten example corpus; parameterless `load_examples()`
+- [x] Step 3: Remove mode prelude from `llm_service` / `llm_pipeline`
+- [x] Step 4: Delete `estimation_engine.py`, output validation, simplify `llm_chain`
+- [x] Step 5: Schemas, response builders, stats logger, semantic cache
+- [x] Step 6: Prompt context + Jinja2 partials (v1/v2)
+- [x] Step 7: Fix remaining tests; full pytest + grep gate
+- [x] Step 8: Sync README, technical docs, `.env.example`, Second Brain note
 
 ## Pull Request
 
