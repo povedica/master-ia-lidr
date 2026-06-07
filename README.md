@@ -359,6 +359,23 @@ Optional vector similarity cache for validated v2 responses. Disabled by default
 
 See `.env.example` and [docs/technical/README.md](docs/technical/README.md) for the full variable set.
 
+### Actor-Critic-Boss (ACB) orchestration
+
+Optional **multi-LLM quality loop** for session estimates only (`POST /api/v1/sessions/{id}/estimate`). Default **off** (`ACB_ENABLED=false`).
+
+Each active request runs **Actor → Critic → Boss** (up to `ACB_MAX_ITERATIONS` Actor passes). Semantic cache serve is bypassed when ACB is on.
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `ACB_ENABLED` | `false` | Global kill switch |
+| `ACB_ENABLED_ENDPOINTS` | `session_estimate` | Endpoint allowlist |
+| `ACB_MAX_ITERATIONS` | `2` | Max Actor passes per request |
+| `ACB_FORCE_ENABLED_IN_DEV` | `false` | Force on when `APP_ENV=local` and `DEV_MODE=true` |
+
+Per-request override on session submit: `"orchestration": "acb" | "single_pass" | "default"`.
+
+With `DEV_MODE=true`, the response includes `estimate.acb_trace` (iteration decisions and timings). See [docs/technical/actor-critic-boss-orchestration.md](docs/technical/actor-critic-boss-orchestration.md).
+
 ### Observability
 
 Optional Langfuse export via OpenTelemetry. Off by default (`OTEL_EXPORT_ENABLED=false`).
@@ -400,6 +417,7 @@ Copy `.env.example` for the full list. Key settings:
 | `ALLOWED_ATTACHMENT_MIME_TYPES` | see `.env.example` | Allowed MIME types for attachments |
 | `GUARDRAIL_ROLLOUT_*` | *(empty)* | Per-guardrail rollout override (`disabled`, `log_only`, `enforce`) |
 | `SEMANTIC_CACHE_*` | see `.env.example` | Semantic cache for v2 (defaults: off / log-only) |
+| `ACB_*` | see `.env.example` | Actor-Critic-Boss session orchestration (default: off) |
 | `OTEL_*` / `LANGFUSE_*` | see `.env.example` | Observability export (defaults: off) |
 
 Chat completions go through **LiteLLM**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (prefixes are added automatically), or set a fully qualified id in `DEFAULT_LLM_MODEL`.
@@ -467,7 +485,10 @@ Session memory, metadata re-injection, attachments, and sliding-window history u
 
 ```bash
 uv run pytest tests/test_sessions_integration.py
+uv run pytest tests/test_sessions_acb_integration.py -q
 ```
+
+Ensure `SESSION_INTEGRATION_TEST_USE_REAL_LLM=false` (default) so ACB integration tests use the fake LLM harness.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|

@@ -1383,6 +1383,7 @@
         <li><a href="#flows">Flujos de interacción</a></li>
         <li><a href="#cag">CAG y prompts</a></li>
         <li><a href="#guardrails">Guardrails</a></li>
+        <li><a href="#acb">ACB (Actor-Critic-Boss)</a></li>
         <li><a href="#cache">Caché semántica</a></li>
         <li><a href="#sessions">Sesiones</a></li>
         <li><a href="#tokens">Tokens y coste</a></li>
@@ -1684,9 +1685,16 @@
                       <button type="button" class="arch-node" data-id="svc-gp" data-layer="guard"
                         data-title="LLMPipeline"
                         data-file="app/guardrails/llm_pipeline.py"
-                        data-desc="Orquestador del path v2/sesiones: input guardrails → cache lookup → LLM → output guardrails. Código de política, no almacenamiento.">
+                        data-desc="Orquestador del path v2/sesiones: input guardrails → cache lookup (o bypass ACB) → LLM → output guardrails. Con ACB activo: run_structured_with_acb.">
                         <span class="arch-node-title">LLMPipeline</span>
                         <span class="arch-node-sub">orquestador v2</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="acb-orchestrator" data-layer="guard"
+                        data-title="ActorCriticBossOrchestrator"
+                        data-file="app/guardrails/acb/orchestrator.py"
+                        data-desc="Bucle Actor → Critic → Boss en session estimate cuando ACB está activo. Presupuesto ACB_MAX_ITERATIONS; política en policy.py.">
+                        <span class="arch-node-title">ACB orchestrator</span>
+                        <span class="arch-node-sub">session quality</span>
                       </button>
                       <button type="button" class="arch-node" data-id="guard-input" data-layer="guard"
                         data-title="Input guardrails"
@@ -1972,9 +1980,10 @@
                 <div class="tree-leaf">semantic_cache/ <span class="comment">— bucket, embeddings, Redis</span></div>
                 <div class="tree-leaf">observability/ <span class="comment">— Langfuse OTEL</span></div>
               </div>
-              <div class="tree-node">guardrails/ <span class="comment">— pipeline v2</span></div>
+              <div class="tree-node">guardrails/ <span class="comment">— pipeline v2 + ACB</span></div>
               <div class="tree-children">
-                <div class="tree-leaf">llm_pipeline.py <span class="comment">— orquestador guarded</span></div>
+                <div class="tree-leaf">llm_pipeline.py <span class="comment">— orquestador guarded + run_structured_with_acb</span></div>
+                <div class="tree-leaf">acb/ <span class="comment">— orchestrator, policy</span></div>
                 <div class="tree-leaf">input_semantic.py · output_semantic.py</div>
                 <div class="tree-leaf">policy_executor.py · policy_registry.py</div>
               </div>
@@ -2071,8 +2080,8 @@
             <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Usuario envía formulario</h4><p>JSON o multipart con transcript (≥80 chars), metadatos y adjuntos PDF/DOCX/txt.</p></div></div>
             <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Procesamiento adjuntos</h4><p><code>DocumentTextExtractor</code> extrae texto localmente (Path B). Sin Files API externa.</p></div></div>
             <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Metadata merge</h4><p><code>derive_project_metadata()</code> + <code>merge_derived_metadata()</code> acumula contexto entre turnos.</p></div></div>
-            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>LLMPipeline con historial</h4><p><code>messages_override</code> incluye ventana deslizante user/assistant + prompt actual completo.</p></div></div>
-            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Paneles UI</h4><p><code>ProjectMetadataPanel</code> y <code>EstimateResultPanel</code> se actualizan con la respuesta estructurada v2.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>LLMPipeline con historial</h4><p><code>messages_override</code> incluye ventana deslizante user/assistant + prompt actual completo. Con <code>ACB_ENABLED</code> (o <code>orchestration: acb</code>) usa <code>run_structured_with_acb</code>: Actor → Critic → Boss; la caché semántica no sirve hits.</p></div></div>
+            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Paneles UI</h4><p><code>ProjectMetadataPanel</code> y <code>EstimateResultPanel</code> se actualizan con la respuesta estructurada v2. Con <code>DEV_MODE=true</code> y ACB activo, <code>estimate.acb_trace</code> muestra iteraciones y decisiones del Boss.</p></div></div>
           </div>
         </div>
 
@@ -2178,6 +2187,95 @@ sequenceDiagram
             </tbody>
           </table>
         </div>
+      </section>
+
+      <!-- 8b. ACB -->
+      <section id="acb">
+        <h2><span class="num">ACB</span> Actor-Critic-Boss (orquestación sesión)</h2>
+        <p class="lead">
+          Capa opcional de <strong>calidad online</strong> solo en <code>POST /api/v1/sessions/{session_id}/estimate</code>.
+          Separa generación (Actor), evaluación estructurada (Critic) y gobernanza del proceso (Boss).
+          Desactivada por defecto (<code>ACB_ENABLED=false</code>).
+        </p>
+
+        <div class="alert info">
+          <strong>No confundir con evals offline.</strong> El juez LLM de <code>tests/evals/</code> mide calidad post-hoc;
+          ACB es orquestación en producción con roles distintos y presupuesto de iteraciones acotado.
+        </div>
+
+        <h3>Cómo funciona</h3>
+        <div class="diagram-box">
+          <pre class="mermaid">
+sequenceDiagram
+    participant S as SessionService
+    participant P as LLMPipeline
+    participant O as AcbOrchestrator
+    participant A as Actor
+    participant C as Critic
+    participant B as Boss
+
+    S->>S: merge metadata, messages_override
+    alt ACB inactivo
+        S->>P: run_structured
+    else ACB activo
+        S->>P: run_structured_with_acb
+        P->>P: input guardrails
+        Note over P: acb_cache_bypassed (no cache serve)
+        loop hasta ACCEPT o SYNTHESIZE o budget
+            P->>O: iteración
+            O->>A: estimate_structured (+ revision si aplica)
+            A-->>O: EstimationResult
+            O->>C: CriticFeedback
+            C-->>O: issues estructurados
+            O->>B: BossDecision
+            B-->>O: accept | revise | synthesize
+        end
+        P->>P: output guardrails (solo resultado final)
+    end
+    P-->>S: StructuredPipelineOutcome
+          </pre>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>Actor</h4>
+            <p>Genera el mejor candidato <code>EstimationResult</code>. Reutiliza <code>estimate_structured</code> con prompts ACB; en revisiones inyecta <code>actor_revision.j2</code> con instrucciones del Boss.</p>
+          </div>
+          <div class="card">
+            <h4>Critic</h4>
+            <p>Detecta defectos (completitud, aritmética, coherencia, metadata). Devuelve <code>CriticFeedback</code> — <strong>nunca</strong> reescribe la estimación.</p>
+          </div>
+          <div class="card">
+            <h4>Boss</h4>
+            <p>Decide: <code>accept</code>, <code>revise</code> (una pasada focalizada) o <code>synthesize</code> (presupuesto agotado). La política determinista en <code>policy.py</code> acota el bucle.</p>
+          </div>
+          <div class="card">
+            <h4>Activación</h4>
+            <p>Capas: kill switch global, allowlist de endpoint, override por request (<code>orchestration</code>), force en dev local. Escape hatch: <code>single_pass</code>.</p>
+          </div>
+        </div>
+
+        <h3>Variables de entorno</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Variable</th><th>Default</th><th>Efecto</th></tr></thead>
+            <tbody>
+              <tr><td><code>ACB_ENABLED</code></td><td>false</td><td>Activa ACB en endpoints permitidos</td></tr>
+              <tr><td><code>ACB_ENABLED_ENDPOINTS</code></td><td>session_estimate</td><td>Allowlist de endpoint lógico</td></tr>
+              <tr><td><code>ACB_MAX_ITERATIONS</code></td><td>2</td><td>Máximo de pasadas Actor (incl. inicial)</td></tr>
+              <tr><td><code>ACB_ALLOW_SYNTHESIZE</code></td><td>true</td><td>Boss puede sintetizar al agotar budget</td></tr>
+              <tr><td><code>ACB_BLOCKING_SEVERITIES</code></td><td>critical,major</td><td>Severidades que disparan revisión</td></tr>
+              <tr><td><code>ACB_FORCE_ENABLED_IN_DEV</code></td><td>false</td><td>Force ON con APP_ENV=local + DEV_MODE</td></tr>
+              <tr><td><code>DEV_MODE</code></td><td>false</td><td>Expone <code>estimate.acb_trace</code> en JSON</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert warning">
+          <strong>Coste y latencia:</strong> un submit con ACB puede implicar 3–9 llamadas LLM según iteraciones y acción del Boss. Usar default-off y activar solo en demos o A/B controlado.
+        </div>
+
+        <p style="margin-top:1rem">Documentación extendida: <code>docs/technical/actor-critic-boss-orchestration.md</code> · Work item: <code>feature-026</code></p>
       </section>
 
       <!-- 9. Cache -->

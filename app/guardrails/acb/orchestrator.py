@@ -31,6 +31,7 @@ from app.services.acb_prompt_rendering import (
 )
 from app.services.llm_service import EstimationService, StructuredEstimateBundle
 from app.services.llm_types import UsageInfo
+from app.services.observability.bootstrap import get_observability
 from app.services.structured_llm_client import StructuredCompletionError, complete_structured
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,42 @@ class ActorCriticBossOrchestrator:
         )
         blocking = blocking_severities or self._settings.acb_blocking_severities_set()
 
+        logger.info(
+            "acb_orchestration_started",
+            extra={"max_iterations": max_iter, "allow_synthesize": allow_syn},
+        )
+
+        observability = get_observability()
+        observability.add_tags("feature:session_estimate", "orchestration:acb")
+
+        with observability.start_span(
+            "acb_orchestration",
+            attributes={
+                "max_iterations": max_iter,
+                "allow_synthesize": allow_syn,
+                "prompt_version_acb": ACB_PROMPT_VERSION,
+            },
+        ):
+            return await self._run_iterations(
+                ctx=ctx,
+                max_iter=max_iter,
+                allow_syn=allow_syn,
+                blocking=blocking,
+                critic_model=critic_model,
+                boss_model=boss_model,
+            )
+
+    async def _run_iterations(
+        self,
+        *,
+        ctx: AcbRunContext,
+        max_iter: int,
+        allow_syn: bool,
+        blocking: frozenset[str],
+        critic_model: str | None,
+        boss_model: str | None,
+    ) -> AcbOrchestrationOutcome:
+        observability = get_observability()
         iterations: list[AcbIterationRecord] = []
         total_usage: UsageInfo | None = None
         revision_instructions: str | None = None
@@ -79,19 +116,15 @@ class ActorCriticBossOrchestrator:
         final_bundle: StructuredEstimateBundle | None = None
         final_result: EstimationResult | None = None
 
-        logger.info(
-            "acb_orchestration_started",
-            extra={"max_iterations": max_iter, "allow_synthesize": allow_syn},
-        )
-
         for iteration in range(1, max_iter + 1):
-            actor_started = perf_counter()
-            actor_bundle = await self._run_actor(
-                ctx,
-                revision_instructions=revision_instructions,
-                iteration=iteration,
-            )
-            actor_ms = int((perf_counter() - actor_started) * 1000)
+            with observability.start_span("acb_actor", attributes={"iteration": iteration}):
+                actor_started = perf_counter()
+                actor_bundle = await self._run_actor(
+                    ctx,
+                    revision_instructions=revision_instructions,
+                    iteration=iteration,
+                )
+                actor_ms = int((perf_counter() - actor_started) * 1000)
             last_candidate_bundle = actor_bundle
             last_candidate = actor_bundle.result
             total_usage = _merge_usage(total_usage, actor_bundle.usage)
@@ -105,13 +138,14 @@ class ActorCriticBossOrchestrator:
                 },
             )
 
-            critic_started = perf_counter()
-            critic_feedback, critic_usage, critic_model_used = await self._run_critic(
-                ctx,
-                candidate=actor_bundle.result,
-                critic_model=critic_model,
-            )
-            critic_ms = int((perf_counter() - critic_started) * 1000)
+            with observability.start_span("acb_critic", attributes={"iteration": iteration}):
+                critic_started = perf_counter()
+                critic_feedback, critic_usage, critic_model_used = await self._run_critic(
+                    ctx,
+                    candidate=actor_bundle.result,
+                    critic_model=critic_model,
+                )
+                critic_ms = int((perf_counter() - critic_started) * 1000)
             total_usage = _merge_usage(total_usage, critic_usage)
 
             logger.info(
@@ -125,16 +159,17 @@ class ActorCriticBossOrchestrator:
                 },
             )
 
-            boss_started = perf_counter()
-            boss_decision, boss_usage, boss_model_used = await self._run_boss(
-                ctx,
-                candidate=actor_bundle.result,
-                critic_feedback=critic_feedback,
-                iteration=iteration,
-                max_iterations=max_iter,
-                boss_model=boss_model,
-            )
-            boss_ms = int((perf_counter() - boss_started) * 1000)
+            with observability.start_span("acb_boss", attributes={"iteration": iteration}):
+                boss_started = perf_counter()
+                boss_decision, boss_usage, boss_model_used = await self._run_boss(
+                    ctx,
+                    candidate=actor_bundle.result,
+                    critic_feedback=critic_feedback,
+                    iteration=iteration,
+                    max_iterations=max_iter,
+                    boss_model=boss_model,
+                )
+                boss_ms = int((perf_counter() - boss_started) * 1000)
             total_usage = _merge_usage(total_usage, boss_usage)
 
             normalized = normalize_boss_decision(
@@ -179,14 +214,15 @@ class ActorCriticBossOrchestrator:
                 break
 
             if normalized.action == BossAction.synthesize:
-                synth_started = perf_counter()
-                synth_result, synth_bundle = await self._run_synthesize(
-                    ctx,
-                    candidate=actor_bundle.result,
-                    critic_feedback=critic_feedback,
-                    boss_model=boss_model,
-                )
-                synth_ms = int((perf_counter() - synth_started) * 1000)
+                with observability.start_span("acb_synthesize", attributes={"iteration": iteration}):
+                    synth_started = perf_counter()
+                    synth_result, synth_bundle = await self._run_synthesize(
+                        ctx,
+                        candidate=actor_bundle.result,
+                        critic_feedback=critic_feedback,
+                        boss_model=boss_model,
+                    )
+                    synth_ms = int((perf_counter() - synth_started) * 1000)
                 total_usage = _merge_usage(total_usage, synth_bundle.usage)
                 final_path = "synthesize" if iteration < max_iter else "revise_exhausted_synthesize"
                 final_bundle = synth_bundle

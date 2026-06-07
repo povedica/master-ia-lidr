@@ -352,6 +352,14 @@ uv run pytest
 
 Update the canonical document when acceptance criteria, APIs, env vars, or verification change. **Never** let the doc drift more than **one step**.
 
+When the feature touches HTTP routes, guardrails, LLM orchestration, settings/env surface, or cross-layer flows, also update in the **same step or immediate follow-up micro-commit**:
+
+- `README.md` and `.env.example` when settings or setup change
+- `docs/technical/*.md` when behavior or contracts need a maintainer reference
+- **`docs/arquitectura-estimador-cag.html`** — interactive architecture guide (nav, flows, env tables, diagrams). **Mandatory** for pipeline/orchestration features; not optional follow-up.
+
+Record the architecture HTML update in the canonical work item `## Documentation Plan` (mark the HTML row done, not “optional”).
+
 ### F. Commit (baby-step cadence)
 
 After each plan step is **verified** (tests green or documented manual check), create a **safe-to-commit** increment:
@@ -384,6 +392,7 @@ Maintain a lightweight block (when useful):
 
 - [ ] Full applicable **`uv run pytest`** for the touched project(s).
 - [ ] Canonical document: acceptance criteria and **verification** match reality.
+- [ ] **`docs/arquitectura-estimador-cag.html`** updated when the feature changed routes, guardrails, orchestration, or env surface (or explicitly marked N/A in the work item with reason).
 - [ ] **`git status`** clean or intentional; no secrets staged.
 - [ ] **`## Repository commits (master-ia)`** table updated with **English** summaries.
 - [ ] **Branch pushed** and **WIP draft PR opened** on the remote (unless the user explicitly opted out in Phase 4.1).
@@ -476,6 +485,7 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ## Changelog
 
+- **2026-06-07**: Phase 5.E / Phase 6 — mandatory sync of `docs/arquitectura-estimador-cag.html` for pipeline, guardrails, orchestration, or env-surface features.
 - **2026-05-17 (b)**: Phase 5.F and hard-stop discipline: commit each verified baby step during `/start-task` without waiting for a separate user “commit” request.
 - **2026-05-17**: Restricted `/start-task` to `docs/work-items/feature-NNN-<slug>.md`, added strict feature documentation gate, same-feature WIP blocking by branch or PR, mandatory draft PR with `wip` label before code, and `## Estimation` planning output.
 - **2026-05-15 (b)**: **Canonical branch name** from work item filename (`feature/NNN-slug`); **one branch + one doc** until merge; forbid logging feature A commits in feature B’s table.
@@ -483,5 +493,5 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ---
 
-**Last updated:** 2026-05-17  
+**Last updated:** 2026-06-07  
 **Status:** Active
