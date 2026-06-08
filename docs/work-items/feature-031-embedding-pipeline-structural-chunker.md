@@ -97,6 +97,24 @@ Edge cases:
 - README: extend the embedding-pipeline subsection with the chunk text/metadata contract.
 - Second Brain: note the structural chunking decision and the `{budget_id}::{component_id}` id scheme.
 
+## Estimation
+
+- Size: S
+- Estimated time: 1.5 hours
+- Planned steps: 5
+
+## Implementation progress
+
+- [ ] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
+- [ ] Step 2: Implement `_build_text` and `_build_metadata`.
+- [ ] Step 3: Implement `chunk()` with single-encoder token counting and completion log.
+- [ ] Step 4: Run tests to green; verify edge cases.
+- [ ] Step 5: Update README + Second Brain note.
+
+## Pull request
+
+- WIP draft PR: _(pending)_
+
 ## Implementation Plan
 - [ ] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
 - [ ] Step 2: Implement `_build_text` and `_build_metadata`.
