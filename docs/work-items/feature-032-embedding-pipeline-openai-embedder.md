@@ -101,6 +101,21 @@ Edge cases:
 - `.env.example`: new entries with comments.
 - Second Brain: note the async deviation from the exercise and the batching/retry design.
 
+## Estimation
+
+- Size: M
+- Estimated time: 2.5 hours
+- Planned steps: 6
+
+## Implementation progress
+
+- [ ] Step 1: Add settings + `.env.example` entries.
+- [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
+- [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
+- [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
+- [ ] Step 5: Run tests to green; finite-value and ordering assertions.
+- [ ] Step 6: Update README + Second Brain note.
+
 ## Implementation Plan
 - [ ] Step 1: Add settings + `.env.example` entries.
 - [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
@@ -108,6 +123,10 @@ Edge cases:
 - [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
 - [ ] Step 5: Run tests to green; finite-value and ordering assertions.
 - [ ] Step 6: Update README + Second Brain note.
+
+## Pull request
+
+- WIP draft PR URL: _(pending Phase 4 setup)_
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
