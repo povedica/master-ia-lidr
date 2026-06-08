@@ -20,6 +20,12 @@ from evals.stress.scenarios import build_scenario, list_supported_turn_counts
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 DEFAULT_OUTPUT = Path("evals/stress/results.csv")
 DEFAULT_REPORT = Path("evals/stress/REPORT.md")
+
+
+def scenario_artifact_path(base: Path, scenario_name: str) -> Path:
+    """Derive per-scenario artifact path, e.g. results.csv -> results-pivot.csv."""
+
+    return base.parent / f"{base.stem}-{scenario_name}{base.suffix}"
 CSV_COLUMNS = [
     "scenario_name",
     "repeat_index",
@@ -57,9 +63,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--attachment-sizes", default="0,5,20,50,100")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--turn-counts", default=",".join(str(value) for value in list_supported_turn_counts()))
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
-    parser.add_argument("--write-report", action="store_true", help="Also generate REPORT.md beside the CSV.")
-    parser.add_argument("--report-output", default=str(DEFAULT_REPORT))
+    parser.add_argument(
+        "--output",
+        default=str(DEFAULT_OUTPUT),
+        help="Base CSV path; each scenario writes results-<scenario>.csv beside this stem.",
+    )
+    parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help="Also generate REPORT-<scenario>.md beside the CSV for each scenario.",
+    )
+    parser.add_argument(
+        "--report-output",
+        default=str(DEFAULT_REPORT),
+        help="Base report path; each scenario writes REPORT-<scenario>.md beside this stem.",
+    )
     parser.add_argument("--latency-budget-ms", type=int, default=4000)
     parser.add_argument("--cost-budget-usd", type=float, default=0.05)
     return parser.parse_args(argv)
@@ -117,16 +135,25 @@ async def _submit_turn(
         )
 
 
-async def run_stress(args: argparse.Namespace) -> Path:
+def _write_scenario_csv(output_path: Path, rows: list[dict[str, Any]]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+async def run_stress(args: argparse.Namespace) -> list[Path]:
     scenarios = [name.strip() for name in args.scenarios.split(",") if name.strip()]
     attachment_sizes = _parse_csv_ints(args.attachment_sizes)
     turn_counts = _parse_csv_ints(args.turn_counts)
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_base = Path(args.output)
+    report_base = Path(args.report_output)
+    output_base.parent.mkdir(parents=True, exist_ok=True)
 
     latency_metric = LatencyBudgetMetric(args.latency_budget_ms)
     cost_metric = CostBudgetMetric(args.cost_budget_usd)
-    rows_to_write: list[dict[str, Any]] = []
+    written_outputs: list[Path] = []
 
     if args.in_process:
         from app.main import app
@@ -138,6 +165,7 @@ async def run_stress(args: argparse.Namespace) -> Path:
 
     async with client_cm as client:
         for scenario_name in scenarios:
+            rows_to_write: list[dict[str, Any]] = []
             for attachment_size_kb in attachment_sizes:
                 attachment_path = _attachment_path(attachment_size_kb)
                 if attachment_path is not None and not attachment_path.exists():
@@ -212,20 +240,21 @@ async def run_stress(args: argparse.Namespace) -> Path:
                                 }
                             )
 
-    with output_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
-        writer.writeheader()
-        writer.writerows(rows_to_write)
+            scenario_output = scenario_artifact_path(output_base, scenario_name)
+            _write_scenario_csv(scenario_output, rows_to_write)
+            written_outputs.append(scenario_output)
+            if args.write_report:
+                scenario_report = scenario_artifact_path(report_base, scenario_name)
+                write_report(scenario_output, scenario_report)
+                written_outputs.append(scenario_report)
 
-    if args.write_report:
-        write_report(output_path, Path(args.report_output))
-    return output_path
+    return written_outputs
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        output = asyncio.run(run_stress(args))
+        outputs = asyncio.run(run_stress(args))
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -235,7 +264,12 @@ def main(argv: list[str] | None = None) -> int:
         if "401" in message or "authentication" in message.lower():
             print("Ensure OPENAI_API_KEY is configured for HTTP stress runs.", file=sys.stderr)
         return 1
-    print(f"wrote {output} ({output.stat().st_size} bytes, {sum(1 for _ in output.open()) - 1} rows)")
+    for output in outputs:
+        if output.suffix.lower() == ".csv":
+            row_count = sum(1 for _ in output.open(encoding="utf-8")) - 1
+            print(f"wrote {output} ({output.stat().st_size} bytes, {row_count} rows)")
+        else:
+            print(f"wrote {output} ({output.stat().st_size} bytes)")
     return 0
 
 
