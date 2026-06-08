@@ -126,9 +126,10 @@ Edge cases:
 
 | SHA | Message |
 |-----|---------|
-| _(pending push)_ | `docs(feature-031): add estimation and implementation progress tracking` |
-| _(pending push)_ | `test(embedding-pipeline): add structural chunker contract tests (RED)` |
-| _(pending push)_ | `feat(embedding-pipeline): implement JSONStructuralChunker` |
+| `192f9f7` | `docs(feature-031): add estimation and implementation progress tracking` |
+| `dec250b` | `test(embedding-pipeline): add structural chunker contract tests (RED)` |
+| `f669a0d` | `feat(embedding-pipeline): implement JSONStructuralChunker` |
+| `55d5a46` | `docs(feature-031): document structural chunker contract and verification` |
 
 ## Learnings
 - Token counting must reuse a single encoder instance; re-creating `encoding_for_model` per component is a measurable waste at scale.
