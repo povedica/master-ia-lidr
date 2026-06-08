@@ -456,10 +456,23 @@ master-ia/
 
 ## Tests
 
-Run the full suite (no real API calls — provider clients are mocked):
+Run the **default fast suite** (unit + integration with mocked providers; **slow/heavy tests deselected**):
 
 ```bash
 uv run pytest
+```
+
+Heavy tests (`slow` marker: eval soft/judge multi-run, live LLM smoke) are **not** collected unless you opt in:
+
+```bash
+# All heavy tests (requires credentials where applicable)
+uv run pytest --run-heavy -m slow
+
+# Same via environment variable
+RUN_HEAVY_TESTS=1 uv run pytest -m slow
+
+# Full suite including heavy
+uv run pytest --run-heavy
 ```
 
 Run with verbose output:
@@ -502,7 +515,7 @@ Example — live smoke against OpenAI (costs tokens; not for CI):
 SESSION_INTEGRATION_TEST_USE_REAL_LLM=true \
 SESSION_INTEGRATION_TEST_LLM_MODEL=gpt-4o-mini \
 OPENAI_API_KEY=sk-... \
-uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v
+uv run pytest --run-heavy tests/test_sessions_integration.py::test_estimate_submit_live_llm_smoke -v
 ```
 
 ### Evaluation suite (session quality pyramid)

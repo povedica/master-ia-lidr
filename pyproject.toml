@@ -47,6 +47,6 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "evals: session estimation evaluation suite (golden dataset)",
     "judge: LLM-as-judge tests requiring judge model credentials",
-    "slow: expensive or multi-run tests",
+    "slow: expensive or multi-run tests (deselected by default; use --run-heavy or -m slow)",
     "soft: soft consistency multi-run tests",
 ]

@@ -21,7 +21,8 @@ Best for:
 1. Identify the smallest meaningful checks.
 2. Run repo-native validation only:
    - `uv sync`
-   - `uv run pytest`
+   - `uv run pytest` (default fast suite; `slow` tests deselected — see `spec-001-pytest-heavy-test-opt-in.md`)
+   - `uv run pytest --run-heavy -m slow` only when the task explicitly requires live/heavy eval verification
    - `uv run uvicorn app.main:app --reload` when runtime behavior matters
 3. Confirm:
    - no real secrets committed

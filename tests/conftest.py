@@ -1,10 +1,52 @@
-"""Shared pytest fixtures."""
+"""Shared pytest fixtures and collection hooks."""
+
+from __future__ import annotations
+
+import os
 
 import pytest
 
 from app.config import get_settings
 from app.services.observability.bootstrap import reset_observability_for_tests
 from app.services.observability.noop import NoopObservabilityAdapter
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-heavy",
+        action="store_true",
+        default=False,
+        help="Include tests marked slow (eval soft/judge, live LLM smoke). Default: deselected.",
+    )
+
+
+def _include_heavy_tests(config: pytest.Config) -> bool:
+    if config.getoption("--run-heavy"):
+        return True
+    raw = os.getenv("RUN_HEAVY_TESTS", "").strip().lower()
+    if raw in {"1", "true", "yes"}:
+        return True
+    markexpr = (config.option.markexpr or "").strip()
+    if markexpr == "slow":
+        return True
+    if "slow" in markexpr and "not slow" not in markexpr:
+        return True
+    return False
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if _include_heavy_tests(config):
+        return
+    kept: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        if item.get_closest_marker("slow"):
+            deselected.append(item)
+        else:
+            kept.append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = kept
 
 
 @pytest.fixture(autouse=True)
