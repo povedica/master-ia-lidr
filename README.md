@@ -436,6 +436,7 @@ master-ia/
 │   ├── guardrails/             # Input/output policy pipeline
 │   ├── schemas/                # Pydantic models
 │   ├── context/                # Few-shot example pools
+│   ├── embedding_pipeline/     # Session 07: budget chunking + embeddings (isolated)
 │   └── prompts/estimation/     # Jinja2 prompt bundles (v1, v2)
 ├── web/                        # React + Vite UI
 ├── tests/                      # pytest suite (mocked providers)
@@ -548,6 +549,16 @@ uv run python -m evals.stress.run \
 ```
 
 Deliverables (per scenario): `evals/stress/results-<scenario>.csv` (one row per turn) and `evals/stress/REPORT-<scenario>.md` (summary tables + interpretation). The default configuration runs ~600 LLM calls per scenario sequentially; use `--turn-counts` and `--repeats` to shorten smoke runs.
+
+### Embedding pipeline (Session 07)
+
+Isolated learning module under `app/embedding_pipeline/` for budget JSON chunking and OpenAI embeddings. It does **not** share code with the semantic cache (`app/services/semantic_cache/`).
+
+**Increment 1 (feature-030)** ships the module skeleton and Pydantic schemas only (`app/embedding_pipeline/schemas.py`). Chunking, embedding, ingest route, and CLI arrive in features 031–034.
+
+```bash
+uv run pytest tests/embedding_pipeline/test_schemas.py
+```
 
 ---
 
