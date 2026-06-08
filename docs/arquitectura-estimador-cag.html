@@ -1582,6 +1582,13 @@
                         <span class="arch-node-title">v1 /sessions</span>
                         <span class="arch-node-sub">multi-turno</span>
                       </button>
+                      <button type="button" class="arch-node" data-id="router-embeddings" data-layer="router"
+                        data-title="POST /api/v1/embeddings/ingest"
+                        data-file="app/routers/embeddings.py"
+                        data-desc="Pipeline Session 07: chunker estructural + OpenAIEmbedder. Aislado del estimador CAG y de semantic_cache.">
+                        <span class="arch-node-title">v1 /embeddings/ingest</span>
+                        <span class="arch-node-sub">budgets → vectors</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1971,11 +1978,16 @@
             <div class="tree-children" style="display:block">
               <div class="tree-leaf">main.py <span class="comment">— entrypoint, lifespan, CORS, routers</span></div>
               <div class="tree-leaf">config.py <span class="comment">— Settings pydantic-settings</span></div>
-              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions</span></div>
+              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions, embeddings</span></div>
               <div class="tree-children">
                 <div class="tree-leaf">estimations.py <span class="comment">— v1 text + SSE</span></div>
                 <div class="tree-leaf">estimations_v2.py <span class="comment">— v2 structured</span></div>
                 <div class="tree-leaf">sessions.py <span class="comment">— CRUD sesiones + estimate</span></div>
+                <div class="tree-leaf">embeddings.py <span class="comment">— ingest pipeline Session 07</span></div>
+              </div>
+              <div class="tree-node">embedding_pipeline/ <span class="comment">— chunker + embedder (Session 07, aislado)</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">chunker.py · embedder.py · schemas.py</div>
               </div>
               <div class="tree-node">services/ <span class="comment">— lógica de negocio</span></div>
               <div class="tree-children">
@@ -2463,6 +2475,7 @@ flowchart TD
               <tr><td>GET</td><td><code>/api/v1/sessions</code></td><td>Listar sesiones sidebar</td><td>Últimos 30 días</td></tr>
               <tr><td>GET</td><td><code>/api/v1/sessions/{id}</code></td><td>Detalle para restore</td><td>Payload + metadata + last estimate</td></tr>
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Chunk + embed budgets</td><td>JSONStructuralChunker → OpenAIEmbedder</td></tr>
             </tbody>
           </table>
         </div>

@@ -69,16 +69,30 @@ Edge cases:
   - `app.include_router(embeddings.router, prefix="/api/v1")`.
   - Optionally add `"embeddings": "POST /api/v1/embeddings/ingest"` to `read_root()`.
 
+## Estimation
+
+- Size: S
+- Estimated time: 2 hours
+- Planned steps: 4
+- **PR:** https://github.com/povedica/master-ia-lidr/pull/29 — merged
+
+## Implementation progress
+
+- [x] Step 1: RED — `tests/embedding_pipeline/test_router.py` with dependency-override fakes
+- [x] Step 2: GREEN — `app/routers/embeddings.py` + registration in `app/main.py`
+- [x] Step 3: Full suite + router tests green
+- [x] Step 4: README + Second Brain note
+
 ## Acceptance Criteria
-- [ ] AC-01: `POST /api/v1/embeddings/ingest` appears in Swagger UI (`/docs`).
-- [ ] AC-02: A valid `IngestRequest` with ≥2 budgets returns `200` and a populated `IngestResponse`.
-- [ ] AC-03: `len(response.chunks)` equals total components across all input budgets.
-- [ ] AC-04: `response.stats.total_budgets` equals the number of budgets sent.
-- [ ] AC-05: `response.stats.total_chunks == len(response.chunks)`; `total_tokens` and `estimated_cost_usd` come from the embedder.
-- [ ] AC-06: Malformed body (missing required fields) returns `422`.
-- [ ] AC-07: An embedder failure surfaces as `500` with a generic message; full error is logged with `request_id` and `error_type`, no secrets.
-- [ ] AC-08: Empty `budgets` returns `200` with `chunks: []` and zeroed stats, no API call.
-- [ ] AC-09: Router lives in `app/routers/embeddings.py` and is registered under `/api/v1`; existing routers are unchanged.
+- [x] AC-01: `POST /api/v1/embeddings/ingest` appears in Swagger UI (`/docs`).
+- [x] AC-02: A valid `IngestRequest` with ≥2 budgets returns `200` and a populated `IngestResponse`.
+- [x] AC-03: `len(response.chunks)` equals total components across all input budgets.
+- [x] AC-04: `response.stats.total_budgets` equals the number of budgets sent.
+- [x] AC-05: `response.stats.total_chunks == len(response.chunks)`; `total_tokens` and `estimated_cost_usd` come from the embedder.
+- [x] AC-06: Malformed body (missing required fields) returns `422`.
+- [x] AC-07: An embedder failure surfaces as `500` with a generic message; full error is logged with `request_id` and `error_type`, no secrets.
+- [x] AC-08: Empty `budgets` returns `200` with `chunks: []` and zeroed stats, no API call.
+- [x] AC-09: Router lives in `app/routers/embeddings.py` and is registered under `/api/v1`; existing routers are unchanged.
 
 ## Test Plan
 - Integration tests (`tests/embedding_pipeline/test_router.py`) using FastAPI `TestClient`/httpx ASGITransport with the embedder **mocked/faked** (no real API keys):
@@ -90,21 +104,35 @@ Edge cases:
 - Manual checks: `uv run uvicorn app.main:app --reload`, open `/docs`, POST a 2-budget payload (real key) and confirm counts.
 
 ## Verification
-- Automated: `uv run pytest tests/embedding_pipeline/test_router.py` (mocked embedder).
-- Manual: Swagger smoke test with a real key; confirm `200`, chunk count, and `total_budgets`.
+- Automated: `uv run pytest tests/embedding_pipeline/test_router.py` — **7 passed** (mocked embedder).
+- Automated: `uv run pytest tests/embedding_pipeline/` — **41 passed** (finish-task re-run).
+- Full fast suite: `uv run pytest` — **413 passed**, 11 skipped, 10 deselected (finish-task re-run).
+- App startup / OpenAPI: `from app.main import app` + path in `app.openapi()` — **verified**.
+- Manual: Swagger smoke test with a real key; confirm `200`, chunk count, and `total_budgets`. **Not verified** (no live OpenAI call in closure).
 - Not verified yet: CLI cosine similarity (Feature 034).
 
 ## Documentation Plan
 - README: document the endpoint path `POST /api/v1/embeddings/ingest`, request/response shape, status codes, and the Docker run command (`docker compose up app` then POST to `http://localhost:8000/api/v1/embeddings/ingest`).
 - Second Brain: note the router-location and versioning decisions vs the exercise text.
+- Architecture guide: `docs/arquitectura-estimador-cag.html` — router node, file tree, routes table (done).
 
 ## Implementation Plan
-- [ ] Step 1: Create `app/routers/embeddings.py` with deps + handler.
-- [ ] Step 2: Register router in `app/main.py` (and root hint).
-- [ ] Step 3: Add `tests/embedding_pipeline/test_router.py` with dependency-override fakes (RED → GREEN).
-- [ ] Step 4: Run tests; verify `/docs` and error mapping.
-- [ ] Step 5: Update README + Second Brain note.
+- [x] Step 1: Create `app/routers/embeddings.py` with deps + handler.
+- [x] Step 2: Register router in `app/main.py` (and root hint).
+- [x] Step 3: Add `tests/embedding_pipeline/test_router.py` with dependency-override fakes (RED → GREEN).
+- [x] Step 4: Run tests; verify `/docs` and error mapping.
+- [x] Step 5: Update README + Second Brain note.
 
 ## Learnings
 - Keeping the router under `app/routers/` and versioning under `/api/v1` preserves the project's single, predictable API surface; co-locating routes inside feature packages would fragment it.
 - The 500 handler must convert provider errors to a safe message at the boundary; the embedder already classifies rate limits, so the router only needs a generic catch-all with structured logging.
+- TDD with `dependency_overrides` on `get_embedder` keeps router tests fast and deterministic without touching chunker/embedder internals.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| feat(embedding): add POST /api/v1/embeddings/ingest endpoint | Router, main registration, integration tests |
+| docs(embedding): document ingest endpoint for feature-033 | README, work item, Second Brain session note |
+| docs(feature-033): record PR link and commit table | Work item PR link |
+| docs(architecture): add embeddings ingest route to guide | `docs/arquitectura-estimador-cag.html` routes + tree |
