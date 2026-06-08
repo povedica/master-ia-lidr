@@ -610,7 +610,19 @@ docker compose up app
 # POST http://localhost:8000/api/v1/embeddings/ingest
 ```
 
-CLI cosine similarity arrives in feature-034.
+**Increment 5 (feature-034)** adds `app/scripts/compare.py`: embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
+
+```bash
+# Outside container (loads .env via pydantic-settings)
+uv run python -m app.scripts.compare \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+
+# Inside Docker (service name: app)
+docker compose exec app python -m app.scripts.compare \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+```
 
 ```bash
 uv run pytest tests/embedding_pipeline/

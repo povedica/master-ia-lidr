@@ -1389,6 +1389,7 @@
         <li><a href="#guardrails">Guardrails</a></li>
         <li><a href="#acb">ACB (Actor-Critic-Boss)</a></li>
         <li><a href="#cache">Caché semántica</a></li>
+        <li><a href="#embedding-pipeline">Pipeline embeddings (S07)</a></li>
         <li><a href="#sessions">Sesiones</a></li>
         <li><a href="#tokens">Tokens y coste</a></li>
         <li><a href="#critical">Partes críticas</a></li>
@@ -1448,6 +1449,7 @@
               <li><code>v1</code> — texto Markdown + SSE streaming</li>
               <li><code>v2</code> — JSON estructurado + guardrails</li>
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
+              <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores)</li>
             </ul>
           </div>
           <div class="card">
@@ -1985,9 +1987,13 @@
                 <div class="tree-leaf">sessions.py <span class="comment">— CRUD sesiones + estimate</span></div>
                 <div class="tree-leaf">embeddings.py <span class="comment">— ingest pipeline Session 07</span></div>
               </div>
-              <div class="tree-node">embedding_pipeline/ <span class="comment">— chunker + embedder (Session 07, aislado)</span></div>
+              <div class="tree-node">embedding_pipeline/ <span class="comment">— Session 07: schemas, chunker, embedder (aislado)</span></div>
               <div class="tree-children">
-                <div class="tree-leaf">chunker.py · embedder.py · schemas.py</div>
+                <div class="tree-leaf">schemas.py · chunker.py · embedder.py · SANITY_CHECK.md</div>
+              </div>
+              <div class="tree-node">scripts/ <span class="comment">— CLI compare (Docker-safe bajo app/)</span></div>
+              <div class="tree-children">
+                <div class="tree-leaf">compare.py <span class="comment">— cosine similarity sanity check</span></div>
               </div>
               <div class="tree-node">services/ <span class="comment">— lógica de negocio</span></div>
               <div class="tree-children">
@@ -2057,6 +2063,7 @@
           <button class="tab active" data-tab="flow-v1">v1 Texto</button>
           <button class="tab" data-tab="flow-v2">v2 Guarded</button>
           <button class="tab" data-tab="flow-session">Sesión Web</button>
+          <button class="tab" data-tab="flow-embeddings">Embeddings S07</button>
         </div>
 
         <div class="tab-panel active" id="flow-v1">
@@ -2101,6 +2108,21 @@
             <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Metadata merge</h4><p><code>derive_project_metadata()</code> + <code>merge_derived_metadata()</code> acumula contexto entre turnos.</p></div></div>
             <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>LLMPipeline con historial</h4><p><code>messages_override</code> incluye ventana deslizante user/assistant + prompt actual completo. Con <code>ACB_ENABLED</code> (o <code>orchestration: acb</code>) usa <code>run_structured_with_acb</code>: Actor → Critic → Boss; la caché semántica no sirve hits.</p></div></div>
             <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Paneles UI</h4><p><code>ProjectMetadataPanel</code> y <code>EstimateResultPanel</code> se actualizan con la respuesta estructurada v2. Con <code>DEV_MODE=true</code> y ACB activo, <code>estimate.acb_trace</code> muestra iteraciones y decisiones del Boss.</p></div></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="flow-embeddings">
+          <div class="flow-controls">
+            <button class="btn primary" data-flow="embeddings" data-action="play">▶ Reproducir</button>
+            <button class="btn" data-flow="embeddings" data-action="reset">↺ Reiniciar</button>
+          </div>
+          <div class="flow-steps" id="steps-embeddings">
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Entrada: presupuestos JSON o textos sueltos</h4><p><strong>Ingest HTTP:</strong> <code>IngestRequest</code> con <code>budgets: list[Budget]</code>. <strong>CLI compare:</strong> dos strings <code>--text-a</code> / <code>--text-b</code> sin chunker.</p></div></div>
+            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Validación Pydantic (solo ingest)</h4><p>FastAPI valida <code>Budget</code>, <code>BudgetComponent</code> y metadatos de cliente. Errores → <code>422</code>.</p></div></div>
+            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Chunking estructural</h4><p><code>JSONStructuralChunker.chunk()</code>: un chunk por componente, texto con contexto del presupuesto padre, <code>token_count</code> con tiktoken (<code>text-embedding-3-small</code>).</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Embedding OpenAI</h4><p><code>OpenAIEmbedder.embed_many()</code> (ingest) o <code>embed_one()</code> ×2 (CLI). Lotes de hasta 100 chunks, retry en rate limit, vectores 1536 dims.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Salida</h4><p><strong>Ingest:</strong> <code>IngestResponse</code> con <code>EmbeddedChunk[]</code> + <code>IngestStats</code>. <strong>CLI:</strong> similitud coseno en stdout (stdlib <code>math</code>).</p></div></div>
+            <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Calidad (CLI)</h4><p>Tres pares de referencia en <code>SANITY_CHECK.md</code> validan separación semántica antes de Session 08 (vector DB).</p></div></div>
           </div>
         </div>
 
@@ -2328,6 +2350,157 @@ flowchart TD
         </div>
       </section>
 
+      <!-- Embedding pipeline Session 07 -->
+      <section id="embedding-pipeline">
+        <h2><span class="num">07</span> Pipeline de embeddings (Session 07)</h2>
+        <p class="lead">
+          Módulo de aprendizaje <strong>aislado</strong> bajo <code>app/embedding_pipeline/</code>.
+          Convierte presupuestos históricos JSON en chunks de texto enriquecidos y vectores OpenAI
+          (<code>text-embedding-3-small</code>, 1536 dimensiones). No comparte código con la
+          <a href="#cache">caché semántica</a> del estimador v2 ni con el flujo CAG.
+        </p>
+
+        <div class="alert info">
+          <strong>Milestone completo (features 030–034):</strong> schemas → chunker → embedder → endpoint HTTP → CLI cosine + sanity check.
+          La persistencia en vector DB queda para Session 08.
+        </div>
+
+        <h3>Vista funcional</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>¿Qué problema resuelve?</h4>
+            <p>Preparar texto de presupuestos de software (componentes, stack, sector, horas) en fragmentos embeddables listos para búsqueda semántica o clustering — sin acoplar aún a Redis ni a un vector store.</p>
+          </div>
+          <div class="card">
+            <h4>Dos formas de uso</h4>
+            <ul>
+              <li><strong>Ingest batch:</strong> <code>POST /api/v1/embeddings/ingest</code> — muchos presupuestos → muchos <code>EmbeddedChunk</code> + estadísticas de coste.</li>
+              <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos sueltos → similitud coseno (sanity check de calidad del modelo).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Entrada típica</h4>
+            <p>JSON de presupuesto con <code>budget_id</code>, metadatos de cliente, resumen de proyecto y lista de <code>components</code> (AUTH, API, DB, etc.).</p>
+          </div>
+          <div class="card">
+            <h4>Salida típica</h4>
+            <p>Lista de <code>EmbeddedChunk</code>: cada uno conserva <code>chunk_id</code>, <code>text</code>, <code>metadata</code>, <code>token_count</code> y un vector <code>embedding[1536]</code>, más agregados de tokens y coste estimado.</p>
+          </div>
+        </div>
+
+        <h3>Arquitectura técnica — cinco incrementos</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Paso</th><th>Feature</th><th>Módulo</th><th>Responsabilidad</th><th>Utilidad</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td><td>030</td><td><code>schemas.py</code></td>
+                <td>Contrato Pydantic: <code>Budget</code>, <code>Chunk</code>, <code>EmbeddedChunk</code>, <code>IngestRequest/Response</code></td>
+                <td>Validación única compartida por chunker, embedder, router y tests; <code>IngestStats</code> tipado (no <code>dict</code> suelto).</td>
+              </tr>
+              <tr>
+                <td>2</td><td>031</td><td><code>chunker.py</code></td>
+                <td><code>JSONStructuralChunker</code>: 1 componente = 1 chunk; plantilla de texto fija; tiktoken</td>
+                <td>Enriquece cada embedding con contexto del presupuesto padre (sector, año, tech) sin splitting semántico.</td>
+              </tr>
+              <tr>
+                <td>3</td><td>032</td><td><code>embedder.py</code></td>
+                <td><code>OpenAIEmbedder</code> async: batching, retry rate-limit, logging por lote, <code>last_cost_usd</code></td>
+                <td>Única frontera OpenAI del pipeline; evita N llamadas HTTP (lotes de 100) y bloqueo del event loop.</td>
+              </tr>
+              <tr>
+                <td>4</td><td>033</td><td><code>app/routers/embeddings.py</code></td>
+                <td><code>POST /api/v1/embeddings/ingest</code> orquesta chunker + embedder</td>
+                <td>Expone el pipeline por HTTP con DI FastAPI; errores → <code>500</code> genérico + log con <code>request_id</code>.</td>
+              </tr>
+              <tr>
+                <td>5</td><td>034</td><td><code>app/scripts/compare.py</code></td>
+                <td>CLI: <code>embed_one</code> ×2 + cosine con <code>math</code>; resultados en <code>SANITY_CHECK.md</code></td>
+                <td>Verifica calidad del modelo antes de persistir vectores; material de discusión en sesión.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Flujo de datos (ingest HTTP)</h3>
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart LR
+    REQ["IngestRequest\nbudgets[]"] --> VAL["Pydantic validation"]
+    VAL --> CHK["JSONStructuralChunker.chunk()"]
+    CHK --> CH["Chunk[]\nchunk_id, text,\nmetadata, token_count"]
+    CH --> EMB["OpenAIEmbedder.embed_many()"]
+    EMB --> API["OpenAI Embeddings API\ntext-embedding-3-small"]
+    API --> OUT["IngestResponse\nEmbeddedChunk[] + IngestStats"]
+          </pre>
+        </div>
+
+        <h3>Contrato de chunk</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Campo</th><th>Formato / contenido</th></tr></thead>
+            <tbody>
+              <tr><td><code>chunk_id</code></td><td><code>{budget_id}::{component_id}</code> (p. ej. <code>BUD-2024-014::AUTH-001</code>)</td></tr>
+              <tr><td><code>text</code></td><td>Cabecera proyecto/cliente + 5 líneas del componente (nombre, descripción, stack, complejidad, horas)</td></tr>
+              <tr><td><code>metadata</code></td><td><code>budget_id</code>, <code>component_id</code>, <code>client_sector</code>, <code>main_technology</code>, <code>year</code>, <code>complexity</code>, <code>estimated_hours</code></td></tr>
+              <tr><td><code>token_count</code></td><td>Tokens del <code>text</code> con encoding <code>text-embedding-3-small</code> (tiktoken, encoder único por instancia)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Variables de entorno</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Variable</th><th>Default</th><th>Uso en pipeline</th></tr></thead>
+            <tbody>
+              <tr><td><code>OPENAI_API_KEY</code></td><td>—</td><td>Obligatoria para embedder y CLI compare</td></tr>
+              <tr><td><code>OPENAI_TIMEOUT_SECONDS</code></td><td>30</td><td>Timeout del cliente <code>AsyncOpenAI</code></td></tr>
+              <tr><td><code>EMBEDDING_PIPELINE_MODEL</code></td><td><code>text-embedding-3-small</code></td><td>Modelo de embedding (1536 dims por defecto)</td></tr>
+              <tr><td><code>EMBEDDING_PIPELINE_BATCH_SIZE</code></td><td>100</td><td>Chunks por llamada <code>embeddings.create</code> en <code>embed_many</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Cómo usarlo</h3>
+        <p><strong>Ingest HTTP</strong> — presupuestos → vectores:</p>
+        <div class="diagram-box" style="font-family:var(--mono);font-size:var(--text-sm);white-space:pre-wrap">uv run uvicorn app.main:app --reload
+# POST http://127.0.0.1:8000/api/v1/embeddings/ingest
+# Body: { "budgets": [ { "budget_id": "...", "client_metadata": {...}, ... } ] }</div>
+
+        <p style="margin-top:1rem"><strong>CLI compare</strong> — sanity check de similitud entre dos textos:</p>
+        <div class="diagram-box" style="font-family:var(--mono);font-size:var(--text-sm);white-space:pre-wrap"># Local (carga .env)
+uv run python -m app.scripts.compare \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+
+# Docker (script bajo app/ → disponible en imagen)
+docker compose exec app python -m app.scripts.compare --text-a "..." --text-b "..."</div>
+
+        <p style="margin-top:1rem">Resultados de referencia: <code>app/embedding_pipeline/SANITY_CHECK.md</code> (pares A/B/C medidos en implementación).</p>
+
+        <h3>Aislamiento vs caché semántica</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Aspecto</th><th>Pipeline Session 07</th><th>Caché semántica (v2)</th></tr></thead>
+            <tbody>
+              <tr><td>Ubicación</td><td><code>app/embedding_pipeline/</code></td><td><code>app/services/semantic_cache/</code></td></tr>
+              <tr><td>Propósito</td><td>Ingestión y aprendizaje de presupuestos históricos</td><td>Reutilizar estimaciones v2 similares</td></tr>
+              <tr><td>Entrada</td><td><code>Budget</code> JSON estructurado</td><td>Texto libre del request de estimación</td></tr>
+              <tr><td>Persistencia</td><td>Ninguna (respuesta en memoria)</td><td>Redis / memory store</td></tr>
+              <tr><td>Imports cruzados</td><td>Ninguno — módulos independientes</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert warning">
+          <strong>Decisión async:</strong> el embedder expone <code>async def embed_one/embed_many</code> para no bloquear el event loop de FastAPI. El CLI síncrono usa <code>asyncio.run()</code> como puente.
+        </div>
+
+        <p style="margin-top:1rem">Work items: <code>feature-030</code> … <code>feature-034</code> · Tests: <code>tests/embedding_pipeline/</code> (47 tests, suite offline con mocks).</p>
+      </section>
+
       <!-- 10. Sessions -->
       <section id="sessions">
         <h2><span class="num">10</span> Sesiones multi-turno</h2>
@@ -2526,6 +2699,10 @@ flowchart TD
               <div class="tree-leaf">fixtures/build_pdfs.py · test_stress_*.py</div>
             </div>
             <div class="tree-leaf">test_*.py <span class="comment">— ~65 módulos · ~325 tests (pytest)</span></div>
+            <div class="tree-node open">embedding_pipeline/ <span class="comment">— Session 07 pipeline (feature 030–034)</span></div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">test_schemas.py · test_chunker.py · test_embedder.py · test_router.py · test_compare.py</div>
+            </div>
           </div>
           <div class="tree-node">web/src/**/*.test.ts</div>
           <div class="tree-children">
@@ -2553,6 +2730,13 @@ flowchart TD
                 <td>No</td>
                 <td>pytest + monkeypatch</td>
                 <td><code>test_llm_service.py</code>, <code>test_llm_pipeline.py</code>, <code>test_semantic_cache_*.py</code></td>
+              </tr>
+              <tr>
+                <td><strong>Unitarios (embedding pipeline)</strong></td>
+                <td>Schemas, chunker, embedder batching/retry, router DI, CLI cosine — Session 07 aislado</td>
+                <td>No</td>
+                <td>pytest + mocks AsyncOpenAI</td>
+                <td><code>tests/embedding_pipeline/</code> (47 tests)</td>
               </tr>
               <tr>
                 <td><strong>API / HTTP</strong></td>
