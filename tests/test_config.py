@@ -175,3 +175,20 @@ def test_acb_force_enabled_in_dev_when_local() -> None:
         app_env="local",
     )
     assert settings.acb_requested(None, endpoint="session_estimate") is True
+
+
+def test_embedding_pipeline_settings_defaults() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.embedding_pipeline_model == "text-embedding-3-small"
+    assert settings.embedding_pipeline_batch_size == 100
+
+
+def test_embedding_pipeline_settings_env_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EMBEDDING_PIPELINE_MODEL", "text-embedding-3-large")
+    monkeypatch.setenv("EMBEDDING_PIPELINE_BATCH_SIZE", "50")
+    get_settings.cache_clear()
+    settings = Settings()
+    assert settings.embedding_pipeline_model == "text-embedding-3-large"
+    assert settings.embedding_pipeline_batch_size == 50

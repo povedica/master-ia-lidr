@@ -109,7 +109,7 @@ Edge cases:
 
 ## Implementation progress
 
-- [ ] Step 1: Add settings + `.env.example` entries.
+- [x] Step 1: Add settings + `.env.example` entries.
 - [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
 - [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
 - [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
@@ -117,7 +117,7 @@ Edge cases:
 - [ ] Step 6: Update README + Second Brain note.
 
 ## Implementation Plan
-- [ ] Step 1: Add settings + `.env.example` entries.
+- [x] Step 1: Add settings + `.env.example` entries.
 - [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
 - [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
 - [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
@@ -126,7 +126,7 @@ Edge cases:
 
 ## Pull request
 
-- WIP draft PR URL: _(pending Phase 4 setup)_
+- WIP draft PR URL: https://github.com/povedica/master-ia-lidr/pull/27
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
