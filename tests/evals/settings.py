@@ -27,6 +27,7 @@ def eval_test_settings() -> Settings:
         "llm_domain_guardrail_enabled": False,
         "semantic_cache_enabled": False,
         "max_attachment_context_chars": 8_000,
+        "acb_enabled": False,
     }
     if eval_estimator_uses_real_llm():
         if not loaded.openai_api_key.strip():

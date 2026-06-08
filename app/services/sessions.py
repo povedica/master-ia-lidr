@@ -100,6 +100,7 @@ class Session:
     last_attachment_statuses: list[Any] = field(default_factory=list)
     last_estimate: dict[str, Any] | None = None
     last_warnings: list[str] = field(default_factory=list)
+    last_turn_observation: dict[str, Any] | None = None
     submit_count: int = 0
 
 

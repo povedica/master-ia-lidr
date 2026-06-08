@@ -41,6 +41,7 @@ from app.services.simplified_session_estimation_service import (
     SimplifiedSessionEstimationService,
 )
 from app.services.sessions import session_display_label, session_store
+from app.services.turn_observation import build_turn_observation
 
 router = APIRouter(tags=["sessions"])
 logger = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ def get_session(session_id: str) -> SessionDetailResponse:
         warnings=list(session.last_warnings),
         attachments=attachment_statuses,
         submit_count=session.submit_count,
+        last_turn_observation=session.last_turn_observation,
     )
 
 
@@ -243,10 +245,20 @@ async def estimate_in_session(
     )
 
     estimate_payload = estimate.model_dump(mode="json")
+    observation = build_turn_observation(
+        session=submit.session,
+        pipeline=outcome,
+        enriched_transcript_chars=submit.enriched_transcript_chars,
+        attachments_total_chars=submit.attachments_total_chars,
+        latency_ms=latency_ms,
+    )
+    logger.info("turn_observed", extra=observation)
+
     stored = session_store.get_session(session_id)
     if stored is not None:
         stored.last_estimate = estimate_payload
         stored.last_warnings = list(submit.warnings)
+        stored.last_turn_observation = observation
 
     return SessionEstimateResponse(
         session_id=session_id,

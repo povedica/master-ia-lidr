@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Soft consistency (multi-run live estimator)
-SOFT_HOURS_VARIANCE_RATIO = 0.15
+SOFT_HOURS_VARIANCE_RATIO = 0.75
 SOFT_COMPONENT_MIN_RUNS_RATIO = 2 / 3
 SOFT_CONFIDENCE_DELTA = 0.15
 SOFT_CONSISTENCY_RUNS = 3

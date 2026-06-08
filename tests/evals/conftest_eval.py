@@ -33,9 +33,29 @@ async def eval_async_client(
     eval_structured_llm: EvalStructuredLLM,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
+    """Deterministic harness: always uses the golden-aligned fake structured LLM."""
+
     async with eval_integration_client(
         monkeypatch=monkeypatch,
         store=eval_session_store,
         fake=eval_structured_llm,
+        force_fake=True,
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def eval_live_async_client(
+    eval_session_store: InMemorySessionStore,
+    eval_structured_llm: EvalStructuredLLM,
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[AsyncClient]:
+    """Live-estimator harness for soft/judge evals (respects ``EVAL_ESTIMATOR_USE_REAL_LLM``)."""
+
+    async with eval_integration_client(
+        monkeypatch=monkeypatch,
+        store=eval_session_store,
+        fake=eval_structured_llm,
+        force_fake=False,
     ) as client:
         yield client

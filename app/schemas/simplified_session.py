@@ -174,3 +174,4 @@ class SessionDetailResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     attachments: list[AttachmentProcessingStatus] = Field(default_factory=list)
     submit_count: int = 0
+    last_turn_observation: dict[str, Any] | None = None

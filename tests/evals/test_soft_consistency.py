@@ -34,7 +34,7 @@ def _soft_run_count() -> int:
 @pytest.mark.parametrize("case_id", _SOFT_CASE_IDS)
 async def test_soft_consistency_multi_run(
     case_id: str,
-    eval_async_client: AsyncClient,
+    eval_live_async_client: AsyncClient,
     eval_session_store: InMemorySessionStore,
     eval_structured_llm: EvalStructuredLLM,
 ) -> None:
@@ -47,7 +47,7 @@ async def test_soft_consistency_multi_run(
     for _ in range(runs):
         outcome = await SessionEvalRunner().run_case(
             case,
-            client=eval_async_client,
+            client=eval_live_async_client,
             store=eval_session_store,
             fake=None,
         )

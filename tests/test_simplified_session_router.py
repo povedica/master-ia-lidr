@@ -19,7 +19,8 @@ from app.services.simplified_session_estimation_service import (
     SessionNotFoundError,
     SimplifiedSessionSubmitOutcome,
 )
-from app.services.sessions import DerivedProjectMetadata, InMemorySessionStore, Session
+from app.services.sessions import DerivedProjectMetadata, InMemorySessionStore, ProjectMetadata, Session
+from app.services.turn_observation import TURN_OBSERVED_FIELDS
 
 
 def _build_app(store: InMemorySessionStore) -> FastAPI:
@@ -60,6 +61,11 @@ def _bundle() -> StructuredEstimateBundle:
 
 
 def _submit_outcome(session: Session) -> SimplifiedSessionSubmitOutcome:
+    session.submit_count = 1
+    session.project_metadata = ProjectMetadata(
+        project_name="Portal",
+        agreed_scope="Summary text",
+    )
     metadata = DerivedProjectMetadata(
         project_name="Portal",
         project_type=ProjectType.web_saas,
@@ -82,6 +88,8 @@ def _submit_outcome(session: Session) -> SimplifiedSessionSubmitOutcome:
         normalized_payload={"project_name": "Portal"},
         derived_metadata=metadata,
         attachment_statuses=[],
+        enriched_transcript_chars=512,
+        attachments_total_chars=0,
     )
 
 
@@ -139,6 +147,38 @@ def test_estimate_persists_last_estimate_for_session_detail() -> None:
     assert stored is not None
     assert stored.last_estimate is not None
     assert stored.last_estimate["result"]["title"] == "Estimate"
+
+
+def test_estimate_persists_last_turn_observation_for_session_detail() -> None:
+    store = InMemorySessionStore()
+    session = store.create_session()
+    app = _build_app(store)
+    service = app.state._test_service
+    service.run_submit = AsyncMock(return_value=_submit_outcome(session))
+
+    with patch("app.routers.sessions.session_store", store):
+        client = TestClient(app)
+        post = client.post(
+            f"/api/v1/sessions/{session.session_id}/estimate",
+            json=SessionEstimateRequest(
+                project_name="Portal",
+                project_type=ProjectType.web_saas,
+                transcript="A" * 80,
+                target_audience=TargetAudience.b2b_smb,
+            ).model_dump(mode="json"),
+        )
+        detail = client.get(f"/api/v1/sessions/{session.session_id}")
+
+    assert post.status_code == 200
+    assert detail.status_code == 200
+    observation = detail.json()["last_turn_observation"]
+    assert observation is not None
+    assert set(observation.keys()) == set(TURN_OBSERVED_FIELDS)
+    assert observation["session_id"] == session.session_id
+    assert observation["turn_index"] == 1
+    stored = store.get_session(session.session_id)
+    assert stored is not None
+    assert stored.last_turn_observation == observation
 
 
 def test_estimate_unknown_session_returns_404() -> None:
