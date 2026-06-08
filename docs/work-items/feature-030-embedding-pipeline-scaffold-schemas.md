@@ -154,8 +154,11 @@ Behavioral notes:
 
 | Commit | Summary |
 |--------|---------|
+| `013f403` | `docs(embedding-pipeline): add feature work items 030-034 for Session 07` |
 | `acee4d5` | `feat(embedding-pipeline): add module skeleton and script stubs` |
 | `6233314` | `test(embedding-pipeline): add schema contract tests (RED)` |
 | `42997e7` | `feat(embedding-pipeline): implement Pydantic schemas for ingest contract` |
 | `0c5bd0e` | `chore(deps): add tiktoken for embedding pipeline chunker` |
 | `def7cea` | `docs(embedding-pipeline): document Session 07 increment 1` |
+| `34f0eb6` | `docs(feature-030): record implementation commit hashes` |
+| `75dd33c` | `docs(feature-030): complete retrospective and mark PR merged` |
