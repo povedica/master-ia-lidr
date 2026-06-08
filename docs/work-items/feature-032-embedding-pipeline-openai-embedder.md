@@ -141,6 +141,7 @@ Edge cases:
 | 30a0f3b | docs(embedding-pipeline): document OpenAIEmbedder contract and verification |
 | b423eba | docs(feature-032): record implementation commit SHAs |
 | e64fd3e | docs(feature-032): sync commit table with latest SHA |
+| 91ae288 | docs(feature-032): complete retrospective and mark PR merged |
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
