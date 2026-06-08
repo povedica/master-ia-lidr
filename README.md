@@ -554,10 +554,20 @@ Deliverables (per scenario): `evals/stress/results-<scenario>.csv` (one row per 
 
 Isolated learning module under `app/embedding_pipeline/` for budget JSON chunking and OpenAI embeddings. It does **not** share code with the semantic cache (`app/services/semantic_cache/`).
 
-**Increment 1 (feature-030)** ships the module skeleton and Pydantic schemas only (`app/embedding_pipeline/schemas.py`). Chunking, embedding, ingest route, and CLI arrive in features 031–034.
+**Increment 1 (feature-030)** ships the module skeleton and Pydantic schemas (`app/embedding_pipeline/schemas.py`).
+
+**Increment 2 (feature-031)** adds `JSONStructuralChunker` in `app/embedding_pipeline/chunker.py`: one chunk per budget component, with parent-budget context in the text and tiktoken-based `token_count` (`text-embedding-3-small` encoding).
+
+Chunk contract:
+
+- `chunk_id`: `{budget_id}::{component_id}` (e.g. `BUD-2024-014::AUTH-001`).
+- `text`: project/client header plus component name, description, tech stack, complexity, and estimated hours (see feature-031 work item for the exact template).
+- `metadata`: `budget_id`, `component_id`, `client_sector`, `main_technology`, `year`, `complexity`, `estimated_hours`.
+
+Embedding, ingest route, and CLI arrive in features 032–034.
 
 ```bash
-uv run pytest tests/embedding_pipeline/test_schemas.py
+uv run pytest tests/embedding_pipeline/
 ```
 
 ---
