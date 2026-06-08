@@ -2,6 +2,9 @@
 
 Deterministic multi-turn and attachment stress runs for the session-based CAG baseline.
 
+**Full technical reference:** [docs/technical/cag-stress-testing.md](../../docs/technical/cag-stress-testing.md)  
+**Interactive guide (Spanish):** [docs/arquitectura-estimador-cag.html](../../docs/arquitectura-estimador-cag.html#stress-testing)
+
 ## Regenerate PDF fixtures
 
 ```bash

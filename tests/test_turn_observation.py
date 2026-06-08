@@ -103,6 +103,47 @@ def test_build_turn_observation_includes_all_required_fields() -> None:
     assert observation["last_resolved_tier"] == "default"
 
 
+def test_build_turn_observation_cost_usd_with_litellm_model_id() -> None:
+    session = _session_with_history()
+    bundle = _bundle_with_usage()
+    litellm_bundle = StructuredEstimateBundle(
+        result=bundle.result,
+        prompt_version=bundle.prompt_version,
+        examples_version=bundle.examples_version,
+        model="openai/gpt-4o-mini",
+        provider=bundle.provider,
+        usage=bundle.usage,
+        degraded=bundle.degraded,
+        finish_reason=bundle.finish_reason,
+    )
+    pipeline = StructuredPipelineOutcome(
+        bundle=litellm_bundle,
+        cached=False,
+        cache_score=None,
+        cache_bucket=None,
+        final_status=FinalResponseStatus.SUCCESS,
+        reason_code=None,
+        user_message=None,
+        technical_message=None,
+        audit_id="audit-litellm",
+        safe_to_cache=True,
+        safe_to_display=True,
+        cache_miss_reason=None,
+        acb_trace=None,
+    )
+
+    observation = build_turn_observation(
+        session=session,
+        pipeline=pipeline,
+        enriched_transcript_chars=900,
+        attachments_total_chars=0,
+        latency_ms=1200,
+    )
+
+    assert observation["cost_usd"] is not None
+    assert observation["cost_usd"] > 0
+
+
 def test_build_turn_observation_uses_none_defaults_when_usage_missing() -> None:
     session = _session_with_history()
     pipeline = StructuredPipelineOutcome(

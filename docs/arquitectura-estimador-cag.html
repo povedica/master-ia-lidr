@@ -183,17 +183,21 @@
     .badge.amber { background: rgba(251, 191, 36, 0.15); color: var(--warning); border-color: rgba(251, 191, 36, 0.3); }
     .badge.purple { background: rgba(167, 139, 250, 0.15); color: var(--purple); border-color: rgba(167, 139, 250, 0.3); }
 
-    /* ── Sections ── */
-    section {
+    /* ── Sections (fade-in only on top-level main sections; nested sections stay visible) ── */
+    main > section {
       margin-bottom: 3rem;
       opacity: 0;
       transform: translateY(24px);
       transition: opacity 0.6s ease, transform 0.6s ease;
     }
 
-    section.visible {
+    main > section.visible {
       opacity: 1;
       transform: translateY(0);
+    }
+
+    section {
+      margin-bottom: 3rem;
     }
 
     section > h2 {
@@ -1392,6 +1396,9 @@
         <li><a href="#api">API y endpoints</a></li>
         <li><a href="#tests">Tests y pirámide</a></li>
         <li><a href="#evals" style="padding-left:2rem;font-size:0.85em">↳ Evals sesión</a></li>
+        <li><a href="#stress-testing">CAG stress testing</a></li>
+        <li><a href="#stress-observation" style="padding-left:2rem;font-size:0.85em">↳ turn_observed</a></li>
+        <li><a href="#stress-runner" style="padding-left:2rem;font-size:0.85em">↳ Runner y artefactos</a></li>
         <li><a href="#infra">Infraestructura</a></li>
       </ul>
     </nav>
@@ -1839,7 +1846,7 @@
           </div>
         </div>
 
-        <div class="arch-simple-wrap" id="architecture-simple">
+        <section class="arch-simple-wrap" id="architecture-simple" aria-label="Arquitectura horizontal">
           <h3>Vista simplificada — capas en horizontal</h3>
           <p class="lead" style="margin-bottom:0">Recorrido izquierda → derecha: clientes, API, lógica interna, frontera externa, modelos SaaS e infra. Sin detalle de módulos; ideal para explicar el sistema de un vistazo.</p>
 
@@ -1937,7 +1944,7 @@
 
             <p class="arch-simple-note">Flujo típico: <strong>Cliente → API → App → [Políticas] → Modelo → [Infra async]</strong> · v1 omite capa 4 · Infra (Redis/Langfuse) es opcional y lateral</p>
           </div>
-        </div>
+        </section>
 
         <div class="table-wrap">
           <table>
@@ -2285,14 +2292,14 @@ sequenceDiagram
         <div class="diagram-box">
           <pre class="mermaid">
 flowchart TD
-    REQ[Request validado] --> BUCKET["Bucket hash determinista\n(prompt + schema + guardrails + request)"]
-    BUCKET --> EMB[Embedding del texto libre]
-    EMB --> LOOKUP{Similarity ≥ threshold?}
-    LOOKUP -->|Hit + enabled| SERVE[Respuesta cacheada]
-    LOOKUP -->|Miss o log-only| LLM[Llamada LLM]
-    LLM --> VALID{safe_to_cache?}
-    VALID -->|Sí| WRITE[Redis / Memory store]
-    VALID -->|No| RESP[Respuesta directa]
+    REQ["Request validado"] --> BUCKET["Bucket hash determinista"]
+    BUCKET --> EMB["Embedding del texto libre"]
+    EMB --> LOOKUP{"Similarity >= threshold?"}
+    LOOKUP -->|"Hit y enabled"| SERVE["Respuesta cacheada"]
+    LOOKUP -->|"Miss o log-only"| LLM["Llamada LLM"]
+    LLM --> VALID{"safe_to_cache?"}
+    VALID -->|Si| WRITE["Redis o Memory store"]
+    VALID -->|No| RESP["Respuesta directa"]
     WRITE --> RESP
           </pre>
         </div>
@@ -2330,6 +2337,9 @@ flowchart TD
           <strong>Verificación:</strong> <code>test_sessions_integration.py</code> valida memoria, metadata y adjuntos (mecánica).
           La calidad de la estimación multi-turno se mide en <code>tests/evals/</code> — ver <a href="#evals">Evals sesión (§15)</a>.
         </div>
+      </section>
+
+      <!-- 11. Tokens -->
       <section id="tokens">
         <h2><span class="num">11</span> Consumo de tokens y coste</h2>
         <p class="lead">Estimación orientativa para una petición típica con <code>gpt-4o-mini</code>. Valores reales dependen del tamaño del transcript, adjuntos y modo.</p>
@@ -2496,6 +2506,11 @@ flowchart TD
               <div class="tree-leaf">session_runner.py · fakes.py · assertions.py · serialization.py</div>
               <div class="tree-leaf">judge/ <span class="comment">— DeepEval GEval · config · metrics</span></div>
               <div class="tree-leaf">test_hard_deterministic.py · test_soft_consistency.py</div>
+            </div>
+            <div class="tree-node open">evals/stress/ <span class="comment">— degradación CAG (feature-029) · raíz repo</span></div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">scenarios.py · metrics.py · run.py · report.py</div>
+              <div class="tree-leaf">fixtures/build_pdfs.py · test_stress_*.py</div>
             </div>
             <div class="tree-leaf">test_*.py <span class="comment">— ~65 módulos · ~325 tests (pytest)</span></div>
           </div>
@@ -2680,24 +2695,25 @@ flowchart TD
         <div class="diagram-box" style="margin-top:1rem">
           <pre class="mermaid">
 flowchart TB
-    subgraph goldens [Golden dataset]
-        YAML[YAML 6 categorías]
-        Models[Pydantic loader]
+    subgraph goldens ["Golden dataset"]
+        YAML["YAML 6 categorias"]
+        Models["Pydantic loader"]
     end
-    subgraph runner [SessionEvalRunner]
-        HTTP[httpx AsyncClient ASGI]
-        EP[POST /api/v1/sessions/.../estimate]
+    subgraph runner_pkg ["SessionEvalRunner"]
+        HTTP["httpx AsyncClient ASGI"]
+        EP["POST sessions estimate"]
     end
-    subgraph pyramid [Eval pyramid]
-        Hard[Hard deterministic]
-        Soft[Soft consistency]
-        Judge[LLM-as-judge GEval]
+    subgraph pyramid ["Eval pyramid"]
+        Hard["Hard deterministic"]
+        Soft["Soft consistency"]
+        Judge["LLM-as-judge GEval"]
     end
-    YAML --> Models --> runner
+    YAML --> Models
+    Models --> HTTP
     HTTP --> EP
-    runner --> Hard
-    runner --> Soft
-    runner --> Judge
+    EP --> Hard
+    EP --> Soft
+    EP --> Judge
           </pre>
         </div>
 
@@ -2770,9 +2786,328 @@ uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_
         </div>
       </section>
 
-      <!-- 16. Infra -->
+      <!-- 16. CAG Stress Testing (feature-029) -->
+      <section id="stress-testing">
+        <h2><span class="num">16</span> CAG stress testing</h2>
+        <p class="lead">
+          Capacidad añadida en <strong>feature-029</strong> para <em>medir</em> dónde el CAG de sesión degrada
+          (coste, latencia, pérdida de memoria) bajo escenarios controlados — sin optimizar el sistema ni introducir RAG.
+          Referencia técnica en inglés: <a class="eval-doc-link" href="technical/cag-stress-testing.md">docs/technical/cag-stress-testing.md</a>.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>Objetivo pedagógico</h4>
+            <p>Distinguir fallo duro (test rojo, 4xx/5xx) de degradación silenciosa (recall que cae, coste que crece sin romper esquema).</p>
+          </div>
+          <div class="card">
+            <h4>Entregables</h4>
+            <ul>
+              <li><code>evals/stress/results.csv</code> — una fila por turno</li>
+              <li><code>evals/stress/REPORT.md</code> — tablas + 2 párrafos cuantitativos</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Superficie medida</h4>
+            <p><code>POST /api/v1/sessions/{id}/estimate</code> vía <code>SimplifiedSessionEstimationService</code> — <em>no</em> <code>estimate_conversational()</code>.</p>
+          </div>
+          <div class="card">
+            <h4>Separación de evals</h4>
+            <p><code>tests/evals/</code> = calidad de estimación · <code>evals/stress/</code> = degradación bajo carga.</p>
+          </div>
+        </div>
+
+        <h3>Proceso de implementación (10 pasos)</h3>
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart LR
+    S1["1 Mapa codigo"] --> S2["2 turn_observed log"]
+    S2 --> S3["3 GET last_turn_observation"]
+    S3 --> S4["4 scenarios.py"]
+    S4 --> S5["5 build_pdfs.py"]
+    S5 --> S6["6 metrics.py"]
+    S6 --> S7["7 test_stress_metrics"]
+    S7 --> S8["8 run.py CLI"]
+    S8 --> S9["9 report.py"]
+    S9 --> S10["10 README y verificacion"]
+          </pre>
+        </div>
+
+        <h3>Arquitectura en dos capas</h3>
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart TB
+    subgraph prod ["Capa produccion - instrumentacion"]
+        R["sessions.py router"]
+        TO["turn_observation.py"]
+        SS["sessions.py Session"]
+        SES["SimplifiedSessionEstimationService"]
+        R --> TO
+        R --> SS
+        SES --> R
+    end
+    subgraph stress_pkg ["Capa stress - medicion offline"]
+        SC["scenarios.py"]
+        M["metrics.py"]
+        RUN["run.py"]
+        REP["report.py"]
+        FIX["fixtures/build_pdfs.py"]
+        SC --> RUN
+        M --> RUN
+        FIX --> RUN
+        RUN --> CSV[("results.csv")]
+        REP --> MD[("REPORT.md")]
+        CSV --> REP
+    end
+    RUN -->|"httpx HTTP o ASGI"| R
+          </pre>
+        </div>
+
+        <h3 id="stress-observation">Evento <code>turn_observed</code> (13 campos)</h3>
+        <p class="lead">Un único evento agregado por turno exitoso — sustituye la necesidad de reconciliar cinco logs sueltos para sacar un CSV.</p>
+
+        <div class="diagram-box">
+          <pre class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Router as estimate_in_session
+    participant Svc as run_submit
+    participant Pipe as LLMPipeline
+    participant Log as turn_observed_log
+    participant Store as session_store
+
+    Client->>Router: POST estimate
+    Router->>Svc: run_submit
+    Svc->>Pipe: run_structured
+    Pipe-->>Svc: bundle and cache flag
+    Svc-->>Router: outcome and transcript chars
+    Router->>Router: build_turn_observation
+    Router->>Log: info turn_observed
+    Router->>Store: last_turn_observation
+    Router-->>Client: SessionEstimateResponse
+          </pre>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Campo</th><th>Origen</th><th>Notas</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>turn_index</code></td><td><code>session.submit_count</code></td><td>1-based tras incremento</td></tr>
+              <tr><td><code>session_id</code></td><td>Ruta / sesión</td><td>UUID</td></tr>
+              <tr><td><code>enriched_transcript_chars</code></td><td><code>len(user_prompt)</code></td><td>Prompt compuesto con adjuntos en turno 1</td></tr>
+              <tr><td><code>attachments_total_chars</code></td><td>Suma texto extraído</td><td>0 si no hay adjunto</td></tr>
+              <tr><td><code>messages_in_window</code></td><td><code>ConversationHistory</code></td><td>Sin mensajes system</td></tr>
+              <tr><td><code>anchors_count</code></td><td>—</td><td><strong>0</strong> (honesto: no hay capa de anclas)</td></tr>
+              <tr><td><code>summary_chars</code></td><td><code>agreed_scope</code> / <code>derived.summary</code></td><td>Memoria resumida</td></tr>
+              <tr><td><code>tokens_in/out</code></td><td><code>bundle.usage</code></td><td><code>null</code> si sin usage</td></tr>
+              <tr><td><code>cost_usd</code></td><td><code>estimate_cost_usd()</code></td><td>Tabla precios gpt-4o-mini</td></tr>
+              <tr><td><code>latency_ms</code></td><td><code>perf_counter</code> en router</td><td>Wall-clock HTTP</td></tr>
+              <tr><td><code>cache_hit_kind</code></td><td><code>pipeline.cached</code></td><td><code>semantic</code> | <code>none</code></td></tr>
+              <tr><td><code>last_resolved_tier</code></td><td>—</td><td><strong>default</strong> (sin tiering dinámico)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert info">
+          <strong>Decisión FR-02:</strong> el runner lee <code>last_turn_observation</code> en
+          <code>GET /api/v1/sessions/{id}</code> — no parsea logs. Misma forma en tests de integración.
+        </div>
+
+        <h3>Escenarios sintéticos — <code>evals/stress/scenarios.py</code></h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>growing</h4>
+            <p>Scope que crece turno a turno. Mide curva de coste y si facts tempranos sobreviven al turno 20.</p>
+            <p><code>fact_to_remember</code> ej.: <code>project name: Nimbus</code></p>
+          </div>
+          <div class="card">
+            <h4>pivot</h4>
+            <p>~mitad de conversación cambia stack (React → Flutter). Mide si metadata se actualiza limpiamente.</p>
+          </div>
+          <div class="card">
+            <h4>contradiction</h4>
+            <p>Presupuesto 30k€ luego 80k€. Mide qué hecho prevalece en summary/constraints.</p>
+          </div>
+          <div class="card">
+            <h4>N soportados</h4>
+            <p><code>{1, 3, 6, 10, 20}</code> — <code>build_scenario(name, n_turns)</code></p>
+          </div>
+        </div>
+
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart LR
+    subgraph growing ["growing"]
+        G1["Turn 1 Nimbus"] --> G2["add auth"]
+        G2 --> G3["add audit"]
+        G3 --> GN["Turn N mas scope"]
+    end
+    subgraph pivot ["pivot"]
+        P1["React web"] --> P2["React maps"]
+        P2 --> P3["Flutter mobile"]
+    end
+    subgraph contra ["contradiction"]
+        C1["budget 30k"] --> C2["scope 30k"]
+        C2 --> C3["budget 80k"]
+    end
+          </pre>
+        </div>
+
+        <h3>Métricas determinísticas — <code>evals/stress/metrics.py</code></h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Clase</th><th>Regla</th><th>Presupuesto default</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>LatencyBudgetMetric</code></td>
+                <td><code>score=1.0</code> si <code>latency_ms ≤ budget</code></td>
+                <td>4000 ms</td>
+              </tr>
+              <tr>
+                <td><code>CostBudgetMetric</code></td>
+                <td><code>score=1.0</code> si <code>cost_usd ≤ budget</code></td>
+                <td>$0.05 / turno</td>
+              </tr>
+              <tr>
+                <td><code>MemoryDriftMetric</code></td>
+                <td>Substring case-insensitive del <code>fact</code> en summary | anchors | metadata del snapshot final</td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Todas devuelven <code>MetricResult(name, score, passed, details)</code> — sin embeddings ni LLM-as-judge.</p>
+
+        <h3 id="stress-runner">Runner, fixtures y artefactos</h3>
+        <div class="file-tree">
+          <div class="tree-node open">evals/stress/</div>
+          <div class="tree-children" style="display:block">
+            <div class="tree-leaf">scenarios.py <span class="comment">— TurnSpec, StressScenario, build_scenario</span></div>
+            <div class="tree-leaf">metrics.py <span class="comment">— 3 métricas + MetricResult</span></div>
+            <div class="tree-leaf">run.py <span class="comment">— CLI → results.csv</span></div>
+            <div class="tree-leaf">report.py <span class="comment">— CSV → REPORT.md</span></div>
+            <div class="tree-node open">fixtures/</div>
+            <div class="tree-children" style="display:block">
+              <div class="tree-leaf">build_pdfs.py <span class="comment">— PDFs ~5/20/50/100 KB</span></div>
+              <div class="tree-leaf">attach_*.pdf <span class="comment">— regenerables; no obligatorio en git</span></div>
+            </div>
+          </div>
+          <div class="tree-leaf">results.csv <span class="comment">— generado por run</span></div>
+          <div class="tree-leaf">REPORT.md <span class="comment">— generado con --write-report</span></div>
+        </div>
+
+        <div class="diagram-box">
+          <pre class="mermaid">
+flowchart TB
+    subgraph dims ["Dimensiones del barrido"]
+        A["3 escenarios"]
+        B["5 tamanos adjunto KB"]
+        C["3 repeticiones"]
+        D["5 valores N turnos"]
+    end
+    D --> LOOP["run_stress"]
+    LOOP --> S["POST /sessions"]
+    LOOP --> E["POST estimate por turno"]
+    LOOP --> G["GET session observation"]
+    LOOP --> M["3 metricas por fila"]
+    M --> CSV["results.csv"]
+    CSV --> REP["report.py"]
+    REP --> RMD["REPORT.md"]
+          </pre>
+        </div>
+
+        <p>Configuración por defecto: <strong>3 × 5 × 3 × (1+3+6+10+20) = 1800 filas</strong> (mínimo ejercicio ≥50).</p>
+
+        <h3>Curvas del REPORT (tablas Markdown)</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Curva 1</h4>
+            <p><code>latency_ms</code> vs <code>tokens_in</code> — relación tamaño contexto / tiempo.</p>
+          </div>
+          <div class="card">
+            <h4>Curva 2</h4>
+            <p>Coste acumulado vs <code>turn_index</code> por escenario.</p>
+          </div>
+          <div class="card">
+            <h4>Curva 3</h4>
+            <p>Media <code>MemoryDriftMetric</code> vs N (profundidad conversación).</p>
+          </div>
+          <div class="card">
+            <h4>Interpretación</h4>
+            <p>Dos párrafos con cifras: punto de ruptura, dimensión dominante, hipótesis límite RAG.</p>
+          </div>
+        </div>
+
+        <h3>Tests asociados</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Archivo</th><th>Qué valida</th><th>¿Red?</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>tests/test_turn_observation.py</code></td><td>13 campos, cache, usage ausente</td><td>No</td></tr>
+              <tr><td><code>tests/test_simplified_session_router.py</code></td><td><code>last_turn_observation</code> en GET</td><td>No</td></tr>
+              <tr><td><code>tests/test_stress_metrics.py</code></td><td>Pass/fail budgets + drift</td><td>No</td></tr>
+              <tr><td><code>tests/test_stress_scenarios.py</code></td><td>3 familias × 5 valores N</td><td>No</td></tr>
+              <tr><td><code>tests/test_stress_report.py</code></td><td>Secciones del REPORT</td><td>No</td></tr>
+              <tr><td><code>evals.stress.run --http</code></td><td>E2E con LLM real</td><td>Sí · manual</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert warning">
+          <strong>Conflicto de nombres pytest:</strong> <code>tests/evals/</code> sombrea el paquete raíz <code>evals/</code> si <code>tests/</code> está primero en <code>sys.path</code>.
+          Mitigación: <code>--import-mode=importlib</code> en <code>pyproject.toml</code>, <code>conftest.py</code> raíz, y bootstrap en tests stress.
+        </div>
+
+        <h3>Cómo ejecutar</h3>
+        <div class="cmd-block"># Tests unitarios stress (sin API keys)
+uv run pytest tests/test_stress_metrics.py tests/test_stress_scenarios.py tests/test_turn_observation.py
+
+# Regenerar PDFs
+uv run python -m evals.stress.fixtures.build_pdfs
+
+# Smoke pequeño (OPENAI_API_KEY + uvicorn)
+uv run uvicorn app.main:app --reload
+uv run python -m evals.stress.run \
+  --http http://localhost:8000 \
+  --scenarios growing --attachment-sizes 0 \
+  --repeats 1 --turn-counts 3 \
+  --output evals/stress/results.csv --write-report
+
+# Configuración completa del ejercicio
+uv run python -m evals.stress.run \
+  --http http://localhost:8000 \
+  --scenarios growing,pivot,contradiction \
+  --attachment-sizes 0,5,20,50,100 \
+  --repeats 3 \
+  --output evals/stress/results.csv --write-report</div>
+
+        <h3>Decisiones técnicas clave</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Tema</th><th>Decisión</th><th>Por qué</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Entrypoint</td><td>Router sesión simplificada</td><td>Es el tráfico HTTP real</td></tr>
+              <tr><td>Lectura runner</td><td>Campo GET, no logs</td><td>Determinista en CI e in-process</td></tr>
+              <tr><td>anchors / tier</td><td>0 y "default"</td><td>No inventar subsistemas inexistentes</td></tr>
+              <tr><td>PDF fixtures</td><td>PDF mínimo + padding bytes</td><td>Reproducible sin fpdf2</td></tr>
+              <tr><td>max_turns</td><td>Sin cambiar (10)</td><td>Baseline honesto para comparar con RAG</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 17. Infra -->
       <section id="infra">
-        <h2><span class="num">16</span> Infraestructura Docker</h2>
+        <h2><span class="num">17</span> Infraestructura Docker</h2>
         <div class="diagram-box">
           <pre class="mermaid">
 flowchart TB
@@ -2805,14 +3140,42 @@ flowchart TB
   </div>
 
   <script>
-    // ── Mermaid ──
+    // ── Mermaid (render per diagram so one syntax error does not break the page) ──
+    const mermaidTheme = () => (document.body.dataset.theme === "light" ? "default" : "dark");
+
     mermaid.initialize({
-      startOnLoad: true,
-      theme: document.body.dataset.theme === "light" ? "default" : "dark",
+      startOnLoad: false,
+      theme: mermaidTheme(),
       securityLevel: "loose",
       flowchart: { curve: "basis" },
       themeVariables: { fontSize: "15px" }
     });
+
+    async function renderMermaidDiagrams() {
+      const blocks = document.querySelectorAll("pre.mermaid");
+      let index = 0;
+      for (const block of blocks) {
+        const source = (block.dataset.mermaidSource || block.textContent).trim();
+        if (!source) continue;
+        block.dataset.mermaidSource = source;
+        const renderId = "mermaid-render-" + index++;
+        try {
+          const { svg, bindFunctions } = await mermaid.render(renderId, source);
+          block.innerHTML = svg;
+          block.setAttribute("data-processed", "true");
+          if (typeof bindFunctions === "function") bindFunctions(block);
+        } catch (error) {
+          console.error("Mermaid render failed", error);
+          block.classList.add("mermaid-error");
+          block.insertAdjacentHTML(
+            "afterend",
+            '<div class="alert warning" style="margin-top:0.5rem">No se pudo renderizar este diagrama. Revisa la consola del navegador.</div>'
+          );
+        }
+      }
+    }
+
+    renderMermaidDiagrams();
 
     // ── Theme toggle ──
     const themeToggle = document.getElementById("themeToggle");
@@ -2820,15 +3183,19 @@ flowchart TB
       const isDark = document.body.dataset.theme === "dark";
       document.body.dataset.theme = isDark ? "light" : "dark";
       mermaid.initialize({
+        startOnLoad: false,
         theme: isDark ? "default" : "dark",
         themeVariables: { fontSize: "15px" }
       });
       document.querySelectorAll(".mermaid").forEach(el => {
-        const code = el.textContent;
+        const code = el.dataset.mermaidSource || el.textContent;
         el.removeAttribute("data-processed");
-        el.innerHTML = code;
+        el.classList.remove("mermaid-error");
+        el.textContent = code;
+        const warn = el.nextElementSibling;
+        if (warn && warn.classList.contains("alert")) warn.remove();
       });
-      mermaid.run();
+      renderMermaidDiagrams();
     });
 
     // ── Scroll spy nav ──
@@ -2848,11 +3215,12 @@ flowchart TB
     sections.forEach(s => observer.observe(s));
 
     // ── Section fade-in ──
+    const topLevelSections = document.querySelectorAll("main > section[id]");
     const fadeObserver = new IntersectionObserver(
       entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); }),
-      { threshold: 0.08 }
+      { threshold: 0.05, rootMargin: "0px 0px -5% 0px" }
     );
-    sections.forEach(s => fadeObserver.observe(s));
+    topLevelSections.forEach(s => fadeObserver.observe(s));
 
     // ── File tree toggle ──
     document.querySelectorAll(".tree-node").forEach(node => {

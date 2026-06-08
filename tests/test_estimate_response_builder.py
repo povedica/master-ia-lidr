@@ -2,8 +2,23 @@
 
 from datetime import UTC, datetime
 
-from app.services.estimate_response_builder import assemble_estimate_response, dev_response_property_rows
+from app.schemas.estimations import UsageView
+from app.services.estimate_response_builder import (
+    assemble_estimate_response,
+    dev_response_property_rows,
+    estimate_cost_usd,
+)
 from app.services.llm_service import LlmEstimationCallOutcome, UsageInfo
+
+
+def test_estimate_cost_usd_accepts_litellm_model_id() -> None:
+    usage = UsageView(prompt_tokens=1_000_000, completion_tokens=0, total_tokens=1_000_000)
+
+    short = estimate_cost_usd("gpt-4o-mini", usage)
+    litellm = estimate_cost_usd("openai/gpt-4o-mini", usage)
+
+    assert short == 0.15
+    assert litellm == short
 
 
 def test_assemble_dev_mode_matches_expected_top_level_keys() -> None:

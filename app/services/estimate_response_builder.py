@@ -19,12 +19,20 @@ _MODEL_COSTS_PER_1M_TOKENS: dict[str, tuple[float, float]] = {
 }
 
 
+def _model_for_cost_estimate(resolved_model: str) -> str:
+    """Map LiteLLM ids (``openai/gpt-4o-mini``) to keys used in ``estimate_cost_usd``."""
+
+    if "/" in resolved_model:
+        return resolved_model.split("/", 1)[1]
+    return resolved_model
+
+
 def estimate_cost_usd(model: str, usage: UsageView | None) -> float | None:
     """Estimate request cost in USD when token pricing is known."""
 
     if usage is None:
         return None
-    prices = _MODEL_COSTS_PER_1M_TOKENS.get(model)
+    prices = _MODEL_COSTS_PER_1M_TOKENS.get(_model_for_cost_estimate(model))
     if prices is None:
         return None
     input_price, output_price = prices

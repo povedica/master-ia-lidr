@@ -28,6 +28,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [18. Security and secrets](#18-security-and-secrets)
 - [19. Evolution guide](#19-evolution-guide)
 - [20. Troubleshooting](#20-troubleshooting)
+- [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
 

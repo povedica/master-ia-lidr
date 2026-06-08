@@ -388,9 +388,11 @@ Checklist in § Verification; update README stress section.
 
 ## Documentation Plan
 
-- `README.md`: new “CAG stress testing” subsection with CLI example and deliverable paths.
-- `evals/stress/README.md` (short): scenario descriptions, fixture regeneration, metric budgets.
-- Second Brain session note (user-driven): learning reflections on silent degradation vs hard failures.
+- [x] `README.md`: “CAG stress testing” subsection with CLI example and deliverable paths.
+- [x] `evals/stress/README.md`: scenario descriptions, fixture regeneration, metric budgets.
+- [x] `docs/technical/cag-stress-testing.md`: full process, structures, classes, decisions (KB).
+- [x] `docs/arquitectura-estimador-cag.html` § CAG stress testing: illustrated guide with diagrams.
+- [ ] Second Brain session note (user-driven): learning reflections on silent degradation vs hard failures.
 
 ## Implementation Plan
 
