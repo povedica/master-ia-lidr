@@ -74,7 +74,7 @@ Edge cases:
 - Size: S
 - Estimated time: 2 hours
 - Planned steps: 4
-- **PR:** https://github.com/povedica/master-ia-lidr/pull/29 (draft, `wip`)
+- **PR:** https://github.com/povedica/master-ia-lidr/pull/29 — merged
 
 ## Implementation progress
 
@@ -105,8 +105,10 @@ Edge cases:
 
 ## Verification
 - Automated: `uv run pytest tests/embedding_pipeline/test_router.py` — **7 passed** (mocked embedder).
-- Full fast suite: `uv run pytest` — **413 passed**, 11 skipped, 10 deselected.
-- Manual: Swagger smoke test with a real key; confirm `200`, chunk count, and `total_budgets`. **Not verified yet** in this session.
+- Automated: `uv run pytest tests/embedding_pipeline/` — **41 passed** (finish-task re-run).
+- Full fast suite: `uv run pytest` — **413 passed**, 11 skipped, 10 deselected (finish-task re-run).
+- App startup / OpenAPI: `from app.main import app` + path in `app.openapi()` — **verified**.
+- Manual: Swagger smoke test with a real key; confirm `200`, chunk count, and `total_budgets`. **Not verified** (no live OpenAI call in closure).
 - Not verified yet: CLI cosine similarity (Feature 034).
 
 ## Documentation Plan
@@ -124,6 +126,7 @@ Edge cases:
 ## Learnings
 - Keeping the router under `app/routers/` and versioning under `/api/v1` preserves the project's single, predictable API surface; co-locating routes inside feature packages would fragment it.
 - The 500 handler must convert provider errors to a safe message at the boundary; the embedder already classifies rate limits, so the router only needs a generic catch-all with structured logging.
+- TDD with `dependency_overrides` on `get_embedder` keeps router tests fast and deterministic without touching chunker/embedder internals.
 
 ## Repository commits (master-ia)
 
@@ -131,3 +134,5 @@ Edge cases:
 |--------|---------|
 | feat(embedding): add POST /api/v1/embeddings/ingest endpoint | Router, main registration, integration tests |
 | docs(embedding): document ingest endpoint for feature-033 | README, work item, Second Brain session note |
+| docs(feature-033): record PR link and commit table | Work item PR link |
+| docs(architecture): add embeddings ingest route to guide | `docs/arquitectura-estimador-cag.html` routes + tree |
