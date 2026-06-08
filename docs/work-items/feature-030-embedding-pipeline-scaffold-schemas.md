@@ -147,8 +147,8 @@ Behavioral notes:
 
 | Commit | Summary |
 |--------|---------|
-| (pending push) | `feat(embedding-pipeline): add module skeleton and script stubs` |
-| (pending push) | `test(embedding-pipeline): add schema contract tests (RED)` |
-| (pending push) | `feat(embedding-pipeline): implement Pydantic schemas for ingest contract` |
-| (pending push) | `chore(deps): add tiktoken for embedding pipeline chunker` |
-| (pending push) | `docs(embedding-pipeline): document Session 07 increment 1` |
+| `acee4d5` | `feat(embedding-pipeline): add module skeleton and script stubs` |
+| `6233314` | `test(embedding-pipeline): add schema contract tests (RED)` |
+| `42997e7` | `feat(embedding-pipeline): implement Pydantic schemas for ingest contract` |
+| `0c5bd0e` | `chore(deps): add tiktoken for embedding pipeline chunker` |
+| `def7cea` | `docs(embedding-pipeline): document Session 07 increment 1` |
