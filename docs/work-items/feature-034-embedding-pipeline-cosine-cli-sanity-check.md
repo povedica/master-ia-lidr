@@ -156,6 +156,7 @@ Two execution modes (both documented in README):
 | `5d2df13` | `feat(embedding-pipeline): add cosine compare CLI and sanity check docs` |
 | `2a6787c` | `docs(feature-034): record PR link and implementation commits` |
 | `ba6d41c` | `docs(embedding-pipeline): consolidate Session 07 learnings and architecture guide` |
+| `00c6a36` | `docs(feature-034): record final commit SHA in implementation table` |
 
 ---
 
