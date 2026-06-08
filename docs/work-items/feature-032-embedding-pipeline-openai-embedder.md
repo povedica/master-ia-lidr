@@ -110,7 +110,7 @@ Edge cases:
 ## Implementation progress
 
 - [x] Step 1: Add settings + `.env.example` entries.
-- [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
+- [x] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
 - [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
 - [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
 - [ ] Step 5: Run tests to green; finite-value and ordering assertions.
@@ -118,7 +118,7 @@ Edge cases:
 
 ## Implementation Plan
 - [x] Step 1: Add settings + `.env.example` entries.
-- [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
+- [x] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
 - [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
 - [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
 - [ ] Step 5: Run tests to green; finite-value and ordering assertions.
