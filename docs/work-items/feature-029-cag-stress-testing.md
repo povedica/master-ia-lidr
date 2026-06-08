@@ -491,3 +491,4 @@ No new env vars required for core deliverable.
 | feat(sessions) | Add turn_observed logging and session debug field |
 | feat(stress) | Add scenarios, metrics, report, and PDF fixtures |
 | feat(stress) | Add CLI runner and document stress workflow |
+| docs(stress) | Add sample `growing` scenario results.csv and REPORT.md from local HTTP run |

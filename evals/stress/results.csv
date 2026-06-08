@@ -1,0 +1,4 @@
+scenario_name,repeat_index,attachment_size_kb,scenario_turn_count,turn_index,session_id,turn_index_observed,session_id_observed,enriched_transcript_chars,attachments_total_chars,messages_in_window,anchors_count,summary_chars,tokens_in,tokens_out,cost_usd,latency_ms,cache_hit_kind,last_resolved_tier,metric_latency_budget_score,metric_cost_budget_score,metric_memory_drift_score,fact_to_remember,drift_evaluated_against_turn
+growing,1,0,3,1,55842f66-f2d7-4b22-9e93-af9910d6a025,1,55842f66-f2d7-4b22-9e93-af9910d6a025,598,0,2,0,161,2516,314,,16668,none,default,0.0,0.0,0.0,project name: Nimbus,3
+growing,1,0,3,2,55842f66-f2d7-4b22-9e93-af9910d6a025,2,55842f66-f2d7-4b22-9e93-af9910d6a025,370,0,4,0,133,3299,389,,7457,none,default,0.0,0.0,0.0,auth requirement: SSO mandatory,3
+growing,1,0,3,3,55842f66-f2d7-4b22-9e93-af9910d6a025,3,55842f66-f2d7-4b22-9e93-af9910d6a025,367,0,6,0,130,3388,299,,6757,none,default,0.0,0.0,0.0,feature: audit log export,3
