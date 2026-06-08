@@ -128,12 +128,19 @@ Behavioral notes:
 - [x] Step 6: Final verification and acceptance sync
 
 ## Implementation Plan
-- [ ] Step 1: Create `app/embedding_pipeline/` package with `__init__.py` and the three stubs.
-- [ ] Step 2: Create `app/scripts/` package with `__init__.py` and `compare.py` stub.
-- [ ] Step 3: Implement the 8 models in `schemas.py`.
-- [ ] Step 4: Add `tiktoken>=0.7.0` to `pyproject.toml`, run `uv sync`, commit `uv.lock`.
-- [ ] Step 5: Add `tests/embedding_pipeline/test_schemas.py` and run the suite.
-- [ ] Step 6: Update README + Second Brain note.
+- [x] Step 1: Create `app/embedding_pipeline/` package with `__init__.py` and the three stubs.
+- [x] Step 2: Create `app/scripts/` package with `__init__.py` and `compare.py` stub.
+- [x] Step 3: Implement the 8 models in `schemas.py`.
+- [x] Step 4: Add `tiktoken>=0.7.0` to `pyproject.toml`, run `uv sync`, commit `uv.lock`.
+- [x] Step 5: Add `tests/embedding_pipeline/test_schemas.py` and run the suite.
+- [x] Step 6: Update README + Second Brain note.
+
+## Retrospective (2026-06-08)
+
+- **Process:** TDD honored — RED on missing `schemas.py`, then GREEN with 11 passing tests. Five focused commits on the feature branch.
+- **Technical:** Reused Pydantic v2 patterns from `app/schemas/*`; module stays isolated from semantic cache.
+- **Quality:** All AC-01–AC-10 met; no router or `main.py` changes.
+- **Docs:** README subsection, session note at `learnings/docs/sesiones/sesion-07-embedding-pipeline-schemas.md`, architecture HTML N/A (types-only increment).
 
 ## Learnings
 - Architecture review for this milestone flagged (HIGH) that routes belong in `app/routers/` and the embedder must be async — both handled in `feature-033` and `feature-032`, not here. This increment intentionally stays at the type layer.
@@ -141,7 +148,7 @@ Behavioral notes:
 
 ## Pull Request
 
-- WIP draft: https://github.com/povedica/master-ia-lidr/pull/25
+- Merged: https://github.com/povedica/master-ia-lidr/pull/25
 
 ## Repository commits (master-ia)
 
