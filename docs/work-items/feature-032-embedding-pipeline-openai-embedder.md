@@ -94,6 +94,7 @@ Edge cases:
 ## Verification
 - **Verified:** `uv run pytest tests/embedding_pipeline/test_embedder.py` — 12 passed (mocked).
 - **Verified:** `uv run pytest tests/embedding_pipeline/` — 34 passed (schemas + chunker + embedder).
+- **Verified (finish-task):** full suite `uv run pytest` — 414 passed, 11 skipped.
 - **Not verified:** manual `embed_one` with real API key (optional); endpoint orchestration (Feature 033), CLI (Feature 034).
 - **N/A:** `docs/arquitectura-estimador-cag.html` — no routes, guardrails, or orchestration changes in this increment.
 
@@ -127,7 +128,7 @@ Edge cases:
 
 ## Pull request
 
-- WIP draft PR URL: https://github.com/povedica/master-ia-lidr/pull/27
+- PR: https://github.com/povedica/master-ia-lidr/pull/27 (merged via `/finish-task`)
 
 ## Repository commits (master-ia)
 
@@ -139,6 +140,7 @@ Edge cases:
 | 0c5aea3 | feat(embedding-pipeline): implement OpenAIEmbedder with batching and retry |
 | 30a0f3b | docs(embedding-pipeline): document OpenAIEmbedder contract and verification |
 | b423eba | docs(feature-032): record implementation commit SHAs |
+| e64fd3e | docs(feature-032): sync commit table with latest SHA |
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
