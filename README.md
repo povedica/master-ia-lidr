@@ -544,11 +544,10 @@ uv run python -m evals.stress.run \
   --scenarios growing,pivot,contradiction \
   --attachment-sizes 0,5,20,50,100 \
   --repeats 3 \
-  --output evals/stress/results.csv \
   --write-report
 ```
 
-Deliverables: `evals/stress/results.csv` (one row per turn) and `evals/stress/REPORT.md` (summary tables + interpretation).
+Deliverables (per scenario): `evals/stress/results-<scenario>.csv` (one row per turn) and `evals/stress/REPORT-<scenario>.md` (summary tables + interpretation). The default configuration runs ~600 LLM calls per scenario sequentially; use `--turn-counts` and `--repeats` to shorten smoke runs.
 
 ---
 
