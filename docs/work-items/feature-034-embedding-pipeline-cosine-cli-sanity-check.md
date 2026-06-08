@@ -106,12 +106,13 @@ Two execution modes (both documented in README):
 - **Verified:** `uv run pytest tests/embedding_pipeline/` — 47 passed.
 - **Verified (manual, real key):** three sanity pairs run; Pair B 0.1920 (< 0.4), Pair C 0.5408 recorded; Pair A 0.5957 (marginally below 0.6 — noted in SANITY_CHECK.md).
 - **Not verified:** Docker in-container run (same module path; documented in README).
-- Architecture HTML: **N/A** — no routes, orchestration, or env surface changes.
+- Architecture HTML: **Verified** — [`docs/arquitectura-estimador-cag.html` § Pipeline embeddings (S07)](../arquitectura-estimador-cag.html#embedding-pipeline) updated with full milestone reference.
 
 ## Documentation Plan
 - README: add the CLI usage (both modes) and a pointer to `SANITY_CHECK.md`.
 - `app/embedding_pipeline/SANITY_CHECK.md`: the three measured similarities + interpretation.
 - Second Brain: short reflection on what the similarity numbers reveal about `text-embedding-3-small` for budget-style text.
+- Architecture guide: `docs/arquitectura-estimador-cag.html` — full Session 07 pipeline section (functional + technical + usage) — **done**.
 
 ## Estimation
 
@@ -121,7 +122,14 @@ Two execution modes (both documented in README):
 
 ## Pull Request
 
-- WIP: https://github.com/povedica/master-ia-lidr/pull/30
+- Merged: https://github.com/povedica/master-ia-lidr/pull/30
+
+## Retrospective (2026-06-08)
+
+- **Process:** TDD honored for `cosine_similarity` and mocked `main()`; three focused commits on feature branch plus docs closure commit. Session 07 milestone (030–034) documented end-to-end in work item and architecture HTML.
+- **Technical:** CLI reuses async embedder via `asyncio.run`; no numpy; script under `app/scripts/` for Docker. Pair A sanity score (0.5957) marginally below 0.6 — documented as model sensitivity, not pipeline defect.
+- **Quality:** All AC-01–AC-10 met; 47 embedding_pipeline tests green; full suite 419 passed.
+- **Docs:** README, SANITY_CHECK.md, Second Brain session note, architecture HTML § Pipeline embeddings (S07), consolidated learnings in this work item.
 
 ## Implementation progress
 
@@ -146,8 +154,224 @@ Two execution modes (both documented in README):
 |--------|---------|
 | `c5b4eb7` | `test(embedding-pipeline): add compare CLI contract tests (RED→GREEN)` |
 | `5d2df13` | `feat(embedding-pipeline): add cosine compare CLI and sanity check docs` |
+| `2a6787c` | `docs(feature-034): record PR link and implementation commits` |
 
-## Learnings
-- Implementing cosine similarity by hand keeps the dependency surface minimal and makes the math explicit for the learning session.
-- Running inside Docker requires the script under `app/` and invocation via `python -m`; a repo-root `scripts/` file would not exist in the image.
-- Pair C ("Backend services" vs "API development") is intentionally ambiguous: discussing whether the model rates it closer to A or B is the point, not a pass/fail threshold.
+---
+
+## Session 07 milestone — full embedding pipeline reference
+
+This section closes the Session 07 milestone (features **030–034**). Feature 034 is the quality-check increment; the pipeline itself spans all five work items. Use this as the canonical onboarding doc for how the module is built, how data flows, and how to invoke it.
+
+### Functional view — what the pipeline does
+
+**Business goal:** turn normalized historical budget JSON (from Session 06) into searchable text fragments with OpenAI embeddings, so later work (Session 08 vector DB) can retrieve similar past components or projects.
+
+**Two entry points, one embedder:**
+
+| Entry point | When to use | Input | Output |
+|-------------|---------------|-------|--------|
+| `POST /api/v1/embeddings/ingest` | Batch ingest of real budget records | `IngestRequest` with `budgets: list[Budget]` | `IngestResponse`: `EmbeddedChunk[]` + `IngestStats` |
+| `python -m app.scripts.compare` | Ad hoc quality check / learning session | Two free-text strings (`--text-a`, `--text-b`) | Cosine similarity printed to stdout |
+
+The HTTP path exercises the **full** pipeline (validate → chunk → embed many → stats). The CLI path **skips chunking** and calls `embed_one()` twice — it validates embedding quality and similarity math, not the chunk template.
+
+**Empty input behavior:** `budgets: []` returns `200` with empty chunks and zeroed stats; no OpenAI call (embedder AC-09).
+
+### Technical architecture — how it is built
+
+```
+app/
+├── embedding_pipeline/          # Domain module (isolated from semantic_cache)
+│   ├── schemas.py               # Pydantic contract (feature-030)
+│   ├── chunker.py               # JSONStructuralChunker (feature-031)
+│   ├── embedder.py              # OpenAIEmbedder async (feature-032)
+│   └── SANITY_CHECK.md          # Measured similarity pairs (feature-034)
+├── routers/
+│   └── embeddings.py            # POST /api/v1/embeddings/ingest (feature-033)
+└── scripts/
+    └── compare.py               # CLI cosine sanity check (feature-034)
+```
+
+**Isolation rule:** nothing under `app/embedding_pipeline/` imports `app/services/semantic_cache/*`. The v2 semantic cache embeds free-form estimation text for cache lookup; this pipeline embeds structured budget components for a different learning track.
+
+#### End-to-end data flow (HTTP ingest)
+
+```mermaid
+flowchart LR
+    REQ["IngestRequest\nbudgets[]"] --> VAL["FastAPI + Pydantic"]
+    VAL --> CHK["JSONStructuralChunker.chunk()"]
+    CHK --> CH["Chunk[]"]
+    CH --> EMB["OpenAIEmbedder.embed_many()"]
+    EMB --> API["OpenAI Embeddings API"]
+    API --> OUT["IngestResponse\nEmbeddedChunk[] + IngestStats"]
+```
+
+**Step-by-step utility:**
+
+| Step | Component | Technical behavior | Why it exists |
+|------|-----------|-------------------|---------------|
+| 1 — Contract | `schemas.py` | `Budget` → `Chunk` → `EmbeddedChunk`; typed `IngestStats` | Single validation layer for HTTP, chunker, embedder, and tests |
+| 2 — Chunking | `JSONStructuralChunker` | 1 budget component = 1 chunk; fixed text template; tiktoken count | Embeds **context-rich** text (project + sector + component details), not raw JSON |
+| 3 — Embedding | `OpenAIEmbedder` | Async `AsyncOpenAI`; batches of 100; rate-limit retry 1/2/4s; 1536-dim vectors | Efficient API usage; non-blocking for FastAPI; cost telemetry via `last_total_tokens` / `last_cost_usd` |
+| 4 — HTTP | `app/routers/embeddings.py` | `chunk()` → `await embed_many()` → assemble stats; `500` with safe message on failure | Standard repo pattern: routers in `app/routers/`, versioned under `/api/v1` |
+| 5 — Quality | `app/scripts/compare.py` | `asyncio.run(embed_one × 2)` + `math`-only cosine | Validates model behavior before vector DB work; no numpy dependency |
+
+#### Chunk contract (stable for embedding quality)
+
+- **`chunk_id`:** `{budget_id}::{component_id}` (e.g. `BUD-2024-014::AUTH-001`)
+- **`text`:** project/client header + component name, description, tech stack, complexity, estimated hours
+- **`metadata`:** seven keys (`budget_id`, `component_id`, `client_sector`, `main_technology`, `year`, `complexity`, `estimated_hours`)
+- **`token_count`:** tiktoken encoding for `text-embedding-3-small`; one encoder instance per chunker (not per component)
+
+### How to use the pipeline
+
+#### A. HTTP ingest (production-shaped path)
+
+```bash
+# Start API
+uv run uvicorn app.main:app --reload
+
+# Swagger: http://127.0.0.1:8000/docs → POST /api/v1/embeddings/ingest
+```
+
+Request body shape:
+
+```json
+{
+  "budgets": [
+    {
+      "budget_id": "BUD-2024-014",
+      "client_metadata": { "name": "FintechCorp", "sector": "finance", "country": "ES" },
+      "project_summary": "Mobile banking API with OAuth 2.0 authentication",
+      "main_technology": "ruby_on_rails",
+      "year": 2024,
+      "total_estimated_hours": 480,
+      "components": [
+        {
+          "component_id": "AUTH-001",
+          "name": "OAuth 2.0 authentication backend",
+          "description": "Implementation of OAuth 2.0 flows with JWT session management",
+          "tech_stack": ["ruby_on_rails", "postgresql", "redis"],
+          "estimated_hours": 120,
+          "complexity": "high",
+          "dependencies": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+Response: `chunks` (one `EmbeddedChunk` per component) and `stats` (`total_budgets`, `total_chunks`, `total_tokens`, `estimated_cost_usd`).
+
+Status codes: `200` success (including empty budgets), `422` validation, `500` generic failure (details logged with `request_id`).
+
+Docker:
+
+```bash
+docker compose up app
+# POST http://localhost:8000/api/v1/embeddings/ingest
+```
+
+#### B. CLI compare (quality / learning path)
+
+```bash
+# Outside container
+uv run python -m app.scripts.compare \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+
+# Inside container (script lives under app/ for Docker COPY)
+docker compose exec app python -m app.scripts.compare --text-a "..." --text-b "..."
+```
+
+Requires `OPENAI_API_KEY`. Prints both texts and cosine similarity to stdout; errors go to stderr with exit code `1`.
+
+Reference measurements: [`app/embedding_pipeline/SANITY_CHECK.md`](../../app/embedding_pipeline/SANITY_CHECK.md).
+
+#### C. Automated verification
+
+```bash
+uv run pytest tests/embedding_pipeline/   # 47 tests, no real API keys
+```
+
+Router tests use FastAPI `dependency_overrides` on `get_embedder`; embedder tests mock `AsyncOpenAI`; compare tests mock `embed_one`.
+
+### Environment variables
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | — | Embedder + CLI (required at call time) |
+| `OPENAI_TIMEOUT_SECONDS` | 30 | `AsyncOpenAI` client timeout |
+| `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedder model override |
+| `EMBEDDING_PIPELINE_BATCH_SIZE` | 100 | Chunks per `embeddings.create` call |
+
+### Architecture guide
+
+Interactive documentation: [`docs/arquitectura-estimador-cag.html` § Pipeline embeddings (S07)](../arquitectura-estimador-cag.html#embedding-pipeline) — functional view, increment table, Mermaid flow, env vars, isolation vs semantic cache, and usage commands.
+
+---
+
+## Learnings (consolidated — features 030–034)
+
+### Contracts and module boundaries (030)
+
+- Prefer typed `IngestStats` over a bare `dict` while preserving the exact JSON keys the exercise verifies.
+- The embedding pipeline is a **separate learning module**; it must not import or modify `app/services/semantic_cache/*`.
+- Stubs under `app/embedding_pipeline/` and `app/scripts/compare.py` were planned from increment 1 so Docker layout and package structure stay stable across increments.
+- Architecture review flagged early that HTTP routes belong in `app/routers/` and the embedder must be async — implemented in 032/033, not in the schema-only increment.
+
+### Structural chunking (031)
+
+- One budget component = one chunk; no recursive, semantic, or fixed-size splitting in this milestone.
+- `chunk_id` format `{budget_id}::{component_id}` avoids ambiguity when multiple budgets share component codes.
+- Parent budget context (sector, year, main tech) is embedded **in the chunk text**, not only in metadata — this shapes embedding quality for domain-aware retrieval later.
+- Token counting must reuse a **single** tiktoken encoder per `JSONStructuralChunker` instance; recreating `encoding_for_model` per component is wasteful at scale.
+- Keep the text template **byte-for-byte stable**; downstream sanity checks and retrieval quality depend on consistent formatting.
+- Logging: stdlib `logging` with structured `extra` keys (`chunker_completed`); no `structlog` in this repo.
+
+### OpenAI embedder (032)
+
+- **Async is the correct boundary:** FastAPI routes and the existing semantic-cache adapter use `AsyncOpenAI`; a synchronous client would block the event loop under concurrency. The CLI bridges with `asyncio.run()`.
+- `embed_many` batches chunks (default 100 per API call), preserving input order — not one HTTP request per chunk.
+- Rate limits: up to 3 retries with exponential backoff `1s → 2s → 4s`; other errors propagate immediately.
+- Keep embedding dimensions at the model default (**1536**); overriding `dimensions` would break sanity checks and future vector store assumptions.
+- `last_total_tokens` and `last_cost_usd` are **indicative** estimates from `COST_PER_MILLION_TOKENS = 0.02`, not billing-accurate.
+- Per-batch INFO log: `embedding_batch_completed` with `batch_index`, `batch_size`, `batch_tokens`, `latency_ms`.
+
+### HTTP ingest endpoint (033)
+
+- Router lives at `app/routers/embeddings.py`, registered with prefix `/api/v1` → `POST /api/v1/embeddings/ingest` (repo convention vs bare `/embeddings/ingest` in exercise text).
+- Handler orchestrates only: `chunker.chunk()` → `await embedder.embed_many()` → `IngestResponse`; no direct OpenAI SDK calls in the router.
+- Error boundary: generic `500` message to client; structured log with `request_id` and `error_type`, never secrets or stack traces.
+- TDD with `dependency_overrides` on `get_embedder` keeps router tests fast without touching chunker/embedder internals.
+- The unused stub `app/embedding_pipeline/router.py` from 030 remains a historical note; canonical router is under `app/routers/`.
+
+### CLI cosine similarity and sanity check (034)
+
+- Implementing cosine similarity with stdlib `math` (`fsum`, `sqrt`) keeps dependencies minimal and makes the math explicit for the learning session — no numpy.
+- The CLI must live under `app/scripts/` because the Dockerfile only `COPY app ./app`; repo-root `scripts/` would not exist inside the container. Invoke as `python -m app.scripts.compare`.
+- Reuse `OpenAIEmbedder.embed_one()`; do not duplicate embedding logic in the script.
+- User-facing similarity goes to **stdout**; operational failures go to **stderr** with exit code `1`.
+- Sanity check results (2026-06-08, live key):
+  - Pair A (semantically close): **0.5957** — marginally below the 0.6 exercise threshold; wording sensitivity, not pipeline failure.
+  - Pair B (unrelated): **0.1920** — well below 0.4; model separates domains as expected.
+  - Pair C (generic): **0.5408** — ambiguous middle ground; intended discussion material, not pass/fail.
+- Fixed similarity thresholds (0.6 / 0.4) are **guidance**, not guarantees — short or generic texts produce unstable scores.
+- `text-embedding-3-small` separates distinct domains well (Pair B) but struggles with vague phrases (Pair C) without surrounding context like the chunker provides.
+
+### Cross-cutting decisions
+
+| Topic | Decision | Rationale |
+|-------|----------|-----------|
+| Router location | `app/routers/embeddings.py` | Single predictable API surface (rule 02-fastapi-standards) |
+| API versioning | `/api/v1/embeddings/ingest` | Consistent with estimations and sessions |
+| Embedder API | Async | Event-loop safe under FastAPI concurrency |
+| Stats shape | `IngestStats` Pydantic model | Repo convention over loose dicts |
+| Isolation | No semantic_cache imports | Learning module vs production cache path |
+| Persistence | None in Session 07 | Vectors returned in HTTP response only; Session 08 adds vector DB |
+| Tests | Mocked providers, 47 tests | Default suite runs offline without API keys |
+
+### What Session 08 will add (out of scope here)
+
+Vector DB persistence for embedded chunks — the current pipeline produces vectors in memory and returns them over HTTP; nothing is stored yet.
