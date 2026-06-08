@@ -74,6 +74,7 @@ Edge cases:
 - Size: S
 - Estimated time: 2 hours
 - Planned steps: 4
+- **PR:** https://github.com/povedica/master-ia-lidr/pull/29 (draft, `wip`)
 
 ## Implementation progress
 
@@ -122,3 +123,10 @@ Edge cases:
 ## Learnings
 - Keeping the router under `app/routers/` and versioning under `/api/v1` preserves the project's single, predictable API surface; co-locating routes inside feature packages would fragment it.
 - The 500 handler must convert provider errors to a safe message at the boundary; the embedder already classifies rate limits, so the router only needs a generic catch-all with structured logging.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| feat(embedding): add POST /api/v1/embeddings/ingest endpoint | Router, main registration, integration tests |
+| docs(embedding): document ingest endpoint for feature-033 | README, work item, Second Brain session note |
