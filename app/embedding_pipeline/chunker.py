@@ -1,3 +1,71 @@
-"""Structural JSON chunker for budget components (implemented in feature-031)."""
+"""Structural JSON chunker for budget components."""
 
-# TODO(feature-031): implement JSONStructuralChunker
+from __future__ import annotations
+
+import logging
+
+import tiktoken
+
+from app.embedding_pipeline.schemas import Budget, BudgetComponent, Chunk
+
+logger = logging.getLogger(__name__)
+
+_EMBEDDING_MODEL = "text-embedding-3-small"
+
+
+class JSONStructuralChunker:
+    """Turn budgets into one chunk per component with parent-budget context."""
+
+    def __init__(self) -> None:
+        self._encoder = tiktoken.encoding_for_model(_EMBEDDING_MODEL)
+
+    def chunk(self, budgets: list[Budget]) -> list[Chunk]:
+        chunks: list[Chunk] = []
+        for budget in budgets:
+            for component in budget.components:
+                text = self._build_text(budget, component)
+                chunks.append(
+                    Chunk(
+                        chunk_id=f"{budget.budget_id}::{component.component_id}",
+                        text=text,
+                        metadata=self._build_metadata(budget, component),
+                        token_count=len(self._encoder.encode(text)),
+                    )
+                )
+        logger.info(
+            "chunker_completed",
+            extra={
+                "total_budgets": len(budgets),
+                "total_chunks": len(chunks),
+            },
+        )
+        return chunks
+
+    def _build_text(self, budget: Budget, component: BudgetComponent) -> str:
+        header = (
+            f"[Project: {budget.project_summary}] "
+            f"[Client sector: {budget.client_metadata.sector} | "
+            f"Year: {budget.year} | Main tech: {budget.main_technology}]"
+        )
+        tech_stack = ", ".join(component.tech_stack)
+        return (
+            f"{header}\n"
+            f"Component: {component.name}\n"
+            f"Description: {component.description}\n"
+            f"Tech stack: {tech_stack}\n"
+            f"Complexity: {component.complexity}\n"
+            f"Estimated hours: {component.estimated_hours}"
+        )
+
+    def _build_metadata(
+        self, budget: Budget, component: BudgetComponent
+    ) -> dict[str, object]:
+        return {
+            "budget_id": budget.budget_id,
+            "component_id": component.component_id,
+            "client_sector": budget.client_metadata.sector,
+            "main_technology": budget.main_technology,
+            "year": budget.year,
+            "complexity": component.complexity,
+            "estimated_hours": component.estimated_hours,
+        }
