@@ -84,6 +84,7 @@ Do **not** mark unit tests, mocked integration tests, or hard deterministic eval
 - **Verified:** `uv run pytest tests/test_pytest_heavy_selection.py` — 1 passed, 1 deselected.
 - **Verified:** `uv run pytest tests/test_pytest_heavy_selection.py --run-heavy` — 2 passed.
 - **Verified:** `uv run pytest` — 406 passed, 11 skipped, 10 deselected (~7 s).
+- **Verified (finish-task):** full fast suite on `main` after merge — same counts, ~6–7 s.
 - **Not verified:** `--run-heavy` full suite with live credentials (optional, costs tokens).
 
 ## Documentation Plan
@@ -103,3 +104,4 @@ Do **not** mark unit tests, mocked integration tests, or hard deterministic eval
 | SHA | Message |
 |-----|---------|
 | 682718d | feat(testing): deselect slow tests by default with --run-heavy opt-in |
+| 87635b1 | docs(spec-001): record PR link and implementation commit SHA |
