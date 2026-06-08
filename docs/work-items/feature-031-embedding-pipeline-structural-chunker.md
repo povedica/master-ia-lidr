@@ -91,6 +91,8 @@ Edge cases:
 ## Verification
 - **Verified:** `uv run pytest tests/embedding_pipeline/test_chunker.py` — 11 passed.
 - **Verified:** `uv run pytest tests/embedding_pipeline/` — 22 passed (schemas + chunker).
+- **Verified (finish-task):** full suite `uv run pytest` — 400 passed, 11 skipped.
+- **Verified:** `from app.embedding_pipeline.chunker import JSONStructuralChunker` without API keys.
 - **Not verified:** manual REPL smoke (optional); embeddings, endpoint, CLI (features 032–034).
 
 ## Documentation Plan
@@ -113,7 +115,7 @@ Edge cases:
 
 ## Pull request
 
-- WIP draft PR: https://github.com/povedica/master-ia-lidr/pull/26
+- PR: https://github.com/povedica/master-ia-lidr/pull/26 (merged via `/finish-task`)
 
 ## Implementation Plan
 - [x] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
@@ -130,6 +132,7 @@ Edge cases:
 | `dec250b` | `test(embedding-pipeline): add structural chunker contract tests (RED)` |
 | `f669a0d` | `feat(embedding-pipeline): implement JSONStructuralChunker` |
 | `55d5a46` | `docs(feature-031): document structural chunker contract and verification` |
+| `d4f1495` | `docs(feature-031): record implementation commit SHAs` |
 
 ## Learnings
 - Token counting must reuse a single encoder instance; re-creating `encoding_for_model` per component is a measurable waste at scale.
