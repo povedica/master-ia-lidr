@@ -62,28 +62,29 @@ tests/evals/
 ## Run commands
 
 ```bash
-# Default CI / local — hard evals only, no API keys
+# Default repo pytest — hard evals included, slow layer deselected (no --run-heavy)
+uv run pytest
+
+# Hard deterministic evals only
 uv run pytest tests/evals -m "evals and not slow"
 
-# All eval tests (slow/judge skipped without credentials)
-uv run pytest tests/evals
-
-# Full repo fast suite including hard evals
-uv run pytest -m "not slow"
-
 # Soft consistency (live estimator, 3 runs × 2 cases)
-EVAL_ESTIMATOR_USE_REAL_LLM=true uv run pytest tests/evals/test_soft_consistency.py -m soft
+EVAL_ESTIMATOR_USE_REAL_LLM=true \
+uv run pytest --run-heavy tests/evals/test_soft_consistency.py -m soft
 
 # Judge suite (live estimator + judge model)
 EVAL_ESTIMATOR_USE_REAL_LLM=true \
 EVAL_JUDGE_API_KEY=$OPENAI_API_KEY \
-uv run pytest -m judge
+uv run pytest --run-heavy -m judge
 
 # Strict judge mode (fail on sub-threshold scores)
 EVAL_JUDGE_THRESHOLD_MODE=strict \
 EVAL_ESTIMATOR_USE_REAL_LLM=true \
 EVAL_JUDGE_API_KEY=$OPENAI_API_KEY \
-uv run pytest -m judge
+uv run pytest --run-heavy -m judge
+
+# All eval layers including heavy (credentials required for soft/judge)
+uv run pytest --run-heavy tests/evals
 ```
 
 ## Environment variables

@@ -23,6 +23,14 @@ Define focused testing rules for a learning-oriented Python AI Engineering proje
 - Keep tests deterministic and fast.
 - When fixing a bug, reproduce it with a failing test when practical.
 
+## Heavy tests (`slow` marker)
+
+- Tests that call real LLM providers, run multi-pass evals, or cost tokens **must** use `@pytest.mark.slow`.
+- Default collection **deselects** `slow` tests (`tests/conftest.py`); routine validation uses `uv run pytest` only.
+- Opt in explicitly: `uv run pytest --run-heavy`, `RUN_HEAVY_TESTS=1`, or `uv run pytest -m slow`.
+- `/start-task` and `/finish-task` verification: default fast suite unless the work item explicitly requires heavy tests.
+- Canonical contract: `docs/work-items/spec-001-pytest-heavy-test-opt-in.md`.
+
 ## Recommended Tooling
 - Use `pytest` when tests are added.
 - Run tests with `uv run pytest`.
@@ -50,5 +58,5 @@ Define focused testing rules for a learning-oriented Python AI Engineering proje
 
 ---
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-06-08
 **Status:** Active

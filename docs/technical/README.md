@@ -563,12 +563,20 @@ This avoids leaking stack traces or internal details to API clients.
 
 ## 15. Testing and validation
 
-Main command:
+Default command (fast suite; **`slow` tests deselected**):
 
 ```bash
-cd proyectos/estimador-cag
 uv run pytest
 ```
+
+Heavy tests (eval soft/judge, live LLM smoke) require opt-in:
+
+```bash
+uv run pytest --run-heavy -m slow
+# or: RUN_HEAVY_TESTS=1 uv run pytest -m slow
+```
+
+See `docs/work-items/spec-001-pytest-heavy-test-opt-in.md` and [session-estimation-evals.md](../evals/session-estimation-evals.md).
 
 Current coverage:
 
@@ -587,6 +595,7 @@ Testing rules:
 - Mock Redis clients for semantic cache tests; the default suite must not require a live Redis Stack instance.
 - Test project-owned logic: prompts, minimal parsing, metadata, errors, settings.
 - Keep tests fast and deterministic.
+- Mark token-costing or multi-run tests with `@pytest.mark.slow`; they are excluded from default `pytest`.
 
 Minimal manual validation:
 

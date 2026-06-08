@@ -351,6 +351,7 @@ async def test_session_isolation(
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 @requires_real_structured_llm
 async def test_estimate_submit_live_llm_smoke(async_client: AsyncClient) -> None:
     """Optional smoke against a real provider; skipped unless SESSION_INTEGRATION_TEST_USE_REAL_LLM=true."""
