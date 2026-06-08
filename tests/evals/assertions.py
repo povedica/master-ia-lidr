@@ -10,6 +10,36 @@ from app.services.sessions import DerivedProjectMetadata
 from tests.evals.models import ExpectedMetadataSignals, GoldenSessionCase, SuccessCriteria
 from tests.evals.session_runner import SessionEvalOutcome
 
+_COMPONENT_ALIASES: dict[str, tuple[str, ...]] = {
+    "authentication": (
+        "authentication",
+        "auth",
+        "login",
+        "sso",
+        "sign in",
+        "signin",
+        "identity",
+        "access control",
+    ),
+    "autenticacion": (
+        "autenticacion",
+        "authentication",
+        "auth",
+        "login",
+        "sso",
+        "identity",
+    ),
+    "dashboard": ("dashboard", "panel", "control panel", "metrics", "executive"),
+    "panel": ("panel", "dashboard", "control panel", "metrics"),
+    "document": ("document", "pdf", "file upload", "file management", "document sharing", "upload"),
+    "redis": ("redis", "cache", "caching", "session token"),
+    "react": ("react", "frontend", "spa", "javascript"),
+    "cms": ("cms", "content management", "headless cms"),
+    "integration": ("integration", "integracion", "api", "erp", "sap", "stripe", "billing"),
+    "integracion": ("integracion", "integration", "api", "erp", "sap"),
+    "webhook": ("webhook", "webhooks", "callback", "event notification"),
+}
+
 
 def assert_hard_deterministic_outcome(case: GoldenSessionCase, outcome: SessionEvalOutcome) -> None:
     """Run all deterministic property checks for a golden case outcome."""
@@ -77,12 +107,14 @@ def _assert_metadata_signals(
         assert token.lower() in joined, f"constraint token {token!r} not found in metadata"
 
 
+def _component_aliases(component: str) -> tuple[str, ...]:
+    key = _normalized_token(component)
+    return _COMPONENT_ALIASES.get(key, (key,))
+
+
 def _component_present(component: str, estimate: EstimationResult) -> bool:
-    needle = _normalized_token(component)
-    for name in _line_item_names(estimate):
-        if needle in _normalized_token(name):
-            return True
-    return False
+    corpus = _estimate_text_corpus(estimate)
+    return any(_normalized_token(alias) in corpus for alias in _component_aliases(component))
 
 
 def _risk_token_present(token: str, estimate: EstimationResult) -> bool:

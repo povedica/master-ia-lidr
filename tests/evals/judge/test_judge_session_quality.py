@@ -30,7 +30,7 @@ _CASES = list_cases()
 @pytest.mark.parametrize("case", _CASES, ids=[case.case_id for case in _CASES])
 async def test_judge_session_quality(
     case: GoldenSessionCase,
-    eval_async_client: AsyncClient,
+    eval_live_async_client: AsyncClient,
     eval_session_store: InMemorySessionStore,
     eval_structured_llm: EvalStructuredLLM,
 ) -> None:
@@ -39,7 +39,7 @@ async def test_judge_session_quality(
 
     outcome = await SessionEvalRunner().run_case(
         case,
-        client=eval_async_client,
+        client=eval_live_async_client,
         store=eval_session_store,
         fake=None,
     )

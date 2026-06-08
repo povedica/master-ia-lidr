@@ -22,13 +22,15 @@ async def eval_integration_client(
     monkeypatch: pytest.MonkeyPatch,
     store: InMemorySessionStore,
     fake: EvalStructuredLLM,
+    force_fake: bool = False,
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides.clear()
     settings = eval_test_settings()
     app.dependency_overrides[get_settings] = lambda: settings
     get_settings.cache_clear()
     patch_session_stores(monkeypatch, store)
-    if not eval_estimator_uses_real_llm():
+    use_fake = force_fake or not eval_estimator_uses_real_llm()
+    if use_fake:
         install_fake_structured_llm(monkeypatch, fake)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
