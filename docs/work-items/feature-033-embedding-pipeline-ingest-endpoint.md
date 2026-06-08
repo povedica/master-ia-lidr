@@ -112,6 +112,7 @@ Edge cases:
 ## Documentation Plan
 - README: document the endpoint path `POST /api/v1/embeddings/ingest`, request/response shape, status codes, and the Docker run command (`docker compose up app` then POST to `http://localhost:8000/api/v1/embeddings/ingest`).
 - Second Brain: note the router-location and versioning decisions vs the exercise text.
+- Architecture guide: `docs/arquitectura-estimador-cag.html` — router node, file tree, routes table (done).
 
 ## Implementation Plan
 - [x] Step 1: Create `app/routers/embeddings.py` with deps + handler.
