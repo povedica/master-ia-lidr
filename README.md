@@ -573,6 +573,8 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Increment 3 (feature-032)** adds `OpenAIEmbedder` in `app/embedding_pipeline/embedder.py`: async OpenAI embeddings (`text-embedding-3-small`, 1536 dims) with batched requests, rate-limit retry, per-batch logging, and indicative cost tracking (`last_total_tokens`, `last_cost_usd`).
 
+**Increment 4 (feature-033)** exposes ingest over HTTP at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The handler chunks budgets with `JSONStructuralChunker`, embeds via `OpenAIEmbedder`, and returns `IngestResponse` with `EmbeddedChunk` list and `IngestStats`.
+
 Optional env (defaults work without extra config):
 
 | Variable | Default | Purpose |
@@ -588,7 +590,27 @@ Chunk contract:
 - `text`: project/client header plus component name, description, tech stack, complexity, and estimated hours (see feature-031 work item for the exact template).
 - `metadata`: `budget_id`, `component_id`, `client_sector`, `main_technology`, `year`, `complexity`, `estimated_hours`.
 
-Embedding, ingest route, and CLI arrive in features 032–034.
+**Ingest endpoint** (`POST /api/v1/embeddings/ingest`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Request `budgets` | `list[Budget]` | Same shape as chunker input |
+| Response `chunks` | `list[EmbeddedChunk]` | One embedding per component |
+| Response `stats` | `IngestStats` | `total_budgets`, `total_chunks`, `total_tokens`, `estimated_cost_usd` |
+
+Status codes: `200` success (including empty `budgets`), `422` validation error, `500` generic failure (details logged server-side).
+
+```bash
+# Local
+uv run uvicorn app.main:app --reload
+# POST http://127.0.0.1:8000/api/v1/embeddings/ingest
+
+# Docker
+docker compose up app
+# POST http://localhost:8000/api/v1/embeddings/ingest
+```
+
+CLI cosine similarity arrives in feature-034.
 
 ```bash
 uv run pytest tests/embedding_pipeline/
