@@ -121,7 +121,7 @@ Two execution modes (both documented in README):
 
 ## Pull Request
 
-- WIP: (pending first push)
+- WIP: https://github.com/povedica/master-ia-lidr/pull/30
 
 ## Implementation progress
 
@@ -139,6 +139,13 @@ Two execution modes (both documented in README):
 - [x] Step 4: Run the 3 sanity pairs with a real key; capture values.
 - [x] Step 5: Write `SANITY_CHECK.md` (values + comment).
 - [x] Step 6: Update README (both run modes) + Second Brain note.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| `c5b4eb7` | `test(embedding-pipeline): add compare CLI contract tests (RED→GREEN)` |
+| `5d2df13` | `feat(embedding-pipeline): add cosine compare CLI and sanity check docs` |
 
 ## Learnings
 - Implementing cosine similarity by hand keeps the dependency surface minimal and makes the math explicit for the learning session.
