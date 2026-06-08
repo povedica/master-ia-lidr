@@ -341,6 +341,37 @@
 
     .mermaid { text-align: center; }
 
+    .diagram-box.diagram-flow-lg {
+      padding: 1.75rem 1.25rem;
+      min-height: 28rem;
+    }
+
+    .diagram-box.diagram-flow-lg pre.mermaid {
+      margin: 0;
+      min-height: 24rem;
+    }
+
+    .mermaid svg {
+      font-size: 16px !important;
+      max-width: 100%;
+      height: auto !important;
+    }
+
+    .diagram-box.diagram-flow-lg .mermaid svg {
+      font-size: 17px !important;
+    }
+
+    .diagram-box.diagram-flow-lg .nodeLabel,
+    .diagram-box.diagram-flow-lg .edgeLabel {
+      font-size: 17px !important;
+      line-height: 1.45 !important;
+    }
+
+    [data-theme="light"] .diagram-box.diagram-flow-lg .mermaid svg .node rect,
+    [data-theme="light"] .diagram-box.diagram-flow-lg .mermaid svg .node polygon {
+      filter: none;
+    }
+
     /* ── Flow steps (animated) ── */
     .flow-steps {
       display: flex;
@@ -526,10 +557,6 @@
       border-top: 1px solid var(--border);
       font-size: var(--text-sm);
       color: var(--text-muted);
-    }
-
-    .mermaid svg {
-      font-size: 15px !important;
     }
 
     /* ── Interactive architecture diagram ── */
@@ -2425,15 +2452,125 @@ flowchart TD
         </div>
 
         <h3>Flujo de datos (ingest HTTP)</h3>
-        <div class="diagram-box">
+        <p class="lead" style="margin-bottom:0.75rem">
+          Recorrido completo desde el cliente hasta la respuesta. Cada caja indica <strong>módulo</strong>, <strong>artefacto</strong> y <strong>decisión relevante</strong> del pipeline Session 07.
+        </p>
+        <div class="diagram-box diagram-flow-lg">
           <pre class="mermaid">
-flowchart LR
-    REQ["IngestRequest\nbudgets[]"] --> VAL["Pydantic validation"]
-    VAL --> CHK["JSONStructuralChunker.chunk()"]
-    CHK --> CH["Chunk[]\nchunk_id, text,\nmetadata, token_count"]
-    CH --> EMB["OpenAIEmbedder.embed_many()"]
-    EMB --> API["OpenAI Embeddings API\ntext-embedding-3-small"]
-    API --> OUT["IngestResponse\nEmbeddedChunk[] + IngestStats"]
+flowchart TB
+    subgraph L1["① Entrada HTTP · app/routers/embeddings.py"]
+        direction TB
+        EP["POST /api/v1/embeddings/ingest"]
+        REQ["Body: IngestRequest\nbudgets: list[Budget]"]
+        EP --> REQ
+    end
+
+    subgraph L2["② Validación · FastAPI + Pydantic"]
+        direction TB
+        VAL["Valida Budget, ClientMetadata,\nBudgetComponent (422 si falla)"]
+    end
+
+    subgraph L3["③ Chunking · app/embedding_pipeline/chunker.py"]
+        direction TB
+        CHK["JSONStructuralChunker.chunk()\n1 componente presupuesto = 1 Chunk"]
+        CH["Chunk[] por componente\nchunk_id · text enriquecido\nmetadata (7 claves) · token_count"]
+        CHK --> CH
+    end
+
+    subgraph L4["④ Embedding · app/embedding_pipeline/embedder.py"]
+        direction TB
+        EMB["OpenAIEmbedder.embed_many()\nasync · lotes de 100\nretry 1s/2s/4s en rate limit"]
+    end
+
+    subgraph L5["⑤ OpenAI SaaS"]
+        direction TB
+        API["Embeddings API\ntext-embedding-3-small\nOPENAI_API_KEY requerida"]
+    end
+
+    subgraph L6["⑥ Ensamblado y respuesta HTTP 200"]
+        direction TB
+        VEC["EmbeddedChunk[]\nChunk + embedding[1536]"]
+        OUT["IngestResponse\nstats: budgets · chunks · tokens · cost_usd"]
+        VEC --> OUT
+    end
+
+    REQ --> VAL
+    VAL --> CHK
+    CH --> EMB
+    EMB --> API
+    API --> VEC
+
+    classDef layerHttp fill:#1a3352,stroke:#38bdf8,color:#f1f5f9,stroke-width:2px
+    classDef layerVal fill:#1f2937,stroke:#94a3b8,color:#f1f5f9,stroke-width:2px
+    classDef layerChunk fill:#14352a,stroke:#34d399,color:#f1f5f9,stroke-width:2px
+    classDef layerEmbed fill:#2a1f3d,stroke:#a78bfa,color:#f1f5f9,stroke-width:2px
+    classDef layerExt fill:#3d2e14,stroke:#fbbf24,color:#f1f5f9,stroke-width:2px
+    classDef layerOut fill:#1e3a5f,stroke:#0ea5e9,color:#f1f5f9,stroke-width:2px
+
+    class EP,REQ layerHttp
+    class VAL layerVal
+    class CHK,CH layerChunk
+    class EMB layerEmbed
+    class API layerExt
+    class VEC,OUT layerOut
+
+    style L1 fill:#0f172a,stroke:#38bdf8,color:#e2e8f0
+    style L2 fill:#0f172a,stroke:#64748b,color:#e2e8f0
+    style L3 fill:#0f172a,stroke:#34d399,color:#e2e8f0
+    style L4 fill:#0f172a,stroke:#a78bfa,color:#e2e8f0
+    style L5 fill:#0f172a,stroke:#fbbf24,color:#e2e8f0
+    style L6 fill:#0f172a,stroke:#0ea5e9,color:#e2e8f0
+          </pre>
+        </div>
+
+        <h3>Flujo CLI compare (sanity check)</h3>
+        <p class="lead" style="margin-bottom:0.75rem">
+          Atajo de calidad: <strong>no usa chunker</strong>; embede dos textos libres y calcula similitud coseno con stdlib <code>math</code>.
+        </p>
+        <div class="diagram-box diagram-flow-lg">
+          <pre class="mermaid">
+flowchart TB
+    subgraph CLI_IN["Entrada · app/scripts/compare.py"]
+        ARGS["python -m app.scripts.compare\n--text-a · --text-b"]
+    end
+
+    subgraph CLI_EMB["Embedding · reutiliza OpenAIEmbedder"]
+        RUN["asyncio.run(embed_one × 2)"]
+        VA["vector A · 1536 floats"]
+        VB["vector B · 1536 floats"]
+        RUN --> VA
+        RUN --> VB
+    end
+
+    subgraph CLI_MATH["Similitud · sin numpy"]
+        COS["cosine_similarity(a, b)\ndot / (norm_a × norm_b)\nguarda norma cero"]
+    end
+
+    subgraph CLI_OUT["Salida"]
+        STDOUT["stdout: textos + score 0.0–1.0\nstderr + exit 1 si falla API key"]
+        DOC["SANITY_CHECK.md\npares A/B/C medidos"]
+    end
+
+    ARGS --> RUN
+    VA --> COS
+    VB --> COS
+    COS --> STDOUT
+    STDOUT --> DOC
+
+    classDef cliIn fill:#1a3352,stroke:#38bdf8,color:#f1f5f9,stroke-width:2px
+    classDef cliEmb fill:#2a1f3d,stroke:#a78bfa,color:#f1f5f9,stroke-width:2px
+    classDef cliMath fill:#14352a,stroke:#34d399,color:#f1f5f9,stroke-width:2px
+    classDef cliOut fill:#1e3a5f,stroke:#0ea5e9,color:#f1f5f9,stroke-width:2px
+
+    class ARGS cliIn
+    class RUN,VA,VB cliEmb
+    class COS cliMath
+    class STDOUT,DOC cliOut
+
+    style CLI_IN fill:#0f172a,stroke:#38bdf8,color:#e2e8f0
+    style CLI_EMB fill:#0f172a,stroke:#a78bfa,color:#e2e8f0
+    style CLI_MATH fill:#0f172a,stroke:#34d399,color:#e2e8f0
+    style CLI_OUT fill:#0f172a,stroke:#0ea5e9,color:#e2e8f0
           </pre>
         </div>
 
@@ -3351,8 +3488,21 @@ flowchart TB
       startOnLoad: false,
       theme: mermaidTheme(),
       securityLevel: "loose",
-      flowchart: { curve: "basis" },
-      themeVariables: { fontSize: "15px" }
+      flowchart: {
+        curve: "basis",
+        nodeSpacing: 48,
+        rankSpacing: 56,
+        padding: 18,
+        useMaxWidth: true,
+        htmlLabels: true
+      },
+      themeVariables: {
+        fontSize: "16px",
+        fontFamily: "Segoe UI, system-ui, sans-serif",
+        primaryTextColor: "#e8edf4",
+        lineColor: "#64748b",
+        primaryBorderColor: "#38bdf8"
+      }
     });
 
     async function renderMermaidDiagrams() {
@@ -3389,7 +3539,21 @@ flowchart TB
       mermaid.initialize({
         startOnLoad: false,
         theme: isDark ? "default" : "dark",
-        themeVariables: { fontSize: "15px" }
+        flowchart: {
+          curve: "basis",
+          nodeSpacing: 48,
+          rankSpacing: 56,
+          padding: 18,
+          useMaxWidth: true,
+          htmlLabels: true
+        },
+        themeVariables: {
+          fontSize: "16px",
+          fontFamily: "Segoe UI, system-ui, sans-serif",
+          primaryTextColor: isDark ? "#0f172a" : "#e8edf4",
+          lineColor: isDark ? "#475569" : "#64748b",
+          primaryBorderColor: isDark ? "#0284c7" : "#38bdf8"
+        }
       });
       document.querySelectorAll(".mermaid").forEach(el => {
         const code = el.dataset.mermaidSource || el.textContent;
