@@ -82,16 +82,16 @@ Behavioral notes:
 - `pyproject.toml`: append `tiktoken>=0.7.0` to `[project].dependencies`. `openai>=1.60.0` is already present (exercise asks for `openai>=1.0.0`, already satisfied — do not downgrade). Run `uv sync` to refresh `uv.lock`.
 
 ## Acceptance Criteria
-- [ ] AC-01: `app/embedding_pipeline/__init__.py` exists and the package imports without error.
-- [ ] AC-02: `chunker.py`, `embedder.py`, `router.py` exist as importable stubs with a TODO marker.
-- [ ] AC-03: `app/scripts/__init__.py` and `app/scripts/compare.py` exist as importable stubs.
-- [ ] AC-04: `schemas.py` defines all 8 models (`ClientMetadata`, `BudgetComponent`, `Budget`, `Chunk`, `EmbeddedChunk`, `IngestStats`, `IngestRequest`, `IngestResponse`).
-- [ ] AC-05: `EmbeddedChunk` is a subclass of `Chunk` and adds only `embedding: list[float]`.
-- [ ] AC-06: All models instantiate from valid sample data matching the JSON schema above without validation errors.
-- [ ] AC-07: `EmbeddedChunk` requires `embedding`; constructing it without `embedding` raises `ValidationError`.
-- [ ] AC-08: `IngestResponse` serializes `stats` to JSON with keys `total_budgets`, `total_chunks`, `total_tokens`, `estimated_cost_usd`.
-- [ ] AC-09: `tiktoken>=0.7.0` is in `pyproject.toml` and `uv.lock` is updated; `openai` remains `>=1.60.0`.
-- [ ] AC-10: No imports from `app/services/semantic_cache/*` and no edits to existing routers/`main.py`.
+- [x] AC-01: `app/embedding_pipeline/__init__.py` exists and the package imports without error.
+- [x] AC-02: `chunker.py`, `embedder.py`, `router.py` exist as importable stubs with a TODO marker.
+- [x] AC-03: `app/scripts/__init__.py` and `app/scripts/compare.py` exist as importable stubs.
+- [x] AC-04: `schemas.py` defines all 8 models (`ClientMetadata`, `BudgetComponent`, `Budget`, `Chunk`, `EmbeddedChunk`, `IngestStats`, `IngestRequest`, `IngestResponse`).
+- [x] AC-05: `EmbeddedChunk` is a subclass of `Chunk` and adds only `embedding: list[float]`.
+- [x] AC-06: All models instantiate from valid sample data matching the JSON schema above without validation errors.
+- [x] AC-07: `EmbeddedChunk` requires `embedding`; constructing it without `embedding` raises `ValidationError`.
+- [x] AC-08: `IngestResponse` serializes `stats` to JSON with keys `total_budgets`, `total_chunks`, `total_tokens`, `estimated_cost_usd`.
+- [x] AC-09: `tiktoken>=0.7.0` is in `pyproject.toml` and `uv.lock` is updated; `openai` remains `>=1.60.0`.
+- [x] AC-10: No imports from `app/services/semantic_cache/*` and no edits to existing routers/`main.py`.
 
 ## Test Plan
 - Unit tests (`tests/embedding_pipeline/test_schemas.py`):
@@ -103,13 +103,29 @@ Behavioral notes:
 - Manual checks: `uv run python -c "from app.embedding_pipeline.schemas import Budget, Chunk, EmbeddedChunk, IngestRequest, IngestResponse"`.
 
 ## Verification
-- Automated: `uv run pytest tests/embedding_pipeline/test_schemas.py`.
-- Manual: import check above; `uv run python -c "import app.embedding_pipeline.chunker, app.embedding_pipeline.embedder, app.embedding_pipeline.router, app.scripts.compare"`.
+- Automated: `uv run pytest tests/embedding_pipeline/test_schemas.py` — **Verified** (11 passed, 2026-06-08).
+- Manual: import check above; stub imports — **Verified**.
+- `docs/arquitectura-estimador-cag.html`: **N/A** — increment 1 is types-only; no routes, orchestration, or env surface changes.
 - Not verified yet: chunking, embedding, endpoint, CLI (later increments).
 
 ## Documentation Plan
 - README: add a short "Embedding pipeline (Session 07)" subsection noting the module location and that increment 1 ships schemas only.
 - Second Brain: session note capturing the schema contract and the decision to type `stats` and keep the module isolated from the semantic cache.
+
+## Estimation
+
+- Size: S
+- Estimated time: 1.5 hours
+- Planned steps: 6
+
+## Implementation progress
+
+- [x] Step 1: Package skeleton (`embedding_pipeline` + `scripts` stubs)
+- [x] Step 2: Schema tests (RED)
+- [x] Step 3: Implement `schemas.py` (GREEN)
+- [x] Step 4: Add `tiktoken` dependency
+- [x] Step 5: README + session note
+- [x] Step 6: Final verification and acceptance sync
 
 ## Implementation Plan
 - [ ] Step 1: Create `app/embedding_pipeline/` package with `__init__.py` and the three stubs.
@@ -122,3 +138,17 @@ Behavioral notes:
 ## Learnings
 - Architecture review for this milestone flagged (HIGH) that routes belong in `app/routers/` and the embedder must be async — both handled in `feature-033` and `feature-032`, not here. This increment intentionally stays at the type layer.
 - Prefer a typed `IngestStats` over a bare `dict` to match repo conventions while preserving the exact JSON keys the exercise verifies.
+
+## Pull Request
+
+- WIP draft: https://github.com/povedica/master-ia-lidr/pull/25
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| (pending push) | `feat(embedding-pipeline): add module skeleton and script stubs` |
+| (pending push) | `test(embedding-pipeline): add schema contract tests (RED)` |
+| (pending push) | `feat(embedding-pipeline): implement Pydantic schemas for ingest contract` |
+| (pending push) | `chore(deps): add tiktoken for embedding pipeline chunker` |
+| (pending push) | `docs(embedding-pipeline): document Session 07 increment 1` |
