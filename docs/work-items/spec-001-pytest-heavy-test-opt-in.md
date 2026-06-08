@@ -96,10 +96,10 @@ Do **not** mark unit tests, mocked integration tests, or hard deterministic eval
 
 ## Pull request
 
-- PR: _(pending `/finish-task`)_
+- PR: https://github.com/povedica/master-ia-lidr/pull/28 (merged via `/finish-task`)
 
 ## Repository commits (master-ia)
 
 | SHA | Message |
 |-----|---------|
-| _(pending)_ | |
+| 682718d | feat(testing): deselect slow tests by default with --run-heavy opt-in |
