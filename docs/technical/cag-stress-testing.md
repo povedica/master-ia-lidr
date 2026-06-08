@@ -5,7 +5,7 @@
 **Branch:** `feature/029-cag-stress-testing`  
 **Interactive guide:** `docs/arquitectura-estimador-cag.html` § Stress testing
 
-This document describes **how** the CAG stress-testing capability was built, **what** each part does, and **why** key technical decisions were taken. It complements the work item (requirements) and the exercise deliverables (`results.csv`, `REPORT.md`).
+This document describes **how** the CAG stress-testing capability was built, **what** each part does, and **why** key technical decisions were taken. It complements the work item (requirements) and the exercise deliverables (`results-<scenario>.csv`, `REPORT-<scenario>.md`).
 
 ---
 
@@ -17,8 +17,10 @@ Measure where the **current session-based CAG baseline** degrades under controll
 
 | Artifact | Path | Role |
 |----------|------|------|
-| Per-turn measurements | `evals/stress/results.csv` | One row per conversational turn |
-| Human-readable analysis | `evals/stress/REPORT.md` | Summary tables, three “curves” (as tables), two interpretation paragraphs |
+| Per-turn measurements | `evals/stress/results-<scenario>.csv` | One row per conversational turn (e.g. `results-pivot.csv`) |
+| Human-readable analysis | `evals/stress/REPORT-<scenario>.md` | Summary tables, three “curves” (as tables), two interpretation paragraphs |
+
+Legacy sample from the first growing HTTP run remains as `results.csv` / `REPORT.md`.
 
 ### 1.2 What this is not
 
@@ -275,9 +277,9 @@ uv run python -m evals.stress.fixtures.build_pdfs
 | `--turn-counts` | `1,3,6,10,20` | Turns per scenario session |
 | `--latency-budget-ms` | `4000` | LatencyBudgetMetric |
 | `--cost-budget-usd` | `0.05` | CostBudgetMetric |
-| `--output` | `evals/stress/results.csv` | CSV path |
-| `--write-report` | off | Also write `REPORT.md` |
-| `--report-output` | `evals/stress/REPORT.md` | Report path |
+| `--output` | `evals/stress/results.csv` | Base CSV stem → `results-<scenario>.csv` per scenario |
+| `--write-report` | off | Also write `REPORT-<scenario>.md` per scenario |
+| `--report-output` | `evals/stress/REPORT.md` | Base report stem → `REPORT-<scenario>.md` |
 
 **Loop (conceptual):**
 
@@ -292,10 +294,13 @@ for scenario in scenarios:
           GET session → observation + snapshot
         for each turn record:
           evaluate 3 metrics (drift vs final snapshot)
-          append CSV row
+          buffer CSV row
+  write results-<scenario>.csv (+ REPORT-<scenario>.md)
 ```
 
-**Default row count:** 3 × 5 × 3 × (1+3+6+10+20) = **1800 rows** (well above ≥50 requirement).
+**Stop condition:** all scenario combinations finish and artifacts are written, or the runner aborts on HTTP error / 120 s httpx timeout. Budget metric failures are recorded but do not short-circuit the run.
+
+**Default row count:** **600 rows per scenario** (5 attachment sizes × 3 repeats × 40 turns); three scenarios ≈ **1800 rows** total (well above ≥50 per scenario).
 
 ### 6.5 Report — `report.py`
 
@@ -320,6 +325,7 @@ Helper: `percentile(values, pct)` — stdlib only, no numpy.
 | `tests/test_stress_metrics.py` | Pass/fail + case-insensitive drift |
 | `tests/test_stress_scenarios.py` | 3×5 parametrized scenario shapes |
 | `tests/test_stress_report.py` | REPORT sections generated from sample CSV |
+| `tests/test_stress_run.py` | Per-scenario artifact path derivation |
 
 **Pytest import fix:** Each stress test module prepends repo root to `sys.path` and evicts shadowed `evals` from `tests/evals/`. Root `conftest.py` also calls `_prefer_root_evals_package()`. `pyproject.toml` sets `addopts = "--import-mode=importlib"`.
 
@@ -388,16 +394,14 @@ uv run python -m evals.stress.run \
   --attachment-sizes 0 \
   --repeats 1 \
   --turn-counts 3 \
-  --output evals/stress/results.csv \
   --write-report
 
-# Full exercise configuration
+# Full exercise configuration (3 CSV + 3 REPORT files)
 uv run python -m evals.stress.run \
   --http http://localhost:8000 \
   --scenarios growing,pivot,contradiction \
   --attachment-sizes 0,5,20,50,100 \
   --repeats 3 \
-  --output evals/stress/results.csv \
   --write-report
 ```
 

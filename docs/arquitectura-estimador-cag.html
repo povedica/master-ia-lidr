@@ -2803,8 +2803,9 @@ uv run pytest tests/test_sessions_integration.py::test_estimate_submit_live_llm_
           <div class="card">
             <h4>Entregables</h4>
             <ul>
-              <li><code>evals/stress/results.csv</code> — una fila por turno</li>
-              <li><code>evals/stress/REPORT.md</code> — tablas + 2 párrafos cuantitativos</li>
+              <li><code>evals/stress/results-&lt;scenario&gt;.csv</code> — una fila por turno (ej. <code>results-pivot.csv</code>)</li>
+              <li><code>evals/stress/REPORT-&lt;scenario&gt;.md</code> — tablas + 2 párrafos cuantitativos</li>
+              <li><code>results.csv</code> / <code>REPORT.md</code> — muestra legacy del primer run <code>growing</code></li>
             </ul>
           </div>
           <div class="card">
@@ -2855,8 +2856,8 @@ flowchart TB
         SC --> RUN
         M --> RUN
         FIX --> RUN
-        RUN --> CSV[("results.csv")]
-        REP --> MD[("REPORT.md")]
+        RUN --> CSV[("results-scenario.csv")]
+        REP --> MD[("REPORT-scenario.md")]
         CSV --> REP
     end
     RUN -->|"httpx HTTP o ASGI"| R
@@ -2989,23 +2990,22 @@ flowchart LR
           <div class="tree-children" style="display:block">
             <div class="tree-leaf">scenarios.py <span class="comment">— TurnSpec, StressScenario, build_scenario</span></div>
             <div class="tree-leaf">metrics.py <span class="comment">— 3 métricas + MetricResult</span></div>
-            <div class="tree-leaf">run.py <span class="comment">— CLI → results.csv</span></div>
-            <div class="tree-leaf">report.py <span class="comment">— CSV → REPORT.md</span></div>
+            <div class="tree-leaf">run.py <span class="comment">— CLI → results-&lt;scenario&gt;.csv</span></div>
+            <div class="tree-leaf">report.py <span class="comment">— CSV → REPORT-&lt;scenario&gt;.md</span></div>
             <div class="tree-node open">fixtures/</div>
             <div class="tree-children" style="display:block">
               <div class="tree-leaf">build_pdfs.py <span class="comment">— PDFs ~5/20/50/100 KB</span></div>
               <div class="tree-leaf">attach_*.pdf <span class="comment">— regenerables; no obligatorio en git</span></div>
             </div>
           </div>
-          <div class="tree-leaf">results.csv <span class="comment">— generado por run</span></div>
-          <div class="tree-leaf">REPORT.md <span class="comment">— generado con --write-report</span></div>
+          <div class="tree-leaf">results-&lt;scenario&gt;.csv <span class="comment">— generado por run (uno por escenario)</span></div>
+          <div class="tree-leaf">REPORT-&lt;scenario&gt;.md <span class="comment">— generado con --write-report</span></div>
         </div>
 
         <div class="diagram-box">
           <pre class="mermaid">
 flowchart TB
-    subgraph dims ["Dimensiones del barrido"]
-        A["3 escenarios"]
+    subgraph dims ["Dimensiones del barrido (por escenario)"]
         B["5 tamanos adjunto KB"]
         C["3 repeticiones"]
         D["5 valores N turnos"]
@@ -3015,13 +3015,19 @@ flowchart TB
     LOOP --> E["POST estimate por turno"]
     LOOP --> G["GET session observation"]
     LOOP --> M["3 metricas por fila"]
-    M --> CSV["results.csv"]
+    M --> CSV["results-scenario.csv"]
     CSV --> REP["report.py"]
-    REP --> RMD["REPORT.md"]
+    REP --> RMD["REPORT-scenario.md"]
           </pre>
         </div>
 
-        <p>Configuración por defecto: <strong>3 × 5 × 3 × (1+3+6+10+20) = 1800 filas</strong> (mínimo ejercicio ≥50).</p>
+        <p>Configuración por defecto: <strong>600 filas por escenario</strong> (5 adjuntos × 3 repeticiones × 40 turnos) ≈ <strong>1.275 peticiones HTTP</strong> y <strong>600 llamadas LLM</strong> por escenario. Tres escenarios ≈ 1.800 filas totales.</p>
+
+        <div class="alert info">
+          <strong>Cuándo para:</strong> al terminar todas las combinaciones del escenario y escribir su CSV/REPORT, o ante error HTTP / timeout de 120 s.
+          No se detiene por latencia o coste altos — solo los registra.
+          Las peticiones son <em>secuenciales</em> (sin paralelismo).
+        </div>
 
         <h3>Curvas del REPORT (tablas Markdown)</h3>
         <div class="grid-2">
@@ -3055,6 +3061,7 @@ flowchart TB
               <tr><td><code>tests/test_stress_metrics.py</code></td><td>Pass/fail budgets + drift</td><td>No</td></tr>
               <tr><td><code>tests/test_stress_scenarios.py</code></td><td>3 familias × 5 valores N</td><td>No</td></tr>
               <tr><td><code>tests/test_stress_report.py</code></td><td>Secciones del REPORT</td><td>No</td></tr>
+              <tr><td><code>tests/test_stress_run.py</code></td><td>Rutas <code>results-&lt;scenario&gt;.csv</code></td><td>No</td></tr>
               <tr><td><code>evals.stress.run --http</code></td><td>E2E con LLM real</td><td>Sí · manual</td></tr>
             </tbody>
           </table>
@@ -3078,15 +3085,15 @@ uv run python -m evals.stress.run \
   --http http://localhost:8000 \
   --scenarios growing --attachment-sizes 0 \
   --repeats 1 --turn-counts 3 \
-  --output evals/stress/results.csv --write-report
+  --write-report
 
-# Configuración completa del ejercicio
+# Configuración completa del ejercicio (3 CSV + 3 REPORT)
 uv run python -m evals.stress.run \
   --http http://localhost:8000 \
   --scenarios growing,pivot,contradiction \
   --attachment-sizes 0,5,20,50,100 \
   --repeats 3 \
-  --output evals/stress/results.csv --write-report</div>
+  --write-report</div>
 
         <h3>Decisiones técnicas clave</h3>
         <div class="table-wrap">
