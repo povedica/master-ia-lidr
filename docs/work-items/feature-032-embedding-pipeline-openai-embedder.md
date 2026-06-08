@@ -133,10 +133,11 @@ Edge cases:
 
 | SHA | Message |
 |-----|---------|
-| _(fill on commit)_ | docs(feature-032): add estimation and implementation progress |
-| _(fill on commit)_ | feat(config): add embedding pipeline model and batch size settings |
-| _(fill on commit)_ | test(embedding-pipeline): add OpenAIEmbedder unit tests (RED) |
-| _(fill on commit)_ | feat(embedding-pipeline): implement OpenAIEmbedder with batching and retry |
+| 6825a73 | docs(feature-032): add estimation and implementation progress |
+| c83aff4 | feat(config): add embedding pipeline model and batch size settings |
+| 1e4e828 | test(embedding-pipeline): add OpenAIEmbedder unit tests (RED) |
+| 0c5aea3 | feat(embedding-pipeline): implement OpenAIEmbedder with batching and retry |
+| 30a0f3b | docs(embedding-pipeline): document OpenAIEmbedder contract and verification |
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
