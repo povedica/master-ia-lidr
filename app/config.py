@@ -327,6 +327,18 @@ class Settings(BaseSettings):
         max_length=16,
         description="ACB prompt bundle version subdirectory under app/prompts/acb/.",
     )
+    # --- Embedding pipeline (feature-032): OpenAI embedder for ingest ---
+    embedding_pipeline_model: str = Field(
+        default="text-embedding-3-small",
+        max_length=128,
+        description="OpenAI embedding model for the embedding pipeline ingest path.",
+    )
+    embedding_pipeline_batch_size: int = Field(
+        default=100,
+        ge=1,
+        le=2048,
+        description="Batch size for embed_many API calls (one request per batch).",
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(

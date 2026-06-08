@@ -68,17 +68,17 @@ Edge cases:
 - `.env.example`: add `EMBEDDING_PIPELINE_MODEL=text-embedding-3-small` and `EMBEDDING_PIPELINE_BATCH_SIZE=100` with a short comment block referencing this feature.
 
 ## Acceptance Criteria
-- [ ] AC-01: `EMBEDDING_MODEL`, `COST_PER_MILLION_TOKENS`, `DEFAULT_BATCH_SIZE` exist as module-level constants with the specified values.
-- [ ] AC-02: `embed_one("OAuth 2.0 authentication backend for fintech")` returns a list of exactly 1536 floats.
-- [ ] AC-03: All returned floats are finite (no NaN, no Inf).
-- [ ] AC-04: `embed_many` issues `ceil(len(chunks)/batch_size)` API calls (verified via mock), not one per chunk.
-- [ ] AC-05: Output order of `embed_many` matches input order; each `EmbeddedChunk` keeps its source `Chunk` fields plus `embedding`.
-- [ ] AC-06: On `RateLimitError`, the embedder retries up to 3 times with `1/2/4s` backoff, then re-raises; other errors propagate immediately.
-- [ ] AC-07: One INFO log per batch with keys `batch_index`, `batch_size`, `batch_tokens`, `latency_ms`.
-- [ ] AC-08: `last_total_tokens` and `last_cost_usd` reflect summed token counts and the cost formula after `embed_many`.
-- [ ] AC-09: `embed_many([])` returns `[]` with zeroed cost/tokens and no API call.
-- [ ] AC-10: Methods are `async`; no synchronous OpenAI client is used.
-- [ ] AC-11: No import of `app/services/semantic_cache/*`.
+- [x] AC-01: `EMBEDDING_MODEL`, `COST_PER_MILLION_TOKENS`, `DEFAULT_BATCH_SIZE` exist as module-level constants with the specified values.
+- [x] AC-02: `embed_one("OAuth 2.0 authentication backend for fintech")` returns a list of exactly 1536 floats.
+- [x] AC-03: All returned floats are finite (no NaN, no Inf).
+- [x] AC-04: `embed_many` issues `ceil(len(chunks)/batch_size)` API calls (verified via mock), not one per chunk.
+- [x] AC-05: Output order of `embed_many` matches input order; each `EmbeddedChunk` keeps its source `Chunk` fields plus `embedding`.
+- [x] AC-06: On `RateLimitError`, the embedder retries up to 3 times with `1/2/4s` backoff, then re-raises; other errors propagate immediately.
+- [x] AC-07: One INFO log per batch with keys `batch_index`, `batch_size`, `batch_tokens`, `latency_ms`.
+- [x] AC-08: `last_total_tokens` and `last_cost_usd` reflect summed token counts and the cost formula after `embed_many`.
+- [x] AC-09: `embed_many([])` returns `[]` with zeroed cost/tokens and no API call.
+- [x] AC-10: Methods are `async`; no synchronous OpenAI client is used.
+- [x] AC-11: No import of `app/services/semantic_cache/*`.
 
 ## Test Plan
 - Unit tests (`tests/embedding_pipeline/test_embedder.py`), all mocked (no real API keys, per testing rules):
@@ -92,22 +92,55 @@ Edge cases:
 - Manual checks (real key, local only): `embed_one(...)` returns 1536 finite floats.
 
 ## Verification
-- Automated: `uv run pytest tests/embedding_pipeline/test_embedder.py` (mocked).
-- Manual (optional, real key): one `embed_one` call; confirm length 1536 and finite values.
-- Not verified yet: endpoint orchestration (Feature 033), CLI (Feature 034).
+- **Verified:** `uv run pytest tests/embedding_pipeline/test_embedder.py` — 12 passed (mocked).
+- **Verified:** `uv run pytest tests/embedding_pipeline/` — 34 passed (schemas + chunker + embedder).
+- **Verified (finish-task):** full suite `uv run pytest` — 414 passed, 11 skipped.
+- **Not verified:** manual `embed_one` with real API key (optional); endpoint orchestration (Feature 033), CLI (Feature 034).
+- **N/A:** `docs/arquitectura-estimador-cag.html` — no routes, guardrails, or orchestration changes in this increment.
 
 ## Documentation Plan
 - README: document `EMBEDDING_PIPELINE_MODEL` / `EMBEDDING_PIPELINE_BATCH_SIZE` and the async embedder contract (`embed_one`/`embed_many`, `last_cost_usd`).
 - `.env.example`: new entries with comments.
 - Second Brain: note the async deviation from the exercise and the batching/retry design.
 
+## Estimation
+
+- Size: M
+- Estimated time: 2.5 hours
+- Planned steps: 6
+
+## Implementation progress
+
+- [x] Step 1: Add settings + `.env.example` entries.
+- [x] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
+- [x] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
+- [x] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
+- [x] Step 5: Run tests to green; finite-value and ordering assertions.
+- [x] Step 6: Update README + Second Brain note.
+
 ## Implementation Plan
-- [ ] Step 1: Add settings + `.env.example` entries.
-- [ ] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
-- [ ] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
-- [ ] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
-- [ ] Step 5: Run tests to green; finite-value and ordering assertions.
-- [ ] Step 6: Update README + Second Brain note.
+- [x] Step 1: Add settings + `.env.example` entries.
+- [x] Step 2: Add `tests/embedding_pipeline/test_embedder.py` with mocked client (RED).
+- [x] Step 3: Implement constants, `__init__`, `_embed_batch` (retry/backoff/log).
+- [x] Step 4: Implement `embed_one` and `embed_many` (batching, ordering, cost).
+- [x] Step 5: Run tests to green; finite-value and ordering assertions.
+- [x] Step 6: Update README + Second Brain note.
+
+## Pull request
+
+- PR: https://github.com/povedica/master-ia-lidr/pull/27 (merged via `/finish-task`)
+
+## Repository commits (master-ia)
+
+| SHA | Message |
+|-----|---------|
+| 6825a73 | docs(feature-032): add estimation and implementation progress |
+| c83aff4 | feat(config): add embedding pipeline model and batch size settings |
+| 1e4e828 | test(embedding-pipeline): add OpenAIEmbedder unit tests (RED) |
+| 0c5aea3 | feat(embedding-pipeline): implement OpenAIEmbedder with batching and retry |
+| 30a0f3b | docs(embedding-pipeline): document OpenAIEmbedder contract and verification |
+| b423eba | docs(feature-032): record implementation commit SHAs |
+| e64fd3e | docs(feature-032): sync commit table with latest SHA |
 
 ## Learnings
 - Async is the correct boundary here: the existing semantic-cache adapter and all FastAPI routes are async; a blocking client would stall the event loop under concurrency.
