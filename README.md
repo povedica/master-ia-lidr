@@ -558,6 +558,17 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Increment 2 (feature-031)** adds `JSONStructuralChunker` in `app/embedding_pipeline/chunker.py`: one chunk per budget component, with parent-budget context in the text and tiktoken-based `token_count` (`text-embedding-3-small` encoding).
 
+**Increment 3 (feature-032)** adds `OpenAIEmbedder` in `app/embedding_pipeline/embedder.py`: async OpenAI embeddings (`text-embedding-3-small`, 1536 dims) with batched requests, rate-limit retry, per-batch logging, and indicative cost tracking (`last_total_tokens`, `last_cost_usd`).
+
+Optional env (defaults work without extra config):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedding model for ingest |
+| `EMBEDDING_PIPELINE_BATCH_SIZE` | `100` | Chunks per API request in `embed_many` |
+
+Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the CLI (feature-034) wraps them with `asyncio.run`.
+
 Chunk contract:
 
 - `chunk_id`: `{budget_id}::{component_id}` (e.g. `BUD-2024-014::AUTH-001`).
