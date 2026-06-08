@@ -67,15 +67,15 @@ Edge cases:
 - Pure, synchronous, no network. Deterministic output for the same input.
 
 ## Acceptance Criteria
-- [ ] AC-01: `JSONStructuralChunker().chunk(budgets)` returns `len == total components across all budgets`.
-- [ ] AC-02: Every `chunk.chunk_id` equals `f"{budget_id}::{component_id}"`.
-- [ ] AC-03: Every `chunk.text` matches the exact template (project/client header + 5 component lines).
-- [ ] AC-04: Every `chunk.metadata` contains exactly the 7 required keys with correct values.
-- [ ] AC-05: Every `chunk.token_count > 0` and equals the tiktoken count of `chunk.text`.
-- [ ] AC-06: The encoder is instantiated once per chunker, not per component.
-- [ ] AC-07: A budget with no components yields no chunks; empty input yields `[]`.
-- [ ] AC-08: One INFO log per `chunk()` call with `total_budgets` and `total_chunks` in `extra`.
-- [ ] AC-09: No OpenAI/network calls; module imports without API keys.
+- [x] AC-01: `JSONStructuralChunker().chunk(budgets)` returns `len == total components across all budgets`.
+- [x] AC-02: Every `chunk.chunk_id` equals `f"{budget_id}::{component_id}"`.
+- [x] AC-03: Every `chunk.text` matches the exact template (project/client header + 5 component lines).
+- [x] AC-04: Every `chunk.metadata` contains exactly the 7 required keys with correct values.
+- [x] AC-05: Every `chunk.token_count > 0` and equals the tiktoken count of `chunk.text`.
+- [x] AC-06: The encoder is instantiated once per chunker, not per component.
+- [x] AC-07: A budget with no components yields no chunks; empty input yields `[]`.
+- [x] AC-08: One INFO log per `chunk()` call with `total_budgets` and `total_chunks` in `extra`.
+- [x] AC-09: No OpenAI/network calls; module imports without API keys.
 
 ## Test Plan
 - Unit tests (`tests/embedding_pipeline/test_chunker.py`):
@@ -89,9 +89,9 @@ Edge cases:
 - Manual checks: build 2 sample budgets and print resulting chunk count + first `chunk_id`.
 
 ## Verification
-- Automated: `uv run pytest tests/embedding_pipeline/test_chunker.py`.
-- Manual: small script/REPL producing chunks from 2 budgets; confirm counts and format.
-- Not verified yet: embeddings, endpoint, CLI.
+- **Verified:** `uv run pytest tests/embedding_pipeline/test_chunker.py` — 11 passed.
+- **Verified:** `uv run pytest tests/embedding_pipeline/` — 22 passed (schemas + chunker).
+- **Not verified:** manual REPL smoke (optional); embeddings, endpoint, CLI (features 032–034).
 
 ## Documentation Plan
 - README: extend the embedding-pipeline subsection with the chunk text/metadata contract.
@@ -105,22 +105,30 @@ Edge cases:
 
 ## Implementation progress
 
-- [ ] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
-- [ ] Step 2: Implement `_build_text` and `_build_metadata`.
-- [ ] Step 3: Implement `chunk()` with single-encoder token counting and completion log.
-- [ ] Step 4: Run tests to green; verify edge cases.
-- [ ] Step 5: Update README + Second Brain note.
+- [x] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
+- [x] Step 2: Implement `_build_text` and `_build_metadata`.
+- [x] Step 3: Implement `chunk()` with single-encoder token counting and completion log.
+- [x] Step 4: Run tests to green; verify edge cases.
+- [x] Step 5: Update README + Second Brain note.
 
 ## Pull request
 
-- WIP draft PR: _(pending)_
+- WIP draft PR: https://github.com/povedica/master-ia-lidr/pull/26
 
 ## Implementation Plan
-- [ ] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
-- [ ] Step 2: Implement `_build_text` and `_build_metadata`.
-- [ ] Step 3: Implement `chunk()` with single-encoder token counting and completion log.
-- [ ] Step 4: Run tests to green; verify edge cases.
-- [ ] Step 5: Update README + Second Brain note.
+- [x] Step 1: Add `tests/embedding_pipeline/test_chunker.py` with fixtures (RED).
+- [x] Step 2: Implement `_build_text` and `_build_metadata`.
+- [x] Step 3: Implement `chunk()` with single-encoder token counting and completion log.
+- [x] Step 4: Run tests to green; verify edge cases.
+- [x] Step 5: Update README + Second Brain note.
+
+## Repository commits (master-ia)
+
+| SHA | Message |
+|-----|---------|
+| _(pending push)_ | `docs(feature-031): add estimation and implementation progress tracking` |
+| _(pending push)_ | `test(embedding-pipeline): add structural chunker contract tests (RED)` |
+| _(pending push)_ | `feat(embedding-pipeline): implement JSONStructuralChunker` |
 
 ## Learnings
 - Token counting must reuse a single encoder instance; re-creating `encoding_for_model` per component is a measurable waste at scale.
