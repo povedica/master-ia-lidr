@@ -524,3 +524,4 @@ Initial implementation wrote a single `results.csv` / `REPORT.md`, which overwro
 | feat(stress) | Write per-scenario CSV and REPORT artifacts |
 | docs(stress) | Document per-scenario deliverables and request loop |
 | docs(feature-029) | Complete acceptance criteria and session 5 retrospective |
+| docs(stress) | Sync technical reference and architecture HTML |
