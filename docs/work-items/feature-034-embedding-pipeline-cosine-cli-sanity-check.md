@@ -155,6 +155,7 @@ Two execution modes (both documented in README):
 | `c5b4eb7` | `test(embedding-pipeline): add compare CLI contract tests (RED→GREEN)` |
 | `5d2df13` | `feat(embedding-pipeline): add cosine compare CLI and sanity check docs` |
 | `2a6787c` | `docs(feature-034): record PR link and implementation commits` |
+| `ba6d41c` | `docs(embedding-pipeline): consolidate Session 07 learnings and architecture guide` |
 
 ---
 
