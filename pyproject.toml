@@ -24,6 +24,7 @@ dependencies = [
     "asyncpg>=0.29",
     "pgvector>=0.3",
     "alembic>=1.13",
+    "greenlet>=3.5.1",
 ]
 
 [dependency-groups]
