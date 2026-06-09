@@ -683,6 +683,7 @@ From the `app` container, `DATABASE_URL` is pre-set to `postgresql+asyncpg://est
 
 | Resource | Description |
 |----------|-------------|
+| [docs/technical/README.md §22](docs/technical/README.md#22-postgres-pgvector-baseline-feature-036) | Postgres pgvector baseline: schema, migrations, manual verification, GUI clients |
 | [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md) | Session eval pyramid: goldens, hard/soft/judge runs, calibration |
 | [web/README.md](web/README.md) | Frontend setup, scripts, theming |
 | [docs/work-items/](docs/work-items/) | Feature specs and implementation notes |

@@ -184,17 +184,18 @@ postgres:
   - add placeholder `DATABASE_URL`
 - Second Brain:
   - record the schema decisions and the reason for delaying vector indexes.
+- `docs/technical/README.md` §22: Postgres setup, schema, verification, GUI clients (done)
 
 ## Implementation Plan
 
-- [ ] Step 1: Add dependencies with `uv add sqlalchemy asyncpg pgvector alembic`.
-- [ ] Step 2: Add typed `DATABASE_URL` setting and `.env.example` placeholder.
-- [ ] Step 3: Add Postgres service, volume, healthcheck, and API dependency in Compose.
-- [ ] Step 4: Initialize Alembic async configuration and DB metadata module.
-- [ ] Step 5: Add ORM/table models for `documents` and `chunks`.
-- [ ] Step 6: Add `0001_initial_schema.py` migration.
-- [ ] Step 7: Run Postgres startup and migration checks.
-- [ ] Step 8: Update README and Second Brain notes.
+- [x] Step 1: Add dependencies with `uv add sqlalchemy asyncpg pgvector alembic`.
+- [x] Step 2: Add typed `DATABASE_URL` setting and `.env.example` placeholder.
+- [x] Step 3: Add Postgres service, volume, healthcheck, and API dependency in Compose.
+- [x] Step 4: Initialize Alembic async configuration and DB metadata module.
+- [x] Step 5: Add ORM/table models for `documents` and `chunks`.
+- [x] Step 6: Add `0001_initial_schema.py` migration.
+- [x] Step 7: Run Postgres startup and migration checks.
+- [x] Step 8: Update README, technical docs, architecture HTML, and Second Brain notes.
 
 ## Learnings
 
@@ -219,9 +220,54 @@ postgres:
 - [x] Step 6: Add focused settings/model tests
 - [x] Step 7: Update README and run Postgres/migration verification
 
+## Scope and acceptance closure report
+
+**Verdict:** Scope and acceptance criteria **met**. Feature ready to merge.
+
+### Scope included — done
+
+| Requirement | Evidence |
+|-------------|----------|
+| Runtime deps (`sqlalchemy`, `asyncpg`, `pgvector`, `alembic`) | `pyproject.toml`, `uv.lock` |
+| `DATABASE_URL` in settings, `.env.example`, docs | `app/config.py`, `.env.example`, README, `docs/technical/README.md` §22 |
+| `postgres` service pg16 + volume + `pg_isready` healthcheck | `docker-compose.yml` |
+| `app` depends on healthy Postgres + `DATABASE_URL` | `docker-compose.yml` (`depends_on`, `environment`) |
+| Alembic async + `env.py` (settings + pgvector type) | `alembic/env.py` |
+| `app/database.py` + ORM `documents` / `chunks` | `app/models/`, `app/database.py` |
+| Migration `0001_initial_schema.py` | `alembic/versions/0001_initial_schema.py` |
+| Focused settings/model tests | `tests/test_config.py`, `tests/test_database_models.py`, `tests/test_alembic_migration.py` |
+
+**Extra dependency:** `greenlet` required at runtime for async SQLAlchemy/Alembic (documented as residual risk).
+
+### Scope excluded — respected
+
+| Exclusion | Check |
+|-----------|--------|
+| Persist ingest to DB | `app/routers/embeddings.py` unchanged (no DB imports) |
+| `POST /api/v1/search` | Not implemented |
+| HNSW / IVFFlat vector indexes | Absent from migration and models |
+| Real OpenAI in default tests | Embedding suite does not require Postgres |
+
+### Acceptance criteria (AC-01 – AC-12)
+
+All twelve criteria **passed**. Manual AC-11 confirmed by operator via SQL client (`alembic_version`, `documents`, `chunks` visible on `pgEstimator` connection).
+
+### Closure evidence (finish-task)
+
+- **Verified:** `uv run pytest tests/embedding_pipeline/ tests/test_database_models.py tests/test_alembic_migration.py tests/test_config.py -k database_url` — green; `docker compose up -d postgres`; `alembic upgrade head` / `downgrade base`; `SELECT version();`; schema inspection (`vector(1536)`, FK CASCADE, GIN on `metadata`).
+- **Not verified:** Persisted ingest (feature-037), search endpoint (feature-038), query examples (feature-039), full `docker compose up --build` smoke on CI.
+- **Residual risk:** `greenlet` is an implicit async runtime dependency; empty tables until feature-037; local port `5432` may conflict with another Postgres instance.
+
+## Retrospective
+
+- **Process:** TDD on settings and ORM metadata; infra steps used justified exceptions; baby-step commits honored.
+- **Technical:** DB layer kept out of routers; pgvector registered in Alembic `env.py`; uniqueness on `source_path` prepares duplicate detection for ingest.
+- **Quality:** No live DB in default pytest; migration content covered by static test.
+- **Docs:** README, `docs/technical/README.md` §22, architecture HTML, and session note aligned.
+
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/32 (draft, label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/32 — merged at task closure
 
 ## Repository commits (master-ia)
 
@@ -234,3 +280,5 @@ postgres:
 | feat(db) | async SQLAlchemy base and ORM models |
 | feat(db) | async Alembic baseline migration |
 | docs | README and session note for Postgres baseline |
+| docs(architecture) | Postgres baseline in embedding pipeline section (HTML) |
+| docs(feature-036) | Technical docs §22, closure report, ADR-001 sync |
