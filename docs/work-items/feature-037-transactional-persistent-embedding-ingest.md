@@ -172,18 +172,18 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/embeddings/ingest` uses the persisted ingest request contract with `source_path`, `document_type`, and `content`.
-- [ ] AC-02: Successful ingest inserts exactly one row in `documents`.
-- [ ] AC-03: Successful ingest inserts one `chunks` row per budget component.
-- [ ] AC-04: Inserted chunks store `content`, `metadata`, `chunk_type`, and `Vector(1536)` embeddings.
-- [ ] AC-05: The endpoint response contains `document_id`, `chunks_created`, `embedding_dimension`, and `ingestion_time_ms`, and does not include raw vectors.
-- [ ] AC-06: Duplicate `source_path` returns `409 Conflict` with `"Document already ingested"` and the existing `document_id`.
-- [ ] AC-07: Duplicate requests do not call `OpenAIEmbedder`.
-- [ ] AC-08: A simulated embedder failure rolls back the full transaction and leaves no partial document/chunk rows.
-- [ ] AC-09: A simulated chunk insert failure rolls back the full transaction and leaves no orphan document row.
-- [ ] AC-10: Zero-component budgets persist the document with zero chunks and skip the embedding call.
-- [ ] AC-11: Router code does not contain SQL statements or OpenAI SDK calls.
-- [ ] AC-12: Existing embedding/chunker unit tests remain green after the contract refactor is reflected in router tests.
+- [x] AC-01: `POST /api/v1/embeddings/ingest` uses the persisted ingest request contract with `source_path`, `document_type`, and `content`.
+- [x] AC-02: Successful ingest inserts exactly one row in `documents`.
+- [x] AC-03: Successful ingest inserts one `chunks` row per budget component.
+- [x] AC-04: Inserted chunks store `content`, `metadata`, `chunk_type`, and `Vector(1536)` embeddings.
+- [x] AC-05: The endpoint response contains `document_id`, `chunks_created`, `embedding_dimension`, and `ingestion_time_ms`, and does not include raw vectors.
+- [x] AC-06: Duplicate `source_path` returns `409 Conflict` with `"Document already ingested"` and the existing `document_id`.
+- [x] AC-07: Duplicate requests do not call `OpenAIEmbedder`.
+- [x] AC-08: A simulated embedder failure rolls back the full transaction and leaves no partial document/chunk rows.
+- [x] AC-09: A simulated chunk insert failure rolls back the full transaction and leaves no orphan document row.
+- [x] AC-10: Zero-component budgets persist the document with zero chunks and skip the embedding call.
+- [x] AC-11: Router code does not contain SQL statements or OpenAI SDK calls.
+- [x] AC-12: Existing embedding/chunker unit tests remain green after the contract refactor is reflected in router tests.
 
 ## Test Plan
 
@@ -211,7 +211,7 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Verification
 
-- Automated (verified 2026-06-09):
+- Automated (verified 2026-06-09, re-run at task closure):
   - `uv run pytest tests/embedding_pipeline/test_router.py` — 8 passed
   - `uv run pytest tests/embedding_pipeline/test_persistent_ingest_service.py` — 6 passed
   - `uv run pytest tests/embedding_pipeline/` — 95 passed
@@ -220,11 +220,11 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
   - `docker compose` Postgres healthy; `uv run alembic upgrade head`
   - Zero-component `curl` ingest → `200` with `chunks_created: 0`; row in `documents`
   - Repeat same `source_path` → `409` with existing `document_id`
-- Manual (not verified):
-  - Full ingest with real `OPENAI_API_KEY` against Postgres (embed path returns `500` with placeholder key)
+  - Full fixture batch via `dev-tools/ingest_budget_fixtures.py --skip-existing` (see below)
 - Not verified yet:
-  - semantic search over persisted chunks
-  - query examples script
+  - semantic search over persisted chunks (feature-038)
+  - query examples script (feature-039)
+  - unique-constraint race → `409` under concurrent duplicate `source_path` requests
 
 ## Documentation Plan
 
@@ -239,19 +239,59 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Implementation Plan
 
-- [ ] Step 1: Add persisted ingest schemas and update router contract tests.
-- [ ] Step 2: Add repository/service boundaries for documents and chunks.
-- [ ] Step 3: Implement successful transaction path with fake embedder tests.
-- [ ] Step 4: Implement duplicate `source_path` handling and `409` mapping.
-- [ ] Step 5: Add rollback tests for embedder and insert failures.
-- [ ] Step 6: Update README and Second Brain notes.
-- [ ] Step 7: Run focused tests and manual Compose/Postgres ingest check.
+- [x] Step 1: Add persisted ingest schemas and update router contract tests.
+- [x] Step 2: Add repository/service boundaries for documents and chunks.
+- [x] Step 3: Implement successful transaction path with fake embedder tests.
+- [x] Step 4: Implement duplicate `source_path` handling and `409` mapping.
+- [x] Step 5: Add rollback tests for embedder and insert failures.
+- [x] Step 6: Update README and architecture HTML.
+- [x] Step 7: Run focused tests and manual Compose/Postgres ingest check.
+- [x] Follow-up: `dev-tools/ingest_budget_fixtures.py` for batch fixture ingest over HTTP.
 
 ## Learnings
 
 - This is the vertical slice where the prototype becomes stateful: the same chunker and embedder remain useful, but the public API changes from "return vectors" to "persist a searchable corpus".
 - The transaction boundary is the central correctness property: document, chunks, and embeddings either all exist together or none of them do.
 - Duplicate handling belongs at both application and database levels because concurrent requests can bypass a pre-check.
+- `documents.metadata` is only populated when the client sends the optional request field; chunk metadata is always produced by `JSONStructuralChunker`. Dev batch ingest fills document metadata from budget fields for easier inspection.
+- Embed-before-insert ordering avoids orphan documents when OpenAI fails, without relying on rollback after a document row is flushed.
+
+## Fixture batch ingest report (manual, 2026-06-09)
+
+Command:
+
+```bash
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing
+```
+
+Source directory: `tests/embedding_pipeline/fixtures/budget_files/` (13 valid `*.json`; `invalids/` excluded).
+
+| File | HTTP | document_id | chunks_created | Notes |
+|------|------|-------------|----------------|-------|
+| bud-2023-078.json | 200 | 3 | 2 | |
+| bud-2024-000.json | 200 | 4 | 0 | zero components |
+| bud-2024-014.json | 409 | 2 | — | duplicate (`--skip-existing`) |
+| bud-2024-021.json | 200 | 5 | 2 | |
+| bud-2024-032.json | 200 | 6 | 1 | |
+| bud-2024-045.json | 200 | 7 | 3 | |
+| bud-2024-056.json | 200 | 8 | 3 | |
+| bud-2024-067.json | 200 | 9 | 4 | |
+| bud-2024-099.json | 200 | 10 | 2 | |
+| bud-2025-003.json | 200 | 11 | 2 | |
+| bud-2025-011.json | 200 | 12 | 1 | |
+| bud-2025-019.json | 200 | 13 | 1 | |
+| bud-2025-024.json | 200 | 14 | 2 | |
+
+Summary: **12 ingested**, **1 skipped (409)**, **0 failed** of 13 fixtures.
+
+Postgres counts after batch (included prior manual smoke rows):
+
+```text
+documents: 14
+chunks:    24
+```
+
+Script options: `--dry-run`, `--base-url`, `--skip-existing`, `--budgets-dir`.
 
 ## Estimation
 
@@ -273,12 +313,14 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 | Commit | Summary |
 |--------|---------|
-| (initial) | docs(feature-037): add transactional persistent ingest work item |
-| feat(embedding) | add persisted ingest request/response schemas |
-| feat(embedding) | add transactional persistent ingest service |
-| feat(embedding) | wire persisted ingest endpoint with DB session |
-| docs(feature-037) | document persisted ingest contract and architecture |
+| `26beecb` | docs(feature-037): add transactional persistent ingest work item |
+| `fc4a876` | feat(embedding): add persisted ingest request/response schemas |
+| `f255457` | feat(embedding): add transactional persistent ingest service |
+| `064de6e` | feat(embedding): wire persisted ingest endpoint with DB session |
+| `9badd1b` | docs(feature-037): document persisted ingest contract and architecture |
+| `d47863e` | docs(feature-037): record verification evidence for persisted ingest |
+| (closure) | chore(dev-tools): add ingest_budget_fixtures batch HTTP helper |
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/33 (draft, `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/33 — merged at task closure (2026-06-09)

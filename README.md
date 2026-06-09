@@ -661,6 +661,13 @@ uv run python -m app.scripts.ingest_from_dir \
   --dir tests/embedding_pipeline/fixtures/budget_files
 ```
 
+**Batch ingest fixtures over HTTP (Postgres + API required):**
+
+```bash
+uv run python dev-tools/ingest_budget_fixtures.py
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing --dry-run
+```
+
 **Ops / learning CLIs:**
 
 ```bash
