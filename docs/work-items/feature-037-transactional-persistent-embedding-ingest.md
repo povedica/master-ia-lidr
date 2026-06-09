@@ -211,15 +211,17 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Verification
 
-- Automated:
-  - `uv run pytest tests/embedding_pipeline/test_router.py`
-  - targeted tests for persistent ingest service/repository
-  - `uv run pytest tests/embedding_pipeline/`
-- Manual:
-  - `docker compose up --build`
-  - `uv run alembic upgrade head`
-  - `curl` persisted ingest request
-  - SQL count checks for `documents` and `chunks`
+- Automated (verified 2026-06-09):
+  - `uv run pytest tests/embedding_pipeline/test_router.py` — 8 passed
+  - `uv run pytest tests/embedding_pipeline/test_persistent_ingest_service.py` — 6 passed
+  - `uv run pytest tests/embedding_pipeline/` — 95 passed
+  - `uv run pytest` — 474 passed, 12 deselected (`slow`)
+- Manual (verified 2026-06-09):
+  - `docker compose` Postgres healthy; `uv run alembic upgrade head`
+  - Zero-component `curl` ingest → `200` with `chunks_created: 0`; row in `documents`
+  - Repeat same `source_path` → `409` with existing `document_id`
+- Manual (not verified):
+  - Full ingest with real `OPENAI_API_KEY` against Postgres (embed path returns `500` with placeholder key)
 - Not verified yet:
   - semantic search over persisted chunks
   - query examples script
@@ -265,7 +267,7 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 - [x] Step 4: Router wiring, DB session dependency, 409 mapping
 - [x] Step 5: Rollback tests (embedder failure, chunk insert failure)
 - [x] Step 6: Update milestone/router tests, README, architecture HTML
-- [ ] Step 7: Full pytest pass and manual Compose verification
+- [x] Step 7: Full pytest pass and manual Compose verification
 
 ## Repository commits (master-ia)
 
@@ -275,6 +277,7 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 | feat(embedding) | add persisted ingest request/response schemas |
 | feat(embedding) | add transactional persistent ingest service |
 | feat(embedding) | wire persisted ingest endpoint with DB session |
+| docs(feature-037) | document persisted ingest contract and architecture |
 
 ## Pull Request
 
