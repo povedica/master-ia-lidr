@@ -192,3 +192,16 @@ def test_embedding_pipeline_settings_env_override(
     settings = Settings()
     assert settings.embedding_pipeline_model == "text-embedding-3-large"
     assert settings.embedding_pipeline_batch_size == 50
+
+
+def test_settings_reads_database_url_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    dsn = "postgresql+asyncpg://estimator:estimator@postgres:5432/estimator"
+    monkeypatch.setenv("DATABASE_URL", dsn)
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.database_url == dsn
+
+
+def test_database_url_defaults_to_empty_string() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.database_url == ""

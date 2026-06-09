@@ -81,6 +81,7 @@ curl -s http://127.0.0.1:8000/health
 | Web UI (nginx) | `http://127.0.0.1:5175` |
 | Redis Stack | `redis://127.0.0.1:6379` |
 | Redis Insight | `http://127.0.0.1:5540` — add database: host `redis`, port `6379` |
+| Postgres (pgvector) | `postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator` |
 
 For local development without Docker, see [Running the application](#running-the-application).
 
@@ -90,7 +91,7 @@ For local development without Docker, see [Running the application](#running-the
 
 ### Docker (recommended)
 
-Runs the API, web UI, Redis Stack, and Redis Insight in containers.
+Runs the API, web UI, Redis Stack, Redis Insight, and Postgres (pgvector) in containers.
 
 **Production mode:**
 
@@ -98,7 +99,7 @@ Runs the API, web UI, Redis Stack, and Redis Insight in containers.
 docker compose up --build
 ```
 
-If you only start `app`, Redis may not run. Either use `docker compose up` as above or start Redis explicitly: `docker compose up -d redis`. With the default compose file, `app` depends on `redis` so a normal `up` brings both up.
+If you only start `app`, Redis and Postgres may not run. Either use `docker compose up` as above or start dependencies explicitly: `docker compose up -d redis postgres`. With the default compose file, `app` depends on `redis` and healthy `postgres`, so a normal `up` brings the full stack up.
 
 Set `SEMANTIC_CACHE_REDIS_URL` in `.env` when exercising the semantic cache: use `redis://redis:6379/0` for the `app` container, or `redis://127.0.0.1:6379/0` if the API runs on the host while Redis runs in Compose.
 
@@ -575,6 +576,8 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Increment 4 (feature-033)** exposes ingest over HTTP at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The handler delegates to `run_ingest()` in `app/embedding_pipeline/ingest.py` (chunk → embed → stats).
 
+**Semantic search persistence — increment 1 (feature-036)** adds Postgres 16 with pgvector, async SQLAlchemy (`app/database.py`), ORM models (`documents`, `chunks`), and Alembic migrations. The ingest endpoint remains in-memory until feature-037; this step establishes the database baseline only. Vector indexes (HNSW/IVFFlat) are intentionally deferred.
+
 **Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
 
 Optional env (defaults work without extra config):
@@ -583,6 +586,7 @@ Optional env (defaults work without extra config):
 |----------|---------|---------|
 | `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedding model for ingest |
 | `EMBEDDING_PIPELINE_BATCH_SIZE` | `100` | Chunks per API request in `embed_many` |
+| `DATABASE_URL` | *(empty)* | Async Postgres DSN (`postgresql+asyncpg://...`); set automatically in Compose for `app` |
 
 Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the CLI (feature-034) wraps them with `asyncio.run`.
 
@@ -654,12 +658,32 @@ uv run python -m app.scripts.architecture_decision --corpus-tokens 5000 --refres
 
 Optional heavy smoke (real API key): `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy`
 
+**Postgres + migrations (feature-036):**
+
+```bash
+# Start Postgres only
+docker compose up -d postgres
+
+# Connection check (manual baseline before app writes)
+docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"
+
+# Apply schema from host (set DATABASE_URL or export from .env)
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+
+# Inspect tables
+docker compose exec postgres psql -U estimator -d estimator -c "\dt"
+```
+
+From the `app` container, `DATABASE_URL` is pre-set to `postgresql+asyncpg://estimator:estimator@postgres:5432/estimator`. Roll back with `uv run alembic downgrade base` when you need a clean slate on a dev database.
+
 ---
 
 ## Documentation
 
 | Resource | Description |
 |----------|-------------|
+| [docs/technical/README.md §22](docs/technical/README.md#22-postgres-pgvector-baseline-feature-036) | Postgres pgvector baseline: schema, migrations, manual verification, GUI clients |
 | [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md) | Session eval pyramid: goldens, hard/soft/judge runs, calibration |
 | [web/README.md](web/README.md) | Frontend setup, scripts, theming |
 | [docs/work-items/](docs/work-items/) | Feature specs and implementation notes |

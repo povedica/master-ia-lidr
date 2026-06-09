@@ -29,6 +29,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [19. Evolution guide](#19-evolution-guide)
 - [20. Troubleshooting](#20-troubleshooting)
 - [21. Embedding pipeline (Session 07)](#21-embedding-pipeline-session-07)
+- [22. Postgres pgvector baseline (feature-036)](#22-postgres-pgvector-baseline-feature-036)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
@@ -57,6 +58,7 @@ The baseline does not include authentication, a frontend, or production deployme
 | LLM providers | OpenAI + Anthropic + static fallback | Ordered chain with graceful fallback and explicit degraded mode. |
 | Default model | `gpt-4o-mini` | Low cost for exercises and manual checks. |
 | Tests | `pytest`, `pytest-asyncio`, `httpx` | Fast, deterministic suite without real provider calls. |
+| Persistence (semantic search) | Postgres 16 + pgvector, SQLAlchemy async, Alembic | Schema baseline for `documents` / `chunks`; ingest HTTP still in-memory until feature-037. |
 | Manual API client | OpenCollection/Bruno collection under `api-collection/` | Versioned manual checks alongside the code. |
 
 ## 3. Libraries and frameworks
@@ -70,6 +72,9 @@ Runtime dependencies declared in `pyproject.toml`:
 - `anthropic`: official SDK for Anthropic.
 - `python-dotenv`: load `.env` in local development.
 - `redis`: async Redis client used by the optional Redis Stack / RediSearch semantic cache adapter.
+- `sqlalchemy`, `asyncpg`, `greenlet`: async ORM and Postgres driver for semantic-search persistence.
+- `pgvector`: SQLAlchemy integration for `vector` columns (`Vector(1536)` aligned with `text-embedding-3-small`).
+- `alembic`: versioned async migrations (`alembic/`, `DATABASE_URL` from settings).
 
 Development dependencies:
 
@@ -85,14 +90,26 @@ Requirements:
 
 - Python 3.11.
 - `uv` on the host.
+- Docker (optional but recommended) for Redis Stack, Postgres pgvector, and the full Compose stack.
 - At least one provider key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) if you want live model estimates.
 
 From the repository root:
 
 ```bash
-cd proyectos/estimador-cag
 uv sync --group dev
 cp .env.example .env
+```
+
+**Full stack (API + web + Redis + Postgres):**
+
+```bash
+docker compose up --build
+```
+
+**Postgres only** (migrations / schema inspection without starting the API):
+
+```bash
+docker compose up -d postgres
 ```
 
 Then edit `.env` locally:
@@ -146,6 +163,9 @@ Variables documented in `.env.example`:
 | `SEMANTIC_CACHE_REDIS_URL` | No | empty | Redis Stack DSN for RediSearch vector storage when memory store is off. |
 | `SEMANTIC_CACHE_USE_MEMORY_STORE` | No | `false` | Uses the single-process in-memory repository for local experiments/tests. |
 | `SEMANTIC_CACHE_SIMILARITY_THRESHOLD` | No | `0.92` | Minimum similarity score for serving a cached response. |
+| `EMBEDDING_PIPELINE_MODEL` | No | `text-embedding-3-small` | Embedding model for the Session 07 ingest pipeline. |
+| `EMBEDDING_PIPELINE_BATCH_SIZE` | No | `100` | Chunks per OpenAI embeddings request in `embed_many`. |
+| `DATABASE_URL` | No | empty | Async Postgres DSN (`postgresql+asyncpg://user:pass@host:5432/db`). Required for Alembic and future persisted ingest. Compose sets this on the `app` service automatically. |
 
 Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local source and `extra="ignore"` so unknown variables do not break startup.
 
@@ -154,10 +174,22 @@ Loading is centralized in `app/config.py` via `Settings`, with `.env` as a local
 Main subproject commands:
 
 ```bash
-cd proyectos/estimador-cag
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 uv run pytest
+```
+
+**Postgres + Alembic (feature-036):**
+
+```bash
+docker compose up -d postgres
+docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"
+
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+uv run alembic current
+# Roll back on a dev database:
+uv run alembic downgrade base
 ```
 
 Health check:
@@ -242,7 +274,11 @@ Responsibilities:
 | `app/context/examples.py` | Loads few-shot pool from `app/context/examples/*.txt` and returns a random subset per request. |
 | `app/services/response_output_writer.py` | Optional persistence of successful `estimation` text to `output-responses/`. |
 | `app/services/llm_call_persistence.py` | Optional JSON persistence of LLM request/response pairs to `output-responses/`. |
+| `app/database.py` | Async SQLAlchemy engine/session setup for Postgres (feature-036). |
+| `app/models/` | ORM tables `documents` and `chunks` with pgvector embeddings column. |
+| `alembic/` | Async Alembic migrations; initial schema in `versions/0001_initial_schema.py`. |
 | `tests/` | Unit and API tests with a mocked provider. |
+| `tests/test_database_models.py` | ORM metadata contract tests (no live DB). |
 | `api-collection/` | Manual endpoint collection and local environment. |
 | `docs/` | Versioned mirror of Second Brain notes, sessions, work items, and technical docs. |
 
@@ -670,7 +706,8 @@ As the project grows, keep these boundaries:
 Possible next technical steps:
 
 - Add a structured schema for estimates if programmatic consumption is needed.
-- Extend persistence beyond optional markdown files (for example metadata sidecars or a database) if stronger auditability is required.
+- Wire embedding ingest to Postgres (`feature-037`) and expose semantic search (`feature-038`).
+- Add vector indexes (HNSW / IVFFlat) once sequential-scan baselines are measured.
 - Add retries/backoff once the current fallback baseline is stable.
 - Add tracing or request logging if local observability is insufficient.
 - Add CI when the project has a stable remote or PR workflow.
@@ -714,9 +751,32 @@ Run from the repository root:
 bash scripts/sync-estimador-cag-docs.sh
 ```
 
+### `DATABASE_URL is required to run Alembic migrations`
+
+Export a DSN before `uv run alembic upgrade head`. From the host against Compose Postgres:
+
+```bash
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+```
+
+Inside the `app` container, Compose already injects `postgresql+asyncpg://estimator:estimator@postgres:5432/estimator`.
+
+### `the greenlet library is required...` when running Alembic
+
+Ensure dependencies are synced (`uv sync`). `greenlet` is a runtime dependency for async SQLAlchemy migrations.
+
+### Postgres container unhealthy
+
+Wait for `pg_isready` (healthcheck) or inspect logs:
+
+```bash
+docker compose logs postgres
+docker compose ps postgres
+```
+
 ## 21. Embedding pipeline (Session 07)
 
-Isolated module under `app/embedding_pipeline/`. It does **not** import `app/services/semantic_cache/`.
+Isolated module under `app/embedding_pipeline/`. It does **not** import `app/services/semantic_cache/`. Postgres persistence is a **separate** increment — see [§22](#22-postgres-pgvector-baseline-feature-036); the HTTP ingest route still returns in-memory chunks until feature-037.
 
 ### HTTP route
 
@@ -768,3 +828,72 @@ uv run pytest tests/embedding_pipeline/test_milestone_e2e.py
 Heavy (real key): `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy`
 
 See also [docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md](../work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md).
+
+## 22. Postgres pgvector baseline (feature-036)
+
+Increment 1 of the semantic-search milestone. Establishes a reproducible database layer **without** changing `POST /api/v1/embeddings/ingest` behaviour (still in-memory until feature-037).
+
+### Docker service
+
+| Setting | Value |
+|---------|-------|
+| Image | `pgvector/pgvector:pg16` |
+| Database / user / password | `estimator` (local placeholders only) |
+| Host port | `5432` |
+| Healthcheck | `pg_isready -U estimator -d estimator` |
+
+The `app` service depends on healthy `postgres` and receives `DATABASE_URL=postgresql+asyncpg://estimator:estimator@postgres:5432/estimator`.
+
+### Application layout
+
+| Path | Role |
+|------|------|
+| `app/database.py` | `Base`, async engine factory, `async_sessionmaker`, `session_scope` helper |
+| `app/models/document.py` | `documents` table — unique `source_path`, JSONB `metadata` |
+| `app/models/chunk.py` | `chunks` table — FK `ON DELETE CASCADE`, `Vector(1536)`, GIN on `metadata` |
+| `alembic/env.py` | Async migrations; reads `DATABASE_URL` from `Settings`; registers pgvector types |
+| `alembic/versions/0001_initial_schema.py` | `CREATE EXTENSION vector`, tables, non-vector indexes only |
+
+### Schema summary
+
+**`documents`:** `id`, `source_path` (unique), `document_type`, `ingested_at`, `metadata` (JSONB).
+
+**`chunks`:** `id`, `document_id` → `documents.id`, `chunk_type`, `content`, `embedding` (`vector(1536)`, nullable), `metadata` (JSONB), `created_at`.
+
+Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_type`, `ix_chunks_metadata_gin`. **No** HNSW or IVFFlat vector indexes in this baseline.
+
+### Manual verification checklist
+
+1. Start Postgres: `docker compose up -d postgres`
+2. Connection: `docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"`
+3. Migrate: `export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator && uv run alembic upgrade head`
+4. Inspect: `docker compose exec postgres psql -U estimator -d estimator -c "\dt"` and `\d chunks`
+5. Confirm extension: `SELECT extname FROM pg_extension WHERE extname = 'vector';`
+6. Regression: `uv run pytest tests/embedding_pipeline/` (no live DB required by default)
+
+### Automated tests (no live Postgres)
+
+```bash
+uv run pytest tests/test_config.py -k database_url
+uv run pytest tests/test_database_models.py tests/test_alembic_migration.py
+```
+
+### Visual clients (host → Compose Postgres)
+
+Connect with any desktop SQL client using:
+
+| Field | Value |
+|-------|-------|
+| Host | `127.0.0.1` |
+| Port | `5432` |
+| Database | `estimator` |
+| User | `estimator` |
+| Password | `estimator` |
+
+Recommended GUI clients:
+
+- **[DBeaver](https://dbeaver.io/)** — free, cross-platform; good default for schema browsing and ad-hoc SQL.
+- **[TablePlus](https://tableplus.com/)** or **[Postico](https://eggerapps.at/postico2/)** — native macOS UIs, fast for local dev.
+- **[pgAdmin](https://www.pgadmin.org/)** — full-featured web/desktop admin (heavier than TablePlus).
+
+The ingest endpoint does not write to these tables yet; after feature-037 you will see rows appear following ingest calls.

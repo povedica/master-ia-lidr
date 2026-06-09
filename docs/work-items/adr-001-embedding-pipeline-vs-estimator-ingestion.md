@@ -18,7 +18,8 @@ Adopt **wired, minimal upstream primitives** inside `embedding_pipeline` while k
 | `FileSystemLoader` + JSON parser + registry | Presidio / Pandera cleaning (unwired) |
 | `run_ingest()` orchestration shared by HTTP + CLI | HTTP catalog `source_name` field |
 | Offline CLIs: preflight, inspect, architecture decision | Shared OpenAI client with `semantic_cache` |
-| `IngestStats` cost in API response | Vector DB persistence (Session 08) |
+| `IngestStats` cost in API response | Persisted ingest + search API (features 037–038) |
+| Postgres + pgvector schema baseline (`documents` / `chunks`, Alembic) — feature-036 | Vector indexes (HNSW/IVFFlat), hybrid search |
 
 ## Consequences
 
