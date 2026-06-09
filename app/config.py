@@ -339,6 +339,14 @@ class Settings(BaseSettings):
         le=2048,
         description="Batch size for embed_many API calls (one request per batch).",
     )
+    # --- Semantic search persistence (feature-036): Postgres + pgvector ---
+    database_url: str = Field(
+        default="",
+        description=(
+            "Async SQLAlchemy DSN for Postgres (postgresql+asyncpg://...). "
+            "Empty disables DB-backed features until configured."
+        ),
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(
