@@ -285,9 +285,78 @@ app/scripts/
 
 - **Verified (2026-06-09):** `uv run pytest tests/embedding_pipeline/` — 83 passed, 2 slow deselected.
 - **Verified (2026-06-09):** `uv run pytest` — 455 passed, 11 skipped, 12 deselected (default suite).
-- **Not verified:** `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy` (requires live `OPENAI_API_KEY`).
+- **Verified (2026-06-09):** Session 07 milestone compliance review (requirement-validate + architecture-check-agent) — see [Session 07 milestone compliance](#session-07-milestone-compliance) below.
+- **Not verified:** `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy` (requires live `OPENAI_API_KEY`); live endpoint/CLI against OpenAI in compliance review.
 - **Manual (spot-check):** `ingest_from_dir --dry-run`, `inspect_fixtures`, `preflight --skip-key-check`, `architecture_decision` — via unit tests in `test_scripts.py` / `test_ingest_from_dir.py`.
 - **Residual risk:** markdown template invalidates prior `SANITY_CHECK.md` vectors; re-measure under `--run-heavy` when needed.
+
+## Session 07 milestone compliance
+
+Review date: **2026-06-09**. Scope: Session 07 exercise checklist (features 030–034) vs repository state. Phase 2 proposal tracked separately in [`feature-035-propose-v2-embedding-pipeline-milestone-review-harness.md`](feature-035-propose-v2-embedding-pipeline-milestone-review-harness.md).
+
+### Validation summary
+
+- **Ready:** Yes — Session 07 milestone is functionally complete. All five in-scope items are implemented, documented, and tested.
+- **Risks:** Minor deviations from literal exercise text (file paths, versioned endpoint). `SANITY_CHECK.md` scores measured with pre-markdown template; pair A slightly below 0.6.
+- **Missing (literal checklist only):** `embedding_pipeline/router.py` and root `scripts/compare.py` — replaced by repo conventions (features 033–034).
+- **Suggested defaults:** Treat current paths as valid compliance. Re-run sanity pairs under `--run-heavy` after markdown template change if fresh baselines are needed.
+- **Proceed recommendation:** **Proceed** — exercise objective met; deviations are documented repo conventions, not functional gaps.
+
+### In scope — compliance
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Structural JSON chunker (1 component = 1 chunk) | Met | `app/embedding_pipeline/chunker.py` — `JSONStructuralChunker` |
+| Embedder `text-embedding-3-small` | Met | `app/embedding_pipeline/embedder.py` — `OpenAIEmbedder` |
+| POST ingest → vectorized chunks | Met | `POST /api/v1/embeddings/ingest` in `app/routers/embeddings.py`, registered in `app/main.py` |
+| CLI `compare.py` (cosine similarity) | Met | `app/scripts/compare.py` |
+| Validation with three text pairs | Met | `app/embedding_pipeline/SANITY_CHECK.md` |
+
+### Out of scope — respected
+
+| Exclusion | Status |
+|-----------|--------|
+| Other chunking strategies (recursive, semantic, hierarchical, etc.) | Not implemented |
+| Multi-model embedding comparison | Not implemented |
+| LLM context enrichment of chunks | Not implemented |
+| Vector DB persistence | Not implemented |
+| Semantic search / retrieval | Not implemented |
+| Formal retrieval metrics (recall@k, NDCG) | Not implemented |
+| UI or business backend changes | Not implemented |
+
+Feature-035 Phase 1 additions (parsers, loaders, markdown template, milestone harness) do not violate any exclusion.
+
+### Deliverables checklist
+
+| Deliverable | Status | Notes |
+|-------------|--------|-------|
+| `embedding_pipeline/chunker.py` | Present | |
+| `embedding_pipeline/embedder.py` | Present | |
+| `embedding_pipeline/schemas.py` | Present | |
+| `embedding_pipeline/router.py` | Path deviation | Canonical router: `app/routers/embeddings.py` (feature-033) |
+| `embedding_pipeline/__init__.py` | Present | Points to canonical HTTP route |
+| `scripts/compare.py` | Path deviation | Equivalent: `app/scripts/compare.py` (feature-034, Docker-safe) |
+| POST `/embeddings/ingest` in `/docs` | Present | Effective route: `/api/v1/embeddings/ingest` |
+| `SANITY_CHECK.md` | Present (partial) | 3 pairs + commentary; pair A = 0.5957 (< 0.6, documented); scores pre-markdown template |
+| README updated | Present | § "Embedding pipeline (Session 07)" |
+| `pyproject.toml` | Present | `tiktoken>=0.7.0` added |
+
+### Architecture review summary
+
+- **Boundaries correct:** HTTP router outside domain package; OpenAI encapsulated in `OpenAIEmbedder`; no coupling with semantic cache.
+- **Acceptable scope beyond minimum:** feature-035 harness (parsers, loaders, `ingest_from_dir`) without breaking exclusions.
+- **Literal deviations:** router and CLI paths; versioned API prefix `/api/v1`.
+- **Significant violations:** none.
+
+### Overall verdict
+
+**Partial on literal paths, complete on functionality.** For Session 07 exercise objectives, compliance is **met**. Optional follow-ups: re-run sanity pairs with current markdown template; update spec if a reviewer requires literal file paths.
+
+### Compliance review evidence
+
+- **Verified:** source code, tests, README, `pyproject.toml`, `SANITY_CHECK.md`, router registration, architecture-check-agent read-only review.
+- **Not verified:** live OpenAI calls (endpoint ingest, compare CLI).
+- **Residual risk:** stale `SANITY_CHECK.md` baselines after markdown template change; pair A near 0.6 threshold.
 
 ## Documentation Plan
 
@@ -335,16 +404,16 @@ app/scripts/
 
 ## Implementation Plan
 
-- [ ] Step 1: Fixture JSON + fix `conftest.py` `::`; add per-file budget fixtures under `fixtures/budget_files/`.
-- [ ] Step 2: Hardening — remove router stub; single AsyncOpenAI client; settings-aware chunker + update `get_chunker`.
-- [ ] Step 3: `PipelineDocument` schemas + adapter + refactor chunker to markdown template (update chunker tests).
-- [ ] Step 4: Loader + parser + registry; unit tests; wire loader→parser→chunker test.
-- [ ] Step 5: `test_milestone_e2e.py` (RED → GREEN) + slow smoke tests.
-- [ ] Step 6: `ingest_from_dir.py` CLI with `--dry-run`.
-- [ ] Step 7: `preflight_embedding_pipeline.py`, `architecture_decision.py`, `inspect_fixtures.py`.
-- [ ] Step 8: API-collection embeddings request.
-- [ ] Step 9: Update README, `docs/technical/README.md`, architecture HTML, ADR/note.
-- [ ] Step 10: Full `uv run pytest`; optional heavy smoke; sync AC + verification in this doc.
+- [x] Step 1: Fixture JSON + fix `conftest.py` `::`; add per-file budget fixtures under `fixtures/budget_files/`.
+- [x] Step 2: Hardening — remove router stub; single AsyncOpenAI client; settings-aware chunker + update `get_chunker`.
+- [x] Step 3: `PipelineDocument` schemas + adapter + refactor chunker to markdown template (update chunker tests).
+- [x] Step 4: Loader + parser + registry; unit tests; wire loader→parser→chunker test.
+- [x] Step 5: `test_milestone_e2e.py` (RED → GREEN) + slow smoke tests.
+- [x] Step 6: `ingest_from_dir.py` CLI with `--dry-run`.
+- [x] Step 7: `preflight_embedding_pipeline.py`, `architecture_decision.py`, `inspect_fixtures.py`.
+- [x] Step 8: API-collection embeddings request.
+- [x] Step 9: Update README, `docs/technical/README.md`, architecture HTML, ADR/note.
+- [x] Step 10: Full `uv run pytest`; optional heavy smoke; sync AC + verification in this doc.
 
 ## Learnings
 
@@ -384,7 +453,7 @@ app/scripts/
 
 ## Pull request
 
-- [WIP] https://github.com/povedica/master-ia-lidr/pull/31 (label: `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/31 — Phase 1 complete; Session 07 compliance documented (2026-06-09).
 
 ## Deferred to Session 08+ (explicit, not in this feature)
 
