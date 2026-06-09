@@ -253,13 +253,20 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Estimation
 
-- Size: M/L
-- Suggested commit boundary: one feature commit after tests and manual DB verification pass.
+- Size: M
+- Estimated time: 3–4 hours
+- Planned steps: 7
 
 ## Implementation progress
 
-- [ ] Not started.
+- [ ] Step 1: Persisted ingest schemas and schema unit tests
+- [ ] Step 2: Repository layer and duplicate domain error
+- [ ] Step 3: Persistent ingest service — successful transaction path
+- [ ] Step 4: Router wiring, DB session dependency, 409 mapping
+- [ ] Step 5: Rollback tests (embedder failure, chunk insert failure)
+- [ ] Step 6: Update milestone/router tests, README, architecture HTML
+- [ ] Step 7: Full pytest pass and manual Compose verification
 
 ## Pull Request
 
-- To be filled during `/start-task`.
+- https://github.com/povedica/master-ia-lidr/pull/33 (draft, `wip`)
