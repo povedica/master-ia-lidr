@@ -194,21 +194,6 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
   - call `/api/v1/search`
   - compare top results and distances in the response
 
-## Verification
-
-- Automated:
-  - targeted search tests — **20 passed**
-  - existing embedding pipeline tests — **included in full suite**
-  - `uv run pytest` — **494 passed, 11 skipped**
-- Manual:
-  - `docker compose up --build` — app already running
-  - `uv run alembic upgrade head` — schema present in Compose Postgres
-  - ingest fixture budget — corpus already populated
-  - `curl -X POST http://127.0.0.1:8000/api/v1/search ...` — **200 with ranked results**
-- Not verified yet:
-  - five-query demonstration script (`feature-039`)
-  - `output_examples.txt`
-
 ## Documentation Plan
 
 - README:
@@ -216,23 +201,108 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
   - explain cosine distance vs L2/inner product
   - explicitly state that there is no vector index yet
   - state that for hundreds of chunks sequential scan is acceptable as a baseline
+- Technical docs (`docs/technical/README.md` §23):
+  - search module layout, HTTP contract, verification commands
+- Architecture HTML (`docs/arquitectura-estimador-cag.html`):
+  - search router node, API table row, feature-038 milestone note
 - Second Brain:
-  - record the operator choice and how it aligns with future `vector_cosine_ops`.
+  - `learnings/docs/sesiones/sesion-07-semantic-search-endpoint.md`
+  - operator choice and alignment with future `vector_cosine_ops`
 
 ## Implementation Plan
 
-- [ ] Step 1: Add search schemas and validation tests.
-- [ ] Step 2: Add repository/service query with pgvector `cosine_distance`.
-- [ ] Step 3: Add router and register it in `app/main.py`.
-- [ ] Step 4: Add service/router tests with fake embedder and seeded chunks.
-- [ ] Step 5: Run manual ingest + search smoke check.
-- [ ] Step 6: Update README and Second Brain notes.
+- [x] Step 1: Add search schemas and validation tests.
+- [x] Step 2: Add repository/service query with pgvector `cosine_distance`.
+- [x] Step 3: Add router and register it in `app/main.py`.
+- [x] Step 4: Add service/router tests with fake embedder and seeded chunks.
+- [x] Step 5: Run manual ingest + search smoke check.
+- [x] Step 6: Update README, technical docs, architecture HTML, and Second Brain notes.
 
 ## Learnings
 
-- Cosine distance is used because it aligns with common RAG literature and the future `vector_cosine_ops` index path.
+- Cosine distance is used because it aligns with common RAG literature and the future `vector_cosine_ops` index path. In SQLAlchemy/pgvector it compiles to the `<=>` operator.
 - The absence of an index is a teaching point: it provides a visible baseline before optimizing.
 - Search must reuse the same embedding model as ingest; otherwise distance comparisons become meaningless.
+- **Semantic ≠ keyword:** a query mentioning SAML can still rank OAuth chunks highly if “authentication” and “API” dominate the embedding signal — the corpus may contain no SAML text at all.
+- **Duplicate ingests inflate results:** repeated `source_path` inserts produce identical chunks with different `chunk_id`/`document_id` values; they can occupy multiple top-k slots with the same distance.
+- **Distance interpretation:** values around 0.65–0.71 on a small course corpus indicate moderate similarity, not a strong match. Lower is better; near-zero would indicate a very close hit.
+- **Multi-signal queries:** when a query mixes sector (“education”) and technical terms (“REST API”, “authentication”), ranking reflects a trade-off between signals — the best sector match may appear at #3 while auth/API chunks lead.
+
+## Manual query analysis (verified on Compose Postgres)
+
+This section records a real end-to-end search against the persisted corpus (2026-06-09). It demonstrates how to read `distance`, metadata, and ranking when the query does not exactly match any chunk.
+
+### Request
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "REST API with SAML authentication for public educational sector",
+    "k": 5
+  }'
+```
+
+### Observed response (summary)
+
+| Rank | chunk_id | document_id | budget_id | client_sector | distance | Component (abbrev.) |
+|------|----------|-------------|-----------|---------------|----------|---------------------|
+| 1 | 1 | 2 | BUD-2024-014 | finance | 0.6529 | OAuth 2.0 authentication backend |
+| 2 | 25 | 15 | BUD-2024-014 | finance | 0.6529 | OAuth 2.0 authentication backend (duplicate ingest) |
+| 3 | 7 | 7 | BUD-2024-045 | education | 0.6529 | Course catalog API |
+| 4 | 8 | 7 | BUD-2024-045 | education | 0.6912 | SCORM package importer |
+| 5 | 9 | 7 | BUD-2024-045 | education | 0.7069 | Learner progress dashboard |
+
+`search_time_ms` was ~276–372 ms (includes one OpenAI `embed_one` call plus Postgres sequential scan).
+
+### How to read this result
+
+**Query intent vs corpus content**
+
+The query asks for REST API + SAML + authentication + public educational sector. The persisted corpus contains OAuth/JWT fintech components and LMS/education components, but **no chunk mentions SAML explicitly**. Semantic search returns the closest vectors, not keyword matches.
+
+**Why OAuth fintech ranks #1 and #2**
+
+The top slots are `BUD-2024-014` (FintechCorp, sector `finance`): “OAuth 2.0 authentication backend” for a mobile banking API. The embedder strongly associates the query’s “REST API” and “authentication” with OAuth/JWT/API language. Sector “education” in the query is weaker than the auth/API signal for those vectors.
+
+**Why #1 and #2 are identical**
+
+Same budget ingested twice (`chunk_id` 1 and 25, different `document_id`). Same content → same embedding → same distance. This is a **data-quality artifact**, not a ranking bug. Operational follow-up: deduplicate by `source_path` at ingest time or filter duplicates in search (out of scope for feature-038).
+
+**Why education appears at #3**
+
+`BUD-2024-045` (Corporate LMS, sector `education`) — “Course catalog API” with CRUD and role-based access — almost ties with OAuth on distance (~0.6529) but aligns better with “public educational sector” + “REST API”. It is the most intent-aligned result despite ranking third.
+
+**Why SCORM and dashboard follow**
+
+Same education budget; progressively weaker match to “API + SAML + auth”. Distances increase (0.691 → 0.707), showing descending semantic relevance.
+
+**Takeaways for operators and RAG design**
+
+1. Inspect `distance` magnitude, not only rank — all five results here are moderate matches (0.65–0.71), not strong hits (~0.2–0.3).
+2. Expect semantic confusion between related auth protocols (SAML vs OAuth) when the corpus lacks the exact term.
+3. Plan for deduplication or `source_path` uniqueness enforcement before production retrieval.
+4. Future increments (feature-039 script, metadata filters, hybrid search) can make this behaviour easier to demonstrate and tune.
+
+### Contrasting query (OAuth + fintech — closer intent match)
+
+When the query aligns with corpus vocabulary, distances drop and the top result is clearly relevant:
+
+```json
+{
+  "query": "REST API with OAuth authentication for fintech sector",
+  "k": 5
+}
+```
+
+The top result is the same `BUD-2024-014` OAuth component with distance ~0.42 — noticeably lower than the SAML/education query, reflecting a stronger semantic match.
+
+## Retrospective
+
+1. **Process:** TDD honoured — schema tests RED before models; repository/service/router tested with fakes before manual smoke.
+2. **Technical:** Reused `OpenAIEmbedder`, `get_db_session`, and ingest-router DI patterns; SQL isolated in `SemanticSearchRepository`.
+3. **Quality:** 20 targeted tests; full suite green; manual curl on Compose confirmed real retrieval.
+4. **Docs:** README, `docs/technical/README.md`, architecture HTML, and this work item updated; feature-039 remains for scripted multi-query examples.
 
 ## Estimation
 
@@ -251,7 +321,7 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/34 (draft, label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/34 — merged via `/finish-task`
 
 ## Repository commits (master-ia)
 
@@ -261,11 +331,13 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 | 510335c | test(embedding-pipeline): add search schema validation tests (RED→GREEN) |
 | 1c212a2 | feat(embedding-pipeline): add semantic search repository and service |
 | e21cc10 | feat(search): add POST /api/v1/search semantic search endpoint |
-| (latest) | docs(work-items): record feature-038 verification and acceptance status |
+| 2e9046f | docs(work-items): record feature-038 verification and acceptance status |
+| b07c130 | docs(work-items): add commit SHAs to feature-038 report |
+| (finish-task) | docs: feature-038 manual analysis, technical docs, architecture, learnings |
 
 ## Verification
 
-- **Verified (automated):** `uv run pytest tests/embedding_pipeline/test_search_*.py` — 20 passed; full suite `uv run pytest` — 494 passed, 11 skipped.
-- **Verified (manual):** `curl -X POST http://127.0.0.1:8000/api/v1/search` against Compose Postgres returned ranked results with cosine distances.
+- **Verified (automated):** `uv run pytest tests/embedding_pipeline/test_search_*.py` — 20 passed; full suite `uv run pytest` — 494+ passed, 11 skipped.
+- **Verified (manual):** `curl -X POST http://127.0.0.1:8000/api/v1/search` against Compose Postgres — ranked results with cosine distances; SAML/education query analysis documented above.
 - **Not verified:** five-query demonstration script (`feature-039` scope); `output_examples.txt`.
-- **Residual risk:** no integration test against real Postgres in CI (repository SQL validated via compile + mocked session).
+- **Residual risk:** no integration test against real Postgres in CI (repository SQL validated via compile + mocked session); duplicate ingests can occupy multiple top-k slots.

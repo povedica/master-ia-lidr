@@ -652,11 +652,12 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/embeddings/ingest \
 Status codes: `200` success (empty corpus returns `results: []`), `422` validation error, `503` when `DATABASE_URL` is unset, `500` generic failure (details logged server-side). Chunks with `embedding IS NULL` are excluded from ranking.
 
 ```bash
-# After ingest + migration
 curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
   -H 'Content-Type: application/json' \
   -d '{"query":"REST API with OAuth authentication for fintech sector","k":5}'
 ```
+
+**Reading search results:** `distance` is pgvector cosine distance — **lower is more similar**. Values around 0.2–0.4 often indicate a strong match on this corpus; 0.65+ suggests moderate similarity. Semantic search is not keyword search: a query mentioning SAML may rank OAuth chunks highly if the corpus has no SAML text but shares “authentication” and “API” signals. See [`docs/work-items/feature-038-semantic-search-endpoint-pgvector.md`](docs/work-items/feature-038-semantic-search-endpoint-pgvector.md) for a worked example (SAML + education query).
 
 **Increment 5 (feature-034)** adds `app/scripts/compare.py`: embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
 
