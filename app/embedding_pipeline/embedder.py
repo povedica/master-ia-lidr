@@ -36,8 +36,17 @@ class OpenAIEmbedder:
         )
         self._batch_size = settings.embedding_pipeline_batch_size
         self._timeout = float(settings.openai_timeout_seconds)
+        self._client: AsyncOpenAI | None = None
         self.last_total_tokens: int = 0
         self.last_cost_usd: float = 0.0
+
+    def _get_client(self) -> AsyncOpenAI:
+        if self._client is None:
+            self._client = AsyncOpenAI(
+                api_key=self._require_api_key(),
+                timeout=self._timeout,
+            )
+        return self._client
 
     def _require_api_key(self) -> str:
         key = self._settings.openai_api_key.strip()
@@ -66,7 +75,7 @@ class OpenAIEmbedder:
         batch_index: int,
         batch_tokens: int,
     ) -> list[list[float]]:
-        client = AsyncOpenAI(api_key=self._require_api_key(), timeout=self._timeout)
+        client = self._get_client()
         last_error: RateLimitError | None = None
 
         for attempt in range(_MAX_ATTEMPTS):

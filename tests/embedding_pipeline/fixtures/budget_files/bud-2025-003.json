@@ -1,0 +1,32 @@
+{
+  "budget_id": "BUD-2025-003",
+  "client_metadata": {
+    "name": "DocuMind AI",
+    "sector": "legaltech",
+    "country": "US"
+  },
+  "project_summary": "Contract clause extraction and risk scoring pipeline",
+  "main_technology": "python",
+  "year": 2025,
+  "total_estimated_hours": 440,
+  "components": [
+    {
+      "component_id": "OCR-001",
+      "name": "PDF text extraction",
+      "description": "OCR fallback for scanned contracts with layout preservation",
+      "tech_stack": ["python", "tesseract", "pdfplumber"],
+      "estimated_hours": 100,
+      "complexity": "medium",
+      "dependencies": []
+    },
+    {
+      "component_id": "NLP-002",
+      "name": "Clause classification service",
+      "description": "LLM-assisted tagging of liability, termination, and indemnity clauses",
+      "tech_stack": ["python", "openai", "fastapi"],
+      "estimated_hours": 160,
+      "complexity": "high",
+      "dependencies": ["OCR-001"]
+    }
+  ]
+}

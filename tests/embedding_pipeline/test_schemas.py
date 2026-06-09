@@ -47,7 +47,7 @@ def test_budget_from_valid_data() -> None:
 
 def test_chunk_from_valid_data() -> None:
     chunk = Chunk.model_validate(SAMPLE_CHUNK)
-    assert chunk.chunk_id == "BUD-2024-014:AUTH-001"
+    assert chunk.chunk_id == "BUD-2024-014::AUTH-001"
     assert chunk.token_count == 42
 
 

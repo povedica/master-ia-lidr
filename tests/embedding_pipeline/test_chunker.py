@@ -12,13 +12,19 @@ from app.embedding_pipeline.schemas import Budget, BudgetComponent
 from tests.embedding_pipeline.conftest import SAMPLE_BUDGET, SAMPLE_BUDGET_COMPONENT
 
 EXPECTED_TEXT = (
-    "[Project: Mobile banking API with OAuth 2.0 authentication] "
-    "[Client sector: finance | Year: 2024 | Main tech: ruby_on_rails]\n"
-    "Component: OAuth 2.0 authentication backend\n"
-    "Description: Implementation of OAuth 2.0 flows with JWT session management\n"
-    "Tech stack: ruby_on_rails, postgresql, redis\n"
-    "Complexity: high\n"
-    "Estimated hours: 120"
+    "## Project context\n"
+    "- Summary: Mobile banking API with OAuth 2.0 authentication\n"
+    "- Sector: finance | Year: 2024 | Main tech: ruby_on_rails\n"
+    "\n"
+    "## Component: OAuth 2.0 authentication backend\n"
+    "Implementation of OAuth 2.0 flows with JWT session management\n"
+    "\n"
+    "### Tech stack\n"
+    "ruby_on_rails, postgresql, redis\n"
+    "\n"
+    "### Estimate\n"
+    "- Complexity: high\n"
+    "- Hours: 120"
 )
 
 SECOND_BUDGET = {
@@ -58,7 +64,7 @@ def encoder() -> tiktoken.Encoding:
 
 @pytest.fixture
 def chunker() -> JSONStructuralChunker:
-    return JSONStructuralChunker()
+    return JSONStructuralChunker(embedding_model="text-embedding-3-small")
 
 
 def test_chunk_returns_one_chunk_per_component(chunker: JSONStructuralChunker) -> None:
@@ -94,6 +100,9 @@ def test_chunk_metadata_keys_and_values(chunker: JSONStructuralChunker) -> None:
         "year",
         "complexity",
         "estimated_hours",
+        "source_name",
+        "source_version",
+        "location",
     }
     assert metadata == {
         "budget_id": "BUD-2024-014",
@@ -103,6 +112,9 @@ def test_chunk_metadata_keys_and_values(chunker: JSONStructuralChunker) -> None:
         "year": 2024,
         "complexity": "high",
         "estimated_hours": 120,
+        "source_name": "inline",
+        "source_version": "api",
+        "location": "",
     }
 
 
@@ -122,13 +134,48 @@ def test_encoder_instantiated_once_per_chunker() -> None:
         "app.embedding_pipeline.chunker.tiktoken.encoding_for_model",
         return_value=mock_encoder,
     ) as mock_encoding_for_model:
-        chunker = JSONStructuralChunker()
+        chunker = JSONStructuralChunker(embedding_model="text-embedding-3-small")
         budgets = [
             Budget.model_validate(SAMPLE_BUDGET),
             Budget.model_validate(SECOND_BUDGET),
         ]
         chunker.chunk(budgets)
     mock_encoding_for_model.assert_called_once_with("text-embedding-3-small")
+
+
+def test_chunker_uses_configured_embedding_model() -> None:
+    mock_encoder = MagicMock()
+    mock_encoder.encode.return_value = [1, 2, 3]
+    with patch(
+        "app.embedding_pipeline.chunker.tiktoken.encoding_for_model",
+        return_value=mock_encoder,
+    ) as mock_encoding_for_model:
+        chunker = JSONStructuralChunker(embedding_model="text-embedding-3-large")
+        chunker.chunk([Budget.model_validate(SAMPLE_BUDGET)])
+    mock_encoding_for_model.assert_called_once_with("text-embedding-3-large")
+
+
+def test_chunker_falls_back_when_model_unknown_to_tiktoken(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fallback_encoder = MagicMock()
+    fallback_encoder.encode.return_value = [1, 2, 3]
+    with (
+        patch(
+            "app.embedding_pipeline.chunker.tiktoken.encoding_for_model",
+            side_effect=KeyError("unknown"),
+        ),
+        patch(
+            "app.embedding_pipeline.chunker.tiktoken.get_encoding",
+            return_value=fallback_encoder,
+        ) as mock_get_encoding,
+        caplog.at_level("WARNING"),
+    ):
+        chunker = JSONStructuralChunker(embedding_model="unknown-custom-model")
+        chunker.chunk([Budget.model_validate(SAMPLE_BUDGET)])
+
+    mock_get_encoding.assert_called_once_with("cl100k_base")
+    assert any(r.message == "chunker_tiktoken_model_fallback" for r in caplog.records)
 
 
 def test_empty_budgets_returns_empty_list(chunker: JSONStructuralChunker) -> None:

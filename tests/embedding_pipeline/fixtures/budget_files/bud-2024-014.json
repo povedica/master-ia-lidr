@@ -1,0 +1,23 @@
+{
+  "budget_id": "BUD-2024-014",
+  "client_metadata": {
+    "name": "FintechCorp",
+    "sector": "finance",
+    "country": "ES"
+  },
+  "project_summary": "Mobile banking API with OAuth 2.0 authentication",
+  "main_technology": "ruby_on_rails",
+  "year": 2024,
+  "total_estimated_hours": 480,
+  "components": [
+    {
+      "component_id": "AUTH-001",
+      "name": "OAuth 2.0 authentication backend",
+      "description": "Implementation of OAuth 2.0 flows with JWT session management",
+      "tech_stack": ["ruby_on_rails", "postgresql", "redis"],
+      "estimated_hours": 120,
+      "complexity": "high",
+      "dependencies": []
+    }
+  ]
+}

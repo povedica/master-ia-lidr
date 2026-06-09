@@ -2144,11 +2144,11 @@
             <button class="btn" data-flow="embeddings" data-action="reset">↺ Reiniciar</button>
           </div>
           <div class="flow-steps" id="steps-embeddings">
-            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Entrada: presupuestos JSON o textos sueltos</h4><p><strong>Ingest HTTP:</strong> <code>IngestRequest</code> con <code>budgets: list[Budget]</code>. <strong>CLI compare:</strong> dos strings <code>--text-a</code> / <code>--text-b</code> sin chunker.</p></div></div>
-            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Validación Pydantic (solo ingest)</h4><p>FastAPI valida <code>Budget</code>, <code>BudgetComponent</code> y metadatos de cliente. Errores → <code>422</code>.</p></div></div>
-            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Chunking estructural</h4><p><code>JSONStructuralChunker.chunk()</code>: un chunk por componente, texto con contexto del presupuesto padre, <code>token_count</code> con tiktoken (<code>text-embedding-3-small</code>).</p></div></div>
-            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Embedding OpenAI</h4><p><code>OpenAIEmbedder.embed_many()</code> (ingest) o <code>embed_one()</code> ×2 (CLI). Lotes de hasta 100 chunks, retry en rate limit, vectores 1536 dims.</p></div></div>
-            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Salida</h4><p><strong>Ingest:</strong> <code>IngestResponse</code> con <code>EmbeddedChunk[]</code> + <code>IngestStats</code>. <strong>CLI:</strong> similitud coseno en stdout (stdlib <code>math</code>).</p></div></div>
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Entrada</h4><p><strong>HTTP:</strong> <code>IngestRequest.budgets</code>. <strong>CLI dir:</strong> <code>FileSystemLoader</code> → <code>parse_budget_file</code>. <strong>compare:</strong> dos textos sueltos.</p></div></div>
+            <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Validación / adapter</h4><p>Pydantic <code>Budget</code> (HTTP o parser). <code>BudgetToDocumentAdapter</code> → <code>PipelineDocument</code> con lineage inline (<code>source_name=api</code>).</p></div></div>
+            <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Chunking markdown</h4><p><code>JSONStructuralChunker</code>: plantilla <code>## Project context</code> / <code>## Component</code>; tiktoken alineado a <code>EMBEDDING_PIPELINE_MODEL</code>.</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Orquestación + embed</h4><p><code>run_ingest()</code> (HTTP y <code>ingest_from_dir</code>). <code>OpenAIEmbedder</code> con cliente único, lotes, retry, 1536 dims.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Salida</h4><p><code>IngestResponse</code> + stats del embedder. CLIs: compare, preflight, inspect_fixtures, architecture_decision.</p></div></div>
             <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Calidad (CLI)</h4><p>Tres pares de referencia en <code>SANITY_CHECK.md</code> validan separación semántica antes de Session 08 (vector DB).</p></div></div>
           </div>
         </div>
@@ -2388,8 +2388,8 @@ flowchart TD
         </p>
 
         <div class="alert info">
-          <strong>Milestone completo (features 030–034):</strong> schemas → chunker → embedder → endpoint HTTP → CLI cosine + sanity check.
-          La persistencia en vector DB queda para Session 08.
+          <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> HTTP/CLI → loader/parser upstream → harness e2e + CLIs ops.
+          La persistencia en vector DB queda para Session 08. Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
         <h3>Vista funcional</h3>
@@ -2402,7 +2402,8 @@ flowchart TD
             <h4>Dos formas de uso</h4>
             <ul>
               <li><strong>Ingest batch:</strong> <code>POST /api/v1/embeddings/ingest</code> — muchos presupuestos → muchos <code>EmbeddedChunk</code> + estadísticas de coste.</li>
-              <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos sueltos → similitud coseno (sanity check de calidad del modelo).</li>
+              <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → mismo <code>run_ingest</code> (o <code>--dry-run</code>).</li>
+              <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos → similitud coseno.</li>
             </ul>
           </div>
           <div class="card">

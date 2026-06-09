@@ -1,0 +1,41 @@
+{
+  "budget_id": "BUD-2024-045",
+  "client_metadata": {
+    "name": "LearnSphere",
+    "sector": "education",
+    "country": "AR"
+  },
+  "project_summary": "Corporate LMS with SCORM import and progress analytics",
+  "main_technology": "python",
+  "year": 2024,
+  "total_estimated_hours": 520,
+  "components": [
+    {
+      "component_id": "CRS-001",
+      "name": "Course catalog API",
+      "description": "CRUD for courses, modules, and enrollment with role-based access",
+      "tech_stack": ["python", "django", "postgresql"],
+      "estimated_hours": 120,
+      "complexity": "medium",
+      "dependencies": []
+    },
+    {
+      "component_id": "SCM-002",
+      "name": "SCORM package importer",
+      "description": "Parse SCORM 1.2 manifests and track lesson completion events",
+      "tech_stack": ["python", "celery", "s3"],
+      "estimated_hours": 140,
+      "complexity": "high",
+      "dependencies": ["CRS-001"]
+    },
+    {
+      "component_id": "RPT-003",
+      "name": "Learner progress dashboard",
+      "description": "Aggregated completion rates and quiz scores per department",
+      "tech_stack": ["python", "react", "postgresql"],
+      "estimated_hours": 80,
+      "complexity": "low",
+      "dependencies": ["CRS-001"]
+    }
+  ]
+}

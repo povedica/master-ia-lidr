@@ -3,6 +3,11 @@
 Cosine similarity between text pairs using `text-embedding-3-small` via `python -m app.scripts.compare`.
 Measured on 2026-06-08 with a live OpenAI API key.
 
+> **Note (feature-035, 2026-06-09):** The chunk text template changed from flat prose to markdown
+> sections. Similarity scores below were measured with the **previous** template; re-run pairs under
+> `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy` or the compare CLI if you need
+> post-template baselines.
+
 | Pair | Text A | Text B | Similarity | Expectation |
 |------|--------|--------|------------|-------------|
 | A (semantically close) | OAuth 2.0 authentication backend with JWT tokens for fintech mobile app | Authorization service using JSON Web Tokens for a banking application | **0.5957** | > 0.6 |

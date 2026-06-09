@@ -569,11 +569,13 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Increment 1 (feature-030)** ships the module skeleton and Pydantic schemas (`app/embedding_pipeline/schemas.py`).
 
-**Increment 2 (feature-031)** adds `JSONStructuralChunker` in `app/embedding_pipeline/chunker.py`: one chunk per budget component, with parent-budget context in the text and tiktoken-based `token_count` (`text-embedding-3-small` encoding).
+**Increment 2 (feature-031)** adds `JSONStructuralChunker` in `app/embedding_pipeline/chunker.py`: one chunk per budget component, with parent-budget context in the text and tiktoken-based `token_count` aligned to `EMBEDDING_PIPELINE_MODEL`.
 
 **Increment 3 (feature-032)** adds `OpenAIEmbedder` in `app/embedding_pipeline/embedder.py`: async OpenAI embeddings (`text-embedding-3-small`, 1536 dims) with batched requests, rate-limit retry, per-batch logging, and indicative cost tracking (`last_total_tokens`, `last_cost_usd`).
 
-**Increment 4 (feature-033)** exposes ingest over HTTP at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The handler chunks budgets with `JSONStructuralChunker`, embeds via `OpenAIEmbedder`, and returns `IngestResponse` with `EmbeddedChunk` list and `IngestStats`.
+**Increment 4 (feature-033)** exposes ingest over HTTP at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The handler delegates to `run_ingest()` in `app/embedding_pipeline/ingest.py` (chunk → embed → stats).
+
+**Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
 
 Optional env (defaults work without extra config):
 
@@ -587,8 +589,8 @@ Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are a
 Chunk contract:
 
 - `chunk_id`: `{budget_id}::{component_id}` (e.g. `BUD-2024-014::AUTH-001`).
-- `text`: project/client header plus component name, description, tech stack, complexity, and estimated hours (see feature-031 work item for the exact template).
-- `metadata`: `budget_id`, `component_id`, `client_sector`, `main_technology`, `year`, `complexity`, `estimated_hours`.
+- `text`: markdown sections (`## Project context`, `## Component`, `### Tech stack`, `### Estimate`) — see feature-035.
+- `metadata`: seven component/budget keys plus lineage defaults (`source_name`, `source_version`, `location`) for inline HTTP ingest.
 
 **Ingest endpoint** (`POST /api/v1/embeddings/ingest`):
 
@@ -624,9 +626,33 @@ docker compose exec app python -m app.scripts.compare \
   --text-b "JWT-based authorization service for banking app"
 ```
 
+**Milestone verification (offline):**
+
 ```bash
+uv run pytest tests/embedding_pipeline/test_milestone_e2e.py
 uv run pytest tests/embedding_pipeline/
 ```
+
+**Upstream ingest from directory:**
+
+```bash
+uv run python -m app.scripts.ingest_from_dir \
+  --dir tests/embedding_pipeline/fixtures/budget_files --dry-run
+
+uv run python -m app.scripts.ingest_from_dir \
+  --dir tests/embedding_pipeline/fixtures/budget_files
+```
+
+**Ops / learning CLIs:**
+
+```bash
+uv run python -m app.scripts.preflight_embedding_pipeline --skip-key-check
+uv run python -m app.scripts.inspect_fixtures \
+  --dir tests/embedding_pipeline/fixtures/budget_files
+uv run python -m app.scripts.architecture_decision --corpus-tokens 5000 --refresh-days 60
+```
+
+Optional heavy smoke (real API key): `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy`
 
 ---
 

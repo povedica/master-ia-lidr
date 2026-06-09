@@ -1,0 +1,32 @@
+{
+  "budget_id": "BUD-2025-024",
+  "client_metadata": {
+    "name": "ShieldOps",
+    "sector": "cybersecurity",
+    "country": "IL"
+  },
+  "project_summary": "Security operations center dashboard with SIEM log correlation",
+  "main_technology": "python",
+  "year": 2025,
+  "total_estimated_hours": 600,
+  "components": [
+    {
+      "component_id": "LOG-001",
+      "name": "Log normalizer",
+      "description": "Parse syslog, CloudTrail, and firewall events into a unified schema",
+      "tech_stack": ["python", "elasticsearch", "logstash"],
+      "estimated_hours": 180,
+      "complexity": "high",
+      "dependencies": []
+    },
+    {
+      "component_id": "COR-002",
+      "name": "Correlation engine",
+      "description": "Rule-based detection of brute-force and lateral movement patterns",
+      "tech_stack": ["python", "elasticsearch", "redis"],
+      "estimated_hours": 220,
+      "complexity": "high",
+      "dependencies": ["LOG-001"]
+    }
+  ]
+}

@@ -11,14 +11,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.config import Settings, get_settings
 from app.embedding_pipeline.chunker import JSONStructuralChunker
 from app.embedding_pipeline.embedder import OpenAIEmbedder
-from app.embedding_pipeline.schemas import IngestRequest, IngestResponse, IngestStats
+from app.embedding_pipeline.ingest import run_ingest
+from app.embedding_pipeline.schemas import IngestRequest, IngestResponse
 
 router = APIRouter(tags=["embeddings"])
 logger = logging.getLogger(__name__)
 
 
-def get_chunker() -> JSONStructuralChunker:
-    return JSONStructuralChunker()
+def get_chunker(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> JSONStructuralChunker:
+    model = settings.embedding_pipeline_model.strip() or "text-embedding-3-small"
+    return JSONStructuralChunker(embedding_model=model)
 
 
 def get_embedder(settings: Annotated[Settings, Depends(get_settings)]) -> OpenAIEmbedder:
@@ -35,17 +39,7 @@ async def ingest_embeddings(
 
     request_id = f"emb_{uuid4().hex[:12]}"
     try:
-        chunks = chunker.chunk(request.budgets)
-        embedded = await embedder.embed_many(chunks)
-        return IngestResponse(
-            chunks=embedded,
-            stats=IngestStats(
-                total_budgets=len(request.budgets),
-                total_chunks=len(embedded),
-                total_tokens=embedder.last_total_tokens,
-                estimated_cost_usd=embedder.last_cost_usd,
-            ),
-        )
+        return await run_ingest(request.budgets, chunker, embedder)
     except Exception as exc:
         logger.error(
             "embedding_ingest_failed",

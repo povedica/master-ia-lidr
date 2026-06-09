@@ -1,0 +1,23 @@
+{
+  "budget_id": "BUD-2025-019",
+  "client_metadata": {
+    "name": "Ciudad Digital",
+    "sector": "government",
+    "country": "ES"
+  },
+  "project_summary": "Citizen portal for tax declarations and appointment booking",
+  "main_technology": "php",
+  "year": 2025,
+  "total_estimated_hours": 560,
+  "components": [
+    {
+      "component_id": "TAX-001",
+      "name": "Tax form submission module",
+      "description": "Multi-step wizard with digital signature and PDF receipt generation",
+      "tech_stack": ["php", "laravel", "mysql"],
+      "estimated_hours": 240,
+      "complexity": "high",
+      "dependencies": []
+    }
+  ]
+}

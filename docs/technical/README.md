@@ -28,6 +28,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [18. Security and secrets](#18-security-and-secrets)
 - [19. Evolution guide](#19-evolution-guide)
 - [20. Troubleshooting](#20-troubleshooting)
+- [21. Embedding pipeline (Session 07)](#21-embedding-pipeline-session-07)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
@@ -712,3 +713,58 @@ Run from the repository root:
 ```bash
 bash scripts/sync-estimador-cag-docs.sh
 ```
+
+## 21. Embedding pipeline (Session 07)
+
+Isolated module under `app/embedding_pipeline/`. It does **not** import `app/services/semantic_cache/`.
+
+### HTTP route
+
+| Method | Path | Handler |
+|--------|------|---------|
+| `POST` | `/api/v1/embeddings/ingest` | `app/routers/embeddings.py` → `run_ingest()` |
+
+Request body: `IngestRequest` with `budgets: list[Budget]`. Response: `IngestResponse` with `EmbeddedChunk[]` and `IngestStats`.
+
+### Module layout
+
+| Path | Role |
+|------|------|
+| `schemas.py` | `Budget`, `Chunk`, `PipelineDocument*`, ingest contracts |
+| `adapters.py` | `BudgetToDocumentAdapter`, `make_component_id` |
+| `chunker.py` | `JSONStructuralChunker` — markdown template, tiktoken from settings |
+| `embedder.py` | `OpenAIEmbedder` — single lazy `AsyncOpenAI` client |
+| `ingest.py` | `run_ingest()` shared by HTTP and CLI |
+| `loaders/filesystem.py` | Non-recursive `*.json` iteration |
+| `parsers/budget_json.py` | `parse_budget_file`, `BudgetParseError` |
+| `parsers/registry.py` | `get_parser("json")` |
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedding model (embedder + chunker tiktoken) |
+| `EMBEDDING_PIPELINE_BATCH_SIZE` | `100` | Batch size for `embed_many` |
+| `OPENAI_API_KEY` | — | Required for embed paths (not for offline tests) |
+| `OPENAI_TIMEOUT_SECONDS` | `30` | Embedder HTTP timeout |
+
+### Scripts (`app/scripts/`)
+
+| Module | Purpose |
+|--------|---------|
+| `compare.py` | Cosine similarity between two texts |
+| `ingest_from_dir.py` | Load `*.json` budgets from a directory; `--dry-run` chunks only |
+| `preflight_embedding_pipeline.py` | Settings, tiktoken, optional `--live` ping |
+| `inspect_fixtures.py` | Valid/invalid budget JSON counts via loader + parser |
+| `architecture_decision.py` | Offline CAG / Hybrid / RAG heuristic |
+
+### Verification
+
+```bash
+uv run pytest tests/embedding_pipeline/
+uv run pytest tests/embedding_pipeline/test_milestone_e2e.py
+```
+
+Heavy (real key): `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy`
+
+See also [docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md](../work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md).

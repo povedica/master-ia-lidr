@@ -78,6 +78,26 @@ async def test_embed_one_returns_1536_finite_floats(
 
 
 @pytest.mark.asyncio
+async def test_embed_many_reuses_single_async_openai_client(embedder: OpenAIEmbedder) -> None:
+    chunks = [_chunk(chunk_id=f"chunk-{i}", token_count=10) for i in range(250)]
+    mock_create = AsyncMock(
+        side_effect=[
+            _embedding_response([_make_vector(0.1 + i) for i in range(100)]),
+            _embedding_response([_make_vector(0.2 + i) for i in range(100)]),
+            _embedding_response([_make_vector(0.3 + i) for i in range(50)]),
+        ]
+    )
+    mock_client_ctor = MagicMock(
+        return_value=MagicMock(embeddings=MagicMock(create=mock_create))
+    )
+    with patch("app.embedding_pipeline.embedder.AsyncOpenAI", mock_client_ctor):
+        await embedder.embed_many(chunks)
+
+    mock_client_ctor.assert_called_once()
+    assert mock_create.await_count == 3
+
+
+@pytest.mark.asyncio
 async def test_embed_many_batches_api_calls(embedder: OpenAIEmbedder) -> None:
     chunks = [_chunk(chunk_id=f"chunk-{i}", token_count=10) for i in range(250)]
     mock_create = AsyncMock(

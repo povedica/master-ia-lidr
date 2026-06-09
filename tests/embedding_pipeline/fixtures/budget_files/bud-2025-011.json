@@ -1,0 +1,23 @@
+{
+  "budget_id": "BUD-2025-011",
+  "client_metadata": {
+    "name": "FactoryPulse",
+    "sector": "manufacturing",
+    "country": "DE"
+  },
+  "project_summary": "IoT sensor monitoring for predictive maintenance on assembly lines",
+  "main_technology": "rust",
+  "year": 2025,
+  "total_estimated_hours": 380,
+  "components": [
+    {
+      "component_id": "IOT-001",
+      "name": "MQTT edge gateway",
+      "description": "Collect vibration and temperature readings from PLCs with local buffering",
+      "tech_stack": ["rust", "mqtt", "influxdb"],
+      "estimated_hours": 220,
+      "complexity": "high",
+      "dependencies": []
+    }
+  ]
+}

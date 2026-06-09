@@ -1,0 +1,23 @@
+{
+  "budget_id": "BUD-INVALID-003",
+  "client_metadata": {
+    "name": "TypeMismatch Inc",
+    "sector": "finance",
+    "country": "ES"
+  },
+  "project_summary": "estimated_hours must be int not string",
+  "main_technology": "python",
+  "year": 2024,
+  "total_estimated_hours": 200,
+  "components": [
+    {
+      "component_id": "CMP-001",
+      "name": "Bad hours field",
+      "description": "Hours stored as string instead of integer",
+      "tech_stack": ["python"],
+      "estimated_hours": "eighty",
+      "complexity": "low",
+      "dependencies": []
+    }
+  ]
+}
