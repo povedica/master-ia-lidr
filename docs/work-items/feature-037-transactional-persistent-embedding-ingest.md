@@ -259,13 +259,22 @@ If a unique constraint race occurs, convert it to the same safe duplicate respon
 
 ## Implementation progress
 
-- [ ] Step 1: Persisted ingest schemas and schema unit tests
-- [ ] Step 2: Repository layer and duplicate domain error
-- [ ] Step 3: Persistent ingest service — successful transaction path
-- [ ] Step 4: Router wiring, DB session dependency, 409 mapping
-- [ ] Step 5: Rollback tests (embedder failure, chunk insert failure)
-- [ ] Step 6: Update milestone/router tests, README, architecture HTML
+- [x] Step 1: Persisted ingest schemas and schema unit tests
+- [x] Step 2: Repository layer and duplicate domain error
+- [x] Step 3: Persistent ingest service — successful transaction path
+- [x] Step 4: Router wiring, DB session dependency, 409 mapping
+- [x] Step 5: Rollback tests (embedder failure, chunk insert failure)
+- [x] Step 6: Update milestone/router tests, README, architecture HTML
 - [ ] Step 7: Full pytest pass and manual Compose verification
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| (initial) | docs(feature-037): add transactional persistent ingest work item |
+| feat(embedding) | add persisted ingest request/response schemas |
+| feat(embedding) | add transactional persistent ingest service |
+| feat(embedding) | wire persisted ingest endpoint with DB session |
 
 ## Pull Request
 
