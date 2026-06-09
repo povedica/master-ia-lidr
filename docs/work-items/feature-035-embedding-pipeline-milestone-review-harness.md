@@ -354,7 +354,7 @@ app/scripts/
 ## Implementation progress
 
 - [x] Step 1: Fixtures + conftest `::` fix + `fixtures/budget_files/`
-- [ ] Step 2: Hardening — remove router stub; single AsyncOpenAI; settings-aware chunker
+- [x] Step 2: Hardening — remove router stub; single AsyncOpenAI; settings-aware chunker
 - [ ] Step 3: `PipelineDocument` + adapter + `run_ingest` + markdown chunker
 - [ ] Step 4: Loader + parser + registry + upstream chain test
 - [ ] Step 5: `test_milestone_e2e.py` + slow smoke tests

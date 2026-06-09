@@ -17,8 +17,11 @@ router = APIRouter(tags=["embeddings"])
 logger = logging.getLogger(__name__)
 
 
-def get_chunker() -> JSONStructuralChunker:
-    return JSONStructuralChunker()
+def get_chunker(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> JSONStructuralChunker:
+    model = settings.embedding_pipeline_model.strip() or "text-embedding-3-small"
+    return JSONStructuralChunker(embedding_model=model)
 
 
 def get_embedder(settings: Annotated[Settings, Depends(get_settings)]) -> OpenAIEmbedder:

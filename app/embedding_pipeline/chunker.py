@@ -10,14 +10,30 @@ from app.embedding_pipeline.schemas import Budget, BudgetComponent, Chunk
 
 logger = logging.getLogger(__name__)
 
-_EMBEDDING_MODEL = "text-embedding-3-small"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+_TIKTOKEN_FALLBACK_ENCODING = "cl100k_base"
+
+
+def _resolve_tiktoken_encoder(embedding_model: str) -> tiktoken.Encoding:
+    model = embedding_model.strip() or _DEFAULT_EMBEDDING_MODEL
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        logger.warning(
+            "chunker_tiktoken_model_fallback",
+            extra={
+                "requested_model": model,
+                "fallback_encoding": _TIKTOKEN_FALLBACK_ENCODING,
+            },
+        )
+        return tiktoken.get_encoding(_TIKTOKEN_FALLBACK_ENCODING)
 
 
 class JSONStructuralChunker:
     """Turn budgets into one chunk per component with parent-budget context."""
 
-    def __init__(self) -> None:
-        self._encoder = tiktoken.encoding_for_model(_EMBEDDING_MODEL)
+    def __init__(self, *, embedding_model: str = _DEFAULT_EMBEDDING_MODEL) -> None:
+        self._encoder = _resolve_tiktoken_encoder(embedding_model)
 
     def chunk(self, budgets: list[Budget]) -> list[Chunk]:
         chunks: list[Chunk] = []
