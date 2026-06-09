@@ -44,4 +44,4 @@ def test_inspect_fixtures_reports_counts(capsys) -> None:
     exit_code = inspect_fixtures.main(["--dir", str(FIXTURES_DIR)])
     captured = capsys.readouterr().out
     assert exit_code == 0
-    assert "files=3 valid=3 invalid=0 total_components=3" in captured
+    assert "files=13 valid=13 invalid=0 total_components=24" in captured

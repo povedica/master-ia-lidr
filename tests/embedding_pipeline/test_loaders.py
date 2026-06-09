@@ -22,5 +22,5 @@ def test_filesystem_loader_yields_only_json_in_directory(tmp_path: Path) -> None
 
 def test_filesystem_loader_reads_fixture_directory() -> None:
     paths = list(FileSystemLoader.iter_budget_files(FIXTURES_DIR))
-    assert len(paths) == 3
+    assert len(paths) == 13
     assert all(path.suffix == ".json" for path in paths)

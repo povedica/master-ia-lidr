@@ -18,8 +18,8 @@ def test_ingest_from_dir_dry_run_prints_chunk_summary(capsys) -> None:
     )
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "chunks=3" in captured.out
-    assert "BUD-2024-014::AUTH-001" in captured.out
+    assert "chunks=24" in captured.out
+    assert "BUD-2023-078::MIG-001" in captured.out
 
 
 def test_ingest_from_dir_full_path_prints_stats(capsys) -> None:
@@ -44,8 +44,8 @@ def test_ingest_from_dir_full_path_prints_stats(capsys) -> None:
         mock_embedder_cls.return_value = MagicMock()
         mock_run.return_value = MagicMock(
             stats=MagicMock(
-                total_budgets=3,
-                total_chunks=3,
+                total_budgets=13,
+                total_chunks=24,
                 total_tokens=100,
                 estimated_cost_usd=0.000002,
             )
@@ -54,6 +54,6 @@ def test_ingest_from_dir_full_path_prints_stats(capsys) -> None:
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "total_budgets=3" in captured.out
-    assert "total_chunks=3" in captured.out
+    assert "total_budgets=13" in captured.out
+    assert "total_chunks=24" in captured.out
     mock_run.assert_awaited_once()

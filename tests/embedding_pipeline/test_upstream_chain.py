@@ -18,6 +18,6 @@ def test_loader_parser_chunker_produces_expected_component_count() -> None:
     budgets = [parser(path) for path in FileSystemLoader.iter_budget_files(FIXTURES_DIR)]
     chunks = chunker.chunk(budgets)
 
-    assert len(budgets) == 3
-    assert len(chunks) == 3
+    assert len(budgets) == 13
+    assert len(chunks) == 24
     assert all("::" in chunk.chunk_id for chunk in chunks)
