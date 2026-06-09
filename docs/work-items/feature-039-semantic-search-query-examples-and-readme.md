@@ -204,17 +204,38 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 - **Verified (automated, 2026-06-09):**
   - `uv run pytest tests/embedding_pipeline/test_query_examples.py` — 13 passed
   - `uv run pytest tests/embedding_pipeline/test_search_*.py` — 20 passed
-  - `uv run pytest` — full suite green (494+ passed, slow deselected)
+  - `uv run pytest tests/embedding_pipeline/test_persistent_ingest_service.py` — race-condition duplicate mapping
+  - `uv run pytest` — full suite green (508 passed, 11 skipped, slow deselected)
 - **Verified (manual, 2026-06-09):**
   - Compose stack healthy (`app`, `postgres`)
   - `docker compose run --rm app python query_examples.py` — five query sections, top-5 each
   - `output_examples.txt` regenerated from Docker run against persisted fixture corpus
   - README § Semantic search with pgvector documents Postgres → migrate → ingest → query flow
+  - Manual HTTP validation report: `docs/technical/embedding-pipeline-api-manual-validation.md`
 - **Not verified:**
   - future indexed search performance
   - metadata filtering
   - hybrid search quality
 - **Residual risk:** duplicate ingests (feature-037/038) still occupy multiple top-k slots in demo output; unrelated queries show high distances (~0.75) without a calibrated threshold.
+
+## Deliverable compliance (Session 07 milestone)
+
+Audit against the official exercise deliverable list (2026-06-09).
+
+| Requisito | ¿Cumple? | Evidencia |
+|-----------|----------|-----------|
+| `docker-compose.yml` con Postgres | **Sí** | Servicio `postgres` (`pgvector/pgvector:pg16`), healthcheck, volumen, `DATABASE_URL` en `app` |
+| Migración Alembic (extensión + 2 tablas + índices no vectoriales) | **Sí** | `alembic/versions/0001_initial_schema.py`: `CREATE EXTENSION vector`, tablas `documents` y `chunks`, índices en `source_path`, `document_id`, `chunk_type`, GIN en `metadata`; sin índice vectorial |
+| `POST /embeddings/ingest` persistiendo + duplicados | **Sí** | `app/routers/embeddings.py` → `run_persistent_ingest()`; duplicado → `409` con `document_id`; carrera concurrente mapeada vía `IntegrityError` |
+| `POST /search` funcional | **Sí** | `app/routers/search.py` + `search_repository.py` con `cosine_distance`; registrado en `app/main.py` |
+| `query_examples.py` ejecutable vía Docker Compose | **Casi** | Script en raíz, copiado en `Dockerfile`, 5 categorías de query. Comando real: `docker compose run --rm app python query_examples.py` — el enunciado menciona `ai_service`, que no existe en este `docker-compose.yml` |
+| `output_examples.txt` con salida real | **Sí** | Archivo en raíz con timestamp, 5 bloques de query y resultados con `distance` coherentes |
+| README: sección nueva justificando (a)–(d), máx. 1 página | **Sí** | `### Design rationale` en README (~870–886): dos tablas, JSONB, cosine distance, sin índice vectorial |
+
+**Veredicto:** cumplimiento sustancial. Desviaciones menores de nomenclatura:
+
+1. Servicio Compose `app` vs `ai_service` del enunciado (funcionalmente equivalente).
+2. Rutas versionadas `/api/v1/embeddings/ingest` y `/api/v1/search` vs paths sin prefijo del enunciado (convención del repo).
 
 ## Documentation Plan
 
@@ -261,7 +282,7 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/35 — WIP draft (feature-039)
+- https://github.com/povedica/master-ia-lidr/pull/35 — feature-039 (semantic search milestone closure)
 
 ## Repository commits (master-ia)
 
@@ -270,3 +291,5 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 | `036220d` | docs(feature-039): work item intake |
 | `732f77a` | feat(search): query_examples script, tests, Docker path |
 | `4df3200` | docs(feature-039): README section, output_examples.txt, session note |
+| `423e1b0` | docs(feature-039): record commit SHAs in work item |
+| `b4a5aea` | fix(ingest): map IntegrityError race to 409; README refresh; manual validation; deliverable compliance |

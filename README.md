@@ -35,10 +35,10 @@ Built as an **AI Engineering learning baseline**: typed settings, provider abstr
 8. [Configuration](#configuration)
 9. [Project structure](#project-structure)
 10. [Tests](#tests)
-11. [Documentation](#documentation)
-12. [Troubleshooting](#troubleshooting)
-13. [Security](#security)
-14. [Exercise demo (web UI)](#exercise-demo-web-ui)
+11. [Semantic search with pgvector](#semantic-search-with-pgvector)
+12. [Documentation](#documentation)
+13. [Troubleshooting](#troubleshooting)
+14. [Security](#security)
 
 ---
 
@@ -165,6 +165,8 @@ flowchart LR
         R1[v1 estimations]
         R2[v2 structured]
         RS[sessions]
+        EMB[embeddings ingest]
+        SR[search]
     end
 
     subgraph core [Core services]
@@ -172,16 +174,19 @@ flowchart LR
         SS[SimplifiedSessionService]
         GP[Guardrail pipeline]
         SC[Semantic cache]
+        EP[Embedding pipeline]
     end
 
     subgraph external [External]
         LLM[LiteLLM → OpenAI / Anthropic]
+        EMBAPI[OpenAI embeddings]
         Redis[(Redis Stack)]
+        PG[(Postgres pgvector)]
         LF[Langfuse OTEL]
     end
 
     Web --> RS
-    Curl --> R1 & R2 & RS
+    Curl --> R1 & R2 & RS & EMB & SR
     R1 --> ES
     R2 --> GP --> ES
     RS --> SS --> ES
@@ -189,16 +194,23 @@ flowchart LR
     SC --> Redis
     ES --> LLM
     ES -.-> LF
+    EMB --> EP
+    SR --> EP
+    EP --> EMBAPI
+    EP --> PG
 ```
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | HTTP | `app/routers/` | Validation, status codes, response assembly |
-| Business | `app/services/` | CAG prompts, provider chain, sessions, attachments |
-| Guardrails | `app/guardrails/` | Input/output policies, audit, rollout modes |
+| Middleware | `app/middleware/`, `app/cors.py` | Cross-cutting HTTP concerns (LLM-call audit, CORS) |
+| Business | `app/services/` | CAG prompts, provider chain, sessions, attachments, semantic cache, observability |
+| Guardrails | `app/guardrails/` | Input/output policies, audit, rollout modes (incl. ACB policy) |
 | Schemas | `app/schemas/` | Pydantic request/response models |
 | Context | `app/context/` | Few-shot example pools and legacy mode prompts |
-| Prompts | `app/prompts/estimation/` | Jinja2 templates (v1 retro, v2 default) |
+| Prompts | `app/prompts/` | Jinja2 templates: `estimation/` (v1 retro, v2 default), `acb/` (Actor-Critic-Boss) |
+| Embedding pipeline | `app/embedding_pipeline/` | Budget chunking, OpenAI embeddings, ingest, and semantic search (isolated from semantic cache) |
+| Persistence | `app/database.py`, `app/models/` | Async SQLAlchemy engine/session and ORM models (Postgres + pgvector) |
 
 For sequence diagrams, error mapping, and logging details, see [docs/technical/README.md](docs/technical/README.md).
 
@@ -222,7 +234,7 @@ npm run test     # Vitest unit tests
 npm run lint     # ESLint
 ```
 
-See [web/README.md](web/README.md) for environment variables and appearance settings. For a guided walkthrough of the multi-turn session exercise, see [Exercise demo (web UI)](#exercise-demo-web-ui).
+See [web/README.md](web/README.md) for environment variables and appearance settings.
 
 ---
 
@@ -243,6 +255,10 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `GET` | `/api/v1/sessions` | List sessions for UI sidebar (last 30 days) |
 | `GET` | `/api/v1/sessions/{session_id}` | Session detail for restore (payload, metadata, last estimate) |
 | `POST` | `/api/v1/sessions/{session_id}/estimate` | Simplified transcript-centered submit |
+| `POST` | `/api/v1/embeddings/ingest` | Persist a budget document and its chunk embeddings (Postgres + pgvector) |
+| `POST` | `/api/v1/search` | Semantic search over persisted chunks (pgvector cosine distance) |
+
+The `embeddings/ingest` and `search` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
 
 ### Stateless estimation (v1)
 
@@ -430,24 +446,39 @@ Chat completions go through **LiteLLM**. Use short model ids in `OPENAI_MODEL` /
 ```text
 master-ia/
 ├── app/
-│   ├── main.py                 # FastAPI entrypoint, lifespan, CORS
-│   ├── config.py               # pydantic-settings
-│   ├── routers/                # HTTP boundaries (v1, v2, sessions)
-│   ├── services/               # CAG, LLM chain, sessions, cache, observability
-│   ├── guardrails/             # Input/output policy pipeline
-│   ├── schemas/                # Pydantic models
+│   ├── main.py                 # FastAPI entrypoint, lifespan, router registration
+│   ├── config.py               # pydantic-settings (typed env configuration)
+│   ├── cors.py                 # CORS configuration
+│   ├── database.py             # Async SQLAlchemy engine/session (Postgres + pgvector)
+│   ├── routers/                # HTTP boundaries (v1, v2, sessions, embeddings, search)
+│   ├── middleware/             # HTTP middleware (LLM-call audit)
+│   ├── services/               # CAG, LLM chain, sessions, semantic cache, observability
+│   ├── guardrails/             # Input/output policy pipeline (+ ACB policy)
+│   ├── schemas/                # Pydantic request/response models
+│   ├── models/                 # SQLAlchemy ORM models (documents, chunks)
 │   ├── context/                # Few-shot example pools
-│   ├── embedding_pipeline/     # Session 07: budget chunking + embeddings (isolated)
-│   └── prompts/estimation/     # Jinja2 prompt bundles (v1, v2)
-├── web/                        # React + Vite UI
-├── tests/                      # pytest suite (mocked providers)
+│   ├── embedding_pipeline/     # Budget chunking, embeddings, semantic search (isolated)
+│   ├── prompts/                # Jinja2 bundles: estimation/ (v1, v2) and acb/
+│   └── scripts/                # In-package CLIs (compare, ingest_from_dir, preflight, …)
+├── web/                        # React + Vite + TypeScript UI
+├── tests/                      # pytest suite (mocked providers); includes tests/evals/
+├── evals/                      # CAG stress harness (evals/stress/)
+├── alembic/                    # Database migrations (alembic.ini at repo root)
 ├── docs/
-│   ├── technical/README.md     # Architecture, flows, troubleshooting (extended)
-│   └── work-items/             # Feature specs and ADRs
+│   ├── technical/README.md     # Extended architecture, flows, troubleshooting
+│   ├── evals/                  # Session eval pyramid documentation
+│   └── work-items/             # Implementation specs and ADRs
 ├── api-collection/             # OpenCollection/Bruno manual requests
-├── docker-compose.yml          # app + web + redis + redisinsight
-├── scripts/                    # Dev utilities (prompt dump, doc sync)
-├── dev-tools/                  # Provider ping scripts, stress harness
+├── dev-tools/                  # Provider ping scripts, fixture ingest helpers
+├── scripts/                    # Repo-level dev utilities (prompt dump, doc sync)
+├── query_examples.py           # Semantic search demo script
+├── output-responses/           # Persisted estimation/LLM outputs (opt-in)
+├── output-stats/               # NDJSON usage metadata (opt-in)
+├── Dockerfile                  # API image
+├── Dockerfile.web              # Web (nginx) image
+├── docker-compose.yml          # app + web + redis + redisinsight + postgres
+├── docker-compose.dev.yml      # Dev override (API live-reload, bind mounts)
+├── conftest.py                 # Shared pytest config (heavy-test deselection)
 ├── .env.example
 ├── pyproject.toml
 └── uv.lock
@@ -564,27 +595,20 @@ uv run python -m evals.stress.run \
 
 Deliverables (per scenario): `evals/stress/results-<scenario>.csv` (one row per turn) and `evals/stress/REPORT-<scenario>.md` (summary tables + interpretation). The default configuration runs ~600 LLM calls per scenario sequentially; use `--turn-counts` and `--repeats` to shorten smoke runs.
 
-### Embedding pipeline (Session 07)
+### Embedding pipeline
 
-Isolated learning module under `app/embedding_pipeline/` for budget JSON chunking and OpenAI embeddings. It does **not** share code with the semantic cache (`app/services/semantic_cache/`).
+Isolated module under `app/embedding_pipeline/` for budget JSON chunking, OpenAI embeddings, and semantic search over a Postgres corpus. It does **not** share code with the semantic cache (`app/services/semantic_cache/`).
 
-**Increment 1 (feature-030)** ships the module skeleton and Pydantic schemas (`app/embedding_pipeline/schemas.py`).
+The pipeline includes:
 
-**Increment 2 (feature-031)** adds `JSONStructuralChunker` in `app/embedding_pipeline/chunker.py`: one chunk per budget component, with parent-budget context in the text and tiktoken-based `token_count` aligned to `EMBEDDING_PIPELINE_MODEL`.
+- **Schemas** (`app/embedding_pipeline/schemas.py`) — Pydantic models for budgets, chunks, ingest, and search.
+- **Chunker** (`chunker.py`) — `JSONStructuralChunker` produces one chunk per budget component with parent-budget context and tiktoken-based `token_count`.
+- **Embedder** (`embedder.py`) — `OpenAIEmbedder` calls `text-embedding-3-small` (1536 dims) with batched requests, rate-limit retry, and cost tracking.
+- **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
+- **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**; no vector index yet (sequential scan baseline).
+- **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
-**Increment 3 (feature-032)** adds `OpenAIEmbedder` in `app/embedding_pipeline/embedder.py`: async OpenAI embeddings (`text-embedding-3-small`, 1536 dims) with batched requests, rate-limit retry, per-batch logging, and indicative cost tracking (`last_total_tokens`, `last_cost_usd`).
-
-**Increment 4 (feature-033)** introduced the ingest route at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The CLI still uses `run_ingest()` in `app/embedding_pipeline/ingest.py` (chunk → embed → in-memory stats).
-
-**Semantic search persistence — increment 1 (feature-036)** adds Postgres 16 with pgvector, async SQLAlchemy (`app/database.py`), ORM models (`documents`, `chunks`), and Alembic migrations. Vector indexes (HNSW/IVFFlat) are intentionally deferred.
-
-**Semantic search persistence — increment 2 (feature-037)** refactors the HTTP ingest endpoint to persist one budget document per request in a single transaction via `run_persistent_ingest()` (`app/embedding_pipeline/persistent_ingest.py`). The response returns ingestion metadata (`document_id`, `chunks_created`, `embedding_dimension`, `ingestion_time_ms`) and no longer includes raw vectors. Duplicate `source_path` returns `409 Conflict`.
-
-**Semantic search persistence — increment 3 (feature-038)** adds `POST /api/v1/search` (`app/routers/search.py`): embed the query with the same model as ingest, rank persisted chunks by pgvector **cosine distance** (`<=>` operator via `embedding.cosine_distance()`), and return the top-`k` results. There is **no vector index** yet — Postgres performs a sequential scan over the small course corpus (hundreds of chunks), which is an intentional baseline before HNSW/IVFFlat with `vector_cosine_ops`. Cosine distance is preferred over L2 or inner product because it matches common RAG practice and the planned index operator class.
-
-**Semantic search persistence — increment 4 (feature-039)** adds `query_examples.py` at the repository root: five representative queries (direct match, reformulation, unrelated domain, ambiguous, technical) call `POST /api/v1/search` with `k=5` and print ranked hits. A captured run lives in [`output_examples.txt`](output_examples.txt). See [Semantic search with pgvector](#semantic-search-with-pgvector) for end-to-end reproduction and design rationale.
-
-**Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
+Full setup, verification, and design rationale: [Semantic search with pgvector](#semantic-search-with-pgvector).
 
 Optional env (defaults work without extra config):
 
@@ -595,12 +619,12 @@ Optional env (defaults work without extra config):
 | `DATABASE_URL` | *(empty)* | Async Postgres DSN (`postgresql+asyncpg://...`); set automatically in Compose for `app` |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | Base URL for `query_examples.py`; Compose sets `http://app:8000` for the `app` service |
 
-Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the CLI (feature-034) wraps them with `asyncio.run`.
+Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the compare CLI wraps them with `asyncio.run`.
 
 Chunk contract:
 
 - `chunk_id`: `{budget_id}::{component_id}` (e.g. `BUD-2024-014::AUTH-001`).
-- `text`: markdown sections (`## Project context`, `## Component`, `### Tech stack`, `### Estimate`) — see feature-035.
+- `text`: markdown sections (`## Project context`, `## Component`, `### Tech stack`, `### Estimate`).
 - `metadata`: seven component/budget keys plus lineage defaults (`source_name`, `source_version`, `location`) for inline HTTP ingest.
 
 **Ingest endpoint** (`POST /api/v1/embeddings/ingest`):
@@ -660,9 +684,9 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
   -d '{"query":"REST API with OAuth authentication for fintech sector","k":5}'
 ```
 
-**Reading search results:** `distance` is pgvector cosine distance — **lower is more similar**. Values around 0.2–0.4 often indicate a strong match on this corpus; 0.65+ suggests moderate similarity. Semantic search is not keyword search: a query mentioning SAML may rank OAuth chunks highly if the corpus has no SAML text but shares “authentication” and “API” signals. See [`docs/work-items/feature-038-semantic-search-endpoint-pgvector.md`](docs/work-items/feature-038-semantic-search-endpoint-pgvector.md) for a worked example (SAML + education query).
+**Reading search results:** `distance` is pgvector cosine distance — **lower is more similar**. Values around 0.2–0.4 often indicate a strong match on this corpus; 0.65+ suggests moderate similarity. Semantic search is not keyword search: a query mentioning SAML may rank OAuth chunks highly if the corpus has no SAML text but shares “authentication” and “API” signals. See [`output_examples.txt`](output_examples.txt) and [Semantic search with pgvector](#semantic-search-with-pgvector) for worked examples.
 
-**Increment 5 (feature-034)** adds `app/scripts/compare.py`: embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
+**Cosine similarity CLI** (`app/scripts/compare.py`): embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
 
 ```bash
 # Outside container (loads .env via pydantic-settings)
@@ -676,7 +700,7 @@ docker compose exec app python -m app.scripts.compare \
   --text-b "JWT-based authorization service for banking app"
 ```
 
-**Milestone verification (offline):**
+**Pipeline verification (offline):**
 
 ```bash
 uv run pytest tests/embedding_pipeline/test_milestone_e2e.py
@@ -711,7 +735,7 @@ uv run python -m app.scripts.architecture_decision --corpus-tokens 5000 --refres
 
 Optional heavy smoke (real API key): `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy`
 
-**Postgres + migrations (feature-036):**
+**Postgres + migrations:**
 
 ```bash
 # Start Postgres only
@@ -730,41 +754,142 @@ docker compose exec postgres psql -U estimator -d estimator -c "\dt"
 
 From the `app` container, `DATABASE_URL` is pre-set to `postgresql+asyncpg://estimator:estimator@postgres:5432/estimator`. Roll back with `uv run alembic downgrade base` when you need a clean slate on a dev database.
 
-### Semantic search with pgvector
+For Postgres setup, ingest, search, and the query demo script, see [Semantic search with pgvector](#semantic-search-with-pgvector).
 
-End-to-end reproduction for the Session 07 persistence milestone (features 036–039):
+---
+
+## Semantic search with pgvector
+
+Persist budget embeddings in Postgres and retrieve them with `POST /api/v1/search`. Captured demo output: [`output_examples.txt`](output_examples.txt).
+
+### Dependencies
+
+| Layer | What you need |
+|-------|----------------|
+| **Docker** | Compose v2; services `postgres` (`pgvector/pgvector:pg16`) and `app` |
+| **Python** | 3.11 + [uv](https://docs.astral.sh/uv/); run `uv sync --group dev` from the repo root |
+| **Runtime packages** | `sqlalchemy`, `asyncpg`, `pgvector`, `alembic`, `greenlet` (see `pyproject.toml`) |
+| **Environment** | `OPENAI_API_KEY` (ingest + search embed calls), `DATABASE_URL` (host/local), optional `EMBEDDING_PIPELINE_MODEL`, `API_BASE_URL` |
+
+Compose sets `DATABASE_URL=postgresql+asyncpg://estimator:estimator@postgres:5432/estimator` and `API_BASE_URL=http://app:8000` on the `app` service. See `.env.example` for placeholders.
+
+### Initial setup and startup
 
 ```bash
-# 1. Stack + schema
+# 1. Environment
+cp .env.example .env
+# Set OPENAI_API_KEY — required for ingest and search (real embedding calls)
+
+# 2. Install Python deps (local CLI: alembic, ingest helper, query_examples)
+uv sync --group dev
+
+# 3. Start Postgres + API
 docker compose up --build -d postgres app
+
+# 4. Apply schema (from host; matches Compose credentials)
 export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
 uv run alembic upgrade head
 
-# 2. Ingest sample budgets (requires OPENAI_API_KEY in .env)
-uv run python dev-tools/ingest_budget_fixtures.py --skip-existing
-
-# 3. Run five demo queries (local API)
-uv run python query_examples.py --base-url http://127.0.0.1:8000
-
-# 4. Same script inside Docker (service name: app)
-docker compose run --rm app python query_examples.py
-docker compose run --rm --no-TTY app python query_examples.py > output_examples.txt
+# 5. Health check
+curl -s http://127.0.0.1:8000/health
+docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"
 ```
 
-**Endpoints:** `POST /api/v1/embeddings/ingest` persists one budget document and its chunk embeddings; `POST /api/v1/search` embeds the query and returns the top-`k` chunks ranked by cosine distance.
+**Local API without Docker** (Postgres must still be reachable):
 
-**Design rationale (exercise scope):**
+```bash
+docker compose up -d postgres
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
 
-| Decision | Why |
-|----------|-----|
-| **Two tables** (`documents`, `chunks`) | Document-level traceability, duplicate detection by `source_path`, and `ON DELETE CASCADE` keep chunks consistent with their source. |
-| **JSONB metadata** | Flexible component/budget fields without a migration per new key; GIN index on `chunks.metadata` leaves a path for later filters. |
-| **Cosine distance** | Matches common RAG practice and the future `vector_cosine_ops` HNSW path; L2 or inner product would change ranking and index operator class. |
-| **No vector index yet** | Sequential scan over a small course corpus (tens of chunks) is an intentional baseline before HNSW/IVFFlat tuning. |
+### Verify each component
 
-**Observed behaviour:** see [`output_examples.txt`](output_examples.txt) — direct OAuth queries rank ~0.39 distance; unrelated restaurant queries land ~0.75; ambiguous “Backend services” spreads across sectors. Semantic search is not keyword search.
+**Database schema (Postgres + pgvector)**
 
-**Explicitly out of scope for this exercise:** HNSW/IVFFlat vector indexes, metadata filters, hybrid keyword + vector search, ranking evaluation metrics, and retrieval tuning.
+```bash
+uv run alembic upgrade head
+docker compose exec postgres psql -U estimator -d estimator -c "\dt"   # documents, chunks
+uv run pytest tests/test_database_models.py tests/test_alembic_migration.py -q
+```
+
+**Persistent ingest** (`POST /api/v1/embeddings/ingest`)
+
+```bash
+# Batch ingest all budget fixtures (real OpenAI calls for budgets with components)
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing
+
+# Inspect persisted rows
+docker compose exec postgres psql -U estimator -d estimator \
+  -c "SELECT count(*) AS documents FROM documents; SELECT count(*) AS chunks FROM chunks;"
+
+# Re-run the same fixture → HTTP 409 (duplicate source_path)
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing
+
+uv run pytest tests/embedding_pipeline/test_persistent_ingest_service.py tests/embedding_pipeline/test_router.py -q
+```
+
+Single-document `curl` example (replace `content` with a full budget JSON from `tests/embedding_pipeline/fixtures/budget_files/`):
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/embeddings/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"source_path":"data/budgets/bud-2024-014.json","document_type":"historical_budget","content":{"budget_id":"BUD-2024-014","client_metadata":{"name":"FintechCorp","sector":"finance","country":"ES"},"project_summary":"Mobile banking API with OAuth 2.0 authentication","main_technology":"ruby_on_rails","year":2024,"total_estimated_hours":120,"components":[]}}'
+```
+
+**Semantic search** (`POST /api/v1/search`)
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"REST API with OAuth authentication for fintech sector","k":5}' \
+  | python3 -m json.tool
+
+uv run pytest tests/embedding_pipeline/test_search_*.py -q
+```
+
+Read `distance` as cosine distance: **lower = more similar** (~0.2–0.4 strong on this corpus; ~0.65+ moderate).
+
+**Query demo script** (`query_examples.py`)
+
+```bash
+uv run python query_examples.py --base-url http://127.0.0.1:8000
+docker compose run --rm app python query_examples.py
+docker compose run --rm --no-TTY app python query_examples.py > output_examples.txt
+
+uv run pytest tests/embedding_pipeline/test_query_examples.py -q
+```
+
+**Offline regression (no live API / OpenAI):**
+
+```bash
+uv run pytest tests/embedding_pipeline/ -q
+```
+
+### Design rationale
+
+**(a) Two tables (`documents` + `chunks`), not one flat table**
+
+A single table mixing document fields and chunk rows would duplicate `source_path`, `document_type`, and ingest timestamps on every chunk, complicate duplicate detection, and make deletes error-prone. Splitting keeps **document-level identity** (`source_path` uniqueness, optional document metadata) separate from **retrieval units** (chunk text + embedding). `ON DELETE CASCADE` from `documents` to `chunks` guarantees that removing a source document never leaves orphan vectors.
+
+**(b) JSONB metadata instead of typed columns**
+
+Budget components expose varying keys (`client_sector`, `tech_stack`, `complexity`, …). Modeling each as a SQL column would require a migration for every new field and produce wide sparse tables. **JSONB** stores the chunker’s structured metadata as-is, accepts evolution without schema churn, and still allows a **GIN index** on `chunks.metadata` when metadata filters are added later. Typed columns would be justified in production when a small set of filter fields is stable and query-critical.
+
+**(c) `cosine_distance`, not L2 or inner product**
+
+OpenAI embedding vectors are commonly compared by **cosine similarity** in RAG pipelines: ranking depends on direction in embedding space, not vector magnitude. pgvector exposes this as the `<=>` operator via `embedding.cosine_distance()`. **L2 (Euclidean) distance** would penalize magnitude differences and can reorder results when vectors are not normalized the same way. **Inner product** (`<#>`) assumes a different geometry and pairs with a different index operator class. Choosing cosine aligns search ranking with common RAG practice and a future **HNSW index with `vector_cosine_ops`** without changing the metric later.
+
+**(d) Deliberately no vector index yet**
+
+HNSW and IVFFlat trade build time, memory, and tuning complexity for sub-linear search at large scale. The current corpus has **tens of chunks**, not millions: a **sequential scan** over `vector(1536)` is fast enough for development and makes query plans easy to inspect. Skipping the index establishes a visible baseline latency and recall behaviour before optimization. Adding `CREATE INDEX … USING hnsw (embedding vector_cosine_ops)` is a deliberate follow-up.
+
+### Out of scope
+
+Vector indexes (HNSW/IVFFlat), metadata filters, hybrid keyword + vector search, ranking benchmarks, and retrieval tuning are **not** implemented here.
+
+Further detail: [docs/technical/README.md §22–§23](docs/technical/README.md).
 
 ---
 
@@ -772,10 +897,11 @@ docker compose run --rm --no-TTY app python query_examples.py > output_examples.
 
 | Resource | Description |
 |----------|-------------|
-| [docs/technical/README.md §22](docs/technical/README.md#22-postgres-pgvector-baseline-feature-036) | Postgres pgvector baseline: schema, migrations, manual verification, GUI clients |
+| [Semantic search with pgvector](#semantic-search-with-pgvector) | Setup, component verification, design rationale |
+| [docs/technical/README.md §22](docs/technical/README.md#22-postgres-pgvector-baseline-feature-036) | Postgres pgvector: schema, migrations, manual verification, GUI clients |
+| [docs/technical/README.md §23](docs/technical/README.md#23-semantic-search-endpoint-feature-038) | Search endpoint contract and module layout |
 | [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md) | Session eval pyramid: goldens, hard/soft/judge runs, calibration |
 | [web/README.md](web/README.md) | Frontend setup, scripts, theming |
-| [docs/work-items/](docs/work-items/) | Feature specs and implementation notes |
 | [api-collection/](api-collection/) | Manual HTTP requests (OpenCollection/Bruno) |
 | `.env.example` | Complete environment variable reference with inline comments |
 
@@ -806,14 +932,6 @@ More detail: [docs/technical/README.md §20](docs/technical/README.md#20-trouble
 - The default test suite does not require real provider keys.
 - Session state is **in-memory only** — not suitable for multi-instance production without external storage.
 - Guardrails reduce risk but are not a substitute for production content moderation or auth.
-
----
-
-## Exercise demo (web UI)
-
-**Sesión 5: Funcionalidades avanzadas — 125 min**
-
-Walkthrough for the multi-turn session exercise: session sidebar, three submits in one session, and the **Project metadata** panel updating between turns ([Vidyard — nav with sessions](https://share.vidyard.com/watch/vEXfFe5CQ8XWsSg52FEgjU)).
 
 ---
 
