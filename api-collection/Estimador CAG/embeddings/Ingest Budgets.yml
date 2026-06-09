@@ -1,0 +1,70 @@
+info:
+  name: Ingest Budgets
+  type: http
+  seq: 1
+  tags:
+    - embeddings
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/embeddings/ingest"
+  body:
+    type: json
+    data: |-
+      {
+        "budgets": [
+          {
+            "budget_id": "BUD-2024-014",
+            "client_metadata": {
+              "name": "FintechCorp",
+              "sector": "finance",
+              "country": "ES"
+            },
+            "project_summary": "Mobile banking API with OAuth 2.0 authentication",
+            "main_technology": "ruby_on_rails",
+            "year": 2024,
+            "total_estimated_hours": 480,
+            "components": [
+              {
+                "component_id": "AUTH-001",
+                "name": "OAuth 2.0 authentication backend",
+                "description": "Implementation of OAuth 2.0 flows with JWT session management",
+                "tech_stack": ["ruby_on_rails", "postgresql", "redis"],
+                "estimated_hours": 120,
+                "complexity": "high",
+                "dependencies": []
+              }
+            ]
+          },
+          {
+            "budget_id": "BUD-2024-099",
+            "client_metadata": {
+              "name": "RetailCo",
+              "sector": "retail",
+              "country": "ES"
+            },
+            "project_summary": "E-commerce checkout refactor",
+            "main_technology": "python",
+            "year": 2023,
+            "total_estimated_hours": 200,
+            "components": [
+              {
+                "component_id": "PAY-001",
+                "name": "Payment gateway integration",
+                "description": "Stripe webhook handling",
+                "tech_stack": ["python", "fastapi"],
+                "estimated_hours": 80,
+                "complexity": "medium",
+                "dependencies": []
+              }
+            ]
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

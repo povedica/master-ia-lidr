@@ -358,9 +358,9 @@ app/scripts/
 - [x] Step 3: `PipelineDocument` + adapter + `run_ingest` + markdown chunker
 - [x] Step 4: Loader + parser + registry + upstream chain test
 - [x] Step 5: `test_milestone_e2e.py` + slow smoke tests
-- [ ] Step 6: `ingest_from_dir.py` CLI (`--dry-run`)
-- [ ] Step 7: `preflight`, `architecture_decision`, `inspect_fixtures` CLIs
-- [ ] Step 8: API-collection embeddings request
+- [x] Step 6: `ingest_from_dir.py` CLI (`--dry-run`)
+- [x] Step 7: `preflight`, `architecture_decision`, `inspect_fixtures` CLIs
+- [x] Step 8: API-collection embeddings request
 - [ ] Step 9: README, `docs/technical/README.md`, architecture HTML, ADR-001
 - [ ] Step 10: Full `uv run pytest`; sync AC + verification
 
