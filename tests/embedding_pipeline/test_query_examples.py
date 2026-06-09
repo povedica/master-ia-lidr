@@ -132,6 +132,15 @@ def test_main_exits_nonzero_on_api_error(capsys: pytest.CaptureFixture[str]) -> 
     assert "HTTP 503" in captured.err
 
 
+def test_build_command_label_docker_default() -> None:
+    assert "docker compose run" in query_examples.build_command_label(None)
+
+
+def test_build_command_label_local_argv() -> None:
+    label = query_examples.build_command_label(["--base-url", "http://127.0.0.1:8000"])
+    assert label.startswith("uv run python query_examples.py")
+
+
 def test_main_prints_all_query_categories(capsys: pytest.CaptureFixture[str]) -> None:
     fake_response = {
         "query": "ignored",

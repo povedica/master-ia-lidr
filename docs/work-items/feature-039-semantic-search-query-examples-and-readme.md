@@ -168,18 +168,18 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `query_examples.py` exists and is executable through the documented Docker command.
-- [ ] AC-02: The script sends five `POST /api/v1/search` requests, one per required query category.
-- [ ] AC-03: Each request uses `k=5`.
-- [ ] AC-04: Terminal output includes query category, query text, and top results.
-- [ ] AC-05: Each result line includes `chunk_id`, `distance` to four decimals, `chunk_type`, and a truncated content preview.
-- [ ] AC-06: API errors cause a non-zero exit with a safe message.
-- [ ] AC-07: `output_examples.txt` captures a real run against the persisted sample corpus.
-- [ ] AC-08: `output_examples.txt` contains no secrets.
-- [ ] AC-09: README contains a concise semantic-search section with setup, endpoint usage, and design rationale.
-- [ ] AC-10: README explicitly states that vector indexes, metadata filters, hybrid search, and tuning are out of scope for this exercise.
-- [ ] AC-11: Formatting/unit tests for the script pass without live API or OpenAI credentials.
-- [ ] AC-12: Manual end-to-end verification from Postgres startup through query examples is documented.
+- [x] AC-01: `query_examples.py` exists and is executable through the documented Docker command.
+- [x] AC-02: The script sends five `POST /api/v1/search` requests, one per required query category.
+- [x] AC-03: Each request uses `k=5`.
+- [x] AC-04: Terminal output includes query category, query text, and top results.
+- [x] AC-05: Each result line includes `chunk_id`, `distance` to four decimals, `chunk_type`, and a truncated content preview.
+- [x] AC-06: API errors cause a non-zero exit with a safe message.
+- [x] AC-07: `output_examples.txt` captures a real run against the persisted sample corpus.
+- [x] AC-08: `output_examples.txt` contains no secrets.
+- [x] AC-09: README contains a concise semantic-search section with setup, endpoint usage, and design rationale.
+- [x] AC-10: README explicitly states that vector indexes, metadata filters, hybrid search, and tuning are out of scope for this exercise.
+- [x] AC-11: Formatting/unit tests for the script pass without live API or OpenAI credentials.
+- [x] AC-12: Manual end-to-end verification from Postgres startup through query examples is documented.
 
 ## Test Plan
 
@@ -201,19 +201,20 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 ## Verification
 
-- Automated:
-  - targeted tests for `query_examples.py`
-  - existing embedding/search tests from prior increments
-- Manual:
-  - `docker compose up --build`
-  - migration command from README
-  - ingest sample data
-  - `docker compose run --rm app python query_examples.py`
-  - `docker compose run --rm app python query_examples.py > output_examples.txt`
-- Not verified yet:
+- **Verified (automated, 2026-06-09):**
+  - `uv run pytest tests/embedding_pipeline/test_query_examples.py` — 13 passed
+  - `uv run pytest tests/embedding_pipeline/test_search_*.py` — 20 passed
+  - `uv run pytest` — full suite green (494+ passed, slow deselected)
+- **Verified (manual, 2026-06-09):**
+  - Compose stack healthy (`app`, `postgres`)
+  - `docker compose run --rm app python query_examples.py` — five query sections, top-5 each
+  - `output_examples.txt` regenerated from Docker run against persisted fixture corpus
+  - README § Semantic search with pgvector documents Postgres → migrate → ingest → query flow
+- **Not verified:**
   - future indexed search performance
   - metadata filtering
   - hybrid search quality
+- **Residual risk:** duplicate ingests (feature-037/038) still occupy multiple top-k slots in demo output; unrelated queries show high distances (~0.75) without a calibrated threshold.
 
 ## Documentation Plan
 
@@ -228,13 +229,13 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 ## Implementation Plan
 
-- [ ] Step 1: Add script tests for formatting, payloads, and error handling.
-- [ ] Step 2: Implement `query_examples.py` using the search HTTP API.
-- [ ] Step 3: Ensure Docker execution path works.
-- [ ] Step 4: Run the full milestone manually: Postgres, migration, ingest, search examples.
-- [ ] Step 5: Capture `output_examples.txt`.
-- [ ] Step 6: Update README and Second Brain notes.
-- [ ] Step 7: Run final focused validation.
+- [x] Step 1: Add script tests for formatting, payloads, and error handling.
+- [x] Step 2: Implement `query_examples.py` using the search HTTP API.
+- [x] Step 3: Ensure Docker execution path works.
+- [x] Step 4: Run the full milestone manually: Postgres, migration, ingest, search examples.
+- [x] Step 5: Capture `output_examples.txt`.
+- [x] Step 6: Update README and Second Brain notes.
+- [x] Step 7: Run final focused validation.
 
 ## Learnings
 
@@ -250,14 +251,22 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 ## Implementation progress
 
-- [ ] Step 1: Script unit tests (formatting, payload, error handling)
-- [ ] Step 2: Implement `query_examples.py` against search HTTP API
-- [ ] Step 3: Dockerfile copy path for Docker execution
-- [ ] Step 4: Manual E2E — Postgres, migration, ingest, script
-- [ ] Step 5: Capture `output_examples.txt` from real run
-- [ ] Step 6: README semantic-search section + Second Brain notes
-- [ ] Step 7: Final validation and closure
+- [x] Step 1: Script unit tests (formatting, payload, error handling)
+- [x] Step 2: Implement `query_examples.py` against search HTTP API
+- [x] Step 3: Dockerfile copy path for Docker execution
+- [x] Step 4: Manual E2E — Postgres, migration, ingest, script
+- [x] Step 5: Capture `output_examples.txt` from real run
+- [x] Step 6: README semantic-search section + Second Brain notes
+- [x] Step 7: Final validation and closure
 
 ## Pull Request
 
-- To be filled during `/start-task`.
+- https://github.com/povedica/master-ia-lidr/pull/35 — WIP draft (feature-039)
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| (pending) | docs(feature-039): work item intake |
+| (pending) | feat(search): query_examples script, tests, Docker path |
+| (pending) | docs(feature-039): README section, output_examples.txt, session note |

@@ -1,0 +1,44 @@
+Command: docker compose run --rm app python query_examples.py
+Timestamp: 2026-06-09 10:59:32 UTC
+API: POST /api/v1/search (k=5)
+
+=== Direct known component ===
+Query: OAuth 2.0 authentication backend with JWT tokens for fintech mobile app
+  chunk_id=1  distance=0.3884  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=25  distance=0.3884  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=11  distance=0.6366  chunk_type=budget_component  content='## Project context - Summary: OTT streaming platform with adaptive bitrate and CDN integration - Sector: media | Year...'
+  chunk_id=13  distance=0.6672  chunk_type=budget_component  content='## Project context - Summary: B2B product analytics with funnel visualization and cohort reports - Sector: analytics ...'
+  chunk_id=3  distance=0.6733  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+
+=== Semantic reformulation ===
+Query: Authorization service for a banking application
+  chunk_id=25  distance=0.5888  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=1  distance=0.5888  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=2  distance=0.7107  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+  chunk_id=3  distance=0.7169  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+  chunk_id=22  distance=0.7254  chunk_type=budget_component  content='## Project context - Summary: Citizen portal for tax declarations and appointment booking - Sector: government | Year...'
+
+=== Unrelated domain ===
+Query: Restaurant interior design and kitchen equipment procurement
+  chunk_id=6  distance=0.7469  chunk_type=budget_component  content='## Project context - Summary: Real-time fleet GPS tracking and delivery ETA dashboard - Sector: logistics | Year: 202...'
+  chunk_id=15  distance=0.7563  chunk_type=budget_component  content='## Project context - Summary: B2B product analytics with funnel visualization and cohort reports - Sector: analytics ...'
+  chunk_id=18  distance=0.7700  chunk_type=budget_component  content='## Project context - Summary: E-commerce checkout refactor - Sector: retail | Year: 2023 | Main tech: python ## Compo...'
+  chunk_id=22  distance=0.7707  chunk_type=budget_component  content='## Project context - Summary: Citizen portal for tax declarations and appointment booking - Sector: government | Year...'
+  chunk_id=21  distance=0.7746  chunk_type=budget_component  content='## Project context - Summary: IoT sensor monitoring for predictive maintenance on assembly lines - Sector: manufactur...'
+
+=== Short/ambiguous query ===
+Query: Backend services
+  chunk_id=3  distance=0.6286  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+  chunk_id=25  distance=0.6404  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=1  distance=0.6404  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=6  distance=0.6464  chunk_type=budget_component  content='## Project context - Summary: Real-time fleet GPS tracking and delivery ETA dashboard - Sector: logistics | Year: 202...'
+  chunk_id=11  distance=0.6524  chunk_type=budget_component  content='## Project context - Summary: OTT streaming platform with adaptive bitrate and CDN integration - Sector: media | Year...'
+
+=== Specific technical query ===
+Query: FastAPI PostgreSQL migration with async SQLAlchemy and API integration
+  chunk_id=3  distance=0.5848  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+  chunk_id=2  distance=0.6049  chunk_type=budget_component  content='## Project context - Summary: Mainframe policy system migration to cloud-native microservices - Sector: insurance | Y...'
+  chunk_id=25  distance=0.6239  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=1  distance=0.6239  chunk_type=budget_component  content='## Project context - Summary: Mobile banking API with OAuth 2.0 authentication - Sector: finance | Year: 2024 | Main ...'
+  chunk_id=13  distance=0.6307  chunk_type=budget_component  content='## Project context - Summary: B2B product analytics with funnel visualization and cohort reports - Sector: analytics ...'
+

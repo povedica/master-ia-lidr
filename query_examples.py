@@ -187,10 +187,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def build_command_label(argv: list[str] | None) -> str:
+    """Describe how the script was invoked for reproducibility artifacts."""
+    if argv is None:
+        return "docker compose run --rm app python query_examples.py"
+    return " ".join(["uv run python query_examples.py", *argv])
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    command = " ".join(["python", "query_examples.py", *([] if argv is None else argv)])
-    print(format_run_header(command), end="")
+    print(format_run_header(build_command_label(argv)), end="")
 
     try:
         run_queries(args.base_url)

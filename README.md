@@ -582,6 +582,8 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Semantic search persistence — increment 3 (feature-038)** adds `POST /api/v1/search` (`app/routers/search.py`): embed the query with the same model as ingest, rank persisted chunks by pgvector **cosine distance** (`<=>` operator via `embedding.cosine_distance()`), and return the top-`k` results. There is **no vector index** yet — Postgres performs a sequential scan over the small course corpus (hundreds of chunks), which is an intentional baseline before HNSW/IVFFlat with `vector_cosine_ops`. Cosine distance is preferred over L2 or inner product because it matches common RAG practice and the planned index operator class.
 
+**Semantic search persistence — increment 4 (feature-039)** adds `query_examples.py` at the repository root: five representative queries (direct match, reformulation, unrelated domain, ambiguous, technical) call `POST /api/v1/search` with `k=5` and print ranked hits. A captured run lives in [`output_examples.txt`](output_examples.txt). See [Semantic search with pgvector](#semantic-search-with-pgvector) for end-to-end reproduction and design rationale.
+
 **Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
 
 Optional env (defaults work without extra config):
@@ -591,6 +593,7 @@ Optional env (defaults work without extra config):
 | `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedding model for ingest |
 | `EMBEDDING_PIPELINE_BATCH_SIZE` | `100` | Chunks per API request in `embed_many` |
 | `DATABASE_URL` | *(empty)* | Async Postgres DSN (`postgresql+asyncpg://...`); set automatically in Compose for `app` |
+| `API_BASE_URL` | `http://127.0.0.1:8000` | Base URL for `query_examples.py`; Compose sets `http://app:8000` for the `app` service |
 
 Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the CLI (feature-034) wraps them with `asyncio.run`.
 
@@ -726,6 +729,42 @@ docker compose exec postgres psql -U estimator -d estimator -c "\dt"
 ```
 
 From the `app` container, `DATABASE_URL` is pre-set to `postgresql+asyncpg://estimator:estimator@postgres:5432/estimator`. Roll back with `uv run alembic downgrade base` when you need a clean slate on a dev database.
+
+### Semantic search with pgvector
+
+End-to-end reproduction for the Session 07 persistence milestone (features 036–039):
+
+```bash
+# 1. Stack + schema
+docker compose up --build -d postgres app
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+
+# 2. Ingest sample budgets (requires OPENAI_API_KEY in .env)
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing
+
+# 3. Run five demo queries (local API)
+uv run python query_examples.py --base-url http://127.0.0.1:8000
+
+# 4. Same script inside Docker (service name: app)
+docker compose run --rm app python query_examples.py
+docker compose run --rm --no-TTY app python query_examples.py > output_examples.txt
+```
+
+**Endpoints:** `POST /api/v1/embeddings/ingest` persists one budget document and its chunk embeddings; `POST /api/v1/search` embeds the query and returns the top-`k` chunks ranked by cosine distance.
+
+**Design rationale (exercise scope):**
+
+| Decision | Why |
+|----------|-----|
+| **Two tables** (`documents`, `chunks`) | Document-level traceability, duplicate detection by `source_path`, and `ON DELETE CASCADE` keep chunks consistent with their source. |
+| **JSONB metadata** | Flexible component/budget fields without a migration per new key; GIN index on `chunks.metadata` leaves a path for later filters. |
+| **Cosine distance** | Matches common RAG practice and the future `vector_cosine_ops` HNSW path; L2 or inner product would change ranking and index operator class. |
+| **No vector index yet** | Sequential scan over a small course corpus (tens of chunks) is an intentional baseline before HNSW/IVFFlat tuning. |
+
+**Observed behaviour:** see [`output_examples.txt`](output_examples.txt) — direct OAuth queries rank ~0.39 distance; unrelated restaurant queries land ~0.75; ambiguous “Backend services” spreads across sectors. Semantic search is not keyword search.
+
+**Explicitly out of scope for this exercise:** HNSW/IVFFlat vector indexes, metadata filters, hybrid keyword + vector search, ranking evaluation metrics, and retrieval tuning.
 
 ---
 
