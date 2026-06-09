@@ -1,0 +1,21 @@
+{
+  "budget_id": "BUD-INVALID-005",
+  "client_metadata": {
+    "name": "ShapeError SA",
+    "sector": "retail",
+    "country": "PT"
+  },
+  "project_summary": "Component missing required tech_stack array",
+  "main_technology": "node",
+  "year": 2024,
+  "total_estimated_hours": 90,
+  "components": [
+    {
+      "component_id": "UI-001",
+      "name": "Checkout UI",
+      "description": "Missing tech_stack and complexity fields",
+      "estimated_hours": 40,
+      "dependencies": []
+    }
+  ]
+}

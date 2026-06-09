@@ -1,0 +1,12 @@
+{
+  "budget_id": "BUD-INVALID-001",
+  "client_metadata": {
+    "name": "Broken JSON Co",
+    "sector": "testing",
+    "country": "ES"
+  },
+  "project_summary": "This file has a syntax error",
+  "main_technology": "python",
+  "year": 2024,
+  "total_estimated_hours": 100,
+  "components": []

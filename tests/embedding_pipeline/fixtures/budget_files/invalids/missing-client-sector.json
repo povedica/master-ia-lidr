@@ -1,0 +1,22 @@
+{
+  "budget_id": "BUD-INVALID-004",
+  "client_metadata": {
+    "name": "No Sector Ltd",
+    "country": "FR"
+  },
+  "project_summary": "client_metadata.sector is required",
+  "main_technology": "java",
+  "year": 2025,
+  "total_estimated_hours": 150,
+  "components": [
+    {
+      "component_id": "API-001",
+      "name": "REST API",
+      "description": "Simple CRUD service",
+      "tech_stack": ["java", "spring"],
+      "estimated_hours": 80,
+      "complexity": "medium",
+      "dependencies": []
+    }
+  ]
+}
