@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ClientMetadata(BaseModel):
@@ -92,3 +92,38 @@ class PersistentIngestResponse(BaseModel):
     chunks_created: int
     embedding_dimension: int
     ingestion_time_ms: int
+
+
+class SearchRequest(BaseModel):
+    """Semantic search request: natural-language query and top-k limit."""
+
+    query: str
+    k: int = Field(default=5, ge=1, le=50)
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_not_empty(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("query must not be empty")
+        return stripped
+
+
+class SearchResult(BaseModel):
+    """One ranked chunk from semantic search."""
+
+    chunk_id: int
+    document_id: int
+    chunk_type: str
+    content: str
+    distance: float
+    metadata: dict[str, object]
+
+
+class SearchResponse(BaseModel):
+    """Semantic search response with ranked chunks and timing."""
+
+    query: str
+    k: int
+    search_time_ms: int
+    results: list[SearchResult]

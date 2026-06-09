@@ -10,7 +10,7 @@ Documentar el proyecto `estimador-cag`, un ejercicio de AI Engineering para cons
 - `decisiones/`: decisiones técnicas y features canónicas.
 - `aprendizajes/`: conceptos reutilizables aprendidos durante el proyecto.
 - `retrospectivas/`: cierres de hitos o sesiones largas.
-- `technical/`: base technical documentation for the project (English), as an extension of the subproject `README.md`. Includes [Postgres pgvector baseline (§22)](technical/README.md#22-postgres-pgvector-baseline-feature-036).
+- `technical/`: base technical documentation for the project (English), as an extension of the subproject `README.md`. Includes [Postgres pgvector baseline (§22)](technical/README.md#22-postgres-pgvector-baseline-feature-036) and [semantic search endpoint (§23)](technical/README.md#23-semantic-search-endpoint-feature-038).
 
 ## Convenciones
 
@@ -29,4 +29,6 @@ Para comandos, contrato HTTP y variables de entorno, usa el **`README.md` del su
 ## Sesión activa
 
 - `sesiones/sesion-02-estimador-cag.md`
-- Embedding pipeline / búsqueda semántica: `learnings/docs/sesiones/sesion-07-semantic-search-postgres-baseline.md` (feature-036)
+- Embedding pipeline / búsqueda semántica:
+  - `learnings/docs/sesiones/sesion-07-semantic-search-postgres-baseline.md` (feature-036)
+  - `learnings/docs/sesiones/sesion-07-semantic-search-endpoint.md` (feature-038)

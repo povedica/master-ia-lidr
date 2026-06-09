@@ -1476,7 +1476,8 @@
               <li><code>v1</code> — texto Markdown + SSE streaming</li>
               <li><code>v2</code> — JSON estructurado + guardrails</li>
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
-              <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores)</li>
+              <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores en Postgres)</li>
+              <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
             </ul>
           </div>
           <div class="card">
@@ -1614,9 +1615,16 @@
                       <button type="button" class="arch-node" data-id="router-embeddings" data-layer="router"
                         data-title="POST /api/v1/embeddings/ingest"
                         data-file="app/routers/embeddings.py"
-                        data-desc="Pipeline Session 07: chunker estructural + OpenAIEmbedder. Aislado del estimador CAG y de semantic_cache.">
+                        data-desc="Pipeline Session 07: chunker estructural + OpenAIEmbedder + persistencia Postgres. Aislado del estimador CAG y de semantic_cache.">
                         <span class="arch-node-title">v1 /embeddings/ingest</span>
-                        <span class="arch-node-sub">budgets → vectors</span>
+                        <span class="arch-node-sub">budgets → Postgres</span>
+                      </button>
+                      <button type="button" class="arch-node" data-id="router-search" data-layer="router"
+                        data-title="POST /api/v1/search"
+                        data-file="app/routers/search.py"
+                        data-desc="Búsqueda semántica: embed_one(query) + top-k chunks por distancia coseno pgvector (&lt;=&gt;). Sin índice vectorial (baseline sequential scan).">
+                        <span class="arch-node-title">v1 /search</span>
+                        <span class="arch-node-sub">query → ranked chunks</span>
                       </button>
                     </div>
                   </div>
@@ -2007,12 +2015,13 @@
             <div class="tree-children" style="display:block">
               <div class="tree-leaf">main.py <span class="comment">— entrypoint, lifespan, CORS, routers</span></div>
               <div class="tree-leaf">config.py <span class="comment">— Settings pydantic-settings</span></div>
-              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions, embeddings</span></div>
+              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions, embeddings, search</span></div>
               <div class="tree-children">
                 <div class="tree-leaf">estimations.py <span class="comment">— v1 text + SSE</span></div>
                 <div class="tree-leaf">estimations_v2.py <span class="comment">— v2 structured</span></div>
                 <div class="tree-leaf">sessions.py <span class="comment">— CRUD sesiones + estimate</span></div>
                 <div class="tree-leaf">embeddings.py <span class="comment">— ingest pipeline Session 07</span></div>
+                <div class="tree-leaf">search.py <span class="comment">— semantic search feature-038</span></div>
               </div>
               <div class="tree-node">embedding_pipeline/ <span class="comment">— Session 07: schemas, chunker, embedder (aislado)</span></div>
               <div class="tree-children">
@@ -2391,6 +2400,7 @@ flowchart TD
           <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> CLI → loader/parser upstream → harness e2e + CLIs ops.
           <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Sin índices vectoriales HNSW/IVFFlat en este baseline.
           <strong>Ingest transaccional (feature-037):</strong> <code>POST /api/v1/embeddings/ingest</code> persiste un presupuesto por petición vía <code>run_persistent_ingest()</code>; respuesta con metadatos (sin vectores crudos); <code>409</code> si <code>source_path</code> duplicado.
+          <strong>Búsqueda semántica (feature-038):</strong> <code>POST /api/v1/search</code> embebe la query con el mismo modelo, rankea chunks por distancia coseno (<code>&lt;=&gt;</code>) y devuelve top-<code>k</code>. Sin índice HNSW — sequential scan como baseline.
           Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
@@ -2404,6 +2414,7 @@ flowchart TD
             <h4>Dos formas de uso</h4>
             <ul>
               <li><strong>Ingest HTTP persistido:</strong> <code>POST /api/v1/embeddings/ingest</code> — un presupuesto por petición → filas en <code>documents</code>/<code>chunks</code> + metadatos de ingestión (sin vectores en la respuesta).</li>
+              <li><strong>Búsqueda semántica:</strong> <code>POST /api/v1/search</code> — query en lenguaje natural → top-<code>k</code> chunks rankeados por distancia coseno.</li>
               <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → <code>run_ingest</code> en memoria (o <code>--dry-run</code>).</li>
               <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos → similitud coseno.</li>
             </ul>
@@ -2451,7 +2462,12 @@ flowchart TD
                 <td>Documento + chunks + embeddings atómicos; sin vectores en respuesta HTTP.</td>
               </tr>
               <tr>
-                <td>6</td><td>034</td><td><code>app/scripts/compare.py</code></td>
+                <td>6</td><td>038</td><td><code>search.py</code> + <code>search_repository.py</code> + <code>routers/search.py</code></td>
+                <td><code>run_semantic_search()</code>: <code>embed_one</code> + SQL <code>cosine_distance</code> + top-<code>k</code></td>
+                <td>Corpus persistido consultable por similitud semántica; baseline sin índice vectorial.</td>
+              </tr>
+              <tr>
+                <td>7</td><td>034</td><td><code>app/scripts/compare.py</code></td>
                 <td>CLI: <code>embed_one</code> ×2 + cosine con <code>math</code>; resultados en <code>SANITY_CHECK.md</code></td>
                 <td>Verifica calidad del modelo antes de persistir vectores; material de discusión en sesión.</td>
               </tr>
@@ -2795,6 +2811,7 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>GET</td><td><code>/api/v1/sessions/{id}</code></td><td>Detalle para restore</td><td>Payload + metadata + last estimate</td></tr>
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
               <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Persist one budget + chunk embeddings</td><td>run_persistent_ingest → Postgres</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/search</code></td><td>Semantic search top-k chunks</td><td>embed_one + pgvector cosine distance</td></tr>
             </tbody>
           </table>
         </div>
@@ -2845,9 +2862,10 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <div class="tree-leaf">fixtures/build_pdfs.py · test_stress_*.py</div>
             </div>
             <div class="tree-leaf">test_*.py <span class="comment">— ~65 módulos · ~325 tests (pytest)</span></div>
-            <div class="tree-node open">embedding_pipeline/ <span class="comment">— Session 07 pipeline (feature 030–034)</span></div>
+            <div class="tree-node open">embedding_pipeline/ <span class="comment">— Session 07 pipeline (feature 030–038)</span></div>
             <div class="tree-children" style="display:block">
               <div class="tree-leaf">test_schemas.py · test_chunker.py · test_embedder.py · test_router.py · test_compare.py</div>
+              <div class="tree-leaf">test_search_*.py <span class="comment">— feature-038 search schemas, repository, service, router</span></div>
             </div>
           </div>
           <div class="tree-node">web/src/**/*.test.ts</div>

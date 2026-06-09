@@ -30,6 +30,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [20. Troubleshooting](#20-troubleshooting)
 - [21. Embedding pipeline (Session 07)](#21-embedding-pipeline-session-07)
 - [22. Postgres pgvector baseline (feature-036)](#22-postgres-pgvector-baseline-feature-036)
+- [23. Semantic search endpoint (feature-038)](#23-semantic-search-endpoint-feature-038)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
@@ -424,6 +425,12 @@ Outbound: **`SessionEstimateResponse`** — top-level `project_metadata` (`Deriv
 
 Orchestration: `session_estimate_request_parser.py` → `SimplifiedSessionEstimationService` (metadata merge, bounded history → `messages_override` on structured LLM) → `LLMPipeline.run_structured`. Session state is in-memory only (`app/services/sessions.py`).
 
+### Embedding ingest (`POST /api/v1/embeddings/ingest`) and semantic search (`POST /api/v1/search`)
+
+Session 07 pipeline routes (isolated from estimator CAG and Redis semantic cache). Full contract: root `README.md` § Embedding pipeline; implementation detail: [§21](#21-embedding-pipeline-session-07), [§23](#23-semantic-search-endpoint-feature-038).
+
+**Ingest:** one `Budget` per request; Postgres transaction; `409` on duplicate `source_path`. **Search:** natural-language `query` + `k`; ranks persisted chunks by pgvector cosine distance (`<=>`); requires `OPENAI_API_KEY` for query embedding. Worked manual analysis (SAML + education query): [feature-038 work item](../work-items/feature-038-semantic-search-endpoint-pgvector.md#manual-query-analysis-verified-on-compose-postgres).
+
 ### Semantic cache (v2, optional)
 
 The guarded pipeline in `app/guardrails/llm_pipeline.py` can run a **semantic cache** after input guardrails: deterministic **bucket** hash (prompt, schema, guardrail, and structured request fields) plus **embedding** similarity over free-text surfaces (`app/services/semantic_cache/`). **Serving** hits requires `SEMANTIC_CACHE_ENABLED=true` and a configured store; with `SEMANTIC_CACHE_LOG_ONLY=true` (default), embeddings and lookup run for telemetry but the LLM is **never** skipped. When both `SEMANTIC_CACHE_ENABLED` and `SEMANTIC_CACHE_LOG_ONLY` are `false`, no embedding or store I/O runs. For local experiments without Redis, `SEMANTIC_CACHE_USE_MEMORY_STORE=true` enables an in-process store (single worker only). When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the app uses `RedisSemanticCacheRepository` with Redis Stack / RediSearch vector KNN over entries in the same deterministic bucket.
@@ -706,8 +713,9 @@ As the project grows, keep these boundaries:
 Possible next technical steps:
 
 - Add a structured schema for estimates if programmatic consumption is needed.
-- Wire embedding ingest to Postgres (`feature-037`) and expose semantic search (`feature-038`).
-- Add vector indexes (HNSW / IVFFlat) once sequential-scan baselines are measured.
+- Add vector indexes (HNSW / IVFFlat) once sequential-scan baselines are measured (feature-038 provides the baseline).
+- Ship `query_examples.py` and milestone evidence (`feature-039`).
+- Add metadata filters or hybrid search when retrieval quality requires tuning beyond pure vector rank.
 - Add retries/backoff once the current fallback baseline is stable.
 - Add tracing or request logging if local observability is insufficient.
 - Add CI when the project has a stable remote or PR workflow.
@@ -776,25 +784,32 @@ docker compose ps postgres
 
 ## 21. Embedding pipeline (Session 07)
 
-Isolated module under `app/embedding_pipeline/`. It does **not** import `app/services/semantic_cache/`. Postgres persistence is a **separate** increment — see [§22](#22-postgres-pgvector-baseline-feature-036); the HTTP ingest route still returns in-memory chunks until feature-037.
+Isolated module under `app/embedding_pipeline/`. It does **not** import `app/services/semantic_cache/`. Postgres persistence and semantic search are separate increments — see [§22](#22-postgres-pgvector-baseline-feature-036) and [§23](#23-semantic-search-endpoint-feature-038).
 
-### HTTP route
+### HTTP routes
 
 | Method | Path | Handler |
 |--------|------|---------|
-| `POST` | `/api/v1/embeddings/ingest` | `app/routers/embeddings.py` → `run_ingest()` |
+| `POST` | `/api/v1/embeddings/ingest` | `app/routers/embeddings.py` → `run_persistent_ingest()` |
+| `POST` | `/api/v1/search` | `app/routers/search.py` → `run_semantic_search()` |
 
-Request body: `IngestRequest` with `budgets: list[Budget]`. Response: `IngestResponse` with `EmbeddedChunk[]` and `IngestStats`.
+**Ingest:** one `Budget` per request (`PersistentIngestRequest`). Response: `PersistentIngestResponse` metadata (no raw vectors). Duplicate `source_path` → `409`.
+
+**Search:** natural-language `query` + optional `k` (default 5, max 50). Response: ranked `SearchResult[]` with cosine `distance`. Empty corpus → `200` with `results: []`.
 
 ### Module layout
 
 | Path | Role |
 |------|------|
-| `schemas.py` | `Budget`, `Chunk`, `PipelineDocument*`, ingest contracts |
+| `schemas.py` | `Budget`, `Chunk`, ingest + search contracts (`SearchRequest`, `SearchResponse`, …) |
 | `adapters.py` | `BudgetToDocumentAdapter`, `make_component_id` |
 | `chunker.py` | `JSONStructuralChunker` — markdown template, tiktoken from settings |
 | `embedder.py` | `OpenAIEmbedder` — single lazy `AsyncOpenAI` client |
-| `ingest.py` | `run_ingest()` shared by HTTP and CLI |
+| `ingest.py` | `run_ingest()` — in-memory CLI path |
+| `persistent_ingest.py` | `run_persistent_ingest()` — transactional Postgres ingest |
+| `repository.py` | `EmbeddingIngestRepository` — document/chunk writes |
+| `search.py` | `run_semantic_search()` — embed query + repository lookup |
+| `search_repository.py` | `SemanticSearchRepository` — pgvector `cosine_distance` SQL |
 | `loaders/filesystem.py` | Non-recursive `*.json` iteration |
 | `parsers/budget_json.py` | `parse_budget_file`, `BudgetParseError` |
 | `parsers/registry.py` | `get_parser("json")` |
@@ -831,7 +846,7 @@ See also [docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md](
 
 ## 22. Postgres pgvector baseline (feature-036)
 
-Increment 1 of the semantic-search milestone. Establishes a reproducible database layer **without** changing `POST /api/v1/embeddings/ingest` behaviour (still in-memory until feature-037).
+Increment 1 of the semantic-search milestone. Establishes a reproducible database layer; feature-037 wires ingest to these tables; feature-038 reads embeddings for search.
 
 ### Docker service
 
@@ -896,4 +911,62 @@ Recommended GUI clients:
 - **[TablePlus](https://tableplus.com/)** or **[Postico](https://eggerapps.at/postico2/)** — native macOS UIs, fast for local dev.
 - **[pgAdmin](https://www.pgadmin.org/)** — full-featured web/desktop admin (heavier than TablePlus).
 
-The ingest endpoint does not write to these tables yet; after feature-037 you will see rows appear following ingest calls.
+The ingest endpoint writes to these tables after feature-037; search reads `chunks.embedding` after feature-038.
+
+## 23. Semantic search endpoint (feature-038)
+
+Increment 3 of the semantic-search milestone. Exposes persisted chunks through `POST /api/v1/search` using the same embedding model as ingest.
+
+### Request / response
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Request `query` | `str` | Non-empty after trim |
+| Request `k` | `int` | Default `5`, min `1`, max `50` |
+| Response `search_time_ms` | `int` | Wall-clock (includes `embed_one`) |
+| Result `distance` | `float` | pgvector cosine distance via `<=>`; lower = closer |
+
+Status codes: `200` (empty corpus → `results: []`), `422`, `503` (no `DATABASE_URL`), `500` (safe generic detail).
+
+### Application layout
+
+| Path | Role |
+|------|------|
+| `app/routers/search.py` | HTTP route, DI, error mapping |
+| `app/embedding_pipeline/search.py` | `run_semantic_search()` orchestration |
+| `app/embedding_pipeline/search_repository.py` | SQLAlchemy select with `cosine_distance`, null filter, order, limit |
+
+### SQL behaviour
+
+```text
+SELECT …, chunks.embedding <=> :query_vector AS distance
+FROM chunks
+WHERE chunks.embedding IS NOT NULL
+ORDER BY distance ASC
+LIMIT :k
+```
+
+No HNSW/IVFFlat index — intentional sequential scan baseline for course corpus size.
+
+### Distance interpretation (operational)
+
+- Strong match on this corpus often shows distances ~0.2–0.4 when query vocabulary aligns with chunk text (e.g. OAuth + fintech query vs OAuth fintech chunk).
+- Moderate similarity often appears ~0.65–0.71 when signals conflict (e.g. SAML + education query vs OAuth finance chunks).
+- Semantic search is not keyword search: absent terms (SAML) do not block related concepts (OAuth, API, authentication) from ranking highly.
+- Duplicate ingests of the same `source_path` can produce identical chunks at different IDs occupying multiple top-k slots.
+
+Worked example with request/response analysis: [feature-038 work item](../work-items/feature-038-semantic-search-endpoint-pgvector.md#manual-query-analysis-verified-on-compose-postgres).
+
+### Verification
+
+```bash
+uv run pytest tests/embedding_pipeline/test_search_*.py -q
+uv run pytest tests/embedding_pipeline/ -q
+
+# Manual (Compose, corpus ingested, OPENAI_API_KEY set)
+curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"REST API with SAML authentication for public educational sector","k":5}'
+```
+
+Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
