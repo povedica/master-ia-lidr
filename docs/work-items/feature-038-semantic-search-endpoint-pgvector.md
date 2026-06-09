@@ -257,10 +257,11 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 
 | Commit | Summary |
 |--------|---------|
-| (pending push) | docs(work-items): add feature-038 semantic search endpoint spec |
-| (pending push) | test(embedding-pipeline): add search schema validation tests (RED→GREEN) |
-| (pending push) | feat(embedding-pipeline): add semantic search repository and service |
-| (pending push) | feat(search): add POST /api/v1/search semantic search endpoint |
+| d2ac246 | docs(work-items): add feature-038 semantic search endpoint spec |
+| 510335c | test(embedding-pipeline): add search schema validation tests (RED→GREEN) |
+| 1c212a2 | feat(embedding-pipeline): add semantic search repository and service |
+| e21cc10 | feat(search): add POST /api/v1/search semantic search endpoint |
+| (latest) | docs(work-items): record feature-038 verification and acceptance status |
 
 ## Verification
 
