@@ -580,6 +580,8 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Semantic search persistence — increment 2 (feature-037)** refactors the HTTP ingest endpoint to persist one budget document per request in a single transaction via `run_persistent_ingest()` (`app/embedding_pipeline/persistent_ingest.py`). The response returns ingestion metadata (`document_id`, `chunks_created`, `embedding_dimension`, `ingestion_time_ms`) and no longer includes raw vectors. Duplicate `source_path` returns `409 Conflict`.
 
+**Semantic search persistence — increment 3 (feature-038)** adds `POST /api/v1/search` (`app/routers/search.py`): embed the query with the same model as ingest, rank persisted chunks by pgvector **cosine distance** (`<=>` operator via `embedding.cosine_distance()`), and return the top-`k` results. There is **no vector index** yet — Postgres performs a sequential scan over the small course corpus (hundreds of chunks), which is an intentional baseline before HNSW/IVFFlat with `vector_cosine_ops`. Cosine distance is preferred over L2 or inner product because it matches common RAG practice and the planned index operator class.
+
 **Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
 
 Optional env (defaults work without extra config):
@@ -628,6 +630,32 @@ docker compose up app
 curl -sS -X POST http://127.0.0.1:8000/api/v1/embeddings/ingest \
   -H 'Content-Type: application/json' \
   -d '{"source_path":"data/budgets/bud-2024-014.json","document_type":"historical_budget","content":{...}}'
+```
+
+**Search endpoint** (`POST /api/v1/search`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Request `query` | `str` | Non-empty after trim |
+| Request `k` | `int` | Default `5`, min `1`, max `50` |
+| Response `query` | `str` | Echo of normalized query |
+| Response `k` | `int` | Applied limit |
+| Response `search_time_ms` | `int` | Wall-clock search duration |
+| Response `results[]` | list | Ranked by ascending `distance` |
+| Result `chunk_id` | `int` | Postgres `chunks.id` |
+| Result `document_id` | `int` | Parent document |
+| Result `chunk_type` | `str` | e.g. `budget_component` |
+| Result `content` | `str` | Chunk text |
+| Result `distance` | `float` | pgvector cosine distance (lower = closer) |
+| Result `metadata` | `dict` | JSON metadata from `chunks.metadata` |
+
+Status codes: `200` success (empty corpus returns `results: []`), `422` validation error, `503` when `DATABASE_URL` is unset, `500` generic failure (details logged server-side). Chunks with `embedding IS NULL` are excluded from ranking.
+
+```bash
+# After ingest + migration
+curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"REST API with OAuth authentication for fintech sector","k":5}'
 ```
 
 **Increment 5 (feature-034)** adds `app/scripts/compare.py`: embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
