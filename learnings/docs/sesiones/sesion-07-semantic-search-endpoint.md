@@ -57,6 +57,26 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
   | python3 -m json.tool
 ```
 
-## Siguiente paso
+## Query examples (feature-039)
 
-Feature-039: script `query_examples.py`, `output_examples.txt`, y sección README ampliada con cinco categorías de query.
+Script `query_examples.py` en la raíz del repo: cinco categorías de query contra `POST /api/v1/search` (`k=5`). Salida capturada en `output_examples.txt`.
+
+### Lectura rápida del artefacto
+
+| Categoría | distance top-1 | Lectura |
+|-----------|----------------|---------|
+| OAuth directo | ~0.39 | Match fuerte al corpus fintech (`BUD-2024-014`) |
+| Reformulación bancaria | ~0.59 | Mismo chunk OAuth, señal auth más difusa |
+| Dominio no relacionado (restaurante) | ~0.75 | Sin match real; distancias altas |
+| Query ambigua ("Backend services") | ~0.63 | Mezcla sectores; ranking incierto |
+| Técnica FastAPI/Postgres | ~0.58 | Prioriza migración mainframe→cloud con PostgreSQL |
+
+### Comandos
+
+```bash
+uv run pytest tests/embedding_pipeline/test_query_examples.py -q
+uv run python query_examples.py --base-url http://127.0.0.1:8000
+docker compose run --rm app python query_examples.py
+```
+
+README: sección [Semantic search with pgvector](../../../README.md#semantic-search-with-pgvector) — setup, rationale (dos tablas, JSONB, cosine, sin índice), y out-of-scope explícito.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.chunker import JSONStructuralChunker
@@ -56,6 +57,12 @@ async def run_persistent_ingest(
                 embedded_chunks=embedded,
             )
         await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raced_id = await repo.find_document_id_by_source_path(session, request.source_path)
+        if raced_id is not None:
+            raise DuplicateDocumentError(raced_id, request.source_path)
+        raise
     except Exception:
         await session.rollback()
         raise

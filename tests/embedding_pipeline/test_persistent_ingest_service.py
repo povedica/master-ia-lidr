@@ -6,6 +6,7 @@ import math
 from typing import Any
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.chunker import JSONStructuralChunker
@@ -263,6 +264,62 @@ async def test_run_persistent_ingest_chunk_insert_failure_does_not_persist() -> 
         )
 
     assert repository.source_paths == {}
+    assert repository.chunks_by_document == {}
+
+
+class _RaceRepository(_InMemoryRepository):
+    """Simulates a concurrent duplicate win: first lookup misses, insert hits unique constraint."""
+
+    def __init__(self, *, existing_document_id: int = 99) -> None:
+        super().__init__()
+        self.existing_document_id = existing_document_id
+        self.source_paths[SOURCE_PATH] = existing_document_id
+        self._lookup_count = 0
+
+    async def find_document_id_by_source_path(
+        self,
+        session: AsyncSession,
+        source_path: str,
+    ) -> int | None:
+        del session
+        self._lookup_count += 1
+        if self._lookup_count == 1:
+            return None
+        return self.source_paths.get(source_path)
+
+    async def insert_document(
+        self,
+        session: AsyncSession,
+        *,
+        source_path: str,
+        document_type: str,
+        metadata: dict[str, object],
+    ) -> int:
+        del session, source_path, document_type, metadata
+        raise IntegrityError(
+            statement="INSERT INTO documents",
+            params={},
+            orig=Exception("duplicate key value violates unique constraint uq_documents_source_path"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_persistent_ingest_integrity_error_maps_to_duplicate() -> None:
+    repository = _RaceRepository(existing_document_id=99)
+    session = _session_for(repository)
+    chunker = JSONStructuralChunker(embedding_model="text-embedding-3-small")
+
+    with pytest.raises(DuplicateDocumentError) as exc_info:
+        await run_persistent_ingest(
+            _request(),
+            session=session,  # type: ignore[arg-type]
+            chunker=chunker,
+            embedder=_FakeEmbedder(),
+            repository=repository,  # type: ignore[arg-type]
+        )
+
+    assert exc_info.value.document_id == 99
+    assert session.rolled_back is True
     assert repository.chunks_by_document == {}
 
 
