@@ -357,7 +357,7 @@ app/scripts/
 - [x] Step 2: Hardening — remove router stub; single AsyncOpenAI; settings-aware chunker
 - [x] Step 3: `PipelineDocument` + adapter + `run_ingest` + markdown chunker
 - [x] Step 4: Loader + parser + registry + upstream chain test
-- [ ] Step 5: `test_milestone_e2e.py` + slow smoke tests
+- [x] Step 5: `test_milestone_e2e.py` + slow smoke tests
 - [ ] Step 6: `ingest_from_dir.py` CLI (`--dry-run`)
 - [ ] Step 7: `preflight`, `architecture_decision`, `inspect_fixtures` CLIs
 - [ ] Step 8: API-collection embeddings request
