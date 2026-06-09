@@ -239,34 +239,34 @@ app/scripts/
 ## Acceptance Criteria
 
 ### Milestone harness
-- [ ] AC-01: `sample_budgets.json` + conftest fixture exist; ≥2 budgets, ≥3 components.
-- [ ] AC-02: `test_milestone_e2e.py` passes E2E-01..E2E-08 offline.
-- [ ] AC-03: `@pytest.mark.slow` smoke tests exist and are deselected by default.
-- [ ] AC-04: API-collection `embeddings/Ingest Budgets.yml` + `folder.yml` exist.
+- [x] AC-01: `sample_budgets.json` + conftest fixture exist; ≥2 budgets, ≥3 components.
+- [x] AC-02: `test_milestone_e2e.py` passes E2E-01..E2E-08 offline.
+- [x] AC-03: `@pytest.mark.slow` smoke tests exist and are deselected by default.
+- [x] AC-04: API-collection `embeddings/Ingest Budgets.yml` + `folder.yml` exist.
 
 ### Hardening
-- [ ] AC-05: Dead `router.py` stub removed; package imports cleanly.
-- [ ] AC-06: Single `AsyncOpenAI` client per embedder instance; embedder tests green.
-- [ ] AC-07: Chunker encoder driven by `embedding_pipeline_model`; chunker + router tests green.
+- [x] AC-05: Dead `router.py` stub removed; package imports cleanly.
+- [x] AC-06: Single `AsyncOpenAI` client per embedder instance; embedder tests green.
+- [x] AC-07: Chunker encoder driven by `embedding_pipeline_model`; chunker + router tests green.
 
 ### Contracts & chunk text
-- [ ] AC-08: `PipelineDocument` / `PipelineDocumentMetadata` defined and used by adapter.
-- [ ] AC-09: Markdown chunk template matches MD-01; chunker tests updated.
-- [ ] AC-10: `Chunk.metadata` includes lineage fields with sensible defaults for inline HTTP ingest.
+- [x] AC-08: `PipelineDocument` / `PipelineDocumentMetadata` defined and used by adapter.
+- [x] AC-09: Markdown chunk template matches MD-01; chunker tests updated.
+- [x] AC-10: `Chunk.metadata` includes lineage fields with sensible defaults for inline HTTP ingest.
 
 ### Upstream ingestion
-- [ ] AC-11: Loader + parser + registry implemented; parser test with fixture files.
-- [ ] AC-12: `ingest_from_dir.py` supports `--dry-run` and full embed path; documented in README.
+- [x] AC-11: Loader + parser + registry implemented; parser test with fixture files.
+- [x] AC-12: `ingest_from_dir.py` supports `--dry-run` and full embed path; documented in README.
 
 ### CLI tools
-- [ ] AC-13: `preflight_embedding_pipeline.py`, `architecture_decision.py`, `inspect_fixtures.py` run as modules; exit codes as specified.
+- [x] AC-13: `preflight_embedding_pipeline.py`, `architecture_decision.py`, `inspect_fixtures.py` run as modules; exit codes as specified.
 
 ### Documentation & quality
-- [ ] AC-14: `docs/technical/README.md` synced.
-- [ ] AC-15: Architecture HTML + comparison ADR/note updated.
-- [ ] AC-16: `conftest.py` `SAMPLE_CHUNK["chunk_id"]` uses `::`.
-- [ ] AC-17: Full default suite green offline (`uv run pytest`); no new required API keys.
-- [ ] AC-18: No imports from `app/services/semantic_cache/*` in `embedding_pipeline` or new scripts.
+- [x] AC-14: `docs/technical/README.md` synced.
+- [x] AC-15: Architecture HTML + comparison ADR/note updated.
+- [x] AC-16: `conftest.py` `SAMPLE_CHUNK["chunk_id"]` uses `::`.
+- [x] AC-17: Full default suite green offline (`uv run pytest`); no new required API keys.
+- [x] AC-18: No imports from `app/services/semantic_cache/*` in `embedding_pipeline` or new scripts.
 
 ## Test Plan
 
@@ -283,10 +283,11 @@ app/scripts/
 
 ## Verification
 
-- Automated: `uv run pytest tests/embedding_pipeline/` and `uv run pytest` — record counts at implementation time.
-- Heavy: `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy` — optional.
-- Manual: CLI invocations above — record exit codes.
-- Not verified yet: spec only (pre-implementation).
+- **Verified (2026-06-09):** `uv run pytest tests/embedding_pipeline/` — 83 passed, 2 slow deselected.
+- **Verified (2026-06-09):** `uv run pytest` — 455 passed, 11 skipped, 12 deselected (default suite).
+- **Not verified:** `uv run pytest -m slow tests/embedding_pipeline/ --run-heavy` (requires live `OPENAI_API_KEY`).
+- **Manual (spot-check):** `ingest_from_dir --dry-run`, `inspect_fixtures`, `preflight --skip-key-check`, `architecture_decision` — via unit tests in `test_scripts.py` / `test_ingest_from_dir.py`.
+- **Residual risk:** markdown template invalidates prior `SANITY_CHECK.md` vectors; re-measure under `--run-heavy` when needed.
 
 ## Documentation Plan
 
@@ -299,15 +300,28 @@ app/scripts/
 
 ## Reviewer checklist
 
-- [ ] `uv run pytest tests/embedding_pipeline/` green offline.
-- [ ] Milestone e2e test covers full HTTP path with real chunker.
-- [ ] No orphan modules — loader/parser/adapters referenced from CLI or tests.
-- [ ] `embedding_pipeline` still isolated from `semantic_cache`.
-- [ ] Embedder: async, batch, retry, single client, cost stats.
-- [ ] Chunk: markdown template, `::` ids, 7+ metadata keys, tiktoken aligned to settings.
-- [ ] Dead router stub gone.
-- [ ] README + `docs/technical/README.md` + architecture HTML aligned.
-- [ ] Estimator comparison ADR/note explains what was adopted vs deferred.
+- [x] `uv run pytest tests/embedding_pipeline/` green offline.
+- [x] Milestone e2e test covers full HTTP path with real chunker.
+- [x] No orphan modules — loader/parser/adapters referenced from CLI or tests.
+- [x] `embedding_pipeline` still isolated from `semantic_cache`.
+- [x] Embedder: async, batch, retry, single client, cost stats.
+- [x] Chunk: markdown template, `::` ids, 7+ metadata keys, tiktoken aligned to settings.
+- [x] Dead router stub gone.
+- [x] README + `docs/technical/README.md` + architecture HTML aligned.
+- [x] Estimator comparison ADR/note explains what was adopted vs deferred.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| docs(feature-035) | Canonical work item |
+| test(embedding-pipeline) | Milestone fixtures + conftest `::` fix |
+| refactor(embedding-pipeline) | Harden embedder client + settings-aware chunker |
+| feat(embedding-pipeline) | PipelineDocument adapter + markdown chunks + run_ingest |
+| feat(embedding-pipeline) | Filesystem loader + budget JSON parser |
+| test(embedding-pipeline) | Milestone e2e harness + slow smoke tests |
+| feat(embedding-pipeline) | ingest CLI + ops scripts + API collection |
+| docs(feature-035) | README, technical docs, ADR-001, architecture HTML sync |
 
 ## Estimation
 
@@ -361,8 +375,8 @@ app/scripts/
 - [x] Step 6: `ingest_from_dir.py` CLI (`--dry-run`)
 - [x] Step 7: `preflight`, `architecture_decision`, `inspect_fixtures` CLIs
 - [x] Step 8: API-collection embeddings request
-- [ ] Step 9: README, `docs/technical/README.md`, architecture HTML, ADR-001
-- [ ] Step 10: Full `uv run pytest`; sync AC + verification
+- [x] Step 9: README, `docs/technical/README.md`, architecture HTML, ADR-001
+- [x] Step 10: Full `uv run pytest`; sync AC + verification
 
 ## Pull request
 
