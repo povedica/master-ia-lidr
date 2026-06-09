@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ClientMetadata(BaseModel):
@@ -29,6 +29,24 @@ class Budget(BaseModel):
     year: int
     total_estimated_hours: int
     components: list[BudgetComponent]
+
+
+class PipelineDocumentMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_name: str
+    source_version: str
+    ingested_at: str
+    lineage: list[str] = Field(default_factory=list)
+    location: str = ""
+    extra: dict[str, object] = Field(default_factory=dict)
+    sensitivity_access_level: str = "internal"
+
+
+class PipelineDocument(BaseModel):
+    id: str
+    text: str
+    metadata: PipelineDocumentMetadata
 
 
 class Chunk(BaseModel):

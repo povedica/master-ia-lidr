@@ -12,13 +12,19 @@ from app.embedding_pipeline.schemas import Budget, BudgetComponent
 from tests.embedding_pipeline.conftest import SAMPLE_BUDGET, SAMPLE_BUDGET_COMPONENT
 
 EXPECTED_TEXT = (
-    "[Project: Mobile banking API with OAuth 2.0 authentication] "
-    "[Client sector: finance | Year: 2024 | Main tech: ruby_on_rails]\n"
-    "Component: OAuth 2.0 authentication backend\n"
-    "Description: Implementation of OAuth 2.0 flows with JWT session management\n"
-    "Tech stack: ruby_on_rails, postgresql, redis\n"
-    "Complexity: high\n"
-    "Estimated hours: 120"
+    "## Project context\n"
+    "- Summary: Mobile banking API with OAuth 2.0 authentication\n"
+    "- Sector: finance | Year: 2024 | Main tech: ruby_on_rails\n"
+    "\n"
+    "## Component: OAuth 2.0 authentication backend\n"
+    "Implementation of OAuth 2.0 flows with JWT session management\n"
+    "\n"
+    "### Tech stack\n"
+    "ruby_on_rails, postgresql, redis\n"
+    "\n"
+    "### Estimate\n"
+    "- Complexity: high\n"
+    "- Hours: 120"
 )
 
 SECOND_BUDGET = {
@@ -94,6 +100,9 @@ def test_chunk_metadata_keys_and_values(chunker: JSONStructuralChunker) -> None:
         "year",
         "complexity",
         "estimated_hours",
+        "source_name",
+        "source_version",
+        "location",
     }
     assert metadata == {
         "budget_id": "BUD-2024-014",
@@ -103,6 +112,9 @@ def test_chunk_metadata_keys_and_values(chunker: JSONStructuralChunker) -> None:
         "year": 2024,
         "complexity": "high",
         "estimated_hours": 120,
+        "source_name": "inline",
+        "source_version": "api",
+        "location": "",
     }
 
 

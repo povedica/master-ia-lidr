@@ -6,7 +6,8 @@ import logging
 
 import tiktoken
 
-from app.embedding_pipeline.schemas import Budget, BudgetComponent, Chunk
+from app.embedding_pipeline.adapters import BudgetToDocumentAdapter
+from app.embedding_pipeline.schemas import Budget, BudgetComponent, Chunk, PipelineDocument
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +33,23 @@ def _resolve_tiktoken_encoder(embedding_model: str) -> tiktoken.Encoding:
 class JSONStructuralChunker:
     """Turn budgets into one chunk per component with parent-budget context."""
 
-    def __init__(self, *, embedding_model: str = _DEFAULT_EMBEDDING_MODEL) -> None:
+    def __init__(
+        self,
+        *,
+        embedding_model: str = _DEFAULT_EMBEDDING_MODEL,
+        adapter: BudgetToDocumentAdapter | None = None,
+    ) -> None:
         self._encoder = _resolve_tiktoken_encoder(embedding_model)
+        self._adapter = adapter or BudgetToDocumentAdapter()
 
     def chunk(self, budgets: list[Budget]) -> list[Chunk]:
         chunks: list[Chunk] = []
         for budget in budgets:
-            for component in budget.components:
-                text = self._build_text(budget, component)
-                chunks.append(
-                    Chunk(
-                        chunk_id=f"{budget.budget_id}::{component.component_id}",
-                        text=text,
-                        metadata=self._build_metadata(budget, component),
-                        token_count=len(self._encoder.encode(text)),
-                    )
-                )
+            documents = self._adapter.budget_to_documents(budget)
+            for document, component in zip(
+                documents, budget.components, strict=True
+            ):
+                chunks.append(self._document_to_chunk(document, budget, component))
         logger.info(
             "chunker_completed",
             extra={
@@ -57,26 +59,14 @@ class JSONStructuralChunker:
         )
         return chunks
 
-    def _build_text(self, budget: Budget, component: BudgetComponent) -> str:
-        header = (
-            f"[Project: {budget.project_summary}] "
-            f"[Client sector: {budget.client_metadata.sector} | "
-            f"Year: {budget.year} | Main tech: {budget.main_technology}]"
-        )
-        tech_stack = ", ".join(component.tech_stack)
-        return (
-            f"{header}\n"
-            f"Component: {component.name}\n"
-            f"Description: {component.description}\n"
-            f"Tech stack: {tech_stack}\n"
-            f"Complexity: {component.complexity}\n"
-            f"Estimated hours: {component.estimated_hours}"
-        )
-
-    def _build_metadata(
-        self, budget: Budget, component: BudgetComponent
-    ) -> dict[str, object]:
-        return {
+    def _document_to_chunk(
+        self,
+        document: PipelineDocument,
+        budget: Budget,
+        component: BudgetComponent,
+    ) -> Chunk:
+        text = document.text
+        metadata: dict[str, object] = {
             "budget_id": budget.budget_id,
             "component_id": component.component_id,
             "client_sector": budget.client_metadata.sector,
@@ -84,4 +74,15 @@ class JSONStructuralChunker:
             "year": budget.year,
             "complexity": component.complexity,
             "estimated_hours": component.estimated_hours,
+            "source_name": document.metadata.source_name,
+            "source_version": document.metadata.source_version,
+            "location": document.metadata.location,
         }
+        if document.metadata.lineage:
+            metadata["lineage"] = document.metadata.lineage
+        return Chunk(
+            chunk_id=document.id,
+            text=text,
+            metadata=metadata,
+            token_count=len(self._encoder.encode(text)),
+        )
