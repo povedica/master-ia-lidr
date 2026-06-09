@@ -1,0 +1,32 @@
+{
+  "budget_id": "BUD-2024-099",
+  "client_metadata": {
+    "name": "RetailCo",
+    "sector": "retail",
+    "country": "ES"
+  },
+  "project_summary": "E-commerce checkout refactor",
+  "main_technology": "python",
+  "year": 2023,
+  "total_estimated_hours": 200,
+  "components": [
+    {
+      "component_id": "PAY-001",
+      "name": "Payment gateway integration",
+      "description": "Stripe webhook handling",
+      "tech_stack": ["python", "fastapi"],
+      "estimated_hours": 80,
+      "complexity": "medium",
+      "dependencies": []
+    },
+    {
+      "component_id": "PAY-002",
+      "name": "Refund workflow",
+      "description": "Automated partial refunds",
+      "tech_stack": ["python"],
+      "estimated_hours": 40,
+      "complexity": "low",
+      "dependencies": ["PAY-001"]
+    }
+  ]
+}

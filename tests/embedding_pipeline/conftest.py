@@ -29,7 +29,7 @@ SAMPLE_BUDGET = {
 }
 
 SAMPLE_CHUNK = {
-    "chunk_id": "BUD-2024-014:AUTH-001",
+    "chunk_id": "BUD-2024-014::AUTH-001",
     "text": "OAuth 2.0 authentication backend for FintechCorp",
     "metadata": {"budget_id": "BUD-2024-014", "component_id": "AUTH-001"},
     "token_count": 42,

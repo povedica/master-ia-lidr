@@ -1,0 +1,13 @@
+{
+  "budget_id": "BUD-2024-000",
+  "client_metadata": {
+    "name": "PlaceholderCo",
+    "sector": "internal",
+    "country": "ES"
+  },
+  "project_summary": "Archived budget shell with no scoped components",
+  "main_technology": "n/a",
+  "year": 2024,
+  "total_estimated_hours": 0,
+  "components": []
+}

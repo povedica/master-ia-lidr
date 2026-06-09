@@ -353,7 +353,7 @@ app/scripts/
 
 ## Implementation progress
 
-- [ ] Step 1: Fixtures + conftest `::` fix + `fixtures/budget_files/`
+- [x] Step 1: Fixtures + conftest `::` fix + `fixtures/budget_files/`
 - [ ] Step 2: Hardening — remove router stub; single AsyncOpenAI; settings-aware chunker
 - [ ] Step 3: `PipelineDocument` + adapter + `run_ingest` + markdown chunker
 - [ ] Step 4: Loader + parser + registry + upstream chain test
@@ -366,7 +366,7 @@ app/scripts/
 
 ## Pull request
 
-- WIP draft PR URL recorded after Phase 4 setup.
+- [WIP] https://github.com/povedica/master-ia-lidr/pull/31 (label: `wip`)
 
 ## Deferred to Session 08+ (explicit, not in this feature)
 
