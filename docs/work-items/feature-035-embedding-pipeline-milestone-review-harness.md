@@ -312,16 +312,20 @@ app/scripts/
 
 ## Repository commits (master-ia)
 
-| Commit | Summary |
-|--------|---------|
-| docs(feature-035) | Canonical work item |
-| test(embedding-pipeline) | Milestone fixtures + conftest `::` fix |
-| refactor(embedding-pipeline) | Harden embedder client + settings-aware chunker |
-| feat(embedding-pipeline) | PipelineDocument adapter + markdown chunks + run_ingest |
-| feat(embedding-pipeline) | Filesystem loader + budget JSON parser |
-| test(embedding-pipeline) | Milestone e2e harness + slow smoke tests |
-| feat(embedding-pipeline) | ingest CLI + ops scripts + API collection |
-| docs(feature-035) | README, technical docs, ADR-001, architecture HTML sync |
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| *(prior)* | docs(feature-035) | Canonical work item |
+| *(prior)* | test(embedding-pipeline) | Milestone fixtures + conftest `::` fix |
+| *(prior)* | refactor(embedding-pipeline) | Harden embedder client + settings-aware chunker |
+| *(prior)* | feat(embedding-pipeline) | PipelineDocument adapter + markdown chunks + run_ingest |
+| *(prior)* | feat(embedding-pipeline) | Filesystem loader + budget JSON parser |
+| *(prior)* | test(embedding-pipeline) | Milestone e2e harness + slow smoke tests |
+| *(prior)* | feat(embedding-pipeline) | ingest CLI + ops scripts + API collection |
+| *(prior)* | docs(feature-035) | README, technical docs, ADR-001, architecture HTML sync |
+| `24e8fb8` | `test(embedding-pipeline): add ten diverse budget file fixtures` | Ten valid per-file budgets across sectors for manual CLI exercises. |
+| `1c0d884` | `test(embedding-pipeline): add invalid budget fixtures for parser checks` | Five invalid JSON samples under `budget_files/invalids/`. |
+| `671fd0d` | `test(embedding-pipeline): update corpus counts after budget_files expansion` | Tests expect 13 files and 24 components in `budget_files/`. |
+| `5dc017d` | `docs(feature-035): log fixture corpus commits in work item` | Repository commits table updated with fixture expansion hashes. |
 
 ## Estimation
 
