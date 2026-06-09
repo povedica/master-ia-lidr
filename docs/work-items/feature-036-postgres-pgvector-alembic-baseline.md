@@ -130,18 +130,18 @@ postgres:
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `uv.lock` and `pyproject.toml` include SQLAlchemy, asyncpg, pgvector, and Alembic via `uv add`.
-- [ ] AC-02: `.env.example` documents `DATABASE_URL` with a placeholder Compose value and no secrets.
-- [ ] AC-03: `docker-compose.yml` defines a `postgres` service using `pgvector/pgvector:pg16`.
-- [ ] AC-04: `postgres` has a working `pg_isready` healthcheck.
-- [ ] AC-05: The API service depends on healthy Postgres and receives `DATABASE_URL=postgresql+asyncpg://...`.
-- [ ] AC-06: Alembic async configuration can run `alembic upgrade head`.
-- [ ] AC-07: Migration creates `CREATE EXTENSION IF NOT EXISTS vector`.
-- [ ] AC-08: Migration creates `documents` with the required columns and `ix_documents_source_path`.
-- [ ] AC-09: Migration creates `chunks` with FK `ON DELETE CASCADE`, `Vector(1536)`, JSONB metadata, and required non-vector indexes.
-- [ ] AC-10: No HNSW, IVFFlat, or other vector index is created.
-- [ ] AC-11: A manual `SELECT version();` against the Compose database is documented as passing.
-- [ ] AC-12: Existing embedding pipeline tests still pass without requiring a database unless a DB-specific test is explicitly selected.
+- [x] AC-01: `uv.lock` and `pyproject.toml` include SQLAlchemy, asyncpg, pgvector, and Alembic via `uv add`.
+- [x] AC-02: `.env.example` documents `DATABASE_URL` with a placeholder Compose value and no secrets.
+- [x] AC-03: `docker-compose.yml` defines a `postgres` service using `pgvector/pgvector:pg16`.
+- [x] AC-04: `postgres` has a working `pg_isready` healthcheck.
+- [x] AC-05: The API service depends on healthy Postgres and receives `DATABASE_URL=postgresql+asyncpg://...`.
+- [x] AC-06: Alembic async configuration can run `alembic upgrade head`.
+- [x] AC-07: Migration creates `CREATE EXTENSION IF NOT EXISTS vector`.
+- [x] AC-08: Migration creates `documents` with the required columns and `ix_documents_source_path`.
+- [x] AC-09: Migration creates `chunks` with FK `ON DELETE CASCADE`, `Vector(1536)`, JSONB metadata, and required non-vector indexes.
+- [x] AC-10: No HNSW, IVFFlat, or other vector index is created.
+- [x] AC-11: A manual `SELECT version();` against the Compose database is documented as passing.
+- [x] AC-12: Existing embedding pipeline tests still pass without requiring a database unless a DB-specific test is explicitly selected.
 
 ## Test Plan
 
@@ -157,18 +157,20 @@ postgres:
 
 ## Verification
 
-- Automated:
-  - `uv run pytest tests/embedding_pipeline/`
-  - targeted DB/settings tests added in this feature
-- Manual:
-  - `docker compose up -d postgres`
-  - `docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"`
-  - `uv run alembic upgrade head`
-  - inspect `documents` and `chunks`
-- Not verified yet:
-  - Persisted ingest flow
-  - Search endpoint
-  - Query examples script
+- **Verified (automated):**
+  - `uv run pytest tests/embedding_pipeline/` — 112 passed (2 deselected slow)
+  - `uv run pytest tests/test_config.py tests/test_database_models.py tests/test_alembic_migration.py` — all green
+- **Verified (manual):**
+  - `docker compose up -d postgres` — healthy
+  - `docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"` — PostgreSQL 16.14
+  - `DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator uv run alembic upgrade head` — schema created
+  - `\d chunks` shows `vector(1536)`, GIN on `metadata`, FK `ON DELETE CASCADE`
+  - `alembic downgrade base` removes `documents`/`chunks` tables
+- **Not verified:**
+  - Persisted ingest flow (feature-037)
+  - Search endpoint (feature-038)
+  - Query examples script (feature-039)
+- **Residual risk:** `greenlet` was required at runtime for async SQLAlchemy/Alembic; added via `uv add greenlet`.
 
 ## Documentation Plan
 
@@ -208,14 +210,26 @@ postgres:
 
 ## Implementation progress
 
-- [ ] Step 1: Add SQLAlchemy/asyncpg/pgvector/Alembic dependencies
-- [ ] Step 2: Add typed `DATABASE_URL` setting and `.env.example`
-- [ ] Step 3: Add Postgres service, volume, healthcheck, and API dependency in Compose
-- [ ] Step 4: Add `app/database.py` and ORM models for `documents` and `chunks`
-- [ ] Step 5: Initialize Alembic async config and `0001_initial_schema.py` migration
-- [ ] Step 6: Add focused settings/model tests
-- [ ] Step 7: Update README and run Postgres/migration verification
+- [x] Step 1: Add SQLAlchemy/asyncpg/pgvector/Alembic dependencies
+- [x] Step 2: Add typed `DATABASE_URL` setting and `.env.example`
+- [x] Step 3: Add Postgres service, volume, healthcheck, and API dependency in Compose
+- [x] Step 4: Add `app/database.py` and ORM models for `documents` and `chunks`
+- [x] Step 5: Initialize Alembic async config and `0001_initial_schema.py` migration
+- [x] Step 6: Add focused settings/model tests
+- [x] Step 7: Update README and run Postgres/migration verification
 
 ## Pull Request
 
-- To be filled during `/start-task`.
+- https://github.com/povedica/master-ia-lidr/pull/32 (draft, label `wip`)
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| docs(feature-036) | Canonical work item |
+| chore(deps) | sqlalchemy, asyncpg, pgvector, alembic |
+| feat(config) | DATABASE_URL setting and tests |
+| chore(compose) | postgres pgvector service |
+| feat(db) | async SQLAlchemy base and ORM models |
+| feat(db) | async Alembic baseline migration |
+| docs | README and session note for Postgres baseline |
