@@ -2389,7 +2389,8 @@ flowchart TD
 
         <div class="alert info">
           <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> HTTP/CLI → loader/parser upstream → harness e2e + CLIs ops.
-          La persistencia en vector DB queda para Session 08. Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
+          <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async — el ingest HTTP sigue en memoria hasta feature-037. Sin índices vectoriales HNSW/IVFFlat en este baseline.
+          Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
         <h3>Vista funcional</h3>
@@ -2597,6 +2598,7 @@ flowchart TB
               <tr><td><code>OPENAI_TIMEOUT_SECONDS</code></td><td>30</td><td>Timeout del cliente <code>AsyncOpenAI</code></td></tr>
               <tr><td><code>EMBEDDING_PIPELINE_MODEL</code></td><td><code>text-embedding-3-small</code></td><td>Modelo de embedding (1536 dims por defecto)</td></tr>
               <tr><td><code>EMBEDDING_PIPELINE_BATCH_SIZE</code></td><td>100</td><td>Chunks por llamada <code>embeddings.create</code> en <code>embed_many</code></td></tr>
+              <tr><td><code>DATABASE_URL</code></td><td><em>vacío</em></td><td>DSN async Postgres (<code>postgresql+asyncpg://…</code>); Compose inyecta URL al servicio <code>app</code>. Migraciones: <code>uv run alembic upgrade head</code></td></tr>
             </tbody>
           </table>
         </div>

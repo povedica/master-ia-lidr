@@ -179,6 +179,7 @@ postgres:
   - document `DATABASE_URL`
   - document migration commands
   - note that vector indexes are intentionally not part of this baseline
+- `docs/arquitectura-estimador-cag.html`: Postgres baseline + `DATABASE_URL` in embedding pipeline section (done)
 - `.env.example`:
   - add placeholder `DATABASE_URL`
 - Second Brain:
