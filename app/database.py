@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+from fastapi import HTTPException, status
+
 from app.config import Settings, get_settings
+
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 class Base(DeclarativeBase):
@@ -48,5 +53,41 @@ async def session_scope(
     except Exception:
         await session.rollback()
         raise
+    finally:
+        await session.close()
+
+
+def get_session_factory(settings: Settings | None = None) -> async_sessionmaker[AsyncSession]:
+    """Return a cached async session factory for the configured database."""
+
+    global _engine, _session_factory
+    if _session_factory is None:
+        resolved = settings or get_settings()
+        _engine = create_engine(resolved)
+        _session_factory = create_session_factory(_engine)
+    return _session_factory
+
+
+def reset_session_factory() -> None:
+    """Clear cached engine/factory (for tests)."""
+
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
+
+
+async def get_db_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency that yields one request-scoped async session."""
+
+    settings = get_settings()
+    if not settings.database_url.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database is not configured.",
+        )
+    factory = get_session_factory(settings)
+    session = factory()
+    try:
+        yield session
     finally:
         await session.close()

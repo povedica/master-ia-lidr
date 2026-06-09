@@ -574,9 +574,11 @@ Isolated learning module under `app/embedding_pipeline/` for budget JSON chunkin
 
 **Increment 3 (feature-032)** adds `OpenAIEmbedder` in `app/embedding_pipeline/embedder.py`: async OpenAI embeddings (`text-embedding-3-small`, 1536 dims) with batched requests, rate-limit retry, per-batch logging, and indicative cost tracking (`last_total_tokens`, `last_cost_usd`).
 
-**Increment 4 (feature-033)** exposes ingest over HTTP at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The handler delegates to `run_ingest()` in `app/embedding_pipeline/ingest.py` (chunk → embed → stats).
+**Increment 4 (feature-033)** introduced the ingest route at `POST /api/v1/embeddings/ingest` (`app/routers/embeddings.py`). The CLI still uses `run_ingest()` in `app/embedding_pipeline/ingest.py` (chunk → embed → in-memory stats).
 
-**Semantic search persistence — increment 1 (feature-036)** adds Postgres 16 with pgvector, async SQLAlchemy (`app/database.py`), ORM models (`documents`, `chunks`), and Alembic migrations. The ingest endpoint remains in-memory until feature-037; this step establishes the database baseline only. Vector indexes (HNSW/IVFFlat) are intentionally deferred.
+**Semantic search persistence — increment 1 (feature-036)** adds Postgres 16 with pgvector, async SQLAlchemy (`app/database.py`), ORM models (`documents`, `chunks`), and Alembic migrations. Vector indexes (HNSW/IVFFlat) are intentionally deferred.
+
+**Semantic search persistence — increment 2 (feature-037)** refactors the HTTP ingest endpoint to persist one budget document per request in a single transaction via `run_persistent_ingest()` (`app/embedding_pipeline/persistent_ingest.py`). The response returns ingestion metadata (`document_id`, `chunks_created`, `embedding_dimension`, `ingestion_time_ms`) and no longer includes raw vectors. Duplicate `source_path` returns `409 Conflict`.
 
 **Milestone harness (feature-035)** adds upstream loader/parser, `PipelineDocument` adapter, markdown chunk template, milestone e2e tests, and offline CLIs.
 
@@ -600,20 +602,32 @@ Chunk contract:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Request `budgets` | `list[Budget]` | Same shape as chunker input |
-| Response `chunks` | `list[EmbeddedChunk]` | One embedding per component |
-| Response `stats` | `IngestStats` | `total_budgets`, `total_chunks`, `total_tokens`, `estimated_cost_usd` |
+| Request `source_path` | `str` | Unique document key (e.g. `data/budgets/budget_2024_q1.json`) |
+| Request `document_type` | `str` | e.g. `historical_budget` |
+| Request `content` | `Budget` | Same shape as chunker input (one budget per request) |
+| Request `metadata` | `dict` | Optional JSON metadata stored on `documents` |
+| Response `document_id` | `int` | Postgres `documents.id` |
+| Response `chunks_created` | `int` | Rows inserted in `chunks` (0 when `content.components` is empty) |
+| Response `embedding_dimension` | `int` | `1536` for `text-embedding-3-small` |
+| Response `ingestion_time_ms` | `int` | Wall-clock ingest duration |
 
-Status codes: `200` success (including empty `budgets`), `422` validation error, `500` generic failure (details logged server-side).
+Status codes: `200` success, `409` duplicate `source_path` (`{"detail":"Document already ingested","document_id":…}`), `422` validation error, `503` when `DATABASE_URL` is unset, `500` generic failure (details logged server-side).
+
+Requires `DATABASE_URL` for the HTTP endpoint. Document + chunks + embeddings commit atomically; embedder is not called on duplicate `source_path` or zero-component budgets.
 
 ```bash
-# Local
+# Local (Postgres must be running; see Postgres section below)
 uv run uvicorn app.main:app --reload
 # POST http://127.0.0.1:8000/api/v1/embeddings/ingest
 
 # Docker
 docker compose up app
 # POST http://localhost:8000/api/v1/embeddings/ingest
+
+# Example body
+curl -sS -X POST http://127.0.0.1:8000/api/v1/embeddings/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"source_path":"data/budgets/bud-2024-014.json","document_type":"historical_budget","content":{...}}'
 ```
 
 **Increment 5 (feature-034)** adds `app/scripts/compare.py`: embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
@@ -645,6 +659,13 @@ uv run python -m app.scripts.ingest_from_dir \
 
 uv run python -m app.scripts.ingest_from_dir \
   --dir tests/embedding_pipeline/fixtures/budget_files
+```
+
+**Batch ingest fixtures over HTTP (Postgres + API required):**
+
+```bash
+uv run python dev-tools/ingest_budget_fixtures.py
+uv run python dev-tools/ingest_budget_fixtures.py --skip-existing --dry-run
 ```
 
 **Ops / learning CLIs:**

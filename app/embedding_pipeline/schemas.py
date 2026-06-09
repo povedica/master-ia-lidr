@@ -74,3 +74,21 @@ class IngestRequest(BaseModel):
 class IngestResponse(BaseModel):
     chunks: list[EmbeddedChunk]
     stats: IngestStats
+
+
+class PersistentIngestRequest(BaseModel):
+    """HTTP ingest contract: one budget document persisted by ``source_path``."""
+
+    source_path: str
+    document_type: str
+    content: Budget
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class PersistentIngestResponse(BaseModel):
+    """Metadata returned after a successful persisted ingest."""
+
+    document_id: int
+    chunks_created: int
+    embedding_dimension: int
+    ingestion_time_ms: int

@@ -2144,11 +2144,11 @@
             <button class="btn" data-flow="embeddings" data-action="reset">↺ Reiniciar</button>
           </div>
           <div class="flow-steps" id="steps-embeddings">
-            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Entrada</h4><p><strong>HTTP:</strong> <code>IngestRequest.budgets</code>. <strong>CLI dir:</strong> <code>FileSystemLoader</code> → <code>parse_budget_file</code>. <strong>compare:</strong> dos textos sueltos.</p></div></div>
+            <div class="flow-step" data-step="0"><div class="step-num">1</div><div class="step-body"><h4>Entrada</h4><p><strong>HTTP:</strong> <code>PersistentIngestRequest</code> (un <code>Budget</code> + <code>source_path</code>). <strong>CLI dir:</strong> <code>FileSystemLoader</code> → <code>parse_budget_file</code>. <strong>compare:</strong> dos textos sueltos.</p></div></div>
             <div class="flow-step" data-step="1"><div class="step-num">2</div><div class="step-body"><h4>Validación / adapter</h4><p>Pydantic <code>Budget</code> (HTTP o parser). <code>BudgetToDocumentAdapter</code> → <code>PipelineDocument</code> con lineage inline (<code>source_name=api</code>).</p></div></div>
             <div class="flow-step" data-step="2"><div class="step-num">3</div><div class="step-body"><h4>Chunking markdown</h4><p><code>JSONStructuralChunker</code>: plantilla <code>## Project context</code> / <code>## Component</code>; tiktoken alineado a <code>EMBEDDING_PIPELINE_MODEL</code>.</p></div></div>
-            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Orquestación + embed</h4><p><code>run_ingest()</code> (HTTP y <code>ingest_from_dir</code>). <code>OpenAIEmbedder</code> con cliente único, lotes, retry, 1536 dims.</p></div></div>
-            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Salida</h4><p><code>IngestResponse</code> + stats del embedder. CLIs: compare, preflight, inspect_fixtures, architecture_decision.</p></div></div>
+            <div class="flow-step" data-step="3"><div class="step-num">4</div><div class="step-body"><h4>Orquestación + embed</h4><p><strong>HTTP:</strong> <code>run_persistent_ingest()</code> (transacción Postgres). <strong>CLI:</strong> <code>run_ingest()</code>. <code>OpenAIEmbedder</code> con lotes, retry, 1536 dims.</p></div></div>
+            <div class="flow-step" data-step="4"><div class="step-num">5</div><div class="step-body"><h4>Salida</h4><p><strong>HTTP:</strong> <code>PersistentIngestResponse</code> (sin vectores). <strong>CLI:</strong> <code>IngestResponse</code> + stats. CLIs: compare, preflight, inspect_fixtures.</p></div></div>
             <div class="flow-step" data-step="5"><div class="step-num">6</div><div class="step-body"><h4>Calidad (CLI)</h4><p>Tres pares de referencia en <code>SANITY_CHECK.md</code> validan separación semántica antes de Session 08 (vector DB).</p></div></div>
           </div>
         </div>
@@ -2388,8 +2388,9 @@ flowchart TD
         </p>
 
         <div class="alert info">
-          <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> HTTP/CLI → loader/parser upstream → harness e2e + CLIs ops.
-          <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async — el ingest HTTP sigue en memoria hasta feature-037. Sin índices vectoriales HNSW/IVFFlat en este baseline.
+          <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> CLI → loader/parser upstream → harness e2e + CLIs ops.
+          <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Sin índices vectoriales HNSW/IVFFlat en este baseline.
+          <strong>Ingest transaccional (feature-037):</strong> <code>POST /api/v1/embeddings/ingest</code> persiste un presupuesto por petición vía <code>run_persistent_ingest()</code>; respuesta con metadatos (sin vectores crudos); <code>409</code> si <code>source_path</code> duplicado.
           Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
@@ -2402,8 +2403,8 @@ flowchart TD
           <div class="card">
             <h4>Dos formas de uso</h4>
             <ul>
-              <li><strong>Ingest batch:</strong> <code>POST /api/v1/embeddings/ingest</code> — muchos presupuestos → muchos <code>EmbeddedChunk</code> + estadísticas de coste.</li>
-              <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → mismo <code>run_ingest</code> (o <code>--dry-run</code>).</li>
+              <li><strong>Ingest HTTP persistido:</strong> <code>POST /api/v1/embeddings/ingest</code> — un presupuesto por petición → filas en <code>documents</code>/<code>chunks</code> + metadatos de ingestión (sin vectores en la respuesta).</li>
+              <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → <code>run_ingest</code> en memoria (o <code>--dry-run</code>).</li>
               <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos → similitud coseno.</li>
             </ul>
           </div>
@@ -2413,7 +2414,7 @@ flowchart TD
           </div>
           <div class="card">
             <h4>Salida típica</h4>
-            <p>Lista de <code>EmbeddedChunk</code>: cada uno conserva <code>chunk_id</code>, <code>text</code>, <code>metadata</code>, <code>token_count</code> y un vector <code>embedding[1536]</code>, más agregados de tokens y coste estimado.</p>
+            <p>HTTP (feature-037): <code>PersistentIngestResponse</code> con <code>document_id</code>, <code>chunks_created</code>, <code>embedding_dimension</code>, <code>ingestion_time_ms</code>. Los vectores quedan en Postgres (<code>chunks.embedding</code>). CLI <code>run_ingest</code> sigue devolviendo <code>EmbeddedChunk</code> en memoria.</p>
           </div>
         </div>
 
@@ -2441,11 +2442,16 @@ flowchart TD
               </tr>
               <tr>
                 <td>4</td><td>033</td><td><code>app/routers/embeddings.py</code></td>
-                <td><code>POST /api/v1/embeddings/ingest</code> orquesta chunker + embedder</td>
-                <td>Expone el pipeline por HTTP con DI FastAPI; errores → <code>500</code> genérico + log con <code>request_id</code>.</td>
+                <td>Ruta HTTP ingest (evoluciona en 037)</td>
+                <td>Expone el pipeline por HTTP con DI FastAPI.</td>
               </tr>
               <tr>
-                <td>5</td><td>034</td><td><code>app/scripts/compare.py</code></td>
+                <td>5</td><td>037</td><td><code>persistent_ingest.py</code> + <code>repository.py</code></td>
+                <td><code>run_persistent_ingest()</code>: transacción Postgres, duplicados <code>409</code></td>
+                <td>Documento + chunks + embeddings atómicos; sin vectores en respuesta HTTP.</td>
+              </tr>
+              <tr>
+                <td>6</td><td>034</td><td><code>app/scripts/compare.py</code></td>
                 <td>CLI: <code>embed_one</code> ×2 + cosine con <code>math</code>; resultados en <code>SANITY_CHECK.md</code></td>
                 <td>Verifica calidad del modelo antes de persistir vectores; material de discusión en sesión.</td>
               </tr>
@@ -2463,7 +2469,7 @@ flowchart TB
     subgraph L1["① Entrada HTTP · app/routers/embeddings.py"]
         direction TB
         EP["POST /api/v1/embeddings/ingest"]
-        REQ["Body: IngestRequest\nbudgets: list[Budget]"]
+        REQ["Body: PersistentIngestRequest\nsource_path · document_type · content: Budget"]
         EP --> REQ
     end
 
@@ -2489,18 +2495,18 @@ flowchart TB
         API["Embeddings API\ntext-embedding-3-small\nOPENAI_API_KEY requerida"]
     end
 
-    subgraph L6["⑥ Ensamblado y respuesta HTTP 200"]
+    subgraph L6["⑥ Persistencia + respuesta HTTP"]
         direction TB
-        VEC["EmbeddedChunk[]\nChunk + embedding[1536]"]
-        OUT["IngestResponse\nstats: budgets · chunks · tokens · cost_usd"]
-        VEC --> OUT
+        DB["Postgres: documents + chunks\nembedding vector(1536)"]
+        OUT["PersistentIngestResponse\ndocument_id · chunks_created · dimension · ms"]
+        DB --> OUT
     end
 
     REQ --> VAL
     VAL --> CHK
     CH --> EMB
     EMB --> API
-    API --> VEC
+    API --> DB
 
     classDef layerHttp fill:#1a3352,stroke:#38bdf8,color:#f1f5f9,stroke-width:2px
     classDef layerVal fill:#1f2937,stroke:#94a3b8,color:#f1f5f9,stroke-width:2px
@@ -2788,7 +2794,7 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>GET</td><td><code>/api/v1/sessions</code></td><td>Listar sesiones sidebar</td><td>Últimos 30 días</td></tr>
               <tr><td>GET</td><td><code>/api/v1/sessions/{id}</code></td><td>Detalle para restore</td><td>Payload + metadata + last estimate</td></tr>
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
-              <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Chunk + embed budgets</td><td>JSONStructuralChunker → OpenAIEmbedder</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Persist one budget + chunk embeddings</td><td>run_persistent_ingest → Postgres</td></tr>
             </tbody>
           </table>
         </div>
