@@ -158,18 +158,18 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/search` appears in OpenAPI.
-- [ ] AC-02: Valid search request returns `200` with `query`, `k`, `search_time_ms`, and `results`.
-- [ ] AC-03: The service calls `OpenAIEmbedder.embed_one()` exactly once per search request.
-- [ ] AC-04: The SQL query ranks chunks by `cosine_distance` ascending.
-- [ ] AC-05: Response result objects include `chunk_id`, `document_id`, `chunk_type`, `content`, `distance`, and `metadata`.
-- [ ] AC-06: `k` limits the number of returned results.
-- [ ] AC-07: Empty corpus returns `200` with `results: []`.
-- [ ] AC-08: Chunks with `embedding = NULL` are not returned.
-- [ ] AC-09: Invalid `query` or `k` returns `422`.
-- [ ] AC-10: Provider/database errors return safe API errors and log structured context without secrets.
-- [ ] AC-11: No vector index is added by this feature.
-- [ ] AC-12: README explains why cosine distance is used and why sequential scan is acceptable for the course corpus size.
+- [x] AC-01: `POST /api/v1/search` appears in OpenAPI.
+- [x] AC-02: Valid search request returns `200` with `query`, `k`, `search_time_ms`, and `results`.
+- [x] AC-03: The service calls `OpenAIEmbedder.embed_one()` exactly once per search request.
+- [x] AC-04: The SQL query ranks chunks by `cosine_distance` ascending.
+- [x] AC-05: Response result objects include `chunk_id`, `document_id`, `chunk_type`, `content`, `distance`, and `metadata`.
+- [x] AC-06: `k` limits the number of returned results.
+- [x] AC-07: Empty corpus returns `200` with `results: []`.
+- [x] AC-08: Chunks with `embedding = NULL` are not returned.
+- [x] AC-09: Invalid `query` or `k` returns `422`.
+- [x] AC-10: Provider/database errors return safe API errors and log structured context without secrets.
+- [x] AC-11: No vector index is added by this feature.
+- [x] AC-12: README explains why cosine distance is used and why sequential scan is acceptable for the course corpus size.
 
 ## Test Plan
 
@@ -197,16 +197,16 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 ## Verification
 
 - Automated:
-  - targeted search tests
-  - existing embedding pipeline tests
-  - `uv run pytest` if the change touches shared app startup
+  - targeted search tests — **20 passed**
+  - existing embedding pipeline tests — **included in full suite**
+  - `uv run pytest` — **494 passed, 11 skipped**
 - Manual:
-  - `docker compose up --build`
-  - `uv run alembic upgrade head`
-  - ingest fixture budget
-  - `curl -X POST http://127.0.0.1:8000/api/v1/search ...`
+  - `docker compose up --build` — app already running
+  - `uv run alembic upgrade head` — schema present in Compose Postgres
+  - ingest fixture budget — corpus already populated
+  - `curl -X POST http://127.0.0.1:8000/api/v1/search ...` — **200 with ranked results**
 - Not verified yet:
-  - five-query demonstration script
+  - five-query demonstration script (`feature-039`)
   - `output_examples.txt`
 
 ## Documentation Plan
@@ -242,13 +242,29 @@ The query must use `cosine_distance` to align with the future `vector_cosine_ops
 
 ## Implementation progress
 
-- [ ] Step 1: Search schemas and validation tests
-- [ ] Step 2: Search repository with pgvector `cosine_distance`
-- [ ] Step 3: Search service orchestration and unit tests
-- [ ] Step 4: Search router, `main.py` registration, router tests
-- [ ] Step 5: README API docs (cosine distance, sequential scan baseline)
-- [ ] Step 6: Manual ingest + search smoke check
+- [x] Step 1: Search schemas and validation tests
+- [x] Step 2: Search repository with pgvector `cosine_distance`
+- [x] Step 3: Search service orchestration and unit tests
+- [x] Step 4: Search router, `main.py` registration, router tests
+- [x] Step 5: README API docs (cosine distance, sequential scan baseline)
+- [x] Step 6: Manual ingest + search smoke check
 
 ## Pull Request
 
-- To be filled during `/start-task` (branch `feature/038-semantic-search-endpoint-pgvector`).
+- https://github.com/povedica/master-ia-lidr/pull/34 (draft, label `wip`)
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| (pending push) | docs(work-items): add feature-038 semantic search endpoint spec |
+| (pending push) | test(embedding-pipeline): add search schema validation tests (RED→GREEN) |
+| (pending push) | feat(embedding-pipeline): add semantic search repository and service |
+| (pending push) | feat(search): add POST /api/v1/search semantic search endpoint |
+
+## Verification
+
+- **Verified (automated):** `uv run pytest tests/embedding_pipeline/test_search_*.py` — 20 passed; full suite `uv run pytest` — 494 passed, 11 skipped.
+- **Verified (manual):** `curl -X POST http://127.0.0.1:8000/api/v1/search` against Compose Postgres returned ranked results with cosine distances.
+- **Not verified:** five-query demonstration script (`feature-039` scope); `output_examples.txt`.
+- **Residual risk:** no integration test against real Postgres in CI (repository SQL validated via compile + mocked session).
