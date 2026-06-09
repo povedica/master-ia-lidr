@@ -267,6 +267,6 @@ Add a concise section such as "Semantic Search with pgvector" covering:
 
 | Commit | Summary |
 |--------|---------|
-| (pending) | docs(feature-039): work item intake |
-| (pending) | feat(search): query_examples script, tests, Docker path |
-| (pending) | docs(feature-039): README section, output_examples.txt, session note |
+| `036220d` | docs(feature-039): work item intake |
+| `732f77a` | feat(search): query_examples script, tests, Docker path |
+| `4df3200` | docs(feature-039): README section, output_examples.txt, session note |
