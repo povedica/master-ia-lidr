@@ -1,0 +1,32 @@
+{
+  "budget_id": "BUD-2023-078",
+  "client_metadata": {
+    "name": "Heritage Insurance",
+    "sector": "insurance",
+    "country": "UK"
+  },
+  "project_summary": "Mainframe policy system migration to cloud-native microservices",
+  "main_technology": "java",
+  "year": 2023,
+  "total_estimated_hours": 1200,
+  "components": [
+    {
+      "component_id": "MIG-001",
+      "name": "COBOL data bridge",
+      "description": "Batch sync of policy records from mainframe DB2 to staging PostgreSQL",
+      "tech_stack": ["java", "spring_batch", "db2"],
+      "estimated_hours": 400,
+      "complexity": "high",
+      "dependencies": []
+    },
+    {
+      "component_id": "POL-002",
+      "name": "Policy API v2",
+      "description": "REST facade over migrated policies with backward-compatible identifiers",
+      "tech_stack": ["java", "spring_boot", "postgresql"],
+      "estimated_hours": 280,
+      "complexity": "medium",
+      "dependencies": ["MIG-001"]
+    }
+  ]
+}

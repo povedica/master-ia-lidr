@@ -1,0 +1,50 @@
+{
+  "budget_id": "BUD-2024-067",
+  "client_metadata": {
+    "name": "MetricFlow SaaS",
+    "sector": "analytics",
+    "country": "US"
+  },
+  "project_summary": "B2B product analytics with funnel visualization and cohort reports",
+  "main_technology": "python",
+  "year": 2024,
+  "total_estimated_hours": 880,
+  "components": [
+    {
+      "component_id": "EVT-001",
+      "name": "Event ingestion API",
+      "description": "High-throughput endpoint for client-side track calls with schema validation",
+      "tech_stack": ["python", "fastapi", "kafka"],
+      "estimated_hours": 160,
+      "complexity": "high",
+      "dependencies": []
+    },
+    {
+      "component_id": "AGG-002",
+      "name": "Daily rollup jobs",
+      "description": "Materialize funnel and retention metrics into ClickHouse aggregates",
+      "tech_stack": ["python", "clickhouse", "airflow"],
+      "estimated_hours": 200,
+      "complexity": "high",
+      "dependencies": ["EVT-001"]
+    },
+    {
+      "component_id": "DSH-003",
+      "name": "Analytics dashboard UI",
+      "description": "Configurable charts and date-range filters for product managers",
+      "tech_stack": ["typescript", "react", "recharts"],
+      "estimated_hours": 180,
+      "complexity": "medium",
+      "dependencies": ["AGG-002"]
+    },
+    {
+      "component_id": "ALR-004",
+      "name": "Anomaly alert rules",
+      "description": "Threshold and spike detection on key conversion metrics with Slack webhooks",
+      "tech_stack": ["python", "redis", "slack_api"],
+      "estimated_hours": 80,
+      "complexity": "low",
+      "dependencies": ["AGG-002"]
+    }
+  ]
+}

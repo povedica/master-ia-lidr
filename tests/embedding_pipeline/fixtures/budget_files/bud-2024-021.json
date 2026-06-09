@@ -1,0 +1,32 @@
+{
+  "budget_id": "BUD-2024-021",
+  "client_metadata": {
+    "name": "MediLink Health",
+    "sector": "healthcare",
+    "country": "ES"
+  },
+  "project_summary": "Telemedicine platform with HIPAA-aligned video consultations",
+  "main_technology": "node",
+  "year": 2024,
+  "total_estimated_hours": 640,
+  "components": [
+    {
+      "component_id": "VID-001",
+      "name": "WebRTC video sessions",
+      "description": "Encrypted peer-to-peer video rooms with waiting room and session recording metadata",
+      "tech_stack": ["node", "webrtc", "socket.io"],
+      "estimated_hours": 200,
+      "complexity": "high",
+      "dependencies": []
+    },
+    {
+      "component_id": "EHR-002",
+      "name": "Clinical notes integration",
+      "description": "FHIR-lite export of consultation summaries to external EHR systems",
+      "tech_stack": ["node", "postgresql", "redis"],
+      "estimated_hours": 160,
+      "complexity": "medium",
+      "dependencies": ["VID-001"]
+    }
+  ]
+}

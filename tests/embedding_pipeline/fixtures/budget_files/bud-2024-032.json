@@ -1,0 +1,23 @@
+{
+  "budget_id": "BUD-2024-032",
+  "client_metadata": {
+    "name": "TransRoute Logistics",
+    "sector": "logistics",
+    "country": "MX"
+  },
+  "project_summary": "Real-time fleet GPS tracking and delivery ETA dashboard",
+  "main_technology": "go",
+  "year": 2024,
+  "total_estimated_hours": 320,
+  "components": [
+    {
+      "component_id": "GPS-001",
+      "name": "Telemetry ingestion service",
+      "description": "Ingest GPS pings from mobile drivers app and normalize into time-series store",
+      "tech_stack": ["go", "kafka", "timescaledb"],
+      "estimated_hours": 180,
+      "complexity": "high",
+      "dependencies": []
+    }
+  ]
+}
