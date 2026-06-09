@@ -325,7 +325,7 @@ app/scripts/
 | `24e8fb8` | `test(embedding-pipeline): add ten diverse budget file fixtures` | Ten valid per-file budgets across sectors for manual CLI exercises. |
 | `1c0d884` | `test(embedding-pipeline): add invalid budget fixtures for parser checks` | Five invalid JSON samples under `budget_files/invalids/`. |
 | `671fd0d` | `test(embedding-pipeline): update corpus counts after budget_files expansion` | Tests expect 13 files and 24 components in `budget_files/`. |
-| `5dc017d` | `docs(feature-035): log fixture corpus commits in work item` | Repository commits table updated with fixture expansion hashes. |
+| `9282df2` | `docs(feature-035): log fixture corpus commits in work item` | Repository commits table updated with fixture expansion hashes. |
 
 ## Estimation
 
