@@ -254,6 +254,7 @@ Capture before/after metrics in the Second Brain note (pre-index numbers from th
 | 7b0e0e1 | docs: sync HNSW index references across architecture and learnings |
 | 4ace165 | docs(work-items): record feature-040 verification and acceptance status |
 | a0886c0 | docs(work-items): add commit SHAs to feature-040 report |
+| 0572256 | docs(work-items): add feature-040 retrospective and closure report |
 
 ## Retrospective
 
