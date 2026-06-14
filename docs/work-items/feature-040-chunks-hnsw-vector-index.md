@@ -253,6 +253,14 @@ Capture before/after metrics in the Second Brain note (pre-index numbers from th
 | c92b3ef | docs: document HNSW index and observability in technical README |
 | 7b0e0e1 | docs: sync HNSW index references across architecture and learnings |
 | 4ace165 | docs(work-items): record feature-040 verification and acceptance status |
+| a0886c0 | docs(work-items): add commit SHAs to feature-040 report |
+
+## Retrospective
+
+1. **Process:** TDD honoured — static migration test RED before `0002` migration; eight focused commits on single branch.
+2. **Technical:** No search SQL changes; HNSW aligned with existing `cosine_distance` / `vector_cosine_ops`; Alembic remains source of truth for index DDL.
+3. **Quality:** 22 targeted tests green; manual alembic up/down, observability script, and diagnostic `EXPLAIN` on Compose Postgres.
+4. **Docs:** Ten-file documentation sweep including `docs/technical/README.md` §24, architecture HTML, ADR-001, and Second Brain session note.
 
 ## Documentation Plan
 
@@ -314,4 +322,4 @@ Update **every** active technical reference that describes pgvector search stora
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/36 — WIP draft PR (`wip` label)
+- https://github.com/povedica/master-ia-lidr/pull/36 — merged via `/finish-task`
