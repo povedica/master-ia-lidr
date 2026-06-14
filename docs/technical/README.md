@@ -713,8 +713,6 @@ As the project grows, keep these boundaries:
 Possible next technical steps:
 
 - Add a structured schema for estimates if programmatic consumption is needed.
-- Add vector indexes (HNSW / IVFFlat) once sequential-scan baselines are measured (feature-038 provides the baseline).
-- Ship `query_examples.py` and milestone evidence (`feature-039`).
 - Add metadata filters or hybrid search when retrieval quality requires tuning beyond pure vector rank.
 - Add retries/backoff once the current fallback baseline is stable.
 - Add tracing or request logging if local observability is insufficient.
@@ -867,7 +865,8 @@ The `app` service depends on healthy `postgres` and receives `DATABASE_URL=postg
 | `app/models/document.py` | `documents` table — unique `source_path`, JSONB `metadata` |
 | `app/models/chunk.py` | `chunks` table — FK `ON DELETE CASCADE`, `Vector(1536)`, GIN on `metadata` |
 | `alembic/env.py` | Async migrations; reads `DATABASE_URL` from `Settings`; registers pgvector types |
-| `alembic/versions/0001_initial_schema.py` | `CREATE EXTENSION vector`, tables, non-vector indexes only |
+| `alembic/versions/0001_initial_schema.py` | `CREATE EXTENSION vector`, tables, non-vector indexes |
+| `alembic/versions/0002_add_chunks_embedding_hnsw_index.py` | HNSW cosine index on `chunks.embedding` (feature-040) |
 
 ### Schema summary
 
@@ -875,7 +874,7 @@ The `app` service depends on healthy `postgres` and receives `DATABASE_URL=postg
 
 **`chunks`:** `id`, `document_id` → `documents.id`, `chunk_type`, `content`, `embedding` (`vector(1536)`, nullable), `metadata` (JSONB), `created_at`.
 
-Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_type`, `ix_chunks_metadata_gin`. **No** HNSW or IVFFlat vector indexes in this baseline.
+Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_type`, `ix_chunks_metadata_gin`, `ix_chunks_embedding_hnsw` (HNSW, `vector_cosine_ops`, partial on non-null embeddings). See [§24](#24-hnsw-vector-index-feature-040).
 
 ### Manual verification checklist
 
@@ -884,7 +883,9 @@ Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_t
 3. Migrate: `export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator && uv run alembic upgrade head`
 4. Inspect: `docker compose exec postgres psql -U estimator -d estimator -c "\dt"` and `\d chunks`
 5. Confirm extension: `SELECT extname FROM pg_extension WHERE extname = 'vector';`
-6. Regression: `uv run pytest tests/embedding_pipeline/` (no live DB required by default)
+6. Confirm HNSW index: `SELECT indexname FROM pg_indexes WHERE indexname = 'ix_chunks_embedding_hnsw';`
+7. Run observability report: `docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvector_observability.sql`
+8. Regression: `uv run pytest tests/embedding_pipeline/` (no live DB required by default)
 
 ### Automated tests (no live Postgres)
 
@@ -946,7 +947,7 @@ ORDER BY distance ASC
 LIMIT :k
 ```
 
-No HNSW/IVFFlat index — intentional sequential scan baseline for course corpus size.
+No application SQL change is required — the planner may use `ix_chunks_embedding_hnsw` when the operator class matches `cosine_distance` (`<=>`). On very small corpora the planner can still choose a sequential scan until statistics favour ANN; see [§24](#24-hnsw-vector-index-feature-040).
 
 ### Distance interpretation (operational)
 
@@ -970,3 +971,97 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 ```
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
+
+## 24. HNSW vector index (feature-040)
+
+Increment after the semantic-search milestone. Adds an approximate nearest-neighbour (ANN) index on `chunks.embedding` aligned with the existing `cosine_distance` search path.
+
+### Index definition
+
+Migration `0002_add_chunks_embedding_hnsw_index.py`:
+
+```sql
+CREATE INDEX ix_chunks_embedding_hnsw
+ON chunks
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64)
+WHERE embedding IS NOT NULL;
+```
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Method | `hnsw` | pgvector ANN index |
+| Operator class | `vector_cosine_ops` | Must match `<=>` / `cosine_distance` |
+| `m` | 16 | pgvector default — graph connectivity |
+| `ef_construction` | 64 | pgvector default — build-time candidate list |
+| Predicate | `embedding IS NOT NULL` | Mirrors `SemanticSearchRepository` filter |
+
+Search-time recall tuning uses the session parameter `hnsw.ef_search` (default `40`). Increase for higher recall at the cost of latency.
+
+### Query planner behaviour
+
+The search SQL from feature-038 is unchanged. After `alembic upgrade head`, verify the index exists:
+
+```bash
+docker compose exec -T postgres psql -U estimator -d estimator -c \
+  "SELECT indexname, indexdef FROM pg_indexes WHERE indexname = 'ix_chunks_embedding_hnsw';"
+```
+
+Diagnostic `EXPLAIN` (small corpora may still prefer sequential scan without this hint):
+
+```sql
+ANALYZE chunks;
+SET enable_seqscan = off;
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, embedding <=> (SELECT embedding FROM chunks WHERE embedding IS NOT NULL LIMIT 1) AS distance
+FROM chunks
+WHERE embedding IS NOT NULL
+ORDER BY distance
+LIMIT 5;
+```
+
+Expect `Index Scan using ix_chunks_embedding_hnsw` when the planner chooses ANN. Do **not** set `enable_seqscan = off` in production — use only for local diagnostics.
+
+### Observability script
+
+`scripts/pgvector_observability.sql` returns stable dashboard columns:
+
+- `nombre_tabla`, `nombre_columna_vector`, `dimensiones`
+- `total_chunks`, `total_vectores`
+- `nombre_indice`, `metodo_indice`, `operator_class`
+- `tamano_indice_bytes`, `tamano_indice_pretty`, `tamano_tabla_pretty`
+- `idx_scan`, `last_idx_scan`
+- memory settings (`shared_buffers`, `effective_cache_size`, `work_mem`)
+
+```bash
+docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvector_observability.sql
+```
+
+**Alerts to watch:**
+
+- `nombre_indice` is null → no HNSW/IVFFlat index on vector columns.
+- `idx_scan = 0` after sustained search traffic → index may not be used (check `EXPLAIN`, operator class, corpus size).
+- Index size growing faster than row count → review `m`, `ef_construction`, or consider `halfvec` in a future feature.
+
+### Verified snapshot (Compose, 2026-06-14)
+
+| Metric | Before index | After index |
+|--------|--------------|-------------|
+| Chunks / vectors | 39 / 39 | 39 / 39 |
+| HNSW indexes | 0 | 1 (`ix_chunks_embedding_hnsw`) |
+| Index size | — | ~312 kB |
+| Table total | ~504 kB | ~816 kB |
+
+Work item: [feature-040](../work-items/feature-040-chunks-hnsw-vector-index.md).
+
+### Verification
+
+```bash
+uv run pytest tests/test_alembic_migration.py -q
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvector_observability.sql
+```
+
+Downgrade path: `uv run alembic downgrade 0001` drops `ix_chunks_embedding_hnsw` only.
+
