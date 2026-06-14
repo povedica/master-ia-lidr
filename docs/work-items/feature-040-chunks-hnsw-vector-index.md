@@ -246,12 +246,13 @@ Capture before/after metrics in the Second Brain note (pre-index numbers from th
 
 | Commit | Summary |
 |--------|---------|
-| (pending SHA) | docs(work-items): add feature-040 HNSW vector index spec |
-| (pending SHA) | test(alembic): add static checks for HNSW migration 0002 |
-| (pending SHA) | feat(db): add HNSW cosine index on chunks.embedding |
-| (pending SHA) | feat(scripts): add pgvector observability SQL report |
-| (pending SHA) | docs: document HNSW index and observability in technical README |
-| (pending SHA) | docs: sync HNSW index references across architecture and learnings |
+| 0f4e7cf | docs(work-items): add feature-040 HNSW vector index spec |
+| 5012f46 | test(alembic): add static checks for HNSW migration 0002 |
+| efee742 | feat(db): add HNSW cosine index on chunks.embedding |
+| 936b69b | feat(scripts): add pgvector observability SQL report |
+| c92b3ef | docs: document HNSW index and observability in technical README |
+| 7b0e0e1 | docs: sync HNSW index references across architecture and learnings |
+| 4ace165 | docs(work-items): record feature-040 verification and acceptance status |
 
 ## Documentation Plan
 
