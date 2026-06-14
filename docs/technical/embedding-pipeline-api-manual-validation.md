@@ -332,6 +332,33 @@ uv run pytest tests/embedding_pipeline/test_router.py \
 
 Fire N parallel POST requests with the same `source_path` using `ThreadPoolExecutor` or `xargs -P`. Expect 1×200 and (N−1)×500 with current implementation; sequential re-post should return 409.
 
+### Post-index verification (feature-040)
+
+After `uv run alembic upgrade head`, confirm HNSW index and observability metrics:
+
+```bash
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+
+docker compose exec -T postgres psql -U estimator -d estimator -c \
+  "SELECT indexname, indexdef FROM pg_indexes WHERE indexname = 'ix_chunks_embedding_hnsw';"
+
+docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvector_observability.sql
+```
+
+Diagnostic `EXPLAIN` (expect `Index Scan using ix_chunks_embedding_hnsw` when `enable_seqscan` is off on small corpora):
+
+```sql
+ANALYZE chunks;
+SET enable_seqscan = off;
+EXPLAIN SELECT id FROM chunks
+WHERE embedding IS NOT NULL
+ORDER BY embedding <=> (SELECT embedding FROM chunks WHERE embedding IS NOT NULL LIMIT 1)
+LIMIT 5;
+```
+
+After sustained `POST /api/v1/search` traffic, `idx_scan` on `ix_chunks_embedding_hnsw` in the observability script should be ≥ 1.
+
 ---
 
 ## 8. Fix: concurrent duplicate ingest → 409

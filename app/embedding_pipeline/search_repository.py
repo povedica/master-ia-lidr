@@ -1,4 +1,8 @@
-"""Persistence queries for semantic search over pgvector chunk embeddings."""
+"""Persistence queries for semantic search over pgvector chunk embeddings.
+
+Uses HNSW index ``ix_chunks_embedding_hnsw`` (``vector_cosine_ops``) when the planner
+selects ANN for ``cosine_distance`` queries — see migration ``0002`` and docs §24.
+"""
 
 from __future__ import annotations
 

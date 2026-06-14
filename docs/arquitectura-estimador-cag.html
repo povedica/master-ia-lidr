@@ -1622,7 +1622,7 @@
                       <button type="button" class="arch-node" data-id="router-search" data-layer="router"
                         data-title="POST /api/v1/search"
                         data-file="app/routers/search.py"
-                        data-desc="Búsqueda semántica: embed_one(query) + top-k chunks por distancia coseno pgvector (&lt;=&gt;). Sin índice vectorial (baseline sequential scan).">
+                        data-desc="Búsqueda semántica: embed_one(query) + top-k chunks por distancia coseno pgvector (&lt;=&gt;). Índice HNSW ix_chunks_embedding_hnsw (vector_cosine_ops, feature-040).">
                         <span class="arch-node-title">v1 /search</span>
                         <span class="arch-node-sub">query → ranked chunks</span>
                       </button>
@@ -2398,9 +2398,9 @@ flowchart TD
 
         <div class="alert info">
           <strong>Milestone consolidado (features 030–035):</strong> schemas → adapter <code>PipelineDocument</code> → chunker markdown → embedder → <code>run_ingest</code> CLI → loader/parser upstream → harness e2e + CLIs ops.
-          <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Sin índices vectoriales HNSW/IVFFlat en este baseline.
+          <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Índice HNSW <code>ix_chunks_embedding_hnsw</code> con <code>vector_cosine_ops</code> (feature-040).
           <strong>Ingest transaccional (feature-037):</strong> <code>POST /api/v1/embeddings/ingest</code> persiste un presupuesto por petición vía <code>run_persistent_ingest()</code>; respuesta con metadatos (sin vectores crudos); <code>409</code> si <code>source_path</code> duplicado.
-          <strong>Búsqueda semántica (feature-038):</strong> <code>POST /api/v1/search</code> embebe la query con el mismo modelo, rankea chunks por distancia coseno (<code>&lt;=&gt;</code>) y devuelve top-<code>k</code>. Sin índice HNSW — sequential scan como baseline.
+          <strong>Búsqueda semántica (feature-038):</strong> <code>POST /api/v1/search</code> embebe la query con el mismo modelo, rankea chunks por distancia coseno (<code>&lt;=&gt;</code>) y devuelve top-<code>k</code>. Postgres puede usar índice HNSW <code>ix_chunks_embedding_hnsw</code> (feature-040) sin cambiar el contrato HTTP.
           Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
@@ -2464,7 +2464,7 @@ flowchart TD
               <tr>
                 <td>6</td><td>038</td><td><code>search.py</code> + <code>search_repository.py</code> + <code>routers/search.py</code></td>
                 <td><code>run_semantic_search()</code>: <code>embed_one</code> + SQL <code>cosine_distance</code> + top-<code>k</code></td>
-                <td>Corpus persistido consultable por similitud semántica; baseline sin índice vectorial.</td>
+                <td>Corpus persistido consultable por similitud semántica; índice HNSW cosine (feature-040).</td>
               </tr>
               <tr>
                 <td>7</td><td>034</td><td><code>app/scripts/compare.py</code></td>

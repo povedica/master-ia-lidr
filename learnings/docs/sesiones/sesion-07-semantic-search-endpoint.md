@@ -20,9 +20,13 @@
 - **L2 / inner product:** no usados aquí; cambiarían el ranking y el operador de índice.
 - **Interpretación:** distancia **menor = más similar**. Valores ~0.4 = match razonable; ~0.65+ = similitud moderada en corpus pequeño.
 
-## Sin índice vectorial (baseline)
+## Índice HNSW (feature-040)
 
-Sequential scan sobre cientos de chunks es aceptable para el ejercicio. El coste visible prepara feature futura con HNSW/IVFFlat.
+La búsqueda sigue usando `cosine_distance` (`<=>`). El índice **`ix_chunks_embedding_hnsw`** usa **`vector_cosine_ops`** — el operador debe coincidir con la métrica SQL. Ver `scripts/pgvector_observability.sql` y `docs/technical/README.md` §24.
+
+## Baseline sequential scan (feature-038)
+
+Feature-038 midió latencia sin ANN. Con corpus pequeño (~decenas de chunks) el planner puede seguir eligiendo sequential scan; usar `EXPLAIN` y el script de observabilidad para confirmar uso del índice.
 
 ## Query de ejemplo analizada (manual)
 

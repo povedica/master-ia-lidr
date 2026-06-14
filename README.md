@@ -881,15 +881,15 @@ Budget components expose varying keys (`client_sector`, `tech_stack`, `complexit
 
 OpenAI embedding vectors are commonly compared by **cosine similarity** in RAG pipelines: ranking depends on direction in embedding space, not vector magnitude. pgvector exposes this as the `<=>` operator via `embedding.cosine_distance()`. **L2 (Euclidean) distance** would penalize magnitude differences and can reorder results when vectors are not normalized the same way. **Inner product** (`<#>`) assumes a different geometry and pairs with a different index operator class. Choosing cosine aligns search ranking with common RAG practice and a future **HNSW index with `vector_cosine_ops`** without changing the metric later.
 
-**(d) Deliberately no vector index yet**
+**(d) HNSW index on `chunks.embedding`**
 
-HNSW and IVFFlat trade build time, memory, and tuning complexity for sub-linear search at large scale. The current corpus has **tens of chunks**, not millions: a **sequential scan** over `vector(1536)` is fast enough for development and makes query plans easy to inspect. Skipping the index establishes a visible baseline latency and recall behaviour before optimization. Adding `CREATE INDEX … USING hnsw (embedding vector_cosine_ops)` is a deliberate follow-up.
+Feature-036/038 deliberately used a **sequential scan** baseline to measure latency and teach query-plan inspection on a small corpus (~tens of chunks). Feature-040 adds **`ix_chunks_embedding_hnsw`** with **`vector_cosine_ops`**, matching the existing `cosine_distance` search SQL without API changes. On very small tables the planner may still choose sequential scan until statistics favour ANN — verify with `EXPLAIN` and `scripts/pgvector_observability.sql` (see [docs/technical/README.md §24](docs/technical/README.md#24-hnsw-vector-index-feature-040)).
 
 ### Out of scope
 
-Vector indexes (HNSW/IVFFlat), metadata filters, hybrid keyword + vector search, ranking benchmarks, and retrieval tuning are **not** implemented here.
+Metadata filters, hybrid keyword + vector search, ranking benchmarks, and retrieval tuning are **not** implemented here.
 
-Further detail: [docs/technical/README.md §22–§23](docs/technical/README.md).
+Further detail: [docs/technical/README.md §22–§24](docs/technical/README.md).
 
 ---
 
@@ -900,6 +900,7 @@ Further detail: [docs/technical/README.md §22–§23](docs/technical/README.md)
 | [Semantic search with pgvector](#semantic-search-with-pgvector) | Setup, component verification, design rationale |
 | [docs/technical/README.md §22](docs/technical/README.md#22-postgres-pgvector-baseline-feature-036) | Postgres pgvector: schema, migrations, manual verification, GUI clients |
 | [docs/technical/README.md §23](docs/technical/README.md#23-semantic-search-endpoint-feature-038) | Search endpoint contract and module layout |
+| [docs/technical/README.md §24](docs/technical/README.md#24-hnsw-vector-index-feature-040) | HNSW index, observability SQL, query-plan checks |
 | [docs/evals/session-estimation-evals.md](docs/evals/session-estimation-evals.md) | Session eval pyramid: goldens, hard/soft/judge runs, calibration |
 | [web/README.md](web/README.md) | Frontend setup, scripts, theming |
 | [api-collection/](api-collection/) | Manual HTTP requests (OpenCollection/Bruno) |

@@ -12,7 +12,7 @@
 - **Dos tablas**: trazabilidad a nivel documento y `ON DELETE CASCADE` en chunks.
 - **`metadata` JSONB** en ambas tablas + índice GIN en `chunks.metadata` para consultas futuras por metadatos.
 - **`source_path` único** en `documents` para detectar duplicados en el ingest persistente (feature-037).
-- **Sin índice vectorial** (HNSW/IVFFlat): baseline con sequential scan antes de optimizar búsqueda.
+- **Sin índice vectorial en feature-036** (HNSW/IVFFlat): baseline con sequential scan antes de optimizar búsqueda. **Actualizado en feature-040:** migración `0002` añade `ix_chunks_embedding_hnsw` con `vector_cosine_ops`.
 
 ## Comandos útiles
 

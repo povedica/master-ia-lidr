@@ -19,7 +19,8 @@ Adopt **wired, minimal upstream primitives** inside `embedding_pipeline` while k
 | `run_ingest()` orchestration shared by HTTP + CLI | HTTP catalog `source_name` field |
 | Offline CLIs: preflight, inspect, architecture decision | Shared OpenAI client with `semantic_cache` |
 | `IngestStats` cost in API response | Persisted ingest + search API (features 037–038) |
-| Postgres + pgvector schema baseline (`documents` / `chunks`, Alembic) — feature-036 | Vector indexes (HNSW/IVFFlat), hybrid search |
+| Postgres + pgvector schema baseline (`documents` / `chunks`, Alembic) — feature-036 | Hybrid search |
+| HNSW cosine index on `chunks.embedding` — feature-040 | IVFFlat tuning, `halfvec` compression |
 
 ## Consequences
 
