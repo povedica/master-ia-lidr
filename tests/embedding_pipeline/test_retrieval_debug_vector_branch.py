@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.embedding_pipeline.retrieval_debug import build_vector_branch_entries
+from app.embedding_pipeline.retrieval_debug import build_vector_explanation
+from app.embedding_pipeline.retrieval_debug import filter_vector_branch_entries
 from app.embedding_pipeline.schemas import SearchResult
 
 
@@ -48,3 +50,42 @@ def test_build_vector_branch_entries_clamps_normalized_score() -> None:
 
     assert entries[0].score == pytest.approx(1.0)
     assert entries[1].score == pytest.approx(0.0)
+
+
+def test_build_vector_explanation_marks_strong_and_weak_semantic_signals() -> None:
+    strong, weak = build_vector_branch_entries(
+        [
+            _search_result(chunk_id=101, distance=0.32),
+            _search_result(chunk_id=102, distance=0.65),
+        ]
+    )
+
+    strong_explanation = build_vector_explanation(strong)
+    weak_explanation = build_vector_explanation(weak)
+
+    assert strong_explanation.signals == ["semantic_strong"]
+    assert "strong semantic match" in strong_explanation.summary
+    assert weak_explanation.signals == ["semantic_weak"]
+    assert "weaker semantic match" in weak_explanation.summary
+
+
+def test_build_vector_explanation_marks_below_threshold() -> None:
+    (entry,) = build_vector_branch_entries([_search_result(chunk_id=101, distance=0.55)])
+
+    explanation = build_vector_explanation(entry, threshold=0.6)
+
+    assert explanation.signals == ["semantic_weak", "below_threshold"]
+    assert "below the configured threshold" in explanation.summary
+
+
+def test_filter_vector_branch_entries_drops_scores_below_threshold() -> None:
+    entries = build_vector_branch_entries(
+        [
+            _search_result(chunk_id=101, distance=0.2),
+            _search_result(chunk_id=102, distance=0.55),
+        ]
+    )
+
+    filtered = filter_vector_branch_entries(entries, threshold=0.6)
+
+    assert [entry.chunk_id for entry in filtered] == [101]

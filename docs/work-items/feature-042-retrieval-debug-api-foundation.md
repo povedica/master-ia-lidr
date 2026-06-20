@@ -157,7 +157,7 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 - [x] Setup: branch, draft PR, and WIP label.
 - [x] Step 1: Debug schemas and validation.
 - [x] Step 2: Vector branch adapter with rank and normalized score.
-- [ ] Step 3: Explanation builder and threshold filtering.
+- [x] Step 3: Explanation builder and threshold filtering.
 - [ ] Step 4: Retrieval debug orchestrator.
 - [ ] Step 5: Router registration and chunk inspector.
 - [ ] Step 6: Telemetry, documentation, and final verification.
