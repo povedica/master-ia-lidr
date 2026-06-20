@@ -177,7 +177,7 @@ LIMIT :top_k;
 
 ## Pull request
 
-- Draft PR: https://github.com/povedica/master-ia-lidr/pull/39
+- PR: https://github.com/povedica/master-ia-lidr/pull/39 (ready for review)
 - Branch: `feature/043-lexical-fulltext-search-branch`
 
 ## Verification log
@@ -208,3 +208,4 @@ LIMIT :top_k;
 | `106ea18` | Extended retrieval debug schemas for lexical branch configuration and nullable lexical fields. |
 | `ae5a181` | Added lexical branch normalization and explanation helpers for retrieval debug. |
 | `aa4742d` | Wired the lexical branch into the retrieval debug service with partial-failure handling and safe logging. |
+| `8beba78` | Documented the lexical branch contract, architecture guide, and final verification. |
