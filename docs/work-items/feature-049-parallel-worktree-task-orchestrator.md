@@ -268,6 +268,14 @@ The implementation must leave a clear extension point for a future `run` command
 - RED: `uv run pytest tests/scripts/test_worktree_tasks.py -q` failed with `ModuleNotFoundError: No module named 'scripts.worktree_tasks'`.
 - GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`5 passed`).
 
+## Repository commits (master-ia)
+
+| Short hash | Message | Scope / summary |
+|------------|---------|-----------------|
+| `6cd355c` | `docs(worktree): add parallel task orchestrator work item` | Added the canonical feature document for the worktree orchestration task. |
+| `b1d93a0` | `docs(worktree): record draft PR link` | Recorded the WIP draft PR link in the canonical work item. |
+| `2d43551` | `feat(worktree): add manifest planning core` | Added manifest identity derivation, dependency graph validation, and first unit tests. |
+
 ## Pull Request
 
 - https://github.com/povedica/master-ia-lidr/pull/38
