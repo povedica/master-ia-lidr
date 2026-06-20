@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
+import json
 from pathlib import Path
 import re
+import sys
 from typing import Any
+
+import yaml
 
 FEATURE_WORK_ITEM_PATTERN = re.compile(
     r"^docs/work-items/feature-(?P<feature_id>\d{3})-(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)\.md$",
@@ -112,6 +117,63 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
     )
 
 
+def load_manifest_file(manifest_path: Path) -> dict[str, Any]:
+    """Load a YAML or JSON manifest file."""
+    try:
+        raw_content = manifest_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ManifestError(f"Unable to read manifest: {manifest_path}") from exc
+
+    if manifest_path.suffix.lower() == ".json":
+        loaded = json.loads(raw_content)
+    else:
+        loaded = yaml.safe_load(raw_content)
+
+    if not isinstance(loaded, dict):
+        raise ManifestError("Manifest root must be a mapping")
+    return loaded
+
+
+def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int:
+    """Run the worktree task CLI."""
+    parser = argparse.ArgumentParser(
+        description="Prepare and inspect feature worktree task plans.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="Validate a manifest and print execution order without mutations.",
+    )
+    plan_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
+
+    args = parser.parse_args(argv)
+    root = repo_root or Path.cwd()
+
+    try:
+        if args.command == "plan":
+            manifest = load_manifest_file(Path(args.file))
+            plan = parse_manifest_data(manifest, repo_root=root)
+            _print_plan(plan)
+            return 0
+    except ManifestError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    parser.error(f"Unsupported command: {args.command}")
+    return 2
+
+
+def _print_plan(plan: WorktreePlan) -> None:
+    for task in plan.execution_order:
+        dependencies = ",".join(task.depends_on) if task.depends_on else "-"
+        print(
+            f"{task.feature_id} {task.branch} "
+            f"worktree={task.worktree_path} depends_on={dependencies} "
+            f"mode={task.mode} needs_live_db={str(task.needs_live_db).lower()}",
+        )
+
+
 def _parse_task(
     raw_task: dict[str, Any],
     *,
@@ -185,3 +247,7 @@ def _build_dependency_graph(
                 )
             graph[feature_id].add(dependency)
     return graph
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

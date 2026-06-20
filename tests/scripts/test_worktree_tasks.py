@@ -9,6 +9,7 @@ import pytest
 from scripts.worktree_tasks import (
     ManifestError,
     derive_feature_identity,
+    main,
     parse_manifest_data,
 )
 
@@ -107,3 +108,32 @@ def test_parse_manifest_data_rejects_dependency_cycles(tmp_path: Path) -> None:
 
     with pytest.raises(ManifestError, match="cycle"):
         parse_manifest_data(data, repo_root=tmp_path)
+
+
+def test_plan_command_outputs_order_and_does_not_create_worktrees(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    write_work_item(tmp_path, "feature-043-lexical-fulltext-search-branch.md")
+    manifest_path = tmp_path / "manifest.yaml"
+    manifest_path.write_text(
+        """
+defaults:
+  worktrees_root: ../master-ia-worktrees
+tasks:
+  - work_item: docs/work-items/feature-043-lexical-fulltext-search-branch.md
+    depends_on: ["042"]
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+    depends_on: []
+""",
+        encoding="utf-8",
+    )
+
+    exit_code = main(["plan", "-f", str(manifest_path)], repo_root=tmp_path)
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "042 feature/042-retrieval-debug-api-foundation" in output
+    assert "043 feature/043-lexical-fulltext-search-branch" in output
+    assert not (tmp_path.parent / "master-ia-worktrees").exists()
