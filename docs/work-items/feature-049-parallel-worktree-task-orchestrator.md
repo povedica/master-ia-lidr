@@ -254,7 +254,7 @@ The implementation must leave a clear extension point for a future `run` command
 
 ## Implementation progress
 
-- [ ] Step 1: Manifest models and graph validation.
+- [x] Step 1: Manifest models and graph validation.
 - [ ] Step 2: Read-only plan command.
 - [ ] Step 3: Safe prepare command.
 - [ ] Step 4: Environment bootstrap and instructions.
@@ -262,6 +262,11 @@ The implementation must leave a clear extension point for a future `run` command
 - [ ] Step 6: Cleanup command.
 - [ ] Step 7: Sample manifest and docs.
 - [ ] Step 8: SDK runner extension point.
+
+### Step 1 verification
+
+- RED: `uv run pytest tests/scripts/test_worktree_tasks.py -q` failed with `ModuleNotFoundError: No module named 'scripts.worktree_tasks'`.
+- GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`5 passed`).
 
 ## Pull Request
 
