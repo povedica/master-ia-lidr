@@ -51,12 +51,23 @@ async def retrieval_debug(
 
     request_id = f"rdbg_{uuid4().hex[:12]}"
     try:
-        return await run_retrieval_debug(
+        response = await run_retrieval_debug(
             request,
             session=session,
             embedder=embedder,
             repository=repository,
         )
+        logger.info(
+            "retrieval_debug_completed",
+            extra={
+                "request_id": request_id,
+                "strategies": request.strategies,
+                "vector_result_count": len(response.branches.vector or []),
+                "timings_ms": response.timings_ms,
+                "max_results": request.max_results,
+            },
+        )
+        return response
     except Exception as exc:
         logger.error(
             "retrieval_debug_failed",

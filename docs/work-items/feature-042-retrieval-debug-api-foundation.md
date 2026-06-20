@@ -126,15 +126,16 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 
 ## Verification
 
-- Automated: `uv run pytest tests/embedding_pipeline -q` (new debug tests + search regression).
+- Automated: `uv run pytest tests/embedding_pipeline -q` (157 passed, 2 deselected).
 - Manual: curl `POST /api/v1/retrieval-debug` and `GET /retrieval-debug/chunks/{id}` on Compose Postgres.
-- Not verified yet: lexical/hybrid/rerank branches (later sub-features).
+- Not verified: manual curl on live Compose Postgres; lexical/hybrid/rerank branches are intentionally later sub-features.
 
 ## Documentation Plan
 
-- `README.md`: internal-tools subsection with the debug API + curl example + note it is internal-only.
-- `docs/technical/README.md`: schemas, normalization, explanation vocabulary, telemetry keys.
-- Second Brain: short session note on making vector retrieval observable.
+- [x] `README.md`: internal-tools subsection with the debug API + curl example + note it is internal-only.
+- [x] `docs/technical/README.md`: schemas, normalization, explanation vocabulary, telemetry keys.
+- [x] `docs/arquitectura-estimador-cag.html`: API surface, router tree, embedding pipeline flow, endpoint table.
+- [x] Second Brain: short learning note on making vector retrieval observable.
 
 ## Implementation Plan
 
@@ -160,7 +161,7 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 - [x] Step 3: Explanation builder and threshold filtering.
 - [x] Step 4: Retrieval debug orchestrator.
 - [x] Step 5: Router registration and chunk inspector.
-- [ ] Step 6: Telemetry, documentation, and final verification.
+- [x] Step 6: Telemetry, documentation, and final verification.
 
 ## Pull request
 
@@ -171,3 +172,9 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 | Commit | Summary |
 |--------|---------|
 | `4ff4c21` | Added the canonical feature work item, estimation, and implementation progress tracker. |
+| `014a570` | Recorded draft PR tracking in the canonical work item. |
+| `3c10415` | Added retrieval debug request/response schemas and validation tests. |
+| `bdf97b2` | Added vector branch entries with rank, raw distance, and normalized score. |
+| `df1a527` | Added vector explanation signals and threshold filtering. |
+| `abe82fd` | Added the retrieval debug orchestrator for vector traces and warnings. |
+| `2120149` | Exposed retrieval debug HTTP endpoints and chunk inspector with router tests. |

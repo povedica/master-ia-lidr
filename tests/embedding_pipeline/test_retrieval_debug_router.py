@@ -148,6 +148,25 @@ def test_post_retrieval_debug_returns_vector_trace(retrieval_debug_client: TestC
     assert retrieval_debug_client.search_repository.last_k == 5  # type: ignore[attr-defined]
 
 
+def test_post_retrieval_debug_logs_safe_completion(
+    retrieval_debug_client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("INFO"):
+        response = retrieval_debug_client.post(POST_PATH, json={"query": "OAuth backend"})
+
+    assert response.status_code == 200
+    assert any(
+        record.message == "retrieval_debug_completed"
+        and getattr(record, "request_id", "").startswith("rdbg_")
+        and getattr(record, "strategies", None) == ["vector"]
+        and getattr(record, "vector_result_count", None) == 1
+        and getattr(record, "max_results", None) == 10
+        and isinstance(getattr(record, "timings_ms", None), dict)
+        for record in caplog.records
+    )
+
+
 def test_post_retrieval_debug_database_not_configured_returns_503() -> None:
     async def _missing_db_override() -> AsyncIterator[None]:
         raise HTTPException(

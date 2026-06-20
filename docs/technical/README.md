@@ -425,11 +425,13 @@ Outbound: **`SessionEstimateResponse`** — top-level `project_metadata` (`Deriv
 
 Orchestration: `session_estimate_request_parser.py` → `SimplifiedSessionEstimationService` (metadata merge, bounded history → `messages_override` on structured LLM) → `LLMPipeline.run_structured`. Session state is in-memory only (`app/services/sessions.py`).
 
-### Embedding ingest (`POST /api/v1/embeddings/ingest`) and semantic search (`POST /api/v1/search`)
+### Embedding ingest (`POST /api/v1/embeddings/ingest`), semantic search (`POST /api/v1/search`), and retrieval debug
 
 Session 07 pipeline routes (isolated from estimator CAG and Redis semantic cache). Full contract: root `README.md` § Embedding pipeline; implementation detail: [§21](#21-embedding-pipeline-session-07), [§23](#23-semantic-search-endpoint-feature-038).
 
 **Ingest:** one `Budget` per request; Postgres transaction; `409` on duplicate `source_path`. **Search:** natural-language `query` + `k`; ranks persisted chunks by pgvector cosine distance (`<=>`); requires `OPENAI_API_KEY` for query embedding. Worked manual analysis (SAML + education query): [feature-038 work item](../work-items/feature-038-semantic-search-endpoint-pgvector.md#manual-query-analysis-verified-on-compose-postgres).
+
+**Retrieval debug:** internal `POST /api/v1/retrieval-debug` reuses the vector search path but returns an explainable branch container: `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity. Future lexical/hybrid/rerank branches stay `null` with warnings until their feature slices are implemented.
 
 ### Semantic cache (v2, optional)
 
@@ -570,6 +572,7 @@ Current events:
 | `estimation_output_persisted` | `INFO` | `app.routers.estimations` | `path` (output file, no secrets) |
 | `estimation_output_persist_failed` | `WARNING` | `app.routers.estimations` | Minimal context; no stack trace to clients |
 | `semantic_cache.*` | `INFO` / `WARNING` | `app.services.semantic_cache` | `request_id`, bucket display key, scores, thresholds, latencies; no user text or embeddings |
+| `retrieval_debug_completed` | `INFO` | `app.routers.retrieval_debug` | `request_id`, `strategies`, `vector_result_count`, `timings_ms`, `max_results`; no query text, embeddings, or secrets |
 
 Rules:
 
@@ -971,6 +974,43 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 ```
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
+
+### Retrieval debug API (feature-042)
+
+Feature-042 adds an internal observability layer without changing `POST /api/v1/search`.
+
+| Path | Role |
+|------|------|
+| `app/routers/retrieval_debug.py` | HTTP routes, DI, safe errors, completion logging |
+| `app/embedding_pipeline/retrieval_debug.py` | Vector branch orchestration, score normalization, explanations, chunk inspection service |
+| `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads and optional single-chunk distance query |
+| `app/embedding_pipeline/retrieval_debug_schemas.py` | Request/response schemas and nullable branch container |
+
+`POST /api/v1/retrieval-debug` request:
+
+```json
+{
+  "query": "JWT refresh token rotation for OAuth2 REST API",
+  "strategies": ["vector"],
+  "vector": {"top_k": 20, "threshold": 0.6},
+  "max_results": 10
+}
+```
+
+Response shape:
+
+- `branches.vector[]`: vector rank, ids, `distance`, normalized `score`.
+- `branches.lexical`, `branches.hybrid`, `branches.rerank`: `null` in feature-042; requested future branches produce warnings.
+- `final_results[]`: capped, threshold-filtered vector results with title, excerpt, metadata, source strategies, and explanation signals.
+- `timings_ms`: `vector` and `total`.
+
+Chunk inspector:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend"
+```
+
+Status/error contract: empty corpus returns `200` with empty lists, invalid input returns `422`, unknown chunk returns `404`, empty `DATABASE_URL` returns `503`, unexpected failures return safe `500` details.
 
 ## 24. HNSW vector index (feature-040)
 
