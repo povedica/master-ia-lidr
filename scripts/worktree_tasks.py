@@ -53,6 +53,7 @@ class WorktreePlan:
     execution_order: tuple[WorktreeTask, ...]
     base_branch: str
     env_strategy: str
+    worktrees_root: Path
 
 
 def derive_feature_identity(work_item: Path) -> FeatureIdentity:
@@ -124,6 +125,7 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
         execution_order=tuple(tasks_by_id[feature_id] for feature_id in ordered_ids),
         base_branch=base_branch,
         env_strategy=env_strategy,
+        worktrees_root=worktrees_root,
     )
 
 
@@ -177,6 +179,12 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
         help="Treat existing worktree paths as reusable instead of failing.",
     )
 
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Show persisted worktree task status.",
+    )
+    status_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
+
     args = parser.parse_args(argv)
     root = repo_root or Path.cwd()
 
@@ -193,11 +201,17 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
             _prepare_tasks(
                 selected_tasks,
                 repo_root=root,
+                state_path=_state_path(plan),
                 base_branch=plan.base_branch,
                 env_strategy=plan.env_strategy,
                 dry_run=args.dry_run,
                 reuse_existing=args.reuse_existing,
             )
+            return 0
+        if args.command == "status":
+            manifest = load_manifest_file(Path(args.file))
+            plan = parse_manifest_data(manifest, repo_root=root)
+            _print_status(plan)
             return 0
     except ManifestError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -232,11 +246,13 @@ def _prepare_tasks(
     tasks: tuple[WorktreeTask, ...],
     *,
     repo_root: Path,
+    state_path: Path,
     base_branch: str,
     env_strategy: str,
     dry_run: bool,
     reuse_existing: bool,
 ) -> None:
+    state = _load_state(state_path)
     for task in tasks:
         command = _worktree_add_command(task, base_branch=base_branch)
         print(" ".join(command))
@@ -258,6 +274,9 @@ def _prepare_tasks(
         subprocess.run(command, check=True)
         _write_instructions(task)
         _bootstrap_env(task, repo_root=repo_root, env_strategy=env_strategy)
+        _record_status(state, task, status="prepared")
+    if not dry_run:
+        _save_state(state_path, state)
 
 
 def _worktree_add_command(task: WorktreeTask, *, base_branch: str) -> list[str]:
@@ -311,6 +330,44 @@ def _bootstrap_env(task: WorktreeTask, *, repo_root: Path, env_strategy: str) ->
         return
 
     raise ManifestError("env_strategy must be 'symlink' or 'copy'")
+
+
+def _state_path(plan: WorktreePlan) -> Path:
+    return plan.worktrees_root / ".runs" / "worktree_tasks_state.json"
+
+
+def _load_state(state_path: Path) -> dict[str, Any]:
+    if not state_path.exists():
+        return {"tasks": {}}
+    loaded = json.loads(state_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ManifestError(f"Invalid state file: {state_path}")
+    loaded.setdefault("tasks", {})
+    return loaded
+
+
+def _save_state(state_path: Path, state: dict[str, Any]) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _record_status(state: dict[str, Any], task: WorktreeTask, *, status: str) -> None:
+    tasks_state = state.setdefault("tasks", {})
+    tasks_state[task.feature_id] = {
+        "status": status,
+        "branch": task.branch,
+        "worktree_path": str(task.worktree_path),
+        "work_item": task.work_item.as_posix(),
+    }
+
+
+def _print_status(plan: WorktreePlan) -> None:
+    state = _load_state(_state_path(plan))
+    tasks_state = state.get("tasks", {})
+    for task in plan.execution_order:
+        task_state = tasks_state.get(task.feature_id, {})
+        status = task_state.get("status", "planned")
+        print(f"{task.feature_id} {status} {task.branch} worktree={task.worktree_path}")
 
 
 def _parse_task(

@@ -181,7 +181,7 @@ def test_prepare_writes_instructions_and_symlinks_env_without_logging_secret(
     manifest_path.write_text(
         """
 defaults:
-  worktrees_root: ../master-ia-worktrees
+  worktrees_root: worktrees
   env_strategy: symlink
 tasks:
   - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
@@ -198,7 +198,7 @@ tasks:
 
     exit_code = main(["prepare", "-f", str(manifest_path), "--only", "042"], repo_root=tmp_path)
 
-    worktree_path = tmp_path.parent / "master-ia-worktrees" / (
+    worktree_path = tmp_path / "worktrees" / (
         "feature-042-retrieval-debug-api-foundation"
     )
     output = capsys.readouterr().out
@@ -211,3 +211,36 @@ tasks:
     ).read_text(encoding="utf-8")
     assert (worktree_path / ".env").is_symlink()
     assert "secret-test-value" not in output
+
+
+def test_status_reports_prepared_task_from_persisted_state(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    manifest_path = tmp_path / "manifest.yaml"
+    manifest_path.write_text(
+        """
+defaults:
+  worktrees_root: worktrees
+tasks:
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+""",
+        encoding="utf-8",
+    )
+
+    def fake_run(command: list[str], check: bool) -> subprocess.CompletedProcess[str]:
+        Path(command[3]).mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr("scripts.worktree_tasks.subprocess.run", fake_run)
+    assert main(["prepare", "-f", str(manifest_path), "--only", "042"], repo_root=tmp_path) == 0
+
+    exit_code = main(["status", "-f", str(manifest_path)], repo_root=tmp_path)
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "042" in output
+    assert "prepared" in output
+    assert "feature/042-retrieval-debug-api-foundation" in output

@@ -258,7 +258,7 @@ The implementation must leave a clear extension point for a future `run` command
 - [x] Step 2: Read-only plan command.
 - [x] Step 3: Safe prepare command.
 - [x] Step 4: Environment bootstrap and instructions.
-- [ ] Step 5: Status command.
+- [x] Step 5: Status command.
 - [ ] Step 6: Cleanup command.
 - [ ] Step 7: Sample manifest and docs.
 - [ ] Step 8: SDK runner extension point.
@@ -282,6 +282,11 @@ The implementation must leave a clear extension point for a future `run` command
 
 - RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_prepare_writes_instructions_and_symlinks_env_without_logging_secret -q` failed because `INSTRUCTIONS.md` and `.env` bootstrap were not implemented.
 - GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`8 passed`).
+
+### Step 5 verification
+
+- RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_status_reports_prepared_task_from_persisted_state -q` failed because `status` was not yet a supported command.
+- GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`9 passed`).
 
 ## Repository commits (master-ia)
 
