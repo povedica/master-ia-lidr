@@ -213,8 +213,13 @@ The implementation must leave a clear extension point for a future `run` command
   - `uv run pytest`
 - Manual:
   - `uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml`
-  - `uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 049 --dry-run`
+  - `uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run`
   - `git worktree list`
+- Verified during `/start-task`:
+  - `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`11 passed`).
+  - `uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml` passed and printed 042 before 043.
+  - `uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run` passed and printed the expected `git worktree add` command.
+  - `uv run pytest` passed (`548 passed, 11 skipped, 12 deselected`).
 - Not verified yet:
   - Real Cursor SDK execution.
   - Parallel live database verification.
@@ -313,6 +318,13 @@ The implementation must leave a clear extension point for a future `run` command
 | `2d43551` | `feat(worktree): add manifest planning core` | Added manifest identity derivation, dependency graph validation, and first unit tests. |
 | `ab7fca6` | `docs(worktree): record manifest core commit` | Added the repository commit table and recorded initial implementation traceability. |
 | `334e3c4` | `feat(worktree): add manifest plan command` | Added the read-only manifest `plan` CLI command and YAML/JSON manifest loading. |
+| `1599c37` | `docs(worktree): record plan command commit` | Recorded the plan command commit in the canonical work item. |
+| `d2432c8` | `feat(worktree): add prepare dry-run command` | Added prepare command planning and dry-run output for worktree creation. |
+| `35da574` | `feat(worktree): bootstrap prepared worktrees` | Added instructions generation and safe `.env` symlink/copy bootstrap. |
+| `173788b` | `feat(worktree): persist task status` | Added persisted local state and the `status` command. |
+| `dba7551` | `feat(worktree): add conservative cleanup command` | Added cleanup dry-run and conservative worktree removal guards. |
+| `5fefa0f` | `docs(worktree): document orchestrator workflow` | Added the sample manifest and technical documentation for the workflow. |
+| `f25e400` | `feat(worktree): add SDK runner dry-run hook` | Added the `run --dry-run` extension point without launching agents. |
 
 ## Pull Request
 
