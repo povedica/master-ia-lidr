@@ -166,8 +166,19 @@ LIMIT :top_k;
 
 ## Implementation progress
 
-- [ ] Step 1: `LexicalSearchRepository` + statement/mapping tests.
+- [x] Step 1: `LexicalSearchRepository` + statement/mapping tests.
 - [ ] Step 2: Lexical request/response schema extensions.
 - [ ] Step 3: Lexical normalization and explanation helpers.
 - [ ] Step 4: Retrieval debug service orchestration for the lexical branch.
 - [ ] Step 5: Documentation sweep and final verification.
+
+## Verification log
+
+- Step 1 automated: `uv run pytest tests/embedding_pipeline/test_lexical_search_repository.py -q` (`2 passed`).
+- Step 1 lints: no diagnostics in `app/embedding_pipeline/lexical_search_repository.py` or `tests/embedding_pipeline/test_lexical_search_repository.py`.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `e1112e9` | Planned the lexical full-text branch implementation and documentation scope before code. |
