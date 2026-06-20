@@ -8,6 +8,7 @@ from graphlib import CycleError, TopologicalSorter
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 from typing import Any
 
@@ -49,6 +50,7 @@ class WorktreeTask:
 class WorktreePlan:
     tasks_by_id: dict[str, WorktreeTask]
     execution_order: tuple[WorktreeTask, ...]
+    base_branch: str
 
 
 def derive_feature_identity(work_item: Path) -> FeatureIdentity:
@@ -84,6 +86,7 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
         repo_root=repo_root,
         raw_path=defaults.get("worktrees_root", "../master-ia-worktrees"),
     )
+    base_branch = str(defaults.get("base_branch", "main"))
     default_mode = defaults.get("mode", "prepare")
 
     tasks_by_id: dict[str, WorktreeTask] = {}
@@ -114,6 +117,7 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
     return WorktreePlan(
         tasks_by_id=tasks_by_id,
         execution_order=tuple(tasks_by_id[feature_id] for feature_id in ordered_ids),
+        base_branch=base_branch,
     )
 
 
@@ -147,6 +151,26 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
     )
     plan_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
 
+    prepare_parser = subparsers.add_parser(
+        "prepare",
+        help="Create or preview worktree preparation commands.",
+    )
+    prepare_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
+    prepare_parser.add_argument(
+        "--only",
+        help="Comma-separated feature ids to prepare, e.g. 042,043.",
+    )
+    prepare_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print planned commands without creating worktrees.",
+    )
+    prepare_parser.add_argument(
+        "--reuse-existing",
+        action="store_true",
+        help="Treat existing worktree paths as reusable instead of failing.",
+    )
+
     args = parser.parse_args(argv)
     root = repo_root or Path.cwd()
 
@@ -155,6 +179,17 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
             manifest = load_manifest_file(Path(args.file))
             plan = parse_manifest_data(manifest, repo_root=root)
             _print_plan(plan)
+            return 0
+        if args.command == "prepare":
+            manifest = load_manifest_file(Path(args.file))
+            plan = parse_manifest_data(manifest, repo_root=root)
+            selected_tasks = _select_tasks(plan, args.only)
+            _prepare_tasks(
+                selected_tasks,
+                base_branch=plan.base_branch,
+                dry_run=args.dry_run,
+                reuse_existing=args.reuse_existing,
+            )
             return 0
     except ManifestError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -172,6 +207,55 @@ def _print_plan(plan: WorktreePlan) -> None:
             f"worktree={task.worktree_path} depends_on={dependencies} "
             f"mode={task.mode} needs_live_db={str(task.needs_live_db).lower()}",
         )
+
+
+def _select_tasks(plan: WorktreePlan, only: str | None) -> tuple[WorktreeTask, ...]:
+    if only is None:
+        return plan.execution_order
+
+    requested_ids = tuple(_normalize_dependency(value.strip()) for value in only.split(","))
+    missing_ids = [feature_id for feature_id in requested_ids if feature_id not in plan.tasks_by_id]
+    if missing_ids:
+        raise ManifestError(f"Unknown task id: {', '.join(missing_ids)}")
+    return tuple(plan.tasks_by_id[feature_id] for feature_id in requested_ids)
+
+
+def _prepare_tasks(
+    tasks: tuple[WorktreeTask, ...],
+    *,
+    base_branch: str,
+    dry_run: bool,
+    reuse_existing: bool,
+) -> None:
+    for task in tasks:
+        command = _worktree_add_command(task, base_branch=base_branch)
+        print(" ".join(command))
+        if dry_run:
+            continue
+
+        if task.worktree_path.exists():
+            if reuse_existing:
+                print(f"reuse existing worktree: {task.worktree_path}")
+                continue
+            raise ManifestError(
+                f"Worktree path already exists: {task.worktree_path}. "
+                "Use --reuse-existing to keep it.",
+            )
+
+        task.worktree_path.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(command, check=True)
+
+
+def _worktree_add_command(task: WorktreeTask, *, base_branch: str) -> list[str]:
+    return [
+        "git",
+        "worktree",
+        "add",
+        str(task.worktree_path),
+        "-b",
+        task.branch,
+        base_branch,
+    ]
 
 
 def _parse_task(

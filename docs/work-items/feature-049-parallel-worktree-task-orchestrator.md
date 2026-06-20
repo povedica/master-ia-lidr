@@ -256,7 +256,7 @@ The implementation must leave a clear extension point for a future `run` command
 
 - [x] Step 1: Manifest models and graph validation.
 - [x] Step 2: Read-only plan command.
-- [ ] Step 3: Safe prepare command.
+- [x] Step 3: Safe prepare command.
 - [ ] Step 4: Environment bootstrap and instructions.
 - [ ] Step 5: Status command.
 - [ ] Step 6: Cleanup command.
@@ -272,6 +272,11 @@ The implementation must leave a clear extension point for a future `run` command
 
 - RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_plan_command_outputs_order_and_does_not_create_worktrees -q` failed because `main` was not yet implemented.
 - GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`6 passed`).
+
+### Step 3 verification
+
+- RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_prepare_dry_run_outputs_worktree_command_without_mutating -q` failed because `prepare` was not yet a supported command.
+- GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`7 passed`).
 
 ## Repository commits (master-ia)
 

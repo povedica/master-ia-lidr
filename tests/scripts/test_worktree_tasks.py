@@ -137,3 +137,33 @@ tasks:
     assert "042 feature/042-retrieval-debug-api-foundation" in output
     assert "043 feature/043-lexical-fulltext-search-branch" in output
     assert not (tmp_path.parent / "master-ia-worktrees").exists()
+
+
+def test_prepare_dry_run_outputs_worktree_command_without_mutating(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    manifest_path = tmp_path / "manifest.yaml"
+    manifest_path.write_text(
+        """
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+tasks:
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+""",
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        ["prepare", "-f", str(manifest_path), "--only", "042", "--dry-run"],
+        repo_root=tmp_path,
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "git worktree add" in output
+    assert "feature/042-retrieval-debug-api-foundation" in output
+    assert "feature-042-retrieval-debug-api-foundation" in output
+    assert not (tmp_path.parent / "master-ia-worktrees").exists()
