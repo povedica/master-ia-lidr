@@ -1478,6 +1478,7 @@
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
               <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores en Postgres)</li>
               <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
+              <li><code>retrieval-debug</code> — API interna para explicar ranking vectorial e inspeccionar chunks (feature-042)</li>
             </ul>
           </div>
           <div class="card">
@@ -2015,13 +2016,14 @@
             <div class="tree-children" style="display:block">
               <div class="tree-leaf">main.py <span class="comment">— entrypoint, lifespan, CORS, routers</span></div>
               <div class="tree-leaf">config.py <span class="comment">— Settings pydantic-settings</span></div>
-              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions, embeddings, search</span></div>
+              <div class="tree-node">routers/ <span class="comment">— estimations, estimations_v2, sessions, embeddings, search, retrieval_debug</span></div>
               <div class="tree-children">
                 <div class="tree-leaf">estimations.py <span class="comment">— v1 text + SSE</span></div>
                 <div class="tree-leaf">estimations_v2.py <span class="comment">— v2 structured</span></div>
                 <div class="tree-leaf">sessions.py <span class="comment">— CRUD sesiones + estimate</span></div>
                 <div class="tree-leaf">embeddings.py <span class="comment">— ingest pipeline Session 07</span></div>
                 <div class="tree-leaf">search.py <span class="comment">— semantic search feature-038</span></div>
+                <div class="tree-leaf">retrieval_debug.py <span class="comment">— debug API feature-042</span></div>
               </div>
               <div class="tree-node">embedding_pipeline/ <span class="comment">— Session 07: schemas, chunker, embedder (aislado)</span></div>
               <div class="tree-children">
@@ -2401,6 +2403,7 @@ flowchart TD
           <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Índice HNSW <code>ix_chunks_embedding_hnsw</code> con <code>vector_cosine_ops</code> (feature-040).
           <strong>Ingest transaccional (feature-037):</strong> <code>POST /api/v1/embeddings/ingest</code> persiste un presupuesto por petición vía <code>run_persistent_ingest()</code>; respuesta con metadatos (sin vectores crudos); <code>409</code> si <code>source_path</code> duplicado.
           <strong>Búsqueda semántica (feature-038):</strong> <code>POST /api/v1/search</code> embebe la query con el mismo modelo, rankea chunks por distancia coseno (<code>&lt;=&gt;</code>) y devuelve top-<code>k</code>. Postgres puede usar índice HNSW <code>ix_chunks_embedding_hnsw</code> (feature-040) sin cambiar el contrato HTTP.
+          <strong>Retrieval debug (feature-042):</strong> <code>POST /api/v1/retrieval-debug</code> reutiliza la rama vectorial y devuelve rank, distancia, score normalizado, explicaciones, timings y warnings; <code>GET /api/v1/retrieval-debug/chunks/{id}</code> muestra contenido completo, vecinos y documento padre.
           Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
@@ -2415,6 +2418,7 @@ flowchart TD
             <ul>
               <li><strong>Ingest HTTP persistido:</strong> <code>POST /api/v1/embeddings/ingest</code> — un presupuesto por petición → filas en <code>documents</code>/<code>chunks</code> + metadatos de ingestión (sin vectores en la respuesta).</li>
               <li><strong>Búsqueda semántica:</strong> <code>POST /api/v1/search</code> — query en lenguaje natural → top-<code>k</code> chunks rankeados por distancia coseno.</li>
+              <li><strong>Debug retrieval interno:</strong> <code>POST /api/v1/retrieval-debug</code> y <code>GET /api/v1/retrieval-debug/chunks/{id}</code> — observabilidad del ranking vectorial y contexto completo del chunk.</li>
               <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → <code>run_ingest</code> en memoria (o <code>--dry-run</code>).</li>
               <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos → similitud coseno.</li>
             </ul>
@@ -2465,6 +2469,11 @@ flowchart TD
                 <td>6</td><td>038</td><td><code>search.py</code> + <code>search_repository.py</code> + <code>routers/search.py</code></td>
                 <td><code>run_semantic_search()</code>: <code>embed_one</code> + SQL <code>cosine_distance</code> + top-<code>k</code></td>
                 <td>Corpus persistido consultable por similitud semántica; índice HNSW cosine (feature-040).</td>
+              </tr>
+              <tr>
+                <td>6b</td><td>042</td><td><code>retrieval_debug.py</code> + <code>retrieval_debug_repository.py</code> + <code>routers/retrieval_debug.py</code></td>
+                <td>Rama vector debug: rank, <code>score = 1 - distance</code>, explicación, warnings y chunk inspector</td>
+                <td>Hace observable el ranking antes de añadir ramas lexical, hybrid o rerank.</td>
               </tr>
               <tr>
                 <td>7</td><td>034</td><td><code>app/scripts/compare.py</code></td>
@@ -2812,6 +2821,8 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
               <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Persist one budget + chunk embeddings</td><td>run_persistent_ingest → Postgres</td></tr>
               <tr><td>POST</td><td><code>/api/v1/search</code></td><td>Semantic search top-k chunks</td><td>embed_one + pgvector cosine distance</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/retrieval-debug</code></td><td>Internal explainable vector retrieval</td><td>embed_one + vector branch trace</td></tr>
+              <tr><td>GET</td><td><code>/api/v1/retrieval-debug/chunks/{id}</code></td><td>Chunk inspector with neighbors</td><td>Postgres chunk/document context</td></tr>
             </tbody>
           </table>
         </div>

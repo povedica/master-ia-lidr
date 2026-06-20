@@ -605,7 +605,8 @@ The pipeline includes:
 - **Chunker** (`chunker.py`) — `JSONStructuralChunker` produces one chunk per budget component with parent-budget context and tiktoken-based `token_count`.
 - **Embedder** (`embedder.py`) — `OpenAIEmbedder` calls `text-embedding-3-small` (1536 dims) with batched requests, rate-limit retry, and cost tracking.
 - **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
-- **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**; no vector index yet (sequential scan baseline).
+- **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**.
+- **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector-branch ranks, normalized scores, explanations, timings, metadata, and chunk context without changing `/search`.
 - **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
 Full setup, verification, and design rationale: [Semantic search with pgvector](#semantic-search-with-pgvector).
@@ -685,6 +686,23 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 ```
 
 **Reading search results:** `distance` is pgvector cosine distance — **lower is more similar**. Values around 0.2–0.4 often indicate a strong match on this corpus; 0.65+ suggests moderate similarity. Semantic search is not keyword search: a query mentioning SAML may rank OAuth chunks highly if the corpus has no SAML text but shares “authentication” and “API” signals. See [`output_examples.txt`](output_examples.txt) and [Semantic search with pgvector](#semantic-search-with-pgvector) for worked examples.
+
+**Internal retrieval debug API** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`):
+
+- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (currently `vector`, future branches return `null` + warning), `vector.top_k`, optional `vector.threshold`, and `max_results`.
+- `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `final_results[]` adds title, excerpt, metadata, source strategies, and explanation signals (`semantic_strong`, `semantic_weak`, `below_threshold`).
+- `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity for that single chunk.
+- Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["vector"],"vector":{"top_k":20,"threshold":0.6},"max_results":10}' \
+  | python3 -m json.tool
+
+curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
+  | python3 -m json.tool
+```
 
 **Cosine similarity CLI** (`app/scripts/compare.py`): embed two texts with `OpenAIEmbedder.embed_one()` (via `asyncio.run`) and print cosine similarity computed with stdlib `math` only. Results for three reference pairs are recorded in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md).
 
@@ -850,6 +868,22 @@ uv run pytest tests/embedding_pipeline/test_search_*.py -q
 ```
 
 Read `distance` as cosine distance: **lower = more similar** (~0.2–0.4 strong on this corpus; ~0.65+ moderate).
+
+**Retrieval debug** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`)
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"REST API with OAuth authentication for fintech sector","strategies":["vector"],"vector":{"top_k":10},"max_results":5}' \
+  | python3 -m json.tool
+
+curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
+  | python3 -m json.tool
+
+uv run pytest tests/embedding_pipeline/test_retrieval_debug_*.py -q
+```
+
+Use this internal API to explain vector retrieval: `distance` remains raw cosine distance, `score` is normalized similarity, `source_strategies` is `["vector"]` in feature-042, and non-vector branches are intentionally `null` until later retrieval sub-features.
 
 **Query demo script** (`query_examples.py`)
 
