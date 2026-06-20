@@ -8,6 +8,7 @@ from graphlib import CycleError, TopologicalSorter
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 from typing import Any
@@ -51,6 +52,7 @@ class WorktreePlan:
     tasks_by_id: dict[str, WorktreeTask]
     execution_order: tuple[WorktreeTask, ...]
     base_branch: str
+    env_strategy: str
 
 
 def derive_feature_identity(work_item: Path) -> FeatureIdentity:
@@ -87,6 +89,9 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
         raw_path=defaults.get("worktrees_root", "../master-ia-worktrees"),
     )
     base_branch = str(defaults.get("base_branch", "main"))
+    env_strategy = str(defaults.get("env_strategy", "symlink"))
+    if env_strategy not in {"symlink", "copy"}:
+        raise ManifestError("env_strategy must be 'symlink' or 'copy'")
     default_mode = defaults.get("mode", "prepare")
 
     tasks_by_id: dict[str, WorktreeTask] = {}
@@ -118,6 +123,7 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
         tasks_by_id=tasks_by_id,
         execution_order=tuple(tasks_by_id[feature_id] for feature_id in ordered_ids),
         base_branch=base_branch,
+        env_strategy=env_strategy,
     )
 
 
@@ -186,7 +192,9 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
             selected_tasks = _select_tasks(plan, args.only)
             _prepare_tasks(
                 selected_tasks,
+                repo_root=root,
                 base_branch=plan.base_branch,
+                env_strategy=plan.env_strategy,
                 dry_run=args.dry_run,
                 reuse_existing=args.reuse_existing,
             )
@@ -223,7 +231,9 @@ def _select_tasks(plan: WorktreePlan, only: str | None) -> tuple[WorktreeTask, .
 def _prepare_tasks(
     tasks: tuple[WorktreeTask, ...],
     *,
+    repo_root: Path,
     base_branch: str,
+    env_strategy: str,
     dry_run: bool,
     reuse_existing: bool,
 ) -> None:
@@ -236,6 +246,8 @@ def _prepare_tasks(
         if task.worktree_path.exists():
             if reuse_existing:
                 print(f"reuse existing worktree: {task.worktree_path}")
+                _write_instructions(task)
+                _bootstrap_env(task, repo_root=repo_root, env_strategy=env_strategy)
                 continue
             raise ManifestError(
                 f"Worktree path already exists: {task.worktree_path}. "
@@ -244,6 +256,8 @@ def _prepare_tasks(
 
         task.worktree_path.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(command, check=True)
+        _write_instructions(task)
+        _bootstrap_env(task, repo_root=repo_root, env_strategy=env_strategy)
 
 
 def _worktree_add_command(task: WorktreeTask, *, base_branch: str) -> list[str]:
@@ -256,6 +270,47 @@ def _worktree_add_command(task: WorktreeTask, *, base_branch: str) -> list[str]:
         task.branch,
         base_branch,
     ]
+
+
+def _write_instructions(task: WorktreeTask) -> None:
+    live_db_note = (
+        "- This task is marked `needs_live_db=true`; run live database checks serially.\n"
+        if task.needs_live_db
+        else "- This task is not marked as requiring live database checks.\n"
+    )
+    content = (
+        "# Worktree task instructions\n\n"
+        f"- Work item: `{task.work_item.as_posix()}`\n"
+        f"- Branch: `{task.branch}`\n"
+        f"- Manual Cursor command: `{task.prompt}`\n"
+        f"- Worktree path: `{task.worktree_path}`\n"
+        f"{live_db_note}\n"
+        "Do not commit `.env`, local logs, or generated runtime artifacts.\n"
+    )
+    (task.worktree_path / "INSTRUCTIONS.md").write_text(content, encoding="utf-8")
+
+
+def _bootstrap_env(task: WorktreeTask, *, repo_root: Path, env_strategy: str) -> None:
+    source_env = repo_root / ".env"
+    target_env = task.worktree_path / ".env"
+    if not source_env.exists():
+        print(f"warning: missing local .env at {source_env}; skipping env bootstrap")
+        return
+    if target_env.exists() or target_env.is_symlink():
+        print(f"env already present: {target_env}")
+        return
+
+    if env_strategy == "symlink":
+        target_env.symlink_to(source_env)
+        print(f"linked .env: {target_env}")
+        return
+
+    if env_strategy == "copy":
+        shutil.copy2(source_env, target_env)
+        print(f"copied .env: {target_env}")
+        return
+
+    raise ManifestError("env_strategy must be 'symlink' or 'copy'")
 
 
 def _parse_task(
