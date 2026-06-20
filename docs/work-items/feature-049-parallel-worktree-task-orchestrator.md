@@ -261,7 +261,7 @@ The implementation must leave a clear extension point for a future `run` command
 - [x] Step 5: Status command.
 - [x] Step 6: Cleanup command.
 - [x] Step 7: Sample manifest and docs.
-- [ ] Step 8: SDK runner extension point.
+- [x] Step 8: SDK runner extension point.
 
 ### Step 1 verification
 
@@ -298,6 +298,11 @@ The implementation must leave a clear extension point for a future `run` command
 - TDD exception: documentation and sample manifest only.
 - Manual: `python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml` failed because this environment does not expose `python`; commands were corrected to `uv run python`.
 - Manual: `uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml` passed and printed the expected 042 -> 043 execution order.
+
+### Step 8 verification
+
+- RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_run_dry_run_reports_sdk_prompt_without_launching_agent -q` failed because `run` was not yet a supported command.
+- GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`11 passed`).
 
 ## Repository commits (master-ia)
 

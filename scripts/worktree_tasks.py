@@ -54,6 +54,7 @@ class WorktreePlan:
     base_branch: str
     env_strategy: str
     worktrees_root: Path
+    max_parallel: int
 
 
 def derive_feature_identity(work_item: Path) -> FeatureIdentity:
@@ -93,6 +94,9 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
     env_strategy = str(defaults.get("env_strategy", "symlink"))
     if env_strategy not in {"symlink", "copy"}:
         raise ManifestError("env_strategy must be 'symlink' or 'copy'")
+    max_parallel = int(defaults.get("max_parallel", 2))
+    if max_parallel < 1:
+        raise ManifestError("max_parallel must be at least 1")
     default_mode = defaults.get("mode", "prepare")
 
     tasks_by_id: dict[str, WorktreeTask] = {}
@@ -126,6 +130,7 @@ def parse_manifest_data(data: dict[str, Any], *, repo_root: Path) -> WorktreePla
         base_branch=base_branch,
         env_strategy=env_strategy,
         worktrees_root=worktrees_root,
+        max_parallel=max_parallel,
     )
 
 
@@ -202,6 +207,18 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
         help="Allow cleanup of dirty or unmerged worktrees.",
     )
 
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Preview future Cursor SDK task execution.",
+    )
+    run_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
+    run_parser.add_argument("--only", help="Comma-separated feature ids to run.")
+    run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print SDK prompts without launching agents.",
+    )
+
     args = parser.parse_args(argv)
     root = repo_root or Path.cwd()
 
@@ -240,6 +257,12 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
                 dry_run=args.dry_run,
                 force=args.force,
             )
+            return 0
+        if args.command == "run":
+            manifest = load_manifest_file(Path(args.file))
+            plan = parse_manifest_data(manifest, repo_root=root)
+            selected_tasks = _select_tasks(plan, args.only)
+            _run_sdk_tasks(selected_tasks, max_parallel=plan.max_parallel, dry_run=args.dry_run)
             return 0
     except ManifestError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -345,6 +368,25 @@ def _cleanup_tasks(
     if not dry_run:
         subprocess.run(["git", "worktree", "prune"], check=True)
         _save_state(state_path, state)
+
+
+def _run_sdk_tasks(
+    tasks: tuple[WorktreeTask, ...],
+    *,
+    max_parallel: int,
+    dry_run: bool,
+) -> None:
+    print(f"max_parallel={max_parallel}")
+    for task in tasks:
+        print(f"{task.feature_id} prompt={task.prompt} cwd={task.worktree_path}")
+
+    if dry_run:
+        print("SDK runner is not implemented; dry-run only. Use prepare/manual fallback.")
+        return
+
+    raise ManifestError(
+        "SDK runner is not implemented yet. Re-run with --dry-run or use prepare/manual fallback.",
+    )
 
 
 def _worktree_remove_command(task: WorktreeTask) -> list[str]:

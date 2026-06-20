@@ -281,3 +281,30 @@ tasks:
     assert "git worktree remove" in output
     assert str(worktree_path) in output
     assert worktree_path.exists()
+
+
+def test_run_dry_run_reports_sdk_prompt_without_launching_agent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    manifest_path = tmp_path / "manifest.yaml"
+    manifest_path.write_text(
+        """
+defaults:
+  worktrees_root: worktrees
+  max_parallel: 2
+tasks:
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+    mode: sdk
+""",
+        encoding="utf-8",
+    )
+
+    exit_code = main(["run", "-f", str(manifest_path), "--only", "042", "--dry-run"], repo_root=tmp_path)
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "max_parallel=2" in output
+    assert "/start-task docs/work-items/feature-042-retrieval-debug-api-foundation.md" in output
+    assert "SDK runner is not implemented" in output

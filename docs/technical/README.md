@@ -1130,13 +1130,19 @@ uv run python scripts/worktree_tasks.py status -f docs/technical/worktree-task-o
 uv run python scripts/worktree_tasks.py cleanup -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
 ```
 
+Preview the future Cursor SDK runner without launching agents:
+
+```bash
+uv run python scripts/worktree_tasks.py run -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+```
+
 Safety notes:
 
 - Worktrees live outside the repository tree by default (`../master-ia-worktrees`) to avoid nested repo indexing and test discovery surprises.
 - `.env` is symlinked by default when present; secret values are never printed or written to status files.
 - Each worktree should run its own `uv sync --group dev` before full local work.
 - The default fast test suite is safe to run in parallel. Live Postgres/Redis checks should be serialized because the Compose stack uses fixed shared ports.
-- Cursor SDK execution is a future extension point. Local SDK runs still consume Cursor usage through `CURSOR_API_KEY`; without on-demand enabled, they can stop when included usage is exhausted.
+- Cursor SDK execution is a future extension point. The `run --dry-run` command shows the prompts that would be sent, but it does not launch agents yet. Local SDK runs still consume Cursor usage through `CURSOR_API_KEY`; without on-demand enabled, they can stop when included usage is exhausted.
 
 The checked-in sample uses currently versioned work items 042 and 043. Extend it with 044-048 once those work-item documents are committed to Git.
 
