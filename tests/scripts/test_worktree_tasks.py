@@ -244,3 +244,40 @@ tasks:
     assert "042" in output
     assert "prepared" in output
     assert "feature/042-retrieval-debug-api-foundation" in output
+
+
+def test_cleanup_dry_run_outputs_remove_command_without_deleting_worktree(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    manifest_path = tmp_path / "manifest.yaml"
+    manifest_path.write_text(
+        """
+defaults:
+  worktrees_root: worktrees
+tasks:
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+""",
+        encoding="utf-8",
+    )
+
+    def fake_run(command: list[str], check: bool) -> subprocess.CompletedProcess[str]:
+        Path(command[3]).mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr("scripts.worktree_tasks.subprocess.run", fake_run)
+    assert main(["prepare", "-f", str(manifest_path), "--only", "042"], repo_root=tmp_path) == 0
+
+    worktree_path = tmp_path / "worktrees" / "feature-042-retrieval-debug-api-foundation"
+    exit_code = main(
+        ["cleanup", "-f", str(manifest_path), "--only", "042", "--dry-run"],
+        repo_root=tmp_path,
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "git worktree remove" in output
+    assert str(worktree_path) in output
+    assert worktree_path.exists()

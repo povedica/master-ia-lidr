@@ -259,7 +259,7 @@ The implementation must leave a clear extension point for a future `run` command
 - [x] Step 3: Safe prepare command.
 - [x] Step 4: Environment bootstrap and instructions.
 - [x] Step 5: Status command.
-- [ ] Step 6: Cleanup command.
+- [x] Step 6: Cleanup command.
 - [ ] Step 7: Sample manifest and docs.
 - [ ] Step 8: SDK runner extension point.
 
@@ -287,6 +287,11 @@ The implementation must leave a clear extension point for a future `run` command
 
 - RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_status_reports_prepared_task_from_persisted_state -q` failed because `status` was not yet a supported command.
 - GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`9 passed`).
+
+### Step 6 verification
+
+- RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_cleanup_dry_run_outputs_remove_command_without_deleting_worktree -q` failed because `cleanup` was not yet a supported command.
+- GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`10 passed`).
 
 ## Repository commits (master-ia)
 

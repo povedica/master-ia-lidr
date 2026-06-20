@@ -185,6 +185,23 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
     )
     status_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
 
+    cleanup_parser = subparsers.add_parser(
+        "cleanup",
+        help="Remove prepared worktrees conservatively.",
+    )
+    cleanup_parser.add_argument("-f", "--file", required=True, help="Manifest YAML/JSON path")
+    cleanup_parser.add_argument("--only", help="Comma-separated feature ids to clean up.")
+    cleanup_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print planned removals without deleting worktrees.",
+    )
+    cleanup_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow cleanup of dirty or unmerged worktrees.",
+    )
+
     args = parser.parse_args(argv)
     root = repo_root or Path.cwd()
 
@@ -212,6 +229,17 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
             manifest = load_manifest_file(Path(args.file))
             plan = parse_manifest_data(manifest, repo_root=root)
             _print_status(plan)
+            return 0
+        if args.command == "cleanup":
+            manifest = load_manifest_file(Path(args.file))
+            plan = parse_manifest_data(manifest, repo_root=root)
+            selected_tasks = _select_tasks(plan, args.only)
+            _cleanup_tasks(
+                selected_tasks,
+                state_path=_state_path(plan),
+                dry_run=args.dry_run,
+                force=args.force,
+            )
             return 0
     except ManifestError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -264,6 +292,7 @@ def _prepare_tasks(
                 print(f"reuse existing worktree: {task.worktree_path}")
                 _write_instructions(task)
                 _bootstrap_env(task, repo_root=repo_root, env_strategy=env_strategy)
+                _record_status(state, task, status="prepared")
                 continue
             raise ManifestError(
                 f"Worktree path already exists: {task.worktree_path}. "
@@ -289,6 +318,50 @@ def _worktree_add_command(task: WorktreeTask, *, base_branch: str) -> list[str]:
         task.branch,
         base_branch,
     ]
+
+
+def _cleanup_tasks(
+    tasks: tuple[WorktreeTask, ...],
+    *,
+    state_path: Path,
+    dry_run: bool,
+    force: bool,
+) -> None:
+    state = _load_state(state_path)
+    for task in tasks:
+        command = _worktree_remove_command(task)
+        print(" ".join(command))
+        if dry_run:
+            continue
+
+        if not task.worktree_path.exists():
+            raise ManifestError(f"Worktree path does not exist: {task.worktree_path}")
+        if not force:
+            _assert_worktree_clean(task)
+
+        subprocess.run(command, check=True)
+        _record_status(state, task, status="done")
+
+    if not dry_run:
+        subprocess.run(["git", "worktree", "prune"], check=True)
+        _save_state(state_path, state)
+
+
+def _worktree_remove_command(task: WorktreeTask) -> list[str]:
+    return ["git", "worktree", "remove", str(task.worktree_path)]
+
+
+def _assert_worktree_clean(task: WorktreeTask) -> None:
+    status_result = subprocess.run(
+        ["git", "-C", str(task.worktree_path), "status", "--short"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    if status_result.stdout.strip():
+        raise ManifestError(
+            f"Worktree has uncommitted changes: {task.worktree_path}. Use --force to override.",
+        )
 
 
 def _write_instructions(task: WorktreeTask) -> None:
