@@ -117,16 +117,16 @@ LIMIT :top_k;
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `LexicalSearchRepository` builds a `websearch_to_tsquery` + `ts_rank_cd` statement ordered by rank desc with `top_k` limit (statement compiles; mapping tested).
-- [ ] AC-02: `strategies: ["lexical"]` returns `200` with a ranked `branches.lexical`; vector/hybrid/rerank keys `null`.
-- [ ] AC-03: Lexical results include `matched_terms` for a query with exact technical tokens (e.g. `JWT`, `OAuth2`).
-- [ ] AC-04: `branches.lexical` `score` is normalized to `[0,1]` within the branch.
-- [ ] AC-05: `final_results` populate `lexical_score`/`lexical_rank`/`matched_terms` for matched chunks and leave them empty otherwise.
-- [ ] AC-06: `strategies: "all"` runs vector + lexical concurrently and returns both branches.
-- [ ] AC-07: A lexical-branch failure yields a partial response + `warnings`, not a 500 (vector still returned).
-- [ ] AC-08: Empty corpus / no lexical hits → `200` with empty `branches.lexical`.
-- [ ] AC-09: `POST /api/v1/search` and the vector branch from `feature-042` remain unchanged.
-- [ ] AC-10: Default suite passes offline; README/technical docs explain lexical baseline + matched terms + sequential-scan note.
+- [x] AC-01: `LexicalSearchRepository` builds a `websearch_to_tsquery` + `ts_rank_cd` statement ordered by rank desc with `top_k` limit (statement compiles; mapping tested).
+- [x] AC-02: `strategies: ["lexical"]` returns `200` with a ranked `branches.lexical`; vector/hybrid/rerank keys `null`.
+- [x] AC-03: Lexical results include `matched_terms` for a query with exact technical tokens (e.g. `JWT`, `OAuth2`).
+- [x] AC-04: `branches.lexical` `score` is normalized to `[0,1]` within the branch.
+- [x] AC-05: `final_results` populate `lexical_score`/`lexical_rank`/`matched_terms` for matched chunks and leave them empty otherwise.
+- [x] AC-06: `strategies: "all"` runs vector + lexical concurrently and returns both branches.
+- [x] AC-07: A lexical-branch failure yields a partial response + `warnings`, not a 500 (vector still returned).
+- [x] AC-08: Empty corpus / no lexical hits → `200` with empty `branches.lexical`.
+- [x] AC-09: `POST /api/v1/search` and the vector branch from `feature-042` remain unchanged.
+- [x] AC-10: Default suite passes offline; README/technical docs explain lexical baseline + matched terms + sequential-scan note.
 
 ## Test Plan
 
@@ -139,7 +139,10 @@ LIMIT :top_k;
 
 - Automated: `uv run pytest tests/embedding_pipeline -q`.
 - Manual: curl debug with `strategies: ["lexical"]` and `"all"` on Compose Postgres; inspect `matched_terms`.
-- Not verified yet: fusion/diff (044); indexed FTS performance (048).
+- Final automated: `uv run pytest tests/embedding_pipeline -q` (`170 passed, 2 deselected`).
+- Final automated: `uv run pytest` (`561 passed, 11 skipped, 12 deselected`).
+- Not verified: live Compose/Postgres curl smoke for `strategies: ["lexical"]` and `"all"` was not run in this pass.
+- Not verified / out of scope: fusion/diff (044); indexed FTS performance (048).
 
 ## Documentation Plan
 
@@ -170,7 +173,12 @@ LIMIT :top_k;
 - [x] Step 2: Lexical request/response schema extensions.
 - [x] Step 3: Lexical normalization and explanation helpers.
 - [x] Step 4: Retrieval debug service orchestration for the lexical branch.
-- [ ] Step 5: Documentation sweep and final verification.
+- [x] Step 5: Documentation sweep and final verification.
+
+## Pull request
+
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/39
+- Branch: `feature/043-lexical-fulltext-search-branch`
 
 ## Verification log
 
@@ -187,6 +195,9 @@ LIMIT :top_k;
 - Step 4 logging RED: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_router.py::test_post_retrieval_debug_logs_safe_completion -q` failed before `lexical_result_count` logging existed.
 - Step 4 regression: `uv run pytest tests/embedding_pipeline -q` (`170 passed, 2 deselected`).
 - Step 4 lints: no diagnostics in edited service, router, or retrieval debug tests.
+- Step 5 docs: `README.md`, `docs/technical/README.md`, `docs/arquitectura-estimador-cag.html`, and `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/retrieval-debug-vector-observability.md` updated.
+- Step 5 final automated: `uv run pytest tests/embedding_pipeline -q` (`170 passed, 2 deselected`).
+- Step 5 final automated: `uv run pytest` (`561 passed, 11 skipped, 12 deselected`).
 
 ## Repository commits (master-ia)
 
@@ -196,3 +207,4 @@ LIMIT :top_k;
 | `91f5087` | Added the baseline lexical search repository with SQL shape and row-mapping coverage. |
 | `106ea18` | Extended retrieval debug schemas for lexical branch configuration and nullable lexical fields. |
 | `ae5a181` | Added lexical branch normalization and explanation helpers for retrieval debug. |
+| `aa4742d` | Wired the lexical branch into the retrieval debug service with partial-failure handling and safe logging. |
