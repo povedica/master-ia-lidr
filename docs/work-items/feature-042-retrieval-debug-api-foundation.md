@@ -178,3 +178,4 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 | `df1a527` | Added vector explanation signals and threshold filtering. |
 | `abe82fd` | Added the retrieval debug orchestrator for vector traces and warnings. |
 | `2120149` | Exposed retrieval debug HTTP endpoints and chunk inspector with router tests. |
+| `7879eaa` | Added completion telemetry, repository documentation, architecture guide updates, and verification notes. |
