@@ -355,6 +355,8 @@ Notes:
 | `dba7551` | `feat(worktree): add conservative cleanup command` | Added cleanup dry-run and conservative worktree removal guards. |
 | `5fefa0f` | `docs(worktree): document orchestrator workflow` | Added the sample manifest and technical documentation for the workflow. |
 | `f25e400` | `feat(worktree): add SDK runner dry-run hook` | Added the `run --dry-run` extension point without launching agents. |
+| `f1e9919` | `docs(worktree): record final verification` | Recorded final validation evidence in the canonical work item. |
+| `f6f8b60` | `docs(worktree): add usage instructions` | Added worktree usage instructions to the canonical work item and root README. |
 
 ## Pull Request
 
