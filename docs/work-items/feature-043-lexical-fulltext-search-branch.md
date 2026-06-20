@@ -145,6 +145,7 @@ LIMIT :top_k;
 
 - `README.md`: lexical branch in the internal-tools section; note baseline FTS, no index yet.
 - `docs/technical/README.md`: SQL shape, normalization, matched-terms derivation, deferral to `feature-048`.
+- `docs/arquitectura-estimador-cag.html`: update the retrieval/debug architecture flow to include the lexical branch and sequential-scan baseline.
 - Second Brain: note on semantic vs lexical signal differences for technical queries.
 
 ## Implementation Plan
@@ -157,4 +158,16 @@ LIMIT :top_k;
 
 ## Estimation
 
-- Size: M · ~5 steps · depends on 042 · unblocks 044, 046, 048.
+- Size: M
+- Estimated time: 3 hours
+- Planned steps: 5
+- Depends on: `feature-042-retrieval-debug-api-foundation`
+- Unblocks: `feature-044-hybrid-fusion-ranking-diff-explanation`, `feature-046-retrieval-metadata-filters`, `feature-048-indexed-lexical-tsvector-migration`
+
+## Implementation progress
+
+- [ ] Step 1: `LexicalSearchRepository` + statement/mapping tests.
+- [ ] Step 2: Lexical request/response schema extensions.
+- [ ] Step 3: Lexical normalization and explanation helpers.
+- [ ] Step 4: Retrieval debug service orchestration for the lexical branch.
+- [ ] Step 5: Documentation sweep and final verification.
