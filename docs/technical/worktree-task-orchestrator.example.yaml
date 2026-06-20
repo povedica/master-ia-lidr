@@ -1,0 +1,14 @@
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 2
+  env_strategy: symlink
+tasks:
+  - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
+    depends_on: []
+    needs_live_db: true
+    mode: prepare
+  - work_item: docs/work-items/feature-043-lexical-fulltext-search-branch.md
+    depends_on: ["042"]
+    needs_live_db: true
+    mode: prepare

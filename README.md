@@ -525,6 +525,27 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app uv r
 cd web && npm run test
 ```
 
+### Parallel feature worktrees
+
+Use `scripts/worktree_tasks.py` to prepare isolated Git worktrees for feature work items without replacing `/start-task`.
+
+```bash
+uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042
+```
+
+Prepared worktrees are created outside this repository by default (`../master-ia-worktrees`) and include an `INSTRUCTIONS.md` with the manual Cursor command to run inside that worktree. `.env` is symlinked when present; never commit it. Live Postgres/Redis checks should be serialized because the local Compose stack uses shared fixed ports.
+
+Inspect and clean up:
+
+```bash
+uv run python scripts/worktree_tasks.py status -f docs/technical/worktree-task-orchestrator.example.yaml
+uv run python scripts/worktree_tasks.py cleanup -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+```
+
+The `run --dry-run` command previews the future Cursor SDK runner, but it does not launch agents yet.
+
 ### Integration tests (sessions)
 
 Session memory, metadata re-injection, attachments, and sliding-window history use the real FastAPI app with `complete_structured` faked (no network):

@@ -31,6 +31,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [21. Embedding pipeline (Session 07)](#21-embedding-pipeline-session-07)
 - [22. Postgres pgvector baseline (feature-036)](#22-postgres-pgvector-baseline-feature-036)
 - [23. Semantic search endpoint (feature-038)](#23-semantic-search-endpoint-feature-038)
+- [24. Worktree task orchestrator](#24-worktree-task-orchestrator)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
@@ -1104,4 +1105,44 @@ docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvecto
 ```
 
 Downgrade path: `uv run alembic downgrade 0001` drops `ix_chunks_embedding_hnsw` only.
+
+## 24. Worktree task orchestrator
+
+`scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.
+
+Example manifest:
+
+```bash
+uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml
+```
+
+Prepare a selected task:
+
+```bash
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042
+```
+
+Inspect and clean up:
+
+```bash
+uv run python scripts/worktree_tasks.py status -f docs/technical/worktree-task-orchestrator.example.yaml
+uv run python scripts/worktree_tasks.py cleanup -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+```
+
+Preview the future Cursor SDK runner without launching agents:
+
+```bash
+uv run python scripts/worktree_tasks.py run -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+```
+
+Safety notes:
+
+- Worktrees live outside the repository tree by default (`../master-ia-worktrees`) to avoid nested repo indexing and test discovery surprises.
+- `.env` is symlinked by default when present; secret values are never printed or written to status files.
+- Each worktree should run its own `uv sync --group dev` before full local work.
+- The default fast test suite is safe to run in parallel. Live Postgres/Redis checks should be serialized because the Compose stack uses fixed shared ports.
+- Cursor SDK execution is a future extension point. The `run --dry-run` command shows the prompts that would be sent, but it does not launch agents yet. Local SDK runs still consume Cursor usage through `CURSOR_API_KEY`; without on-demand enabled, they can stop when included usage is exhausted.
+
+The checked-in sample uses currently versioned work items 042 and 043. Extend it with 044-048 once those work-item documents are committed to Git.
 
