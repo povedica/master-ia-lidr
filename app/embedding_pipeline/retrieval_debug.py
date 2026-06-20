@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.embedder import OpenAIEmbedder
+from app.embedding_pipeline.lexical_search_repository import LexicalSearchResult
 from app.embedding_pipeline.retrieval_debug_repository import RetrievalDebugRepository
 from app.embedding_pipeline.retrieval_debug_schemas import (
     BranchResultEntry,
@@ -56,6 +57,34 @@ def filter_vector_branch_entries(
     return [entry for entry in entries if entry.score >= threshold]
 
 
+def build_lexical_branch_entries(results: list[LexicalSearchResult]) -> list[BranchResultEntry]:
+    """Expose ranked full-text results as normalized lexical-branch entries."""
+
+    if not results:
+        return []
+
+    ranks = [result.ts_rank for result in results]
+    min_rank = min(ranks)
+    max_rank = max(ranks)
+    rank_range = max_rank - min_rank
+
+    def normalized_score(ts_rank: float) -> float:
+        if rank_range == 0:
+            return 1.0
+        return _clamp_score((ts_rank - min_rank) / rank_range)
+
+    return [
+        BranchResultEntry(
+            rank=index,
+            chunk_id=result.chunk_id,
+            document_id=result.document_id,
+            score=normalized_score(result.ts_rank),
+            matched_terms=result.matched_terms,
+        )
+        for index, result in enumerate(results, start=1)
+    ]
+
+
 def build_vector_explanation(
     entry: BranchResultEntry,
     *,
@@ -75,6 +104,17 @@ def build_vector_explanation(
         summary = f"{summary} Similarity is below the configured threshold."
 
     return ResultExplanation(summary=summary, signals=signals)
+
+
+def build_lexical_explanation(entry: BranchResultEntry) -> ResultExplanation:
+    """Build a lexical-only explanation with stable debug signal names."""
+
+    if entry.matched_terms:
+        terms = ", ".join(entry.matched_terms)
+        summary = f"exact lexical match from the full-text branch on: {terms}."
+    else:
+        summary = "lexical match from the full-text branch."
+    return ResultExplanation(summary=summary, signals=["lexical_exact_match"])
 
 
 def _resolved_strategies(strategies: list[str]) -> list[str]:

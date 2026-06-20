@@ -168,7 +168,7 @@ LIMIT :top_k;
 
 - [x] Step 1: `LexicalSearchRepository` + statement/mapping tests.
 - [x] Step 2: Lexical request/response schema extensions.
-- [ ] Step 3: Lexical normalization and explanation helpers.
+- [x] Step 3: Lexical normalization and explanation helpers.
 - [ ] Step 4: Retrieval debug service orchestration for the lexical branch.
 - [ ] Step 5: Documentation sweep and final verification.
 
@@ -179,6 +179,9 @@ LIMIT :top_k;
 - Step 2 automated: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q` (`19 passed`).
 - Step 2 regression: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py tests/embedding_pipeline/test_retrieval_debug_vector_branch.py -q` (`8 passed`).
 - Step 2 lints: no diagnostics in `app/embedding_pipeline/retrieval_debug_schemas.py` or `tests/embedding_pipeline/test_retrieval_debug_schemas.py`.
+- Step 3 automated: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_vector_branch.py -q` (`8 passed`).
+- Step 3 regression: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` (`3 passed`).
+- Step 3 lints: no diagnostics in `app/embedding_pipeline/retrieval_debug.py` or `tests/embedding_pipeline/test_retrieval_debug_vector_branch.py`.
 
 ## Repository commits (master-ia)
 
@@ -186,3 +189,4 @@ LIMIT :top_k;
 | --- | --- |
 | `e1112e9` | Planned the lexical full-text branch implementation and documentation scope before code. |
 | `91f5087` | Added the baseline lexical search repository with SQL shape and row-mapping coverage. |
+| `106ea18` | Extended retrieval debug schemas for lexical branch configuration and nullable lexical fields. |
