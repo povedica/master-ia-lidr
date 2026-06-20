@@ -86,7 +86,7 @@ Derived fields:
 
 ### FR-02 - Plan command
 
-`python scripts/worktree_tasks.py plan -f <manifest>` must:
+`uv run python scripts/worktree_tasks.py plan -f <manifest>` must:
 
 - validate all work item paths and filename patterns,
 - validate dependencies and reject cycles,
@@ -97,7 +97,7 @@ Derived fields:
 
 ### FR-03 - Prepare command
 
-`python scripts/worktree_tasks.py prepare -f <manifest> [--only 049]` must:
+`uv run python scripts/worktree_tasks.py prepare -f <manifest> [--only 049]` must:
 
 - create a worktree outside the repository tree by default,
 - create the canonical branch from the configured base branch,
@@ -212,8 +212,8 @@ The implementation must leave a clear extension point for a future `run` command
   - `uv run pytest tests/scripts/test_worktree_tasks.py -q`
   - `uv run pytest`
 - Manual:
-  - `python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml`
-  - `python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 049 --dry-run`
+  - `uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml`
+  - `uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 049 --dry-run`
   - `git worktree list`
 - Not verified yet:
   - Real Cursor SDK execution.
@@ -260,7 +260,7 @@ The implementation must leave a clear extension point for a future `run` command
 - [x] Step 4: Environment bootstrap and instructions.
 - [x] Step 5: Status command.
 - [x] Step 6: Cleanup command.
-- [ ] Step 7: Sample manifest and docs.
+- [x] Step 7: Sample manifest and docs.
 - [ ] Step 8: SDK runner extension point.
 
 ### Step 1 verification
@@ -292,6 +292,12 @@ The implementation must leave a clear extension point for a future `run` command
 
 - RED: `uv run pytest tests/scripts/test_worktree_tasks.py::test_cleanup_dry_run_outputs_remove_command_without_deleting_worktree -q` failed because `cleanup` was not yet a supported command.
 - GREEN: `uv run pytest tests/scripts/test_worktree_tasks.py -q` passed (`10 passed`).
+
+### Step 7 verification
+
+- TDD exception: documentation and sample manifest only.
+- Manual: `python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml` failed because this environment does not expose `python`; commands were corrected to `uv run python`.
+- Manual: `uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml` passed and printed the expected 042 -> 043 execution order.
 
 ## Repository commits (master-ia)
 
