@@ -154,10 +154,20 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 
 ## Implementation progress
 
-- [ ] Setup: branch, draft PR, and WIP label.
+- [x] Setup: branch, draft PR, and WIP label.
 - [ ] Step 1: Debug schemas and validation.
 - [ ] Step 2: Vector branch adapter with rank and normalized score.
 - [ ] Step 3: Explanation builder and threshold filtering.
 - [ ] Step 4: Retrieval debug orchestrator.
 - [ ] Step 5: Router registration and chunk inspector.
 - [ ] Step 6: Telemetry, documentation, and final verification.
+
+## Pull request
+
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/37
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| `4ff4c21` | Added the canonical feature work item, estimation, and implementation progress tracker. |
