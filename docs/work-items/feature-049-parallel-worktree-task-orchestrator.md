@@ -233,6 +233,36 @@ The implementation must leave a clear extension point for a future `run` command
 - Record that `.env` is linked/copied locally and never committed.
 - Record SDK quota behavior: local Cursor SDK runs still consume Cursor usage and may stop without on-demand enabled.
 
+## Usage
+
+Use the checked-in sample manifest to preview and prepare isolated worktrees:
+
+```bash
+uv run python scripts/worktree_tasks.py plan -f docs/technical/worktree-task-orchestrator.example.yaml
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/worktree-task-orchestrator.example.yaml --only 042
+```
+
+After `prepare`, open the generated worktree and run the command written in that worktree's `INSTRUCTIONS.md`, usually:
+
+```text
+/start-task docs/work-items/feature-NNN-<slug>.md
+```
+
+Inspect and clean up local worktree state:
+
+```bash
+uv run python scripts/worktree_tasks.py status -f docs/technical/worktree-task-orchestrator.example.yaml
+uv run python scripts/worktree_tasks.py cleanup -f docs/technical/worktree-task-orchestrator.example.yaml --only 042 --dry-run
+```
+
+Notes:
+
+- Worktrees are created outside the repo tree by default (`../master-ia-worktrees`).
+- `.env` is symlinked by default when present; secret values must never be committed or logged.
+- Live Postgres/Redis verification remains manual/serialized in the MVP.
+- `run --dry-run` previews the future Cursor SDK runner but does not launch agents yet.
+
 ## Implementation Plan
 
 - [ ] Step 1: Add manifest models, filename validation, branch/path derivation, and graph validation with unit tests.
