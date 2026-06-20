@@ -265,4 +265,4 @@ The implementation must leave a clear extension point for a future `run` command
 
 ## Pull Request
 
-- To be created during `/start-task`.
+- https://github.com/povedica/master-ia-lidr/pull/38
