@@ -180,3 +180,4 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 | `2120149` | Exposed retrieval debug HTTP endpoints and chunk inspector with router tests. |
 | `7879eaa` | Added completion telemetry, repository documentation, architecture guide updates, and verification notes. |
 | `719e379` | Updated the canonical feature commit log after documentation completion. |
+| `99cbd46` | Closed acceptance criteria and added the feature-043 handoff summary. |
