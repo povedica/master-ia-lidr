@@ -169,7 +169,7 @@ LIMIT :top_k;
 - [x] Step 1: `LexicalSearchRepository` + statement/mapping tests.
 - [x] Step 2: Lexical request/response schema extensions.
 - [x] Step 3: Lexical normalization and explanation helpers.
-- [ ] Step 4: Retrieval debug service orchestration for the lexical branch.
+- [x] Step 4: Retrieval debug service orchestration for the lexical branch.
 - [ ] Step 5: Documentation sweep and final verification.
 
 ## Verification log
@@ -182,6 +182,11 @@ LIMIT :top_k;
 - Step 3 automated: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_vector_branch.py -q` (`8 passed`).
 - Step 3 regression: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` (`3 passed`).
 - Step 3 lints: no diagnostics in `app/embedding_pipeline/retrieval_debug.py` or `tests/embedding_pipeline/test_retrieval_debug_vector_branch.py`.
+- Step 4 RED: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` failed before service integration because `run_retrieval_debug()` did not accept `lexical_repository`.
+- Step 4 automated: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` (`6 passed`).
+- Step 4 logging RED: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_router.py::test_post_retrieval_debug_logs_safe_completion -q` failed before `lexical_result_count` logging existed.
+- Step 4 regression: `uv run pytest tests/embedding_pipeline -q` (`170 passed, 2 deselected`).
+- Step 4 lints: no diagnostics in edited service, router, or retrieval debug tests.
 
 ## Repository commits (master-ia)
 
@@ -190,3 +195,4 @@ LIMIT :top_k;
 | `e1112e9` | Planned the lexical full-text branch implementation and documentation scope before code. |
 | `91f5087` | Added the baseline lexical search repository with SQL shape and row-mapping coverage. |
 | `106ea18` | Extended retrieval debug schemas for lexical branch configuration and nullable lexical fields. |
+| `ae5a181` | Added lexical branch normalization and explanation helpers for retrieval debug. |

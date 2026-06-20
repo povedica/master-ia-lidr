@@ -161,6 +161,7 @@ def test_post_retrieval_debug_logs_safe_completion(
         and getattr(record, "request_id", "").startswith("rdbg_")
         and getattr(record, "strategies", None) == ["vector"]
         and getattr(record, "vector_result_count", None) == 1
+        and getattr(record, "lexical_result_count", None) == 0
         and getattr(record, "max_results", None) == 10
         and isinstance(getattr(record, "timings_ms", None), dict)
         for record in caplog.records
