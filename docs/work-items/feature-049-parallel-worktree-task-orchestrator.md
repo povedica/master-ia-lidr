@@ -280,6 +280,8 @@ The implementation must leave a clear extension point for a future `run` command
 | `6cd355c` | `docs(worktree): add parallel task orchestrator work item` | Added the canonical feature document for the worktree orchestration task. |
 | `b1d93a0` | `docs(worktree): record draft PR link` | Recorded the WIP draft PR link in the canonical work item. |
 | `2d43551` | `feat(worktree): add manifest planning core` | Added manifest identity derivation, dependency graph validation, and first unit tests. |
+| `ab7fca6` | `docs(worktree): record manifest core commit` | Added the repository commit table and recorded initial implementation traceability. |
+| `334e3c4` | `feat(worktree): add manifest plan command` | Added the read-only manifest `plan` CLI command and YAML/JSON manifest loading. |
 
 ## Pull Request
 
