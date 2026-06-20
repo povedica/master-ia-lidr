@@ -104,18 +104,18 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` appear in OpenAPI under `/api/v1`.
-- [ ] AC-02: `strategies: ["vector"]` returns `200` with `branches.vector`, `final_results`, `timings_ms`, `warnings`; non-vector branch keys are `null`.
-- [ ] AC-03: The embedder is called exactly once per debug request; vector ranking matches the existing cosine-distance order.
-- [ ] AC-04: Each `final_results` item includes final position, chunk id, document id, title, excerpt, `semantic_score`, `semantic_rank`, `semantic_distance`, `source_strategies`, metadata, and a structured `explanation`.
-- [ ] AC-05: `threshold` drops weak hits; dropped chunks carry the `below_threshold` signal where surfaced; `max_results` caps the list.
-- [ ] AC-06: Requesting an unimplemented branch (e.g. `lexical`) yields a `warnings` entry and `null` branch, not an error.
-- [ ] AC-07: Empty corpus → `200` empty results; invalid input → `422`; empty `DATABASE_URL` → `503`.
-- [ ] AC-08: `GET /retrieval-debug/chunks/{id}` returns content, neighbor context, parent document, full metadata, embedding model, chunk type; `?query=` adds distance/similarity; unknown id → `404`.
-- [ ] AC-09: `POST /api/v1/search` behavior and schema are unchanged (regression test green).
-- [ ] AC-10: `retrieval_debug_completed` log emitted with safe keys only.
-- [ ] AC-11: Default suite passes without real API keys or live Postgres.
-- [ ] AC-12: README + technical docs document the debug API contract and how to read `distance`/`score`.
+- [x] AC-01: `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` appear in OpenAPI under `/api/v1`.
+- [x] AC-02: `strategies: ["vector"]` returns `200` with `branches.vector`, `final_results`, `timings_ms`, `warnings`; non-vector branch keys are `null`.
+- [x] AC-03: The embedder is called exactly once per debug request; vector ranking matches the existing cosine-distance order.
+- [x] AC-04: Each `final_results` item includes final position, chunk id, document id, title, excerpt, `semantic_score`, `semantic_rank`, `semantic_distance`, `source_strategies`, metadata, and a structured `explanation`.
+- [x] AC-05: `threshold` drops weak hits; dropped chunks carry the `below_threshold` signal where surfaced; `max_results` caps the list.
+- [x] AC-06: Requesting an unimplemented branch (e.g. `lexical`) yields a `warnings` entry and `null` branch, not an error.
+- [x] AC-07: Empty corpus → `200` empty results; invalid input → `422`; empty `DATABASE_URL` → `503`.
+- [x] AC-08: `GET /retrieval-debug/chunks/{id}` returns content, neighbor context, parent document, full metadata, embedding model, chunk type; `?query=` adds distance/similarity; unknown id → `404`.
+- [x] AC-09: `POST /api/v1/search` behavior and schema are unchanged (regression test green).
+- [x] AC-10: `retrieval_debug_completed` log emitted with safe keys only.
+- [x] AC-11: Default suite passes without real API keys or live Postgres.
+- [x] AC-12: README + technical docs document the debug API contract and how to read `distance`/`score`.
 
 ## Test Plan
 
@@ -179,3 +179,4 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 | `abe82fd` | Added the retrieval debug orchestrator for vector traces and warnings. |
 | `2120149` | Exposed retrieval debug HTTP endpoints and chunk inspector with router tests. |
 | `7879eaa` | Added completion telemetry, repository documentation, architecture guide updates, and verification notes. |
+| `719e379` | Updated the canonical feature commit log after documentation completion. |
