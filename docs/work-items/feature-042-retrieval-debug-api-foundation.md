@@ -159,7 +159,7 @@ Returns full `content`, `previous_chunk`/`next_chunk` (by id within `document_id
 - [x] Step 2: Vector branch adapter with rank and normalized score.
 - [x] Step 3: Explanation builder and threshold filtering.
 - [x] Step 4: Retrieval debug orchestrator.
-- [ ] Step 5: Router registration and chunk inspector.
+- [x] Step 5: Router registration and chunk inspector.
 - [ ] Step 6: Telemetry, documentation, and final verification.
 
 ## Pull request

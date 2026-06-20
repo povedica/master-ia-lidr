@@ -8,9 +8,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.embedder import OpenAIEmbedder
+from app.embedding_pipeline.retrieval_debug_repository import RetrievalDebugRepository
 from app.embedding_pipeline.retrieval_debug_schemas import (
     BranchResultEntry,
     BranchesContainer,
+    ChunkInspectionResponse,
     DebugResult,
     ResultExplanation,
     RetrievalDebugRequest,
@@ -186,4 +188,44 @@ async def run_retrieval_debug(
         warnings=warnings,
         branches=BranchesContainer(vector=vector_entries),
         final_results=final_results,
+    )
+
+
+async def inspect_retrieval_debug_chunk(
+    *,
+    chunk_id: int,
+    query: str | None,
+    session: AsyncSession,
+    embedder: OpenAIEmbedder,
+    repository: RetrievalDebugRepository,
+    embedding_model: str,
+) -> ChunkInspectionResponse | None:
+    """Return one chunk with document context and optional query similarity."""
+
+    response = await repository.get_chunk_inspection(
+        session,
+        chunk_id=chunk_id,
+        embedding_model=embedding_model,
+    )
+    if response is None:
+        return None
+
+    stripped_query = (query or "").strip()
+    if not stripped_query:
+        return response
+
+    query_vector = await embedder.embed_one(stripped_query)
+    distance = await repository.get_chunk_distance(
+        session,
+        chunk_id=chunk_id,
+        query_vector=query_vector,
+    )
+    if distance is None:
+        return response
+
+    return response.model_copy(
+        update={
+            "distance": distance,
+            "similarity": _clamp_score(1.0 - distance),
+        }
     )
