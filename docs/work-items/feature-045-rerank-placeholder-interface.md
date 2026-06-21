@@ -161,6 +161,7 @@ The active `Reranker` is resolved via DI/settings; the router never constructs a
 
 ## Implementation progress
 
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/41
 - [ ] Step 1: Reranker protocol and NoOpReranker contract.
 - [ ] Step 2: Rerank request/result schema contract.
 - [ ] Step 3: Debug orchestrator rerank step with no-op, reorder, and filter test doubles.
@@ -203,3 +204,9 @@ The active `Reranker` is resolved via DI/settings; the router never constructs a
 **Verification:** `uv run pytest tests/embedding_pipeline -q`; manual curl for `rerank.enabled=true` when local API/Postgres are available.
 **Documentation:** Mark Step 4, update acceptance/verification evidence, and record PR URL.
 **Suggested commit:** `docs(retrieval): document rerank placeholder contract`.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `9296ed3` | Planned the rerank placeholder task, estimation, progress tracking, and TDD verification steps. |
