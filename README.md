@@ -710,9 +710,10 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 **Internal retrieval debug API** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`):
 
-- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, or `all`; `hybrid`/`rerank` still return `null` + warning), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, and `max_results`.
-- `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `final_results[]` adds title, excerpt, metadata, source strategies, and explanation signals (`semantic_strong`, `semantic_weak`, `below_threshold`).
-- `branches.lexical[]` uses Postgres `websearch_to_tsquery` + `to_tsvector('english', chunks.content)` + `ts_rank_cd`; scores are min-max normalized within the lexical branch and `matched_terms` records the highlighted query lexemes. This is a sequential-scan baseline; indexed FTS is deferred to `feature-048`.
+- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, `hybrid`, or `all`; `rerank` still returns `null` + warning), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, `hybrid.enabled`, `hybrid.method` (`rrf` or `weighted`), optional `hybrid.rrf_k`, `hybrid.weights`, and `max_results`.
+- `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `branches.lexical[]` uses Postgres `websearch_to_tsquery` + `to_tsvector('english', chunks.content)` + `ts_rank_cd`, min-max normalized scores, and deterministic `matched_terms`.
+- `branches.hybrid[]` fuses vector and lexical rankings with Reciprocal Rank Fusion by default (`Σ weight/(rrf_k + rank)`) or weighted normalized branch scores. Hybrid `final_results[]` are ordered by `fusion_rank`, include `fusion_score`, semantic/lexical evidence when present, `diff`, and explanation signals (`semantic_strong`, `semantic_weak`, `lexical_exact_match`, `branch_consensus`, `hybrid_rescued`, `below_threshold`).
+- `diff` reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank` (empty until feature-045). Indexed FTS is deferred to `feature-048`.
 - `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity for that single chunk.
 - Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only, including branch result counts but not query text or chunk content.
 
@@ -725,6 +726,11 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
   -H 'Content-Type: application/json' \
   -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["lexical"],"lexical":{"top_k":20},"max_results":10}' \
+  | python3 -m json.tool
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["vector","lexical","hybrid"],"vector":{"top_k":20},"lexical":{"top_k":20},"hybrid":{"method":"rrf","rrf_k":60},"max_results":10}' \
   | python3 -m json.tool
 
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \

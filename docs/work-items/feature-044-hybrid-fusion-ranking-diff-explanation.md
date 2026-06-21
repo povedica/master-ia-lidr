@@ -132,25 +132,57 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 
 ## Verification
 
-- Automated: `uv run pytest tests/embedding_pipeline -q`.
+- Automated: `uv run pytest tests/embedding_pipeline -q` — `180 passed, 2 deselected` (2026-06-21).
+- Automated: `uv run pytest` — `571 passed, 11 skipped, 12 deselected` (2026-06-21).
 - Manual: curl debug `strategies: "all"`, toggle `rrf_k`/weights/`enabled`; inspect `diff` + explanations.
-- Not verified yet: rerank reordering (045).
+- Not verified yet: live Compose/Postgres curl smoke; rerank reordering remains out of scope for 045.
 
 ## Documentation Plan
 
-- `docs/technical/README.md`: fusion math (RRF + weighted), diff definitions, signal vocabulary, thresholds.
-- `README.md`: hybrid example in internal-tools section.
-- Second Brain: note on what fusion/diff reveal about semantic vs lexical trade-offs.
+- [x] `docs/technical/README.md`: fusion math (RRF + weighted), diff definitions, signal vocabulary, thresholds.
+- [x] `README.md`: hybrid example in internal-tools section.
+- [x] `docs/arquitectura-estimador-cag.html`: retrieval debug API, pipeline summary, and endpoint table updated for hybrid fusion.
+- [x] Second Brain: note on what fusion/diff reveal about semantic vs lexical trade-offs.
 
 ## Implementation Plan
 
-- [ ] Step 1: `fusion.py` (RRF + weighted) + pure unit tests.
-- [ ] Step 2: Diff builder + unit tests.
-- [ ] Step 3: Explanation engine + unit tests.
-- [ ] Step 4: Wire hybrid branch + final ordering + `fusion_*` fields into `retrieval_debug.py` + service tests.
-- [ ] Step 5: Attach `diff` + explanations to response; `enabled=false` fallback; validation for weighted method.
-- [ ] Step 6: Docs sweep + manual verification.
+- [x] Step 1: `fusion.py` (RRF + weighted) + pure unit tests.
+- [x] Step 2: Diff builder + unit tests.
+- [x] Step 3: Explanation engine + unit tests.
+- [x] Step 4: Wire hybrid branch + final ordering + `fusion_*` fields into `retrieval_debug.py` + service tests.
+- [x] Step 5: Attach `diff` + explanations to response; `enabled=false` fallback; validation for weighted method.
+- [x] Step 6: Docs sweep + automated verification.
 
 ## Estimation
 
-- Size: M · ~6 steps · depends on 042, 043 · unblocks 045, 047.
+- Size: M
+- Estimated time: 3 hours
+- Planned steps: 6
+- Depends on: 042, 043
+- Unblocks: 045, 047
+
+## Implementation progress
+
+- PR: https://github.com/povedica/master-ia-lidr/pull/40
+
+- [x] Step 1: Fusion core.
+- [x] Step 2: Ranking diff builder.
+- [x] Step 3: Explanation engine.
+- [x] Step 4: Hybrid schemas and config.
+- [x] Step 5: Hybrid service wiring.
+- [x] Step 6: Documentation and full validation.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `2c0215c` | Planned feature-044 execution and progress tracking in the canonical work item. |
+| `ea04485` | Recorded the draft WIP PR for the hybrid fusion implementation branch. |
+| `389b8f4` | Added pure RRF and weighted fusion primitives with deterministic tests. |
+| `0fcf2de` | Added the pure ranking diff builder for consensus, exclusive, rescued, moved, and dropped sets. |
+| `83e9a93` | Added the controlled explanation engine for semantic, lexical, consensus, rescue, and threshold signals. |
+| `7f39c67` | Extended retrieval debug schemas for hybrid config, fusion fields, and diff responses. |
+| `91ec264` | Wired hybrid fusion into the retrieval debug service with final ordering, diff, explanations, and disabled fallback. |
+| `f1954e4` | Updated repository docs and architecture docs for hybrid fusion diagnostics. |
+| `4f73983` | Recorded the implementation commit report in the canonical work item. |
+| `e07bf9d` | Moved the feature-044 handoff to the downstream feature-045 document and epic feature-041 document. |
