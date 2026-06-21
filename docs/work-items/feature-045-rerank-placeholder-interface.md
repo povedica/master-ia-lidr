@@ -153,4 +153,53 @@ The active `Reranker` is resolved via DI/settings; the router never constructs a
 
 ## Estimation
 
-- Size: S · ~4 steps · depends on 044 · unblocks 047 (rerank UI lane).
+- Size: S
+- Estimated time: 3 hours
+- Planned steps: 4
+- Depends on: feature-044
+- Unblocks: feature-047 (rerank UI lane)
+
+## Implementation progress
+
+- [ ] Step 1: Reranker protocol and NoOpReranker contract.
+- [ ] Step 2: Rerank request/result schema contract.
+- [ ] Step 3: Debug orchestrator rerank step with no-op, reorder, and filter test doubles.
+- [ ] Step 4: Documentation sweep and final verification.
+
+## Start-task plan
+
+### Step 1: Reranker contract
+
+**Goal:** Add the pure reranker interface and default no-op implementation.
+**Changes:** `app/embedding_pipeline/rerank.py`, `tests/embedding_pipeline/test_rerank.py`.
+**TDD:** RED with `tests/embedding_pipeline/test_rerank.py::test_noop_reranker_preserves_input_order_and_sets_ranks`, then GREEN with the minimal protocol/implementation.
+**Verification:** `uv run pytest tests/embedding_pipeline/test_rerank.py -q`.
+**Documentation:** Mark Step 1 in `## Implementation progress`.
+**Suggested commit:** `feat(retrieval): add noop reranker contract`.
+
+### Step 2: Rerank schema contract
+
+**Goal:** Expose `rerank.enabled`, `rerank_score`, and `rerank_rank` without changing disabled behavior.
+**Changes:** `app/embedding_pipeline/retrieval_debug_schemas.py`, `tests/embedding_pipeline/test_retrieval_debug_schemas.py`.
+**TDD:** RED with `tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_retrieval_debug_request_accepts_rerank_config_defaults`, then GREEN with the minimal schema additions.
+**Verification:** `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q`.
+**Documentation:** Mark Step 2 in `## Implementation progress`.
+**Suggested commit:** `feat(retrieval): expose rerank debug contract fields`.
+
+### Step 3: Rerank orchestration
+
+**Goal:** Run rerank after fusion/ordering, support DI, emit no-op warning, branch entries, final-result ranks, promotion/demotion signals, and rerank drops.
+**Changes:** `app/embedding_pipeline/retrieval_debug.py`, `app/embedding_pipeline/fusion.py`, `tests/embedding_pipeline/test_retrieval_debug_service.py`.
+**TDD:** RED with service tests for no-op preservation, fake reorder promotion/demotion, and fake filter drops; then GREEN through the smallest service wiring.
+**Verification:** `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` and `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_schemas.py tests/embedding_pipeline/test_retrieval_debug_service.py -q`.
+**Documentation:** Mark Step 3 in `## Implementation progress`.
+**Suggested commit:** `feat(retrieval): wire rerank placeholder into debug service`.
+
+### Step 4: Documentation and final verification
+
+**Goal:** Document no-op rerank semantics and verify the embedding pipeline regression set.
+**Changes:** `README.md`, `docs/technical/README.md`, this work item, and Second Brain note if applicable.
+**TDD:** Exception: documentation/manual smoke only; no new production logic.
+**Verification:** `uv run pytest tests/embedding_pipeline -q`; manual curl for `rerank.enabled=true` when local API/Postgres are available.
+**Documentation:** Mark Step 4, update acceptance/verification evidence, and record PR URL.
+**Suggested commit:** `docs(retrieval): document rerank placeholder contract`.
