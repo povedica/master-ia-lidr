@@ -221,3 +221,4 @@ Recommended first tests for the next implementer:
 | `f698b7d` | Add query controls, tuning controls, request mapping, and recent searches. |
 | `50dcc67` | Render comparative results, explanation chips, branch rankings, and ranking diff. |
 | `bd3e2be` | Add chunk inspector, partial warnings, frontend docs, architecture notes, and final verification. |
+| `d638ed9` | Close acceptance gaps found during review: full tuning/filter controls, zero-result warnings, inspector matched terms, and epic documentation. |

@@ -534,3 +534,9 @@ Each document above includes, beyond the standard `/start-task` strict-gate sect
 - Size: L epic, split into 7 sub-features (042–048; 048 optional).
 - Suggested order: 042 → 043 → 044 → 045 → 046 → 047, with 048 any time after 043.
 - Each sub-feature is independently shippable and verifiable.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `d638ed9` | Close the final retrieval debug screen and epic acceptance gaps: inspector matched terms, full tuning/filter controls, zero-result warnings, verification evidence, and synchronized docs. |
