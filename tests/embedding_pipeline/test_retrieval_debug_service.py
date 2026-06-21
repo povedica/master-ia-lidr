@@ -163,7 +163,7 @@ async def test_run_retrieval_debug_calls_embedder_once_and_returns_vector_trace(
 async def test_run_retrieval_debug_warns_for_unimplemented_branches() -> None:
     embedder = _FakeEmbedder()
     repository = _FakeRepository()
-    request = RetrievalDebugRequest(query="OAuth", strategies=["vector", "hybrid"])
+    request = RetrievalDebugRequest(query="OAuth", strategies=["vector", "rerank"])
     session = AsyncMock(spec=AsyncSession)
 
     response = await run_retrieval_debug(
@@ -175,7 +175,7 @@ async def test_run_retrieval_debug_warns_for_unimplemented_branches() -> None:
 
     assert response.branches.vector == []
     assert response.branches.lexical is None
-    assert "Strategy 'hybrid' is not implemented yet." in response.warnings
+    assert "Strategy 'rerank' is not implemented yet." in response.warnings
 
 
 @pytest.mark.asyncio
@@ -283,6 +283,91 @@ async def test_run_retrieval_debug_enriches_vector_results_with_lexical_fields()
     assert result.lexical_score == pytest.approx(1.0)
     assert result.matched_terms == ["oauth2"]
     assert result.source_strategies == ["vector", "lexical"]
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_returns_hybrid_branch_diff_and_explanations() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(
+        results=[
+            _search_result(chunk_id=101, distance=0.2),
+            _search_result(chunk_id=102, distance=0.3),
+        ]
+    )
+    lexical_repository = _FakeLexicalRepository(
+        results=[
+            _lexical_result(
+                chunk_id=103,
+                document_id=13,
+                ts_rank=0.9,
+                content="JWT refresh token rotation",
+                matched_terms=["jwt"],
+            ),
+            _lexical_result(chunk_id=101, ts_rank=0.1, matched_terms=["oauth2"]),
+        ]
+    )
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid"],
+        hybrid={"method": "weighted", "weights": {"vector": 1.0, "lexical": 3.0}},
+        max_results=2,
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+    )
+
+    assert response.branches.hybrid is not None
+    assert [entry.chunk_id for entry in response.branches.hybrid] == [103, 101, 102]
+    assert [result.chunk_id for result in response.final_results] == [103, 101]
+    assert response.final_results[0].fusion_rank == 1
+    assert response.final_results[0].fusion_score == pytest.approx(0.75)
+    assert response.final_results[0].source_strategies == ["lexical", "hybrid"]
+    assert response.final_results[0].explanation.signals == [
+        "lexical_exact_match",
+        "hybrid_rescued",
+    ]
+    assert response.final_results[1].source_strategies == ["vector", "lexical", "hybrid"]
+    assert response.diff is not None
+    assert [entry.chunk_id for entry in response.diff.common] == [101]
+    assert [entry.chunk_id for entry in response.diff.lexical_only] == [103]
+    assert [entry.chunk_id for entry in response.diff.hybrid_rescued] == [103]
+    assert response.diff.dropped_by_rerank == []
+    assert response.timings_ms["hybrid"] >= 0
+    assert response.warnings == []
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_hybrid_disabled_omits_hybrid_branch() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(results=[_search_result(chunk_id=101, distance=0.2)])
+    lexical_repository = _FakeLexicalRepository(
+        results=[_lexical_result(chunk_id=201, ts_rank=0.8)]
+    )
+    request = RetrievalDebugRequest(
+        query="OAuth2",
+        strategies=["vector", "lexical", "hybrid"],
+        hybrid={"enabled": False},
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+    )
+
+    assert response.branches.hybrid is None
+    assert [result.chunk_id for result in response.final_results] == [101]
+    assert response.final_results[0].fusion_rank is None
+    assert response.diff is None
 
 
 @pytest.mark.asyncio

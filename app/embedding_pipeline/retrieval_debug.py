@@ -9,6 +9,13 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.embedder import OpenAIEmbedder
+from app.embedding_pipeline.fusion import (
+    RankingDiff,
+    build_explanation,
+    build_ranking_diff,
+    reciprocal_rank_fusion,
+    weighted_fusion,
+)
 from app.embedding_pipeline.lexical_search_repository import (
     LexicalSearchRepository,
     LexicalSearchResult,
@@ -19,6 +26,9 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
     BranchesContainer,
     ChunkInspectionResponse,
     DebugResult,
+    RankingDiffEntryResponse,
+    RankingDiffResponse,
+    RankingMoverResponse,
     ResultExplanation,
     RetrievalDebugRequest,
     RetrievalDebugResponse,
@@ -26,8 +36,10 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
 from app.embedding_pipeline.schemas import SearchResult
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 
-_IMPLEMENTED_STRATEGIES = {"vector", "lexical"}
-_FUTURE_STRATEGIES = ("hybrid", "rerank")
+_IMPLEMENTED_STRATEGIES = {"vector", "lexical", "hybrid"}
+_FUTURE_STRATEGIES = ("rerank",)
+_DIFF_BIG_MOVER_THRESHOLD = 3
+_DIFF_RESCUE_RANK_THRESHOLD = 3
 
 
 def _clamp_score(value: float) -> float:
@@ -123,7 +135,7 @@ def build_lexical_explanation(entry: BranchResultEntry) -> ResultExplanation:
 
 def _resolved_strategies(strategies: list[str]) -> list[str]:
     if strategies == ["all"]:
-        return ["vector", *_FUTURE_STRATEGIES]
+        return ["vector", "lexical", "hybrid", *_FUTURE_STRATEGIES]
     return strategies
 
 
@@ -152,8 +164,84 @@ def _applied_config(request: RetrievalDebugRequest, strategies: list[str]) -> di
         "strategies": strategies,
         "vector": request.vector.model_dump(),
         "lexical": request.lexical.model_dump(),
+        "hybrid": request.hybrid.model_dump(),
         "max_results": request.max_results,
     }
+
+
+def _branch_entries_for_explanation(
+    *,
+    vector_entries: list[BranchResultEntry] | None,
+    lexical_entries: list[BranchResultEntry] | None,
+) -> dict[str, list[BranchResultEntry]]:
+    branches: dict[str, list[BranchResultEntry]] = {}
+    if vector_entries is not None:
+        branches["vector"] = vector_entries
+    if lexical_entries is not None:
+        branches["lexical"] = lexical_entries
+    return branches
+
+
+def _source_strategies_for_chunk(
+    chunk_id: int,
+    *,
+    vector_entries: list[BranchResultEntry] | None,
+    lexical_entries: list[BranchResultEntry] | None,
+    hybrid: bool,
+) -> list[str]:
+    source_strategies = []
+    if vector_entries is not None and any(entry.chunk_id == chunk_id for entry in vector_entries):
+        source_strategies.append("vector")
+    if lexical_entries is not None and any(entry.chunk_id == chunk_id for entry in lexical_entries):
+        source_strategies.append("lexical")
+    if hybrid:
+        source_strategies.append("hybrid")
+    return source_strategies
+
+
+def _threshold_drop_ids(
+    entries: list[BranchResultEntry] | None,
+    *,
+    threshold: float | None,
+) -> list[int]:
+    if entries is None or threshold is None:
+        return []
+    return [entry.chunk_id for entry in entries if entry.score < threshold]
+
+
+def _ranking_diff_response(diff: RankingDiff) -> RankingDiffResponse:
+    def entry_response(entry: Any) -> RankingDiffEntryResponse:
+        return RankingDiffEntryResponse(
+            chunk_id=entry.chunk_id,
+            document_id=entry.document_id,
+            source_strategies=entry.source_strategies,
+            branch_ranks=entry.branch_ranks,
+        )
+
+    return RankingDiffResponse(
+        common=[entry_response(entry) for entry in diff.common],
+        vector_only=[entry_response(entry) for entry in diff.vector_only],
+        lexical_only=[entry_response(entry) for entry in diff.lexical_only],
+        hybrid_rescued=[entry_response(entry) for entry in diff.hybrid_rescued],
+        big_movers=[
+            RankingMoverResponse(
+                chunk_id=mover.chunk_id,
+                document_id=mover.document_id,
+                from_rank=mover.from_rank,
+                to_rank=mover.to_rank,
+                delta=mover.delta,
+            )
+            for mover in diff.big_movers
+        ],
+        dropped_by_threshold=[
+            entry_response(entry)
+            for entry in diff.dropped_by_threshold
+        ],
+        dropped_by_rerank=[
+            entry_response(entry)
+            for entry in diff.dropped_by_rerank
+        ],
+    )
 
 
 def _build_final_results(
@@ -169,19 +257,21 @@ def _build_final_results(
         entry.chunk_id: entry
         for entry in lexical_entries or []
     }
+    explanation_branches = _branch_entries_for_explanation(
+        vector_entries=branch_entries,
+        lexical_entries=lexical_entries,
+    )
     filtered_entries = filter_vector_branch_entries(branch_entries, threshold=threshold)
     final_results: list[DebugResult] = []
     for final_position, entry in enumerate(filtered_entries[:max_results], start=1):
         result = by_chunk_id[entry.chunk_id]
         lexical_entry = lexical_by_chunk_id.get(entry.chunk_id)
-        source_strategies = ["vector"]
-        explanation = build_vector_explanation(entry, threshold=threshold)
-        if lexical_entry is not None:
-            source_strategies.append("lexical")
-            explanation = ResultExplanation(
-                summary=f"{explanation.summary} Also exact lexical match from the full-text branch.",
-                signals=[*explanation.signals, "lexical_exact_match"],
-            )
+        source_strategies = _source_strategies_for_chunk(
+            entry.chunk_id,
+            vector_entries=branch_entries,
+            lexical_entries=lexical_entries,
+            hybrid=False,
+        )
         final_results.append(
             DebugResult(
                 final_position=final_position,
@@ -197,7 +287,11 @@ def _build_final_results(
                 matched_terms=lexical_entry.matched_terms if lexical_entry is not None else [],
                 source_strategies=source_strategies,
                 metadata=result.metadata,
-                explanation=explanation,
+                explanation=build_explanation(
+                    entry,
+                    branches=explanation_branches,
+                    threshold=threshold,
+                ),
             )
         )
     return final_results
@@ -210,6 +304,7 @@ def _build_lexical_final_results(
     max_results: int,
 ) -> list[DebugResult]:
     by_chunk_id = {result.chunk_id: result for result in lexical_results}
+    explanation_branches = {"lexical": branch_entries}
     final_results: list[DebugResult] = []
     for final_position, entry in enumerate(branch_entries[:max_results], start=1):
         result = by_chunk_id[entry.chunk_id]
@@ -225,7 +320,74 @@ def _build_lexical_final_results(
                 matched_terms=entry.matched_terms,
                 source_strategies=["lexical"],
                 metadata=result.metadata,
-                explanation=build_lexical_explanation(entry),
+                explanation=build_explanation(
+                    entry,
+                    branches=explanation_branches,
+                ),
+            )
+        )
+    return final_results
+
+
+def _build_hybrid_final_results(
+    *,
+    hybrid_entries: list[BranchResultEntry],
+    vector_results: list[SearchResult],
+    lexical_results: list[LexicalSearchResult],
+    vector_entries: list[BranchResultEntry] | None,
+    lexical_entries: list[BranchResultEntry] | None,
+    diff: RankingDiff,
+    threshold: float | None,
+    max_results: int,
+) -> list[DebugResult]:
+    vector_results_by_chunk_id = {result.chunk_id: result for result in vector_results}
+    lexical_results_by_chunk_id = {result.chunk_id: result for result in lexical_results}
+    vector_entries_by_chunk_id = {
+        entry.chunk_id: entry
+        for entry in vector_entries or []
+    }
+    lexical_entries_by_chunk_id = {
+        entry.chunk_id: entry
+        for entry in lexical_entries or []
+    }
+    explanation_branches = _branch_entries_for_explanation(
+        vector_entries=vector_entries,
+        lexical_entries=lexical_entries,
+    )
+    final_results: list[DebugResult] = []
+
+    for final_position, entry in enumerate(hybrid_entries[:max_results], start=1):
+        source_result = vector_results_by_chunk_id.get(entry.chunk_id) or lexical_results_by_chunk_id[entry.chunk_id]
+        vector_entry = vector_entries_by_chunk_id.get(entry.chunk_id)
+        lexical_entry = lexical_entries_by_chunk_id.get(entry.chunk_id)
+        final_results.append(
+            DebugResult(
+                final_position=final_position,
+                chunk_id=entry.chunk_id,
+                document_id=entry.document_id,
+                title=_derive_title(source_result),
+                content_excerpt=_content_excerpt(source_result.content),
+                semantic_score=vector_entry.score if vector_entry is not None else None,
+                semantic_rank=vector_entry.rank if vector_entry is not None else None,
+                semantic_distance=vector_entry.distance if vector_entry is not None else None,
+                lexical_score=lexical_entry.score if lexical_entry is not None else None,
+                lexical_rank=lexical_entry.rank if lexical_entry is not None else None,
+                fusion_score=entry.score,
+                fusion_rank=entry.rank,
+                matched_terms=lexical_entry.matched_terms if lexical_entry is not None else [],
+                source_strategies=_source_strategies_for_chunk(
+                    entry.chunk_id,
+                    vector_entries=vector_entries,
+                    lexical_entries=lexical_entries,
+                    hybrid=True,
+                ),
+                metadata=source_result.metadata,
+                explanation=build_explanation(
+                    entry,
+                    branches=explanation_branches,
+                    diff=diff,
+                    threshold=threshold,
+                ),
             )
         )
     return final_results
@@ -254,9 +416,12 @@ async def run_retrieval_debug(
     vector_entries: list[BranchResultEntry] | None = None
     lexical_entries: list[BranchResultEntry] | None = None
     lexical_results: list[LexicalSearchResult] = []
+    hybrid_entries: list[BranchResultEntry] | None = None
+    diff: RankingDiff | None = None
     final_results: list[DebugResult] = []
     vector_ms = 0
     lexical_ms = 0
+    hybrid_ms = 0
 
     async def run_vector_branch() -> tuple[list[SearchResult], list[BranchResultEntry], int]:
         vector_started = time.perf_counter()
@@ -286,9 +451,10 @@ async def run_retrieval_debug(
         )
 
     branch_tasks: list[tuple[str, Any]] = []
-    if "vector" in strategies:
+    hybrid_requested = "hybrid" in strategies and request.hybrid.enabled
+    if "vector" in strategies or hybrid_requested:
         branch_tasks.append(("vector", run_vector_branch()))
-    if "lexical" in strategies:
+    if "lexical" in strategies or hybrid_requested:
         branch_tasks.append(("lexical", run_lexical_branch()))
 
     vector_results: list[SearchResult] = []
@@ -306,7 +472,53 @@ async def run_retrieval_debug(
             if branch_name == "lexical":
                 lexical_results, lexical_entries, lexical_ms = output
 
-    if vector_entries is not None:
+    threshold_drop_ids = _threshold_drop_ids(
+        vector_entries,
+        threshold=request.vector.threshold,
+    )
+    if hybrid_requested and vector_entries is not None and lexical_entries is not None:
+        hybrid_started = time.perf_counter()
+        filtered_vector_entries = filter_vector_branch_entries(
+            vector_entries,
+            threshold=request.vector.threshold,
+        )
+        fusion_branches = {
+            "vector": filtered_vector_entries,
+            "lexical": lexical_entries,
+        }
+        if request.hybrid.method == "weighted":
+            hybrid_entries = weighted_fusion(
+                fusion_branches,
+                weights=request.hybrid.weights or {},
+            )
+        else:
+            hybrid_entries = reciprocal_rank_fusion(
+                fusion_branches,
+                k=request.hybrid.rrf_k,
+                weights=request.hybrid.weights,
+            )
+        diff = build_ranking_diff(
+            {
+                "vector": vector_entries,
+                "lexical": lexical_entries,
+            },
+            hybrid_entries[: request.max_results],
+            threshold_drops=threshold_drop_ids,
+            big_mover_threshold=_DIFF_BIG_MOVER_THRESHOLD,
+            rescue_rank_threshold=_DIFF_RESCUE_RANK_THRESHOLD,
+        )
+        final_results = _build_hybrid_final_results(
+            hybrid_entries=hybrid_entries,
+            vector_results=vector_results,
+            lexical_results=lexical_results,
+            vector_entries=vector_entries,
+            lexical_entries=lexical_entries,
+            diff=diff,
+            threshold=request.vector.threshold,
+            max_results=request.max_results,
+        )
+        hybrid_ms = int((time.perf_counter() - hybrid_started) * 1000)
+    elif vector_entries is not None:
         final_results = _build_final_results(
             search_results=vector_results,
             branch_entries=vector_entries,
@@ -325,10 +537,20 @@ async def run_retrieval_debug(
     return RetrievalDebugResponse(
         query=request.query,
         applied_config=_applied_config(request, strategies),
-        timings_ms={"vector": vector_ms, "lexical": lexical_ms, "total": total_ms},
+        timings_ms={
+            "vector": vector_ms,
+            "lexical": lexical_ms,
+            "hybrid": hybrid_ms,
+            "total": total_ms,
+        },
         warnings=warnings,
-        branches=BranchesContainer(vector=vector_entries, lexical=lexical_entries),
+        branches=BranchesContainer(
+            vector=vector_entries,
+            lexical=lexical_entries,
+            hybrid=hybrid_entries,
+        ),
         final_results=final_results,
+        diff=_ranking_diff_response(diff) if diff is not None else None,
     )
 
 

@@ -167,5 +167,5 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 - [x] Step 2: Ranking diff builder.
 - [x] Step 3: Explanation engine.
 - [x] Step 4: Hybrid schemas and config.
-- [ ] Step 5: Hybrid service wiring.
+- [x] Step 5: Hybrid service wiring.
 - [ ] Step 6: Documentation and full validation.
