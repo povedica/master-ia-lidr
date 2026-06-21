@@ -432,7 +432,7 @@ Session 07 pipeline routes (isolated from estimator CAG and Redis semantic cache
 
 **Ingest:** one `Budget` per request; Postgres transaction; `409` on duplicate `source_path`. **Search:** natural-language `query` + `k`; ranks persisted chunks by pgvector cosine distance (`<=>`); requires `OPENAI_API_KEY` for query embedding. Worked manual analysis (SAML + education query): [feature-038 work item](../work-items/feature-038-semantic-search-endpoint-pgvector.md#manual-query-analysis-verified-on-compose-postgres).
 
-**Retrieval debug:** internal `POST /api/v1/retrieval-debug` returns an explainable branch container. `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`. `branches.lexical[]` uses Postgres full-text search over `chunks.content`, with branch-local normalized `ts_rank_cd` scores and deterministic `matched_terms`. `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity. Future hybrid/rerank branches stay `null` with warnings until their feature slices are implemented.
+**Retrieval debug:** internal `POST /api/v1/retrieval-debug` returns an explainable branch container. `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`. `branches.lexical[]` uses Postgres full-text search over `chunks.content`, with branch-local normalized `ts_rank_cd` scores and deterministic `matched_terms`. `branches.hybrid[]` fuses vector and lexical rankings. `rerank.enabled=true` runs the configured reranker after fusion/branch ordering; the default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and warns that rerank is a no-op placeholder. `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity.
 
 ### Semantic cache (v2, optional)
 
@@ -976,9 +976,9 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
 
-### Retrieval debug API (features 042-044)
+### Retrieval debug API (features 042-045)
 
-Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence.
+Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence. Feature-045 adds the rerank placeholder interface: a `Reranker` protocol, default `NoOpReranker`, rerank branch output, no-op warning, and test-only fake rerankers that prove the response contract can represent reorder and filter effects.
 
 | Path | Role |
 |------|------|
@@ -1007,10 +1007,10 @@ Response shape:
 - `branches.vector[]`: vector rank, ids, `distance`, normalized `score`.
 - `branches.lexical[]`: lexical rank, ids, normalized `score`, and `matched_terms`; `distance` is `null` because lexical rank is not a vector distance.
 - `branches.hybrid[]`: fused rank, ids, and `score`; default method is Reciprocal Rank Fusion (`score = Σ weight/(rrf_k + rank)`), while `method="weighted"` combines normalized branch scores with server-normalized weights.
-- `branches.rerank`: `null`; requested rerank still produces a warning until feature-045.
-- `final_results[]`: hybrid requests are ordered by `fusion_rank` and include `fusion_score`, semantic fields, lexical fields, `source_strategies`, metadata, excerpt, and controlled explanations.
-- `diff`: `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank` (empty until feature-045).
-- `timings_ms`: `vector`, `lexical`, `hybrid`, and `total`.
+- `branches.rerank[]`: present only when `rerank.enabled=true`; default no-op rank mirrors the input order after fusion/branch ordering.
+- `final_results[]`: hybrid requests are ordered by `fusion_rank` before rerank, then by `rerank_rank` when rerank is enabled. Rows include `fusion_score`, nullable `rerank_score`, nullable `rerank_rank`, semantic fields, lexical fields, `source_strategies`, metadata, excerpt, and controlled explanations.
+- `diff`: `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`.
+- `timings_ms`: `vector`, `lexical`, `hybrid`, `rerank`, and `total`.
 
 Controlled explanation signals:
 
@@ -1018,6 +1018,7 @@ Controlled explanation signals:
 - `lexical_exact_match`
 - `branch_consensus`
 - `hybrid_rescued`
+- `rerank_promoted`, `rerank_demoted`
 
 Lexical SQL baseline:
 
