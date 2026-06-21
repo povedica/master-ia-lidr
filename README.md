@@ -257,6 +257,7 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/sessions/{session_id}/estimate` | Simplified transcript-centered submit |
 | `POST` | `/api/v1/embeddings/ingest` | Persist a budget document and its chunk embeddings (Postgres + pgvector) |
 | `POST` | `/api/v1/search` | Semantic search over persisted chunks (pgvector cosine distance) |
+| `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
 
 The `embeddings/ingest` and `search` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
 
@@ -710,7 +711,9 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 **Internal retrieval debug API** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`):
 
-- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, `hybrid`, `rerank`, or `all`), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, `hybrid.enabled`, `hybrid.method` (`rrf` or `weighted`), optional `hybrid.rrf_k`, `hybrid.weights`, `rerank.enabled` (default `false`), and `max_results`.
+- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, `hybrid`, `rerank`, or `all`), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, `hybrid.enabled`, `hybrid.method` (`rrf` or `weighted`), optional `hybrid.rrf_k`, `hybrid.weights`, `rerank.enabled` (default `false`), `filters`, and `max_results`.
+- `filters` is optional and ignored when empty or `null`. Supported keys: `document_type`, `client_sector`, `main_technology`, `source_name`, `language`, `tags`, and `year`. Provided filters are AND-combined before branch ranking/limiting; unknown keys are ignored, while malformed typed values such as `year.from: "recent"` return `422`.
+- Scalar metadata filters use JSONB containment on `chunks.metadata` (`@>`) and can reuse `ix_chunks_metadata_gin`. `document_type` filters join `documents`. `tags` uses contains-all semantics (`chunks.metadata['tags'] @> [...]`). `year.from` / `year.to` are inclusive bounds over numeric `chunks.metadata.year`.
 - `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `branches.lexical[]` uses Postgres `websearch_to_tsquery` + `to_tsvector('english', chunks.content)` + `ts_rank_cd`, min-max normalized scores, and deterministic `matched_terms`.
 - `branches.hybrid[]` fuses vector and lexical rankings with Reciprocal Rank Fusion by default (`Σ weight/(rrf_k + rank)`) or weighted normalized branch scores. Hybrid `final_results[]` are ordered by `fusion_rank`, include `fusion_score`, semantic/lexical evidence when present, `diff`, and explanation signals (`semantic_strong`, `semantic_weak`, `lexical_exact_match`, `branch_consensus`, `hybrid_rescued`, `below_threshold`).
 - `rerank.enabled=true` runs the configured reranker after fusion/branch ordering. The default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and emits a warning that rerank is a no-op placeholder. Injected future rerankers can reorder or filter candidates without changing the response contract; promotions/demotions use `rerank_promoted` and `rerank_demoted`.
@@ -732,6 +735,11 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
   -H 'Content-Type: application/json' \
   -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["vector","lexical","hybrid"],"vector":{"top_k":20},"lexical":{"top_k":20},"hybrid":{"method":"rrf","rrf_k":60},"max_results":10}' \
+  | python3 -m json.tool
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"JWT refresh token rotation","strategies":["vector","lexical","hybrid"],"filters":{"client_sector":"finance","main_technology":"python","tags":["backend"],"year":{"from":2023,"to":2025}},"max_results":10}' \
   | python3 -m json.tool
 
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
@@ -911,13 +919,18 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
   -d '{"query":"REST API with OAuth authentication for fintech sector","strategies":["vector","lexical"],"vector":{"top_k":10},"lexical":{"top_k":10},"max_results":5}' \
   | python3 -m json.tool
 
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"REST API with OAuth authentication","strategies":["vector","lexical","hybrid"],"filters":{"document_type":"historical_budget","client_sector":"finance","tags":["backend"],"year":{"from":2023}},"max_results":5}' \
+  | python3 -m json.tool
+
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
   | python3 -m json.tool
 
 uv run pytest tests/embedding_pipeline/test_retrieval_debug_*.py -q
 ```
 
-Use this internal API to compare semantic and lexical retrieval: vector `distance` remains raw cosine distance, vector `score` is normalized similarity, lexical `score` is branch-local min-max normalized `ts_rank_cd`, and `matched_terms` shows the exact full-text evidence for technical tokens such as acronyms, versions, and identifiers.
+Use this internal API to compare semantic and lexical retrieval: vector `distance` remains raw cosine distance, vector `score` is normalized similarity, lexical `score` is branch-local min-max normalized `ts_rank_cd`, and `matched_terms` shows the exact full-text evidence for technical tokens such as acronyms, versions, and identifiers. Add `filters` when you need a controlled corpus slice; filters are applied to vector and lexical candidates before hybrid fusion, so diffs explain retrieval behavior only inside the selected subset.
 
 **Query demo script** (`query_examples.py`)
 
@@ -953,9 +966,13 @@ OpenAI embedding vectors are commonly compared by **cosine similarity** in RAG p
 
 Feature-036/038 deliberately used a **sequential scan** baseline to measure latency and teach query-plan inspection on a small corpus (~tens of chunks). Feature-040 adds **`ix_chunks_embedding_hnsw`** with **`vector_cosine_ops`**, matching the existing `cosine_distance` search SQL without API changes. On very small tables the planner may still choose sequential scan until statistics favour ANN — verify with `EXPLAIN` and `scripts/pgvector_observability.sql` (see [docs/technical/README.md §24](docs/technical/README.md#24-hnsw-vector-index-feature-040)).
 
+**(e) Retrieval debug metadata filters**
+
+`POST /api/v1/retrieval-debug` can scope vector, lexical, and hybrid candidate sets through `filters`. Scalar fields (`client_sector`, `main_technology`, `source_name`, `language`) use JSONB containment against `chunks.metadata`, `tags` requires all requested tags to be present, and `year` uses inclusive numeric bounds. `document_type` is document-level and joins `documents`. This keeps `/api/v1/search` unchanged while letting operators isolate relevance variables inside the internal debug API.
+
 ### Out of scope
 
-Metadata filters, hybrid keyword + vector search, ranking benchmarks, and retrieval tuning are **not** implemented here.
+Faceting, filter suggestions, ranking benchmarks, and retrieval tuning are **not** implemented here.
 
 Further detail: [docs/technical/README.md §22–§24](docs/technical/README.md).
 

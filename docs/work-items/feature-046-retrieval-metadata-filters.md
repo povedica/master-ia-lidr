@@ -85,7 +85,7 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [x] AC-06: Hybrid fuses only filtered candidates; `applied_config` echoes normalized filters.
 - [x] AC-07: Filters matching nothing → `200` with empty branches; no error.
 - [x] AC-08: `POST /api/v1/search` query/behavior unchanged (regression test).
-- [ ] AC-09: Default suite passes offline; docs explain filter keys, `tags`/`year` semantics, and GIN index usage.
+- [x] AC-09: Default suite passes offline; docs explain filter keys, `tags`/`year` semantics, and GIN index usage.
 
 ## Test Plan
 
@@ -96,15 +96,22 @@ When filters are present, vector and lexical branches both restrict candidates b
 
 ## Verification
 
-- Automated: `uv run pytest tests/embedding_pipeline -q`.
-- Manual: curl debug with `filters` (sector, year range, tags) on Compose Postgres.
-- Not verified yet: large-corpus filter performance; faceting.
+- Verified: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q` (`29 passed`).
+- Verified: `uv run pytest tests/embedding_pipeline/test_retrieval_metadata_filters.py -q` (`5 passed`).
+- Verified: `uv run pytest tests/embedding_pipeline/test_search_repository.py tests/embedding_pipeline/test_lexical_search_repository.py -q` (`8 passed`).
+- Verified: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py tests/embedding_pipeline/test_retrieval_debug_router.py -q` (`19 passed`).
+- Verified: `uv run pytest tests/embedding_pipeline/test_search_router.py -q` (`6 passed`).
+- Verified: `uv run pytest tests/embedding_pipeline -q` (`200 passed, 2 deselected`).
+- Verified: `ReadLints` found no linter errors in edited Python files.
+- Not verified: manual Compose Postgres curl/`EXPLAIN` with a live corpus.
+- Residual risk: large-corpus planner behavior for `year` casts and `document_type` joins still needs live Postgres inspection; faceting remains out of scope.
 
 ## Documentation Plan
 
-- `docs/technical/README.md`: filter contract, JSONB containment, `tags`/`year` semantics, GIN index reuse.
-- `README.md`: filter example in internal-tools section.
-- Second Brain: note on isolating variables for relevance tuning.
+- [x] `docs/technical/README.md`: filter contract, JSONB containment, `tags`/`year` semantics, GIN index reuse.
+- [x] `README.md`: filter example in internal-tools section.
+- [x] `docs/arquitectura-estimador-cag.html`: retrieval debug flow and module table updated for metadata filters.
+- [x] `learnings/aprendizajes/retrieval-metadata-filters-debug.md`: note on isolating variables for relevance tuning.
 
 ## Pull Request
 
@@ -130,7 +137,44 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [x] Step 2: Pure SQLAlchemy metadata filter builder and unit tests.
 - [x] Step 3: Apply filters in vector and lexical repositories.
 - [x] Step 4: Wire filters through retrieval debug orchestration and API contract.
-- [ ] Step 5: Documentation, handoff, and final verification.
+- [x] Step 5: Documentation, handoff, and final verification.
+
+## Handoff from feature-046
+
+Shipped interfaces:
+
+- `RetrievalDebugRequest.filters` accepts optional `document_type`, `client_sector`, `main_technology`, `source_name`, `language`, `tags`, and `year.from` / `year.to`.
+- `SemanticSearchRepository.search_chunks()` and `LexicalSearchRepository.search_chunks()` accept optional `filters` for debug callers; default `None` preserves existing `/api/v1/search` behavior.
+- `build_metadata_filters(filters)` centralizes SQLAlchemy predicates for JSONB scalar containment, tags contains-all, inclusive year bounds, and document type equality.
+- `applied_config.filters` echoes normalized filters when present.
+
+Changed contracts:
+
+- Unknown filter keys are ignored.
+- Empty filter objects normalize to no filtering.
+- Malformed typed values still return validation errors.
+- Filters are AND-combined before branch ranking and limiting; hybrid only sees filtered branch candidates.
+
+Verification evidence:
+
+- `uv run pytest tests/embedding_pipeline -q` passed with `200 passed, 2 deselected`.
+- Lints reported no errors for edited Python files.
+
+Not verified:
+
+- Live Compose Postgres curl checks with an ingested corpus.
+- `EXPLAIN` confirmation for GIN usage and planner behavior on larger corpora.
+
+Residual risks:
+
+- JSONB scalar containment can use `ix_chunks_metadata_gin`, but `year` casts and `document_type` joins may require future typed/generated indexes if the corpus grows.
+- `tags` requires contains-all; frontend feature 047 should expose that clearly.
+
+Recommended first tests for feature-047:
+
+- Send `filters` from the internal debug screen and assert `applied_config.filters` mirrors normalized values.
+- Exercise empty-match responses and verify the UI renders empty branches without treating them as errors.
+- Make `tags` copy explicit as "contains all selected tags".
 
 ## Repository commits (master-ia)
 
@@ -140,4 +184,5 @@ When filters are present, vector and lexical branches both restrict candidates b
 | `7edd31b` | Add and verify the retrieval debug metadata filter request schema. |
 | `fac1723` | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
 | `46903f1` | Apply retrieval metadata filters in vector and lexical repository statements. |
-| pending | Wire metadata filters through retrieval debug orchestration and API responses. |
+| `0551ee5` | Wire metadata filters through retrieval debug orchestration and API responses. |
+| pending | Document retrieval debug metadata filters, verification, and handoff. |

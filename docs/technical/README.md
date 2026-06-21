@@ -432,7 +432,7 @@ Session 07 pipeline routes (isolated from estimator CAG and Redis semantic cache
 
 **Ingest:** one `Budget` per request; Postgres transaction; `409` on duplicate `source_path`. **Search:** natural-language `query` + `k`; ranks persisted chunks by pgvector cosine distance (`<=>`); requires `OPENAI_API_KEY` for query embedding. Worked manual analysis (SAML + education query): [feature-038 work item](../work-items/feature-038-semantic-search-endpoint-pgvector.md#manual-query-analysis-verified-on-compose-postgres).
 
-**Retrieval debug:** internal `POST /api/v1/retrieval-debug` returns an explainable branch container. `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`. `branches.lexical[]` uses Postgres full-text search over `chunks.content`, with branch-local normalized `ts_rank_cd` scores and deterministic `matched_terms`. `branches.hybrid[]` fuses vector and lexical rankings. `rerank.enabled=true` runs the configured reranker after fusion/branch ordering; the default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and warns that rerank is a no-op placeholder. `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity.
+**Retrieval debug:** internal `POST /api/v1/retrieval-debug` returns an explainable branch container. `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`. `branches.lexical[]` uses Postgres full-text search over `chunks.content`, with branch-local normalized `ts_rank_cd` scores and deterministic `matched_terms`. Optional `filters` scope vector and lexical candidates before ranking/limiting, so hybrid fuses only the selected subset. `branches.hybrid[]` fuses vector and lexical rankings. `rerank.enabled=true` runs the configured reranker after fusion/branch ordering; the default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and warns that rerank is a no-op placeholder. `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity.
 
 ### Semantic cache (v2, optional)
 
@@ -983,9 +983,10 @@ Feature-042 adds the internal observability layer without changing `POST /api/v1
 | Path | Role |
 |------|------|
 | `app/routers/retrieval_debug.py` | HTTP routes, DI, safe errors, completion logging |
-| `app/embedding_pipeline/retrieval_debug.py` | Vector, lexical, and hybrid branch orchestration, score normalization, explanations, diff assembly, chunk inspection service |
+| `app/embedding_pipeline/retrieval_debug.py` | Vector, lexical, and hybrid branch orchestration, metadata filter propagation, score normalization, explanations, diff assembly, chunk inspection service |
 | `app/embedding_pipeline/fusion.py` | Pure Reciprocal Rank Fusion, weighted fusion, ranking diff, and explanation helpers |
 | `app/embedding_pipeline/lexical_search_repository.py` | Postgres full-text search statement and lexical row mapping |
+| `app/embedding_pipeline/metadata_filters.py` | Shared SQLAlchemy predicates for retrieval debug metadata filters |
 | `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads and optional single-chunk distance query |
 | `app/embedding_pipeline/retrieval_debug_schemas.py` | Request/response schemas and nullable branch container |
 
@@ -998,9 +999,29 @@ Feature-042 adds the internal observability layer without changing `POST /api/v1
   "vector": {"top_k": 20, "threshold": 0.6},
   "lexical": {"top_k": 20},
   "hybrid": {"enabled": true, "method": "rrf", "rrf_k": 60},
+  "filters": {
+    "document_type": "historical_budget",
+    "client_sector": "finance",
+    "main_technology": "python",
+    "source_name": "budget_2024_q1",
+    "language": "en",
+    "tags": ["backend", "api"],
+    "year": {"from": 2023, "to": 2025}
+  },
   "max_results": 10
 }
 ```
+
+`filters` is optional. Empty values are normalized away; an empty object or `null` means no filtering. Unknown keys are ignored to keep internal tooling forward-compatible, but malformed typed values still fail validation (`year.from` must be an integer). Provided filters are AND-combined:
+
+| Filter | Storage | Semantics |
+|--------|---------|-----------|
+| `document_type` | `documents.document_type` | Equality; repositories join `documents` only when needed |
+| `client_sector`, `main_technology`, `source_name`, `language` | `chunks.metadata` JSONB | JSONB containment (`@>`) |
+| `tags` | `chunks.metadata['tags']` JSONB array | Contains all requested tags |
+| `year.from`, `year.to` | `chunks.metadata['year']` | Inclusive numeric lower/upper bounds |
+
+Scalar JSONB filters can use the existing `ix_chunks_metadata_gin` index. The `year` numeric cast and document join are still covered by correctness tests, but large-corpus planner behavior should be checked with Compose Postgres and `EXPLAIN` before treating them as performance guarantees.
 
 Response shape:
 
@@ -1033,6 +1054,8 @@ LIMIT :top_k;
 ```
 
 Lexical `score` is min-max normalized over the branch's `ts_rank_cd` values. When every lexical rank is equal, all returned lexical entries receive `score = 1.0`. `matched_terms` is extracted from highlighted `ts_headline` output, lower-cased, deduplicated, and sorted for deterministic debug output. This is intentionally an on-the-fly sequential-scan baseline; indexed `tsvector` or `pg_trgm` work belongs to `feature-048`.
+
+Metadata filters are applied before branch ordering and `LIMIT`, so branch diffs and hybrid rescue explanations describe only the scoped candidate set. Filters that match nothing are valid: the endpoint returns `200` with empty branch lists and empty `final_results`.
 
 Chunk inspector:
 
