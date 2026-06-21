@@ -16,6 +16,7 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
     RankingDiffResponse,
     RerankBranchConfig,
     ResultExplanation,
+    RetrievalMetadataFilters,
     RetrievalDebugRequest,
     RetrievalDebugResponse,
     VectorBranchConfig,
@@ -41,6 +42,55 @@ def test_retrieval_debug_request_accepts_lexical_config() -> None:
 
     assert request.strategies == ["lexical"]
     assert request.lexical.top_k == 20
+
+
+def test_retrieval_debug_request_normalizes_metadata_filters() -> None:
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        filters={
+            "document_type": " historical_budget ",
+            "client_sector": "finance",
+            "main_technology": "python",
+            "source_name": "budget_2024_q1",
+            "language": "en",
+            "tags": [" backend ", "", "api"],
+            "year": {"from": 2023, "to": 2025},
+            "unknown": "ignored",
+        },
+    )
+
+    assert request.filters == RetrievalMetadataFilters(
+        document_type="historical_budget",
+        client_sector="finance",
+        main_technology="python",
+        source_name="budget_2024_q1",
+        language="en",
+        tags=["backend", "api"],
+        year={"from": 2023, "to": 2025},
+    )
+    assert request.filters.model_dump(exclude_none=True) == {
+        "document_type": "historical_budget",
+        "client_sector": "finance",
+        "main_technology": "python",
+        "source_name": "budget_2024_q1",
+        "language": "en",
+        "tags": ["backend", "api"],
+        "year": {"from": 2023, "to": 2025},
+    }
+
+
+def test_retrieval_debug_request_ignores_empty_metadata_filters() -> None:
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        filters={
+            "document_type": "",
+            "tags": ["", "   "],
+            "year": {},
+            "unknown": "ignored",
+        },
+    )
+
+    assert request.filters is None
 
 
 def test_retrieval_debug_request_accepts_hybrid_config_defaults() -> None:
@@ -99,6 +149,7 @@ def test_retrieval_debug_request_rejects_weighted_hybrid_without_weights() -> No
         ({"query": "valid", "lexical": {"top_k": 51}}, "lexical.top_k"),
         ({"query": "valid", "max_results": 0}, "max_results"),
         ({"query": "valid", "max_results": 51}, "max_results"),
+        ({"query": "valid", "filters": {"year": {"from": "recent"}}}, "filters.year.from"),
     ],
 )
 def test_retrieval_debug_request_rejects_invalid_input(
