@@ -277,7 +277,7 @@ Request body (illustrative):
   "query": "JWT refresh token rotation for OAuth2 REST API (RFC 6749)",
   "strategies": ["vector", "lexical", "hybrid"],
   "vector": { "top_k": 20, "threshold": null },
-  "lexical": { "top_k": 20, "use_trigram": true },
+  "lexical": { "top_k": 20 },
   "hybrid": { "enabled": true, "method": "rrf", "rrf_k": 60, "weights": { "vector": 0.5, "lexical": 0.5 } },
   "rerank": { "enabled": false },
   "max_results": 15,
@@ -292,6 +292,8 @@ Validation:
 - `top_k`: `1..50`; `max_results`: `1..50`.
 - `threshold`: optional float in a documented range.
 - `weights`: non-negative; normalized server-side; required only when `method = "weighted"`.
+
+> **Shipped contract note:** The implemented `LexicalBranchConfig` exposes only `top_k`; there is no `use_trigram` request flag. Feature-048 provisions `pg_trgm` (extension + index) for indexed lexical ranking without adding an HTTP toggle, and explicit trigram-similarity scoring stays in Future Extensions.
 
 ### FR-04 — Debug response data model (requirements C, D, E, F)
 
@@ -347,6 +349,8 @@ Behavior:
 - `score` per branch is a documented, normalized 0–1 value for comparability; raw signals (`distance`, `ts_rank`, fusion score) are also surfaced where applicable.
 - `source_strategies` lists every branch in which a chunk appeared at/above its `top_k`.
 - `explanation.signals` uses a stable controlled vocabulary (e.g. `semantic_strong`, `semantic_weak`, `lexical_exact_match`, `branch_consensus`, `hybrid_rescued`, `rerank_promoted`, `rerank_demoted`, `below_threshold`) so the UI can render labels deterministically; `explanation.summary` is human-readable technical English.
+
+> **Shipped contract note:** The `diff` JSON above is illustrative. In the implemented contract, `common`/`vector_only`/`lexical_only`/`hybrid_rescued`/`dropped_by_threshold`/`dropped_by_rerank` are arrays of objects (`chunk_id`, `document_id`, `source_strategies`, `branch_ranks`), and `big_movers` entries carry `chunk_id`, `document_id`, `from_rank`, `to_rank`, and `delta` (no `branch_from`/`branch_to`). The canonical shape lives in `app/embedding_pipeline/retrieval_debug_schemas.py` and `docs/technical/README.md`.
 
 ### FR-05 — Chunk inspection (requirement G)
 
@@ -419,10 +423,10 @@ Use the existing API client patterns under `web/src/features/...` and Zod schema
 
 ### Telemetry & logs (requirement 7)
 
-- Structured log `retrieval_debug_completed` with stable keys: `request_id`, `strategies`, per-branch result counts, per-branch + total `timings_ms`, `max_results`, `fusion_method`, `rerank_enabled`, `corpus_eligible`. No query text by default if it may contain sensitive data (configurable), no embeddings, no API keys.
+- Structured log `retrieval_debug_completed` with stable keys: `request_id`, `strategies`, per-branch result counts, `timings_ms`, and `max_results`. No query text, no chunk content, no embeddings, no API keys.
 - `retrieval_debug_branch_failed` warning log with `branch` and `error_type` (no payloads).
 - Reuse existing logging conventions (`semantic_search_completed`/`_failed`).
-- Optional, behind existing observability flags: OTel span per branch / Langfuse event. Document as optional; do not hard-require.
+- Optional / future (not hard-required): additional log keys such as `fusion_method`, `rerank_enabled`, `corpus_eligible`; OTel span per branch / Langfuse event behind existing observability flags.
 
 ## Acceptance Criteria
 
@@ -469,16 +473,16 @@ Use the existing API client patterns under `web/src/features/...` and Zod schema
 
 ## Verification
 
-- Automated: `uv run pytest tests/embedding_pipeline -q` (debug service, fusion, repositories, router) and `cd web && npm test` (or project equivalent) for the screen.
+- Automated (shipped): `uv run pytest tests/embedding_pipeline -q` (`200 passed, 2 deselected`) for debug service, fusion, repositories, and router; `cd web && npm test` (`48 passed`) for the screen; `cd web && npm run build` and `npm run lint` pass. Per-sub-feature evidence is recorded in each handoff above.
 - Manual: documented curl examples for `POST /api/v1/retrieval-debug` and the chunk inspector against Compose Postgres, plus a screenshot/notes of the screen in each state.
-- Not verified yet (until `/start-task`): real reranker quality, large-corpus latency, integration test against live Postgres in CI.
+- Not verified (residual): live end-to-end Compose/Postgres smoke with an ingested corpus across all sub-features, real reranker quality, large-corpus latency, integration test against live Postgres in CI, and formal accessibility audit.
 
 ## Documentation Plan
 
 - `README.md`: new "Internal tools → Retrieval debugging screen" subsection with purpose, env flag, run commands, and a curl example; note it is internal-only.
 - `docs/technical/README.md`: debug API contract, branch normalization/fusion math, explanation vocabulary, lexical baseline vs optional migration, telemetry keys.
 - `docs/arquitectura-estimador-cag.html`: add the retrieval-debug router/service node and API table rows; mark lexical/hybrid/rerank as debug-scoped.
-- Second Brain: `learnings/docs/sesiones/sesion-NN-retrieval-debug-observability.md` capturing what hybrid fusion and the diff view teach about semantic vs lexical trade-offs on technical queries.
+- Second Brain: learning note capturing what hybrid fusion and the diff view teach about semantic vs lexical trade-offs on technical queries. Shipped at `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/retrieval-debug-internal-screen.md`.
 - `.env.example`: document any new variables (e.g. lexical/fusion defaults, `VITE_ENABLE_RETRIEVAL_DEBUG`) with placeholder/empty values.
 
 ## Implementation Plan
