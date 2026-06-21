@@ -184,3 +184,5 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 | `7f39c67` | Extended retrieval debug schemas for hybrid config, fusion fields, and diff responses. |
 | `91ec264` | Wired hybrid fusion into the retrieval debug service with final ordering, diff, explanations, and disabled fallback. |
 | `f1954e4` | Updated repository docs and architecture docs for hybrid fusion diagnostics. |
+| `4f73983` | Recorded the implementation commit report in the canonical work item. |
+| `e07bf9d` | Moved the feature-044 handoff to the downstream feature-045 document and epic feature-041 document. |
