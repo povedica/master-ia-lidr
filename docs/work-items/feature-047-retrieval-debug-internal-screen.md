@@ -117,15 +117,22 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Verification
 
-- Automated: `cd web && npm test` (or project equivalent) for the new feature.
-- Manual: end-to-end against Compose backend; screenshots/notes per state.
-- Not verified yet: real reranker UI behavior (depends on a future real reranker); accessibility audit (follow-up).
+- Verified: `cd web && npm test` (`9 passed`, `47 passed` tests).
+- Verified: `cd web && npm run build`.
+- Verified: `cd web && npm run lint`.
+- Verified: `ReadLints` reported no errors in edited frontend files.
+- Not verified: live end-to-end Compose backend screen check with an ingested corpus.
+- Not verified: real reranker behavior; the current backend reranker remains a no-op placeholder.
+- Not verified: formal accessibility audit.
+- Residual risk: the route is a build-time/internal env gate, not production authz; keep it disabled for normal builds.
 
 ## Documentation Plan
 
-- `README.md`: internal-tools section — enable `VITE_ENABLE_RETRIEVAL_DEBUG`, run web + API, how to read the screen.
-- `docs/arquitectura-estimador-cag.html`: add the internal screen node (debug-scoped).
-- Second Brain: session note with screenshots and tuning learnings.
+- [x] `README.md`: internal-tools section — enable `VITE_ENABLE_RETRIEVAL_DEBUG`, run web + API, how to read the screen.
+- [x] `web/README.md`: frontend env flag and internal route usage.
+- [x] `web/.env.example`: documented `VITE_ENABLE_RETRIEVAL_DEBUG=false`.
+- [x] `docs/arquitectura-estimador-cag.html`: internal screen node (debug-scoped).
+- [x] Second Brain: learning note with UI tuning learnings; screenshots deferred until live smoke.
 
 ## Implementation Plan
 
@@ -151,8 +158,60 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 - [x] Step 4: `RetrievalDebugPage` shell, env gate, and state machine.
 - [x] Step 5: `QueryBox`, `TuningPanel`, and recent searches.
 - [x] Step 6: Comparative results, explanations, branch tabs, and ranking diff.
-- [ ] Step 7: Chunk inspector, partial/warnings states, docs, and final verification.
+- [x] Step 7: Chunk inspector, partial/warnings states, docs, and final verification.
 
 ## Pull Request
 
 - Draft PR: https://github.com/povedica/master-ia-lidr/pull/43
+
+## Handoff from feature-047
+
+Shipped interfaces:
+
+- `web/src/appRouting.ts` gates `/debug/retrieval` behind `VITE_ENABLE_RETRIEVAL_DEBUG=true`.
+- `web/src/features/retrieval-debug/api/retrievalDebugApi.ts` mirrors the backend debug request, response, ranking diff, and chunk inspection contracts with Zod.
+- `RetrievalDebugPage` owns the debug UI state machine: `idle`, `loading`, `results`, `empty`, `error`, and `partial`.
+- The screen supports query/strategy input, tuning controls, metadata filters, recent searches in `localStorage`, comparative result rendering, branch rankings, ranking diff, non-blocking warnings, and a chunk inspector drawer.
+
+Changed contracts:
+
+- `web/.env.example` now includes `VITE_ENABLE_RETRIEVAL_DEBUG=false`.
+- `web/vitest.config.ts` runs Vitest under `jsdom` and discovers `*.test.tsx`.
+- `web/package.json` adds React testing dependencies for component tests.
+
+Verification evidence:
+
+- `cd web && npm test` passed with `47 passed`.
+- `cd web && npm run build` passed.
+- `cd web && npm run lint` passed.
+- `ReadLints` reported no errors in edited frontend files.
+
+Not verified:
+
+- Live Compose/Postgres end-to-end screen check with real retrieval data.
+- Real reranker behavior beyond the backend no-op placeholder warning path.
+- Formal accessibility audit.
+
+Residual risks:
+
+- The route is hidden by a frontend env gate only; production-grade authz remains out of scope.
+- Large real corpora may surface layout pressure in the comparison table and drawer.
+- `npm install` reported audit findings in the frontend dependency tree; no broad `npm audit fix` was applied because it may change unrelated package versions.
+
+Recommended first tests for the next implementer:
+
+- Run the screen against Compose with an ingested corpus and verify vector, lexical, hybrid, all, and rerank-placeholder requests.
+- Exercise empty-match, branch-warning, invalid-request, and DB-down paths manually.
+- Capture screenshots for the Second Brain session note if this feature is used in class/demo material.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `aae1cd6` | Track the feature work item, initial estimation, and implementation progress for the internal screen. |
+| `b009dd9` | Record the draft PR for the feature branch. |
+| `f18b9a7` | Enable React component tests with Vitest and jsdom. |
+| `ae82d41` | Add the retrieval debug API client and Zod response schemas. |
+| `49236db` | Add the env-gated retrieval debug page shell and basic state machine. |
+| `f698b7d` | Add query controls, tuning controls, request mapping, and recent searches. |
+| `50dcc67` | Render comparative results, explanation chips, branch rankings, and ranking diff. |

@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import App, { shouldShowRetrievalDebugPage } from './App'
+import App from './App'
+import { shouldShowRetrievalDebugPage } from './appRouting'
 
 function stubMatchMedia(): void {
   Object.defineProperty(window, 'matchMedia', {

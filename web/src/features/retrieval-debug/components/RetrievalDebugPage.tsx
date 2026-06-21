@@ -1,14 +1,17 @@
 import { type FormEvent, type ReactNode, useState } from 'react'
 
 import {
+  inspectDebugChunk,
   RetrievalDebugApiError,
   retrievalStrategySchema,
   runRetrievalDebug,
+  type ChunkInspectionResponse,
   type RetrievalDebugRequest,
   type RetrievalDebugResponse,
 } from '../api/retrievalDebugApi'
 
-type RetrievalDebugStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error'
+type RetrievalDebugStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error' | 'partial'
+type ChunkInspectorStatus = 'idle' | 'loading' | 'loaded' | 'error'
 type RetrievalStrategy = RetrievalDebugRequest['strategies'][number]
 
 const RECENT_SEARCHES_KEY = 'retrieval-debug-recent-searches'
@@ -37,6 +40,7 @@ type RecentSearch = {
 }
 
 type RetrievalDebugPageProps = {
+  inspectChunk?: (chunkId: number, query?: string) => Promise<ChunkInspectionResponse>
   runDebug?: (request: RetrievalDebugRequest) => Promise<RetrievalDebugResponse>
   themeControl?: ReactNode
 }
@@ -161,6 +165,7 @@ function saveRecentSearch(search: RecentSearch): RecentSearch[] {
 }
 
 export function RetrievalDebugPage({
+  inspectChunk = inspectDebugChunk,
   runDebug = runRetrievalDebug,
   themeControl,
 }: RetrievalDebugPageProps) {
@@ -171,6 +176,9 @@ export function RetrievalDebugPage({
   const [status, setStatus] = useState<RetrievalDebugStatus>('idle')
   const [response, setResponse] = useState<RetrievalDebugResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [chunkStatus, setChunkStatus] = useState<ChunkInspectorStatus>('idle')
+  const [chunkInspection, setChunkInspection] = useState<ChunkInspectionResponse | null>(null)
+  const [chunkErrorMessage, setChunkErrorMessage] = useState<string | null>(null)
 
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault()
@@ -186,10 +194,28 @@ export function RetrievalDebugPage({
       const nextResponse = await runDebug(request)
       setRecentSearches(saveRecentSearch({ query: trimmedQuery, strategy, tuning }))
       setResponse(nextResponse)
-      setStatus(nextResponse.final_results.length > 0 ? 'results' : 'empty')
+      if (nextResponse.warnings.length > 0 && nextResponse.final_results.length > 0) {
+        setStatus('partial')
+      } else {
+        setStatus(nextResponse.final_results.length > 0 ? 'results' : 'empty')
+      }
     } catch (error) {
       setErrorMessage(friendlyErrorMessage(error))
       setStatus('error')
+    }
+  }
+
+  async function onInspectChunk(chunkId: number) {
+    setChunkStatus('loading')
+    setChunkInspection(null)
+    setChunkErrorMessage(null)
+    try {
+      const nextChunk = await inspectChunk(chunkId, query.trim())
+      setChunkInspection(nextChunk)
+      setChunkStatus('loaded')
+    } catch (error) {
+      setChunkErrorMessage(friendlyErrorMessage(error))
+      setChunkStatus('error')
     }
   }
 
@@ -258,18 +284,52 @@ export function RetrievalDebugPage({
         {status === 'error' && errorMessage && (
           <p className="text-sm font-medium text-red-700 dark:text-red-300">{errorMessage}</p>
         )}
-        {status === 'results' && response && (
-          <ResultsPanel response={response} />
+        {(status === 'results' || status === 'partial') && response && (
+          <ResultsPanel
+            isPartial={status === 'partial'}
+            onInspectChunk={(chunkId) => void onInspectChunk(chunkId)}
+            response={response}
+          />
         )}
       </section>
+      {chunkStatus !== 'idle' && (
+        <ChunkInspectorDrawer
+          chunk={chunkInspection}
+          errorMessage={chunkErrorMessage}
+          onClose={() => {
+            setChunkStatus('idle')
+            setChunkInspection(null)
+            setChunkErrorMessage(null)
+          }}
+          status={chunkStatus}
+        />
+      )}
     </main>
   )
 }
 
-function ResultsPanel({ response }: { response: RetrievalDebugResponse }) {
+function ResultsPanel({
+  isPartial,
+  onInspectChunk,
+  response,
+}: {
+  isPartial: boolean
+  onInspectChunk: (chunkId: number) => void
+  response: RetrievalDebugResponse
+}) {
   return (
     <div className="space-y-6">
-      <ComparativeResultsTable results={response.final_results} />
+      {isPartial && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+          <h2 className="font-semibold">Partial retrieval results</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {response.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <ComparativeResultsTable onInspectChunk={onInspectChunk} results={response.final_results} />
       <BranchRankings branches={response.branches} />
       {response.diff && <RankingDiffView diff={response.diff} />}
     </div>
@@ -277,8 +337,10 @@ function ResultsPanel({ response }: { response: RetrievalDebugResponse }) {
 }
 
 function ComparativeResultsTable({
+  onInspectChunk,
   results,
 }: {
+  onInspectChunk: (chunkId: number) => void
   results: RetrievalDebugResponse['final_results']
 }) {
   return (
@@ -305,6 +367,13 @@ function ComparativeResultsTable({
                 <td className="px-3 py-3 font-semibold">#{result.final_position}</td>
                 <td className="px-3 py-3">
                   <span>chunk {result.chunk_id} / doc {result.document_id}</span>
+                  <button
+                    className="mt-2 block rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    onClick={() => onInspectChunk(result.chunk_id)}
+                    type="button"
+                  >
+                    Inspect chunk {result.chunk_id}
+                  </button>
                 </td>
                 <td className="px-3 py-3">
                   <p className="font-medium text-slate-900 dark:text-slate-100">{result.title}</p>
@@ -330,6 +399,83 @@ function ComparativeResultsTable({
         </table>
       </div>
     </section>
+  )
+}
+
+function ChunkInspectorDrawer({
+  chunk,
+  errorMessage,
+  onClose,
+  status,
+}: {
+  chunk: ChunkInspectionResponse | null
+  errorMessage: string | null
+  onClose: () => void
+  status: ChunkInspectorStatus
+}) {
+  return (
+    <aside className="fixed inset-y-0 right-0 z-20 w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-violet-600 dark:text-violet-300">
+            Chunk inspector
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            Chunk details
+          </h2>
+        </div>
+        <button
+          className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-700"
+          onClick={onClose}
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+      {status === 'loading' && (
+        <p className="mt-6 text-sm text-slate-600 dark:text-slate-400">Loading chunk details...</p>
+      )}
+      {status === 'error' && errorMessage && (
+        <p className="mt-6 text-sm font-medium text-red-700 dark:text-red-300">{errorMessage}</p>
+      )}
+      {status === 'loaded' && chunk && (
+        <div className="mt-6 space-y-5 text-sm text-slate-700 dark:text-slate-300">
+          <section>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Content</h3>
+            <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-100 p-3 dark:bg-slate-900">
+              {chunk.content}
+            </p>
+          </section>
+          <section className="grid gap-3 md:grid-cols-2">
+            <InspectorValue label="Document" value={JSON.stringify(chunk.document)} />
+            <InspectorValue label="Metadata" value={JSON.stringify(chunk.metadata)} />
+            <InspectorValue label="Embedding model" value={chunk.embedding_model} />
+            <InspectorValue label="Chunk type" value={chunk.chunk_type} />
+            <InspectorValue label="Distance" value={chunk.distance ?? 'n/a'} />
+            <InspectorValue label="Similarity" value={chunk.similarity ?? 'n/a'} />
+          </section>
+          <section className="grid gap-3 md:grid-cols-2">
+            <InspectorValue
+              label="Previous chunk"
+              value={String(chunk.previous_chunk?.content_excerpt ?? 'none')}
+            />
+            <InspectorValue
+              label="Next chunk"
+              value={String(chunk.next_chunk?.content_excerpt ?? 'none')}
+            />
+          </section>
+        </div>
+      )}
+    </aside>
+  )
+}
+
+function InspectorValue({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words">{value}</dd>
+    </div>
   )
 }
 

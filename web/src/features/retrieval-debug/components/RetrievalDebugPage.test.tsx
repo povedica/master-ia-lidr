@@ -2,7 +2,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { RetrievalDebugApiError, type RetrievalDebugResponse } from '../api/retrievalDebugApi'
+import {
+  RetrievalDebugApiError,
+  type ChunkInspectionResponse,
+  type RetrievalDebugResponse,
+} from '../api/retrievalDebugApi'
 
 import { RetrievalDebugPage } from './RetrievalDebugPage'
 
@@ -97,6 +101,21 @@ const resultsResponse: RetrievalDebugResponse = {
     dropped_by_threshold: [],
     dropped_by_rerank: [],
   },
+}
+
+const chunkInspectionResponse: ChunkInspectionResponse = {
+  chunk_id: 156,
+  document_id: 12,
+  content: 'Full backend OAuth implementation chunk.',
+  chunk_type: 'budget_component',
+  metadata: { component_id: 'AUTH-001' },
+  embedding_model: 'text-embedding-3-small',
+  embedding_present: true,
+  document: { id: 12, source_path: 'data/budgets/example.json' },
+  previous_chunk: { content_excerpt: 'Previous context' },
+  next_chunk: { content_excerpt: 'Next context' },
+  distance: 0.25,
+  similarity: 0.75,
 }
 
 describe('RetrievalDebugPage', () => {
@@ -223,5 +242,42 @@ describe('RetrievalDebugPage', () => {
     expect(screen.getByText('Hybrid rescued')).toBeTruthy()
     expect(screen.getAllByText('chunk 156 / doc 12').length).toBeGreaterThan(0)
     expect(screen.getByText('3 -> 1')).toBeTruthy()
+  })
+
+  it('renders warnings as a partial non-blocking state', async () => {
+    render(
+      <RetrievalDebugPage
+        runDebug={vi.fn().mockResolvedValue({
+          ...resultsResponse,
+          warnings: ['lexical branch failed; showing vector results only'],
+        })}
+      />,
+    )
+
+    await userEvent.type(screen.getByLabelText('Query'), 'OAuth backend')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Partial retrieval results')).toBeTruthy()
+    expect(screen.getByText('lexical branch failed; showing vector results only')).toBeTruthy()
+  })
+
+  it('opens the chunk inspector drawer from a result row', async () => {
+    const inspectChunk = vi.fn().mockResolvedValue(chunkInspectionResponse)
+    render(
+      <RetrievalDebugPage
+        inspectChunk={inspectChunk}
+        runDebug={vi.fn().mockResolvedValue(resultsResponse)}
+      />,
+    )
+
+    await userEvent.type(screen.getByLabelText('Query'), 'OAuth backend')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Inspect chunk 156' }))
+
+    expect(inspectChunk).toHaveBeenCalledWith(156, 'OAuth backend')
+    expect(await screen.findByText('Full backend OAuth implementation chunk.')).toBeTruthy()
+    expect(screen.getByText('Previous context')).toBeTruthy()
+    expect(screen.getByText('Next context')).toBeTruthy()
+    expect(screen.getByText('text-embedding-3-small')).toBeTruthy()
   })
 })

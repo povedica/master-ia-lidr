@@ -1,11 +1,8 @@
+import { shouldShowRetrievalDebugPage } from './appRouting'
 import { EstimationWorkbench } from './features/estimation/components/EstimationWorkbench'
 import { RetrievalDebugPage } from './features/retrieval-debug/components/RetrievalDebugPage'
 import { ThemeControl } from './theme/ThemeControl'
 import { useAppearance } from './theme/useAppearance'
-
-export function shouldShowRetrievalDebugPage(pathname: string, enabled: boolean): boolean {
-  return enabled && pathname === '/debug/retrieval'
-}
 
 function App() {
   const { mode, setMode } = useAppearance()

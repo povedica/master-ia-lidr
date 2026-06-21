@@ -220,6 +220,8 @@ For sequence diagrams, error mapping, and logging details, see [docs/technical/R
 
 The `web/` package is a **React + Vite + TypeScript** browser UI. On load it creates a session (`POST /api/v1/sessions`), lists recent sessions in a sidebar (`GET /api/v1/sessions`), and submits the simplified form to `POST /api/v1/sessions/{session_id}/estimate`. **Project metadata** and the structured **estimate** render in separate panels.
 
+The internal retrieval debug screen lives at `/debug/retrieval` and is hidden unless `VITE_ENABLE_RETRIEVAL_DEBUG=true`. It consumes the debug API to compare vector, lexical, hybrid, and rerank lanes, tune request knobs, render ranking diffs and explanation chips, and inspect chunk context in a drawer. Keep the flag disabled for normal end-user builds.
+
 | Mode | How it runs |
 |------|-------------|
 | **Docker** | Static nginx container — assets built at image build time |
@@ -232,6 +234,12 @@ npm run build    # production bundle
 npm run preview  # serve dist/ locally
 npm run test     # Vitest unit tests
 npm run lint     # ESLint
+```
+
+```bash
+cd web
+VITE_ENABLE_RETRIEVAL_DEBUG=true npm run dev
+# Open http://127.0.0.1:5173/debug/retrieval
 ```
 
 See [web/README.md](web/README.md) for environment variables and appearance settings.
