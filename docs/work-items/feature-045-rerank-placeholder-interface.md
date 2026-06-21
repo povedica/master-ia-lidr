@@ -162,10 +162,15 @@ The active `Reranker` is resolved via DI/settings; the router never constructs a
 ## Implementation progress
 
 - Draft PR: https://github.com/povedica/master-ia-lidr/pull/41
-- [ ] Step 1: Reranker protocol and NoOpReranker contract.
+- [x] Step 1: Reranker protocol and NoOpReranker contract.
 - [ ] Step 2: Rerank request/result schema contract.
 - [ ] Step 3: Debug orchestrator rerank step with no-op, reorder, and filter test doubles.
 - [ ] Step 4: Documentation sweep and final verification.
+
+Verified after Step 1:
+
+- `uv run pytest tests/embedding_pipeline/test_rerank.py::test_noop_reranker_preserves_input_order_and_sets_ranks -q` — RED failed first with missing `app.embedding_pipeline.rerank`, then passed after implementation.
+- `uv run pytest tests/embedding_pipeline/test_rerank.py -q` — passed.
 
 ## Start-task plan
 
