@@ -20,6 +20,12 @@ from app.embedding_pipeline.lexical_search_repository import (
     LexicalSearchRepository,
     LexicalSearchResult,
 )
+from app.embedding_pipeline.rerank import (
+    NoOpReranker,
+    RerankCandidate,
+    RerankedItem,
+    Reranker,
+)
 from app.embedding_pipeline.retrieval_debug_repository import RetrievalDebugRepository
 from app.embedding_pipeline.retrieval_debug_schemas import (
     BranchResultEntry,
@@ -36,10 +42,13 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
 from app.embedding_pipeline.schemas import SearchResult
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 
-_IMPLEMENTED_STRATEGIES = {"vector", "lexical", "hybrid"}
-_FUTURE_STRATEGIES = ("rerank",)
+_IMPLEMENTED_STRATEGIES = {"vector", "lexical", "hybrid", "rerank"}
+_FUTURE_STRATEGIES: tuple[str, ...] = ()
 _DIFF_BIG_MOVER_THRESHOLD = 3
 _DIFF_RESCUE_RANK_THRESHOLD = 3
+_NOOP_RERANK_WARNING = (
+    "rerank.enabled=true but no reranker configured; rerank is a no-op placeholder"
+)
 
 
 def _clamp_score(value: float) -> float:
@@ -165,6 +174,7 @@ def _applied_config(request: RetrievalDebugRequest, strategies: list[str]) -> di
         "vector": request.vector.model_dump(),
         "lexical": request.lexical.model_dump(),
         "hybrid": request.hybrid.model_dump(),
+        "rerank": request.rerank.model_dump(),
         "max_results": request.max_results,
     }
 
@@ -242,6 +252,116 @@ def _ranking_diff_response(diff: RankingDiff) -> RankingDiffResponse:
             for entry in diff.dropped_by_rerank
         ],
     )
+
+
+def _rerank_score_source(result: DebugResult) -> float:
+    for score in (result.fusion_score, result.semantic_score, result.lexical_score):
+        if score is not None:
+            return score
+    return 0.0
+
+
+def _rerank_candidates(final_results: list[DebugResult]) -> list[RerankCandidate]:
+    return [
+        RerankCandidate(
+            entry=BranchResultEntry(
+                rank=result.final_position,
+                chunk_id=result.chunk_id,
+                document_id=result.document_id,
+                score=_rerank_score_source(result),
+            ),
+            content=result.content_excerpt,
+            metadata=result.metadata,
+        )
+        for result in final_results
+    ]
+
+
+def _rerank_branch_entries(reranked_items: list[RerankedItem]) -> list[BranchResultEntry]:
+    return [
+        BranchResultEntry(
+            rank=item.rerank_rank,
+            chunk_id=item.candidate.entry.chunk_id,
+            document_id=item.candidate.entry.document_id,
+            score=(
+                item.rerank_score
+                if item.rerank_score is not None
+                else item.candidate.entry.score
+            ),
+        )
+        for item in reranked_items
+    ]
+
+
+def _rerank_dropped_ids(
+    candidates: list[RerankCandidate],
+    reranked_items: list[RerankedItem],
+) -> list[int]:
+    returned_ids = {
+        item.candidate.entry.chunk_id
+        for item in reranked_items
+    }
+    return [
+        candidate.entry.chunk_id
+        for candidate in candidates
+        if candidate.entry.chunk_id not in returned_ids
+    ]
+
+
+def _rerank_signal(
+    *,
+    original_rank: int,
+    rerank_rank: int,
+) -> tuple[str, str] | None:
+    if rerank_rank < original_rank:
+        return ("rerank_promoted", "promoted by rerank")
+    if rerank_rank > original_rank:
+        return ("rerank_demoted", "demoted by rerank")
+    return None
+
+
+def _apply_rerank_to_final_results(
+    final_results: list[DebugResult],
+    reranked_items: list[RerankedItem],
+) -> list[DebugResult]:
+    results_by_chunk_id = {
+        result.chunk_id: result
+        for result in final_results
+    }
+    reranked_results: list[DebugResult] = []
+    for final_position, item in enumerate(reranked_items, start=1):
+        result = results_by_chunk_id[item.candidate.entry.chunk_id]
+        source_strategies = list(result.source_strategies)
+        if "rerank" not in source_strategies:
+            source_strategies.append("rerank")
+
+        signals = list(result.explanation.signals)
+        summary = result.explanation.summary
+        rerank_signal = _rerank_signal(
+            original_rank=item.candidate.entry.rank,
+            rerank_rank=item.rerank_rank,
+        )
+        if rerank_signal is not None:
+            signal, summary_part = rerank_signal
+            if signal not in signals:
+                signals.append(signal)
+            summary = f"{summary.rstrip('.')}; {summary_part}."
+
+        reranked_results.append(
+            result.model_copy(
+                update={
+                    "final_position": final_position,
+                    "rerank_score": item.rerank_score,
+                    "rerank_rank": item.rerank_rank,
+                    "source_strategies": source_strategies,
+                    "explanation": ResultExplanation(
+                        summary=summary,
+                        signals=signals,
+                    ),
+                }
+            )
+        )
+    return reranked_results
 
 
 def _build_final_results(
@@ -400,6 +520,7 @@ async def run_retrieval_debug(
     embedder: OpenAIEmbedder,
     repository: SemanticSearchRepository | None = None,
     lexical_repository: LexicalSearchRepository | None = None,
+    reranker: Reranker | None = None,
 ) -> RetrievalDebugResponse:
     """Run debug retrieval for implemented branches and return an explainable trace."""
 
@@ -417,11 +538,13 @@ async def run_retrieval_debug(
     lexical_entries: list[BranchResultEntry] | None = None
     lexical_results: list[LexicalSearchResult] = []
     hybrid_entries: list[BranchResultEntry] | None = None
+    rerank_entries: list[BranchResultEntry] | None = None
     diff: RankingDiff | None = None
     final_results: list[DebugResult] = []
     vector_ms = 0
     lexical_ms = 0
     hybrid_ms = 0
+    rerank_ms = 0
 
     async def run_vector_branch() -> tuple[list[SearchResult], list[BranchResultEntry], int]:
         vector_started = time.perf_counter()
@@ -533,6 +656,30 @@ async def run_retrieval_debug(
             max_results=request.max_results,
         )
 
+    if request.rerank.enabled and final_results:
+        rerank_started = time.perf_counter()
+        active_reranker = reranker or NoOpReranker()
+        candidates = _rerank_candidates(final_results)
+        reranked_items = await active_reranker.rerank(request.query, candidates)
+        rerank_entries = _rerank_branch_entries(reranked_items)
+        rerank_drop_ids = _rerank_dropped_ids(candidates, reranked_items)
+        final_results = _apply_rerank_to_final_results(final_results, reranked_items)
+        if active_reranker.is_noop:
+            warnings.append(_NOOP_RERANK_WARNING)
+        if diff is not None and vector_entries is not None and lexical_entries is not None:
+            diff = build_ranking_diff(
+                {
+                    "vector": vector_entries,
+                    "lexical": lexical_entries,
+                },
+                rerank_entries,
+                threshold_drops=threshold_drop_ids,
+                rerank_drops=rerank_drop_ids,
+                big_mover_threshold=_DIFF_BIG_MOVER_THRESHOLD,
+                rescue_rank_threshold=_DIFF_RESCUE_RANK_THRESHOLD,
+            )
+        rerank_ms = int((time.perf_counter() - rerank_started) * 1000)
+
     total_ms = int((time.perf_counter() - total_started) * 1000)
     return RetrievalDebugResponse(
         query=request.query,
@@ -541,6 +688,7 @@ async def run_retrieval_debug(
             "vector": vector_ms,
             "lexical": lexical_ms,
             "hybrid": hybrid_ms,
+            "rerank": rerank_ms,
             "total": total_ms,
         },
         warnings=warnings,
@@ -548,6 +696,7 @@ async def run_retrieval_debug(
             vector=vector_entries,
             lexical=lexical_entries,
             hybrid=hybrid_entries,
+            rerank=rerank_entries,
         ),
         final_results=final_results,
         diff=_ranking_diff_response(diff) if diff is not None else None,

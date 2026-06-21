@@ -164,7 +164,7 @@ The active `Reranker` is resolved via DI/settings; the router never constructs a
 - Draft PR: https://github.com/povedica/master-ia-lidr/pull/41
 - [x] Step 1: Reranker protocol and NoOpReranker contract.
 - [x] Step 2: Rerank request/result schema contract.
-- [ ] Step 3: Debug orchestrator rerank step with no-op, reorder, and filter test doubles.
+- [x] Step 3: Debug orchestrator rerank step with no-op, reorder, and filter test doubles.
 - [ ] Step 4: Documentation sweep and final verification.
 
 Verified after Step 1:
@@ -176,6 +176,12 @@ Verified after Step 2:
 
 - `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_retrieval_debug_request_accepts_rerank_config_defaults tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_debug_result_accepts_rerank_fields -q` — RED failed first with missing `RerankBranchConfig`, then passed after implementation.
 - `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q` — passed.
+
+Verified after Step 3:
+
+- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py::test_run_retrieval_debug_noop_rerank_preserves_hybrid_order_with_warning tests/embedding_pipeline/test_retrieval_debug_service.py::test_run_retrieval_debug_fake_reranker_reorders_and_marks_signals tests/embedding_pipeline/test_retrieval_debug_service.py::test_run_retrieval_debug_fake_reranker_filters_dropped_results -q` — RED failed first with missing rerank branch/injected reranker support, then passed after implementation.
+- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_service.py -q` — passed.
+- `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_schemas.py tests/embedding_pipeline/test_retrieval_debug_service.py -q` — passed.
 
 ## Start-task plan
 

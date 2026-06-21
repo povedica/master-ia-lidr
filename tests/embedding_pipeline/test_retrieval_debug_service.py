@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchResult
+from app.embedding_pipeline.rerank import RerankCandidate, RerankedItem
 from app.embedding_pipeline.retrieval_debug import run_retrieval_debug
 from app.embedding_pipeline.retrieval_debug_schemas import RetrievalDebugRequest
 from app.embedding_pipeline.schemas import SearchResult
@@ -74,6 +75,46 @@ class _FakeLexicalRepository:
         if self.error is not None:
             raise self.error
         return self.results[:top_k]
+
+
+class _FakeReorderReranker:
+    is_noop = False
+
+    async def rerank(
+        self,
+        query: str,
+        candidates: list[RerankCandidate],
+    ) -> list[RerankedItem]:
+        del query
+        reordered = [candidates[1], candidates[0], *candidates[2:]]
+        return [
+            RerankedItem(
+                candidate=candidate,
+                rerank_rank=rank,
+                rerank_score=1.0 - (rank * 0.1),
+            )
+            for rank, candidate in enumerate(reordered, start=1)
+        ]
+
+
+class _FakeFilterReranker:
+    is_noop = False
+
+    async def rerank(
+        self,
+        query: str,
+        candidates: list[RerankCandidate],
+    ) -> list[RerankedItem]:
+        del query
+        kept = [candidates[0], *candidates[2:]]
+        return [
+            RerankedItem(
+                candidate=candidate,
+                rerank_rank=rank,
+                rerank_score=0.9 - (rank * 0.1),
+            )
+            for rank, candidate in enumerate(kept, start=1)
+        ]
 
 
 def _search_result(
@@ -160,7 +201,7 @@ async def test_run_retrieval_debug_calls_embedder_once_and_returns_vector_trace(
 
 
 @pytest.mark.asyncio
-async def test_run_retrieval_debug_warns_for_unimplemented_branches() -> None:
+async def test_run_retrieval_debug_omits_rerank_when_disabled() -> None:
     embedder = _FakeEmbedder()
     repository = _FakeRepository()
     request = RetrievalDebugRequest(query="OAuth", strategies=["vector", "rerank"])
@@ -175,7 +216,8 @@ async def test_run_retrieval_debug_warns_for_unimplemented_branches() -> None:
 
     assert response.branches.vector == []
     assert response.branches.lexical is None
-    assert "Strategy 'rerank' is not implemented yet." in response.warnings
+    assert response.branches.rerank is None
+    assert response.warnings == []
 
 
 @pytest.mark.asyncio
@@ -340,6 +382,140 @@ async def test_run_retrieval_debug_returns_hybrid_branch_diff_and_explanations()
     assert response.diff.dropped_by_rerank == []
     assert response.timings_ms["hybrid"] >= 0
     assert response.warnings == []
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_noop_rerank_preserves_hybrid_order_with_warning() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(
+        results=[
+            _search_result(chunk_id=101, distance=0.2),
+            _search_result(chunk_id=102, distance=0.3),
+        ]
+    )
+    lexical_repository = _FakeLexicalRepository(
+        results=[
+            _lexical_result(
+                chunk_id=103,
+                document_id=13,
+                ts_rank=0.9,
+                content="JWT refresh token rotation",
+                matched_terms=["jwt"],
+            ),
+            _lexical_result(chunk_id=101, ts_rank=0.1, matched_terms=["oauth2"]),
+        ]
+    )
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid", "rerank"],
+        hybrid={"method": "weighted", "weights": {"vector": 1.0, "lexical": 3.0}},
+        rerank={"enabled": True},
+        max_results=2,
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+    )
+
+    assert response.branches.rerank is not None
+    assert [entry.chunk_id for entry in response.branches.rerank] == [103, 101]
+    assert [result.chunk_id for result in response.final_results] == [103, 101]
+    assert [result.rerank_rank for result in response.final_results] == [1, 2]
+    assert [result.rerank_score for result in response.final_results] == [None, None]
+    assert all("rerank" in result.source_strategies for result in response.final_results)
+    assert response.diff is not None
+    assert response.diff.dropped_by_rerank == []
+    assert response.timings_ms["rerank"] >= 0
+    assert (
+        "rerank.enabled=true but no reranker configured; rerank is a no-op placeholder"
+        in response.warnings
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_fake_reranker_reorders_and_marks_signals() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(
+        results=[
+            _search_result(chunk_id=101, distance=0.2),
+            _search_result(chunk_id=102, distance=0.3),
+        ]
+    )
+    lexical_repository = _FakeLexicalRepository(
+        results=[
+            _lexical_result(chunk_id=103, document_id=13, ts_rank=0.9),
+            _lexical_result(chunk_id=101, ts_rank=0.1),
+        ]
+    )
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid", "rerank"],
+        hybrid={"method": "weighted", "weights": {"vector": 1.0, "lexical": 3.0}},
+        rerank={"enabled": True},
+        max_results=2,
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+        reranker=_FakeReorderReranker(),
+    )
+
+    assert response.branches.rerank is not None
+    assert [entry.chunk_id for entry in response.branches.rerank] == [101, 103]
+    assert [result.chunk_id for result in response.final_results] == [101, 103]
+    assert response.final_results[0].rerank_rank == 1
+    assert response.final_results[0].rerank_score == pytest.approx(0.9)
+    assert "rerank_promoted" in response.final_results[0].explanation.signals
+    assert "rerank_demoted" in response.final_results[1].explanation.signals
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_fake_reranker_filters_dropped_results() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(
+        results=[
+            _search_result(chunk_id=101, distance=0.2),
+            _search_result(chunk_id=102, distance=0.3),
+        ]
+    )
+    lexical_repository = _FakeLexicalRepository(
+        results=[
+            _lexical_result(chunk_id=103, document_id=13, ts_rank=0.9),
+            _lexical_result(chunk_id=101, ts_rank=0.1),
+            _lexical_result(chunk_id=104, document_id=14, ts_rank=0.05),
+        ]
+    )
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid", "rerank"],
+        hybrid={"method": "weighted", "weights": {"vector": 1.0, "lexical": 3.0}},
+        rerank={"enabled": True},
+        max_results=3,
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+        reranker=_FakeFilterReranker(),
+    )
+
+    assert response.diff is not None
+    assert [result.chunk_id for result in response.final_results] == [103, 102]
+    assert [entry.chunk_id for entry in response.diff.dropped_by_rerank] == [101]
 
 
 @pytest.mark.asyncio
