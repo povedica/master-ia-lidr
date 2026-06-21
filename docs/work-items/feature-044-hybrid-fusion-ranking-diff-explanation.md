@@ -164,7 +164,7 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 - PR: https://github.com/povedica/master-ia-lidr/pull/40
 
 - [x] Step 1: Fusion core.
-- [ ] Step 2: Ranking diff builder.
+- [x] Step 2: Ranking diff builder.
 - [ ] Step 3: Explanation engine.
 - [ ] Step 4: Hybrid schemas and config.
 - [ ] Step 5: Hybrid service wiring.
