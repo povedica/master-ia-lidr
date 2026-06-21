@@ -153,4 +153,17 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 
 ## Estimation
 
-- Size: M · ~6 steps · depends on 042, 043 · unblocks 045, 047.
+- Size: M
+- Estimated time: 3 hours
+- Planned steps: 6
+- Depends on: 042, 043
+- Unblocks: 045, 047
+
+## Implementation progress
+
+- [ ] Step 1: Fusion core.
+- [ ] Step 2: Ranking diff builder.
+- [ ] Step 3: Explanation engine.
+- [ ] Step 4: Hybrid schemas and config.
+- [ ] Step 5: Hybrid service wiring.
+- [ ] Step 6: Documentation and full validation.
