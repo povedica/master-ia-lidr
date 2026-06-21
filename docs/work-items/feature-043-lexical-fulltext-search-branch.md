@@ -198,6 +198,8 @@ LIMIT :top_k;
 - Step 5 docs: `README.md`, `docs/technical/README.md`, `docs/arquitectura-estimador-cag.html`, and `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/retrieval-debug-vector-observability.md` updated.
 - Step 5 final automated: `uv run pytest tests/embedding_pipeline -q` (`170 passed, 2 deselected`).
 - Step 5 final automated: `uv run pytest` (`561 passed, 11 skipped, 12 deselected`).
+- Handoff closure: `## Handoff from feature-043` added to `feature-041` and `feature-044`; `/start-task` updated to require future handoffs.
+- Finish-task final automated: `uv run pytest` (`561 passed, 11 skipped, 12 deselected`).
 
 ## Repository commits (master-ia)
 
@@ -209,3 +211,5 @@ LIMIT :top_k;
 | `ae5a181` | Added lexical branch normalization and explanation helpers for retrieval debug. |
 | `aa4742d` | Wired the lexical branch into the retrieval debug service with partial-failure handling and safe logging. |
 | `8beba78` | Documented the lexical branch contract, architecture guide, and final verification. |
+| `75f129e` | Recorded pull-request readiness in the canonical work item. |
+| `8d2e825` | Added the feature-043 handoff to the parent epic, next sub-feature, and `/start-task` workflow. |
