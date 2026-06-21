@@ -146,7 +146,7 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 ## Implementation progress
 
 - [x] Step 1: Setup branch, planning, and WIP PR.
-- [ ] Step 2: React/Vitest DOM test harness.
+- [x] Step 2: React/Vitest DOM test harness.
 - [ ] Step 3: `retrievalDebugApi.ts` + Zod schemas.
 - [ ] Step 4: `RetrievalDebugPage` shell, env gate, and state machine.
 - [ ] Step 5: `QueryBox`, `TuningPanel`, and recent searches.
