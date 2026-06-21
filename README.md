@@ -714,10 +714,10 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 - `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, `hybrid`, `rerank`, or `all`), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, `hybrid.enabled`, `hybrid.method` (`rrf` or `weighted`), optional `hybrid.rrf_k`, `hybrid.weights`, `rerank.enabled` (default `false`), `filters`, and `max_results`.
 - `filters` is optional and ignored when empty or `null`. Supported keys: `document_type`, `client_sector`, `main_technology`, `source_name`, `language`, `tags`, and `year`. Provided filters are AND-combined before branch ranking/limiting; unknown keys are ignored, while malformed typed values such as `year.from: "recent"` return `422`.
 - Scalar metadata filters use JSONB containment on `chunks.metadata` (`@>`) and can reuse `ix_chunks_metadata_gin`. `document_type` filters join `documents`. `tags` uses contains-all semantics (`chunks.metadata['tags'] @> [...]`). `year.from` / `year.to` are inclusive bounds over numeric `chunks.metadata.year`.
-- `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `branches.lexical[]` uses Postgres `websearch_to_tsquery` + `to_tsvector('english', chunks.content)` + `ts_rank_cd`, min-max normalized scores, and deterministic `matched_terms`.
+- `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `branches.lexical[]` uses Postgres `websearch_to_tsquery` against the generated `chunks.content_tsv` column, ranked with `ts_rank_cd`, min-max normalized scores, and deterministic `matched_terms`.
 - `branches.hybrid[]` fuses vector and lexical rankings with Reciprocal Rank Fusion by default (`Σ weight/(rrf_k + rank)`) or weighted normalized branch scores. Hybrid `final_results[]` are ordered by `fusion_rank`, include `fusion_score`, semantic/lexical evidence when present, `diff`, and explanation signals (`semantic_strong`, `semantic_weak`, `lexical_exact_match`, `branch_consensus`, `hybrid_rescued`, `below_threshold`).
 - `rerank.enabled=true` runs the configured reranker after fusion/branch ordering. The default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and emits a warning that rerank is a no-op placeholder. Injected future rerankers can reorder or filter candidates without changing the response contract; promotions/demotions use `rerank_promoted` and `rerank_demoted`.
-- `diff` reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`. Indexed FTS is deferred to `feature-048`.
+- `diff` reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`. The lexical branch keeps the same response contract after the indexed `content_tsv` migration.
 - `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity for that single chunk.
 - Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only, including branch result counts but not query text or chunk content.
 
@@ -969,6 +969,10 @@ Feature-036/038 deliberately used a **sequential scan** baseline to measure late
 **(e) Retrieval debug metadata filters**
 
 `POST /api/v1/retrieval-debug` can scope vector, lexical, and hybrid candidate sets through `filters`. Scalar fields (`client_sector`, `main_technology`, `source_name`, `language`) use JSONB containment against `chunks.metadata`, `tags` requires all requested tags to be present, and `year` uses inclusive numeric bounds. `document_type` is document-level and joins `documents`. This keeps `/api/v1/search` unchanged while letting operators isolate relevance variables inside the internal debug API.
+
+**(f) Indexed lexical full-text search**
+
+The lexical branch now uses migration `0003_add_chunks_content_tsv_and_trgm.py`: `chunks.content_tsv` is a stored generated `tsvector`, `ix_chunks_content_tsv_gin` indexes full-text matching, and `pg_trgm` plus `ix_chunks_content_trgm` support exact technical-token diagnostics. The debug API response shape is unchanged; verify planner behavior with `EXPLAIN` after `uv run alembic upgrade head` (see [docs/technical/README.md §25](docs/technical/README.md#25-indexed-lexical-search-feature-048)).
 
 ### Out of scope
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -31,6 +31,7 @@ class Chunk(Base):
     )
     chunk_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_tsv: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     metadata_: Mapped[dict[str, object]] = mapped_column(
         "metadata",

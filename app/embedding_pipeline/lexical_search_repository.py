@@ -53,7 +53,7 @@ class LexicalSearchRepository:
     ) -> Select[tuple[int, int, str, str, dict[str, object], float, str]]:
         query_param = bindparam("query", query)
         ts_query = func.websearch_to_tsquery("english", query_param)
-        document_vector = func.to_tsvector("english", ChunkModel.content)
+        document_vector = ChunkModel.content_tsv
         ts_rank = func.ts_rank_cd(document_vector, ts_query).label("ts_rank")
         headline = func.ts_headline(
             "english",
