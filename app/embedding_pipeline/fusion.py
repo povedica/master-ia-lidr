@@ -14,6 +14,8 @@ CONTROLLED_EXPLANATION_SIGNALS = {
     "lexical_exact_match",
     "branch_consensus",
     "hybrid_rescued",
+    "rerank_promoted",
+    "rerank_demoted",
     "below_threshold",
 }
 

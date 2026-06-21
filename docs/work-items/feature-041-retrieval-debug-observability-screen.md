@@ -98,6 +98,27 @@ Residual risk / follow-ups:
 - Hybrid rescue and big-mover thresholds are deterministic constants in the service; future UI work may tune them after real corpus inspection.
 - RRF scores are intentionally raw RRF contributions, while weighted fusion scores are normalized weighted sums; UI labels should avoid comparing them as the same scale.
 
+## Handoff from feature-045
+
+Feature-045 (`feature/045-rerank-placeholder-interface`, PR `#41`) completed the rerank placeholder interface that downstream UI and filter work should assume:
+
+- `app/embedding_pipeline/rerank.py` defines the stable `Reranker` protocol, `RerankCandidate`, `RerankedItem`, and `NoOpReranker`.
+- `POST /api/v1/retrieval-debug` accepts `rerank.enabled` (default `false`). When enabled with no injected real reranker, the default no-op preserves order and emits `rerank.enabled=true but no reranker configured; rerank is a no-op placeholder`.
+- `branches.rerank[]` is present only when rerank runs; `final_results[]` include nullable `rerank_score` and `rerank_rank`, and `source_strategies` gains `rerank`.
+- Fake reorder/filter rerankers in tests prove the contract can represent `rerank_promoted`, `rerank_demoted`, and `diff.dropped_by_rerank` without a real model.
+- `timings_ms` includes `rerank`.
+
+Verification carried from feature-045:
+
+- `uv run pytest tests/embedding_pipeline -q` — `187 passed, 2 deselected`.
+- `uv run pytest` — `578 passed, 11 skipped, 12 deselected`.
+
+Residual risk / follow-ups:
+
+- Live Compose/Postgres curl smoke for `rerank.enabled=true` was not run during feature-045 closure.
+- A future real reranker may need full chunk content in `RerankCandidate.content`; the current no-op path uses the final result excerpt and does not affect the HTTP response contract.
+- Feature-046 should verify filters compose with rerank enabled after vector/lexical candidate narrowing.
+
 ## Objective
 
 Provide an internal screen and supporting API to inspect and tune the **retrieval stage** of the RAG system. The goal is to make retrieval explainable instead of a black box: given a natural-language query, an operator must see *which* chunks are retrieved, *which strategy* retrieved them, *with what score/rank*, *how the ranking changes when strategies are combined*, and *which signals explain the final order*.

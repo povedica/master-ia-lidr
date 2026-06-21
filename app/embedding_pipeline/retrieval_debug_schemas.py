@@ -37,6 +37,12 @@ class HybridBranchConfig(BaseModel):
         return self
 
 
+class RerankBranchConfig(BaseModel):
+    """Configuration for the rerank branch of a retrieval debug request."""
+
+    enabled: bool = False
+
+
 class RetrievalDebugRequest(BaseModel):
     """Request contract for explainable retrieval diagnostics."""
 
@@ -45,6 +51,7 @@ class RetrievalDebugRequest(BaseModel):
     vector: VectorBranchConfig = Field(default_factory=VectorBranchConfig)
     lexical: LexicalBranchConfig = Field(default_factory=LexicalBranchConfig)
     hybrid: HybridBranchConfig = Field(default_factory=HybridBranchConfig)
+    rerank: RerankBranchConfig = Field(default_factory=RerankBranchConfig)
     max_results: int = Field(default=10, ge=1, le=50)
 
     @field_validator("query")
@@ -142,6 +149,8 @@ class DebugResult(BaseModel):
     lexical_rank: int | None = Field(default=None, ge=1)
     fusion_score: float | None = Field(default=None, ge=0.0, le=1.0)
     fusion_rank: int | None = Field(default=None, ge=1)
+    rerank_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    rerank_rank: int | None = Field(default=None, ge=1)
     matched_terms: list[str] = Field(default_factory=list)
     source_strategies: list[str]
     metadata: dict[str, Any]
