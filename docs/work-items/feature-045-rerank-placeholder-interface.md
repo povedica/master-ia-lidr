@@ -246,6 +246,7 @@ Verified after Step 4:
 | `70f6e21` | Added `rerank.enabled`, nullable result rerank fields, and schema tests for the rerank debug contract. |
 | `f23f759` | Recorded the rerank schema implementation commit in the work item. |
 | `a969f4b` | Wired the no-op rerank placeholder into the retrieval debug service with injected fake reorder/filter test coverage. |
+| `7a6c4ab` | Documented the rerank placeholder contract, verification evidence, and downstream handoff. |
 
 ## Handoff from feature-045
 
