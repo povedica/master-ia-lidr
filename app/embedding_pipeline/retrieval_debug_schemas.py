@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SUPPORTED_STRATEGIES = {"all", "vector", "lexical", "hybrid", "rerank"}
 
@@ -22,6 +22,21 @@ class LexicalBranchConfig(BaseModel):
     top_k: int = Field(default=10, ge=1, le=50)
 
 
+class HybridBranchConfig(BaseModel):
+    """Configuration for the hybrid fusion branch of a retrieval debug request."""
+
+    enabled: bool = True
+    method: Literal["rrf", "weighted"] = "rrf"
+    rrf_k: int = Field(default=60, ge=1)
+    weights: dict[str, float] | None = None
+
+    @model_validator(mode="after")
+    def validate_weighted_method_has_weights(self) -> HybridBranchConfig:
+        if self.method == "weighted" and not self.weights:
+            raise ValueError("hybrid.weights is required when method is 'weighted'")
+        return self
+
+
 class RetrievalDebugRequest(BaseModel):
     """Request contract for explainable retrieval diagnostics."""
 
@@ -29,6 +44,7 @@ class RetrievalDebugRequest(BaseModel):
     strategies: list[str] = Field(default_factory=lambda: ["vector"])
     vector: VectorBranchConfig = Field(default_factory=VectorBranchConfig)
     lexical: LexicalBranchConfig = Field(default_factory=LexicalBranchConfig)
+    hybrid: HybridBranchConfig = Field(default_factory=HybridBranchConfig)
     max_results: int = Field(default=10, ge=1, le=50)
 
     @field_validator("query")
@@ -80,6 +96,37 @@ class ResultExplanation(BaseModel):
     signals: list[str]
 
 
+class RankingDiffEntryResponse(BaseModel):
+    """One chunk classified in a ranking diff set."""
+
+    chunk_id: int
+    document_id: int
+    source_strategies: list[str]
+    branch_ranks: dict[str, int]
+
+
+class RankingMoverResponse(BaseModel):
+    """One chunk whose fused rank moved materially from branch rank."""
+
+    chunk_id: int
+    document_id: int
+    from_rank: int = Field(ge=1)
+    to_rank: int = Field(ge=1)
+    delta: int = Field(ge=0)
+
+
+class RankingDiffResponse(BaseModel):
+    """Ranking diff exposed by the retrieval debug response."""
+
+    common: list[RankingDiffEntryResponse] = Field(default_factory=list)
+    vector_only: list[RankingDiffEntryResponse] = Field(default_factory=list)
+    lexical_only: list[RankingDiffEntryResponse] = Field(default_factory=list)
+    hybrid_rescued: list[RankingDiffEntryResponse] = Field(default_factory=list)
+    big_movers: list[RankingMoverResponse] = Field(default_factory=list)
+    dropped_by_threshold: list[RankingDiffEntryResponse] = Field(default_factory=list)
+    dropped_by_rerank: list[RankingDiffEntryResponse] = Field(default_factory=list)
+
+
 class DebugResult(BaseModel):
     """Final result row shown by the retrieval debug endpoint."""
 
@@ -93,6 +140,8 @@ class DebugResult(BaseModel):
     semantic_distance: float | None = Field(default=None, ge=0.0)
     lexical_score: float | None = Field(default=None, ge=0.0, le=1.0)
     lexical_rank: int | None = Field(default=None, ge=1)
+    fusion_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    fusion_rank: int | None = Field(default=None, ge=1)
     matched_terms: list[str] = Field(default_factory=list)
     source_strategies: list[str]
     metadata: dict[str, Any]
@@ -108,6 +157,7 @@ class RetrievalDebugResponse(BaseModel):
     warnings: list[str]
     branches: BranchesContainer
     final_results: list[DebugResult]
+    diff: RankingDiffResponse | None = None
 
 
 class ChunkInspectionResponse(BaseModel):

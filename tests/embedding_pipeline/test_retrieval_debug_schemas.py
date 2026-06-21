@@ -10,7 +10,10 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
     BranchResultEntry,
     ChunkInspectionResponse,
     DebugResult,
+    HybridBranchConfig,
     LexicalBranchConfig,
+    RankingDiffEntryResponse,
+    RankingDiffResponse,
     ResultExplanation,
     RetrievalDebugRequest,
     RetrievalDebugResponse,
@@ -37,6 +40,30 @@ def test_retrieval_debug_request_accepts_lexical_config() -> None:
 
     assert request.strategies == ["lexical"]
     assert request.lexical.top_k == 20
+
+
+def test_retrieval_debug_request_accepts_hybrid_config_defaults() -> None:
+    request = RetrievalDebugRequest(query="JWT OAuth2", strategies=["hybrid"])
+
+    assert request.hybrid == HybridBranchConfig()
+    assert request.hybrid.enabled is True
+    assert request.hybrid.method == "rrf"
+    assert request.hybrid.rrf_k == 60
+    assert request.hybrid.weights is None
+
+
+def test_retrieval_debug_request_rejects_weighted_hybrid_without_weights() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        RetrievalDebugRequest.model_validate(
+            {
+                "query": "JWT OAuth2",
+                "strategies": ["hybrid"],
+                "hybrid": {"method": "weighted"},
+            }
+        )
+
+    error_locations = {".".join(str(part) for part in error["loc"]) for error in exc_info.value.errors()}
+    assert "hybrid" in error_locations
 
 
 @pytest.mark.parametrize(
@@ -135,6 +162,52 @@ def test_debug_result_accepts_lexical_only_fields_with_nullable_semantic_fields(
     assert result.semantic_score is None
     assert result.lexical_score == 1.0
     assert result.matched_terms == ["jwt", "oauth2"]
+
+
+def test_debug_result_accepts_hybrid_fusion_fields() -> None:
+    result = DebugResult(
+        final_position=1,
+        chunk_id=156,
+        document_id=12,
+        title="BUD-2024-014 AUTH-001",
+        content_excerpt="JWT auth with OAuth2 refresh token rotation",
+        fusion_score=0.82,
+        fusion_rank=1,
+        source_strategies=["vector", "lexical", "hybrid"],
+        metadata={"component_id": "AUTH-001"},
+        explanation=ResultExplanation(
+            summary="branch consensus.",
+            signals=["branch_consensus"],
+        ),
+    )
+
+    assert result.fusion_score == 0.82
+    assert result.fusion_rank == 1
+
+
+def test_retrieval_debug_response_accepts_ranking_diff() -> None:
+    response = RetrievalDebugResponse(
+        query="OAuth backend",
+        applied_config={"strategies": ["hybrid"], "max_results": 10},
+        timings_ms={"hybrid": 0, "total": 1},
+        warnings=[],
+        branches=BranchesContainer(hybrid=[]),
+        final_results=[],
+        diff=RankingDiffResponse(
+            common=[
+                RankingDiffEntryResponse(
+                    chunk_id=156,
+                    document_id=12,
+                    source_strategies=["vector", "lexical"],
+                    branch_ranks={"vector": 1, "lexical": 2},
+                )
+            ],
+        ),
+    )
+
+    assert response.diff is not None
+    assert response.diff.common[0].chunk_id == 156
+    assert response.diff.dropped_by_rerank == []
 
 
 def test_chunk_inspection_response_exposes_document_and_embedding_metadata() -> None:
