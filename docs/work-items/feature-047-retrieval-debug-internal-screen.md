@@ -145,7 +145,7 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Implementation progress
 
-- [ ] Step 1: Setup branch, planning, and WIP PR.
+- [x] Step 1: Setup branch, planning, and WIP PR.
 - [ ] Step 2: React/Vitest DOM test harness.
 - [ ] Step 3: `retrievalDebugApi.ts` + Zod schemas.
 - [ ] Step 4: `RetrievalDebugPage` shell, env gate, and state machine.
@@ -155,4 +155,4 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Pull Request
 
-- Draft PR: pending.
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/43
