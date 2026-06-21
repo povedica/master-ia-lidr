@@ -169,7 +169,7 @@ def _content_excerpt(content: str, *, max_chars: int = 240) -> str:
 
 
 def _applied_config(request: RetrievalDebugRequest, strategies: list[str]) -> dict[str, Any]:
-    return {
+    config = {
         "strategies": strategies,
         "vector": request.vector.model_dump(),
         "lexical": request.lexical.model_dump(),
@@ -177,6 +177,9 @@ def _applied_config(request: RetrievalDebugRequest, strategies: list[str]) -> di
         "rerank": request.rerank.model_dump(),
         "max_results": request.max_results,
     }
+    if request.filters is not None:
+        config["filters"] = request.filters.model_dump(exclude_none=True)
+    return config
 
 
 def _branch_entries_for_explanation(
@@ -553,6 +556,7 @@ async def run_retrieval_debug(
             session,
             query_vector=query_vector,
             k=request.vector.top_k,
+            filters=request.filters,
         )
         return (
             search_results,
@@ -566,6 +570,7 @@ async def run_retrieval_debug(
             session,
             query=request.query,
             top_k=request.lexical.top_k,
+            filters=request.filters,
         )
         return (
             results,

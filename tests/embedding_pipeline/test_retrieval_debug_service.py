@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchResult
 from app.embedding_pipeline.rerank import RerankCandidate, RerankedItem
 from app.embedding_pipeline.retrieval_debug import run_retrieval_debug
-from app.embedding_pipeline.retrieval_debug_schemas import RetrievalDebugRequest
+from app.embedding_pipeline.retrieval_debug_schemas import (
+    RetrievalDebugRequest,
+    RetrievalMetadataFilters,
+)
 from app.embedding_pipeline.schemas import SearchResult
 
 EMBEDDING_DIM = 1536
@@ -37,6 +40,7 @@ class _FakeRepository:
         self.results = results or []
         self.last_query_vector: list[float] | None = None
         self.last_k: int | None = None
+        self.last_filters: RetrievalMetadataFilters | None = None
 
     async def search_chunks(
         self,
@@ -44,10 +48,12 @@ class _FakeRepository:
         *,
         query_vector: list[float],
         k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> list[SearchResult]:
         del session
         self.last_query_vector = query_vector
         self.last_k = k
+        self.last_filters = filters
         return self.results[:k]
 
 
@@ -61,6 +67,7 @@ class _FakeLexicalRepository:
         self.error = error
         self.last_query: str | None = None
         self.last_top_k: int | None = None
+        self.last_filters: RetrievalMetadataFilters | None = None
 
     async def search_chunks(
         self,
@@ -68,10 +75,12 @@ class _FakeLexicalRepository:
         *,
         query: str,
         top_k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> list[LexicalSearchResult]:
         del session
         self.last_query = query
         self.last_top_k = top_k
+        self.last_filters = filters
         if self.error is not None:
             raise self.error
         return self.results[:top_k]
@@ -381,6 +390,66 @@ async def test_run_retrieval_debug_returns_hybrid_branch_diff_and_explanations()
     assert [entry.chunk_id for entry in response.diff.hybrid_rescued] == [103]
     assert response.diff.dropped_by_rerank == []
     assert response.timings_ms["hybrid"] >= 0
+    assert response.warnings == []
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_passes_filters_to_candidate_branches_and_echoes_config() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository(results=[_search_result(chunk_id=101, distance=0.2)])
+    lexical_repository = _FakeLexicalRepository(results=[_lexical_result(chunk_id=101, ts_rank=0.8)])
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid"],
+        filters={
+            "client_sector": "finance",
+            "tags": ["backend", "api"],
+            "year": {"from": 2023, "to": 2025},
+        },
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+    )
+
+    assert repository.last_filters == request.filters
+    assert lexical_repository.last_filters == request.filters
+    assert response.applied_config["filters"] == {
+        "client_sector": "finance",
+        "tags": ["backend", "api"],
+        "year": {"from": 2023, "to": 2025},
+    }
+
+
+@pytest.mark.asyncio
+async def test_run_retrieval_debug_with_filters_allows_empty_branch_results() -> None:
+    embedder = _FakeEmbedder()
+    repository = _FakeRepository()
+    lexical_repository = _FakeLexicalRepository()
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["vector", "lexical", "hybrid"],
+        filters={"client_sector": "nonexistent"},
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    response = await run_retrieval_debug(
+        request,
+        session=session,
+        embedder=embedder,  # type: ignore[arg-type]
+        repository=repository,  # type: ignore[arg-type]
+        lexical_repository=lexical_repository,  # type: ignore[arg-type]
+    )
+
+    assert response.branches.vector == []
+    assert response.branches.lexical == []
+    assert response.branches.hybrid == []
+    assert response.final_results == []
     assert response.warnings == []
 
 

@@ -8,7 +8,10 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
-from app.embedding_pipeline.retrieval_debug_schemas import ChunkInspectionResponse
+from app.embedding_pipeline.retrieval_debug_schemas import (
+    ChunkInspectionResponse,
+    RetrievalMetadataFilters,
+)
 from app.embedding_pipeline.schemas import SearchResult
 from app.main import app
 from app.routers import retrieval_debug
@@ -37,8 +40,15 @@ class _FakeSearchRepository:
     def __init__(self) -> None:
         self.last_k: int | None = None
 
-    async def search_chunks(self, session: object, *, query_vector: list[float], k: int) -> list[SearchResult]:
-        del session, query_vector
+    async def search_chunks(
+        self,
+        session: object,
+        *,
+        query_vector: list[float],
+        k: int,
+        filters: RetrievalMetadataFilters | None = None,
+    ) -> list[SearchResult]:
+        del session, query_vector, filters
         self.last_k = k
         return [
             SearchResult(
@@ -146,6 +156,30 @@ def test_post_retrieval_debug_returns_vector_trace(retrieval_debug_client: TestC
     assert body["branches"]["lexical"] is None
     assert retrieval_debug_client.fake_embedder.embed_one_calls == 1  # type: ignore[attr-defined]
     assert retrieval_debug_client.search_repository.last_k == 5  # type: ignore[attr-defined]
+
+
+def test_post_retrieval_debug_accepts_and_echoes_filters(retrieval_debug_client: TestClient) -> None:
+    response = retrieval_debug_client.post(
+        POST_PATH,
+        json={
+            "query": "OAuth backend",
+            "strategies": ["vector"],
+            "filters": {
+                "client_sector": "finance",
+                "tags": ["backend"],
+                "year": {"from": 2023, "to": 2025},
+                "unknown": "ignored",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["applied_config"]["filters"] == {
+        "client_sector": "finance",
+        "tags": ["backend"],
+        "year": {"from": 2023, "to": 2025},
+    }
 
 
 def test_post_retrieval_debug_logs_safe_completion(

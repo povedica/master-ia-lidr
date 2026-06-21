@@ -82,9 +82,9 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [x] AC-03: `tags` filter uses documented JSONB array semantics; `year` range is inclusive with optional bounds.
 - [x] AC-04: Vector branch restricts candidates to matching chunks (repository test).
 - [x] AC-05: Lexical branch restricts candidates to matching chunks (repository test).
-- [ ] AC-06: Hybrid fuses only filtered candidates; `applied_config` echoes normalized filters.
-- [ ] AC-07: Filters matching nothing → `200` with empty branches; no error.
-- [ ] AC-08: `POST /api/v1/search` query/behavior unchanged (regression test).
+- [x] AC-06: Hybrid fuses only filtered candidates; `applied_config` echoes normalized filters.
+- [x] AC-07: Filters matching nothing → `200` with empty branches; no error.
+- [x] AC-08: `POST /api/v1/search` query/behavior unchanged (regression test).
 - [ ] AC-09: Default suite passes offline; docs explain filter keys, `tags`/`year` semantics, and GIN index usage.
 
 ## Test Plan
@@ -129,7 +129,7 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [x] Step 1: Filter schema and validation tests.
 - [x] Step 2: Pure SQLAlchemy metadata filter builder and unit tests.
 - [x] Step 3: Apply filters in vector and lexical repositories.
-- [ ] Step 4: Wire filters through retrieval debug orchestration and API contract.
+- [x] Step 4: Wire filters through retrieval debug orchestration and API contract.
 - [ ] Step 5: Documentation, handoff, and final verification.
 
 ## Repository commits (master-ia)
@@ -139,4 +139,5 @@ When filters are present, vector and lexical branches both restrict candidates b
 | `cc3e016` | Track the feature work item, initial estimation, and implementation progress for metadata filters. |
 | `7edd31b` | Add and verify the retrieval debug metadata filter request schema. |
 | `fac1723` | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
-| pending | Apply retrieval metadata filters in vector and lexical repository statements. |
+| `46903f1` | Apply retrieval metadata filters in vector and lexical repository statements. |
+| pending | Wire metadata filters through retrieval debug orchestration and API responses. |
