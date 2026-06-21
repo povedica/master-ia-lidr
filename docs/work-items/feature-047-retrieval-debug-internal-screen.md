@@ -149,7 +149,7 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 - [x] Step 2: React/Vitest DOM test harness.
 - [x] Step 3: `retrievalDebugApi.ts` + Zod schemas.
 - [x] Step 4: `RetrievalDebugPage` shell, env gate, and state machine.
-- [ ] Step 5: `QueryBox`, `TuningPanel`, and recent searches.
+- [x] Step 5: `QueryBox`, `TuningPanel`, and recent searches.
 - [ ] Step 6: Comparative results, explanations, branch tabs, and ranking diff.
 - [ ] Step 7: Chunk inspector, partial/warnings states, docs, and final verification.
 
