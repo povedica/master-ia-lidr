@@ -205,3 +205,33 @@ def test_settings_reads_database_url_from_env(monkeypatch: pytest.MonkeyPatch) -
 def test_database_url_defaults_to_empty_string() -> None:
     settings = Settings(_env_file=None)
     assert settings.database_url == ""
+
+
+def test_retrieval_settings_defaults_are_backward_compatible() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.retrieval_default_mode == "A"
+    assert settings.retrieval_lexical_text_search_config == "spanish"
+    assert settings.retrieval_recall_k == 50
+    assert settings.retrieval_top_k_final == 5
+    assert settings.retrieval_rrf_k == 60
+    assert settings.retrieval_rerank_enabled is False
+    assert settings.retrieval_rerank_model == ""
+
+
+def test_retrieval_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RETRIEVAL_DEFAULT_MODE", "D")
+    monkeypatch.setenv("RETRIEVAL_LEXICAL_TEXT_SEARCH_CONFIG", "english")
+    monkeypatch.setenv("RETRIEVAL_RECALL_K", "40")
+    monkeypatch.setenv("RETRIEVAL_TOP_K_FINAL", "10")
+    monkeypatch.setenv("RETRIEVAL_RRF_K", "80")
+    monkeypatch.setenv("RETRIEVAL_RERANK_ENABLED", "true")
+    monkeypatch.setenv("RETRIEVAL_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.retrieval_default_mode == "D"
+    assert settings.retrieval_lexical_text_search_config == "english"
+    assert settings.retrieval_recall_k == 40
+    assert settings.retrieval_top_k_final == 10
+    assert settings.retrieval_rrf_k == 80
+    assert settings.retrieval_rerank_enabled is True
+    assert settings.retrieval_rerank_model == "cross-encoder/ms-marco-MiniLM-L-6-v2"
