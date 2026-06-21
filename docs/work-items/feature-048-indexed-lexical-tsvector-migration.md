@@ -69,16 +69,16 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `0003_add_chunks_content_tsv_and_trgm.py` exists with `down_revision = "0002"`.
-- [ ] AC-02: Upgrade creates `content_tsv` generated column + `ix_chunks_content_tsv_gin`.
-- [ ] AC-03: `pg_trgm` enabled + `ix_chunks_content_trgm` (`gin_trgm_ops`) created.
-- [ ] AC-04: `LexicalSearchRepository` uses `content_tsv`; lexical response shape is unchanged from `feature-043`.
-- [ ] AC-05: `EXPLAIN` shows GIN index usage on the lexical query with a populated corpus.
-- [ ] AC-06: `alembic downgrade 0002` drops the new column/indexes; baseline lexical behavior remains valid.
-- [ ] AC-07: Static Alembic tests assert `0003` DDL (column, both indexes, extension).
-- [ ] AC-08: Lexical repository regression tests pass (shape unchanged, mocked session).
-- [ ] AC-09: Default suite passes offline; no real keys/live DB required.
-- [ ] AC-10: Technical docs, README, architecture HTML, and a Second Brain note record the indexed lexical path and `EXPLAIN` evidence.
+- [x] AC-01: `0003_add_chunks_content_tsv_and_trgm.py` exists with `down_revision = "0002"`.
+- [x] AC-02: Upgrade creates `content_tsv` generated column + `ix_chunks_content_tsv_gin`.
+- [x] AC-03: `pg_trgm` enabled + `ix_chunks_content_trgm` (`gin_trgm_ops`) created.
+- [x] AC-04: `LexicalSearchRepository` uses `content_tsv`; lexical response shape is unchanged from `feature-043`.
+- [x] AC-05: `EXPLAIN` shows GIN index usage on the lexical query with a populated corpus.
+- [x] AC-06: `alembic downgrade 0002` drops the new column/indexes; rollback is version-gated and documented (database downgrade should pair with code rollback to feature-043).
+- [x] AC-07: Static Alembic tests assert `0003` DDL (column, both indexes, extension).
+- [x] AC-08: Lexical repository regression tests pass (shape unchanged, mocked session).
+- [x] AC-09: Default suite passes offline; no real keys/live DB required.
+- [x] AC-10: Technical docs, README, architecture HTML, and a Second Brain note record the indexed lexical path and `EXPLAIN` evidence.
 
 ## Test Plan
 
@@ -88,9 +88,11 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 ## Verification
 
-- Automated: `uv run pytest tests/test_alembic_migration.py tests/embedding_pipeline -q`.
-- Manual: migration up/down + `EXPLAIN` + lexical curl on Compose Postgres.
-- Not verified yet: large-corpus latency benchmarks; `CREATE INDEX CONCURRENTLY` at scale.
+- Automated: `uv run pytest tests/test_alembic_migration.py tests/embedding_pipeline/test_lexical_search_repository.py -q` (`6 passed`).
+- Automated: `uv run pytest` (`592 passed, 11 skipped, 12 deselected`).
+- Manual Compose Postgres: `uv run alembic upgrade head` created `pg_trgm`, `ix_chunks_content_tsv_gin`, and `ix_chunks_content_trgm`; `EXPLAIN (ANALYZE, BUFFERS)` showed `Bitmap Index Scan on ix_chunks_content_tsv_gin`; `uv run alembic downgrade 0002` removed `content_tsv`; final `uv run alembic upgrade head && uv run alembic current` left the DB at `0003 (head)`.
+- Lints: no diagnostics in edited Python/test files.
+- Not verified: large-corpus latency benchmarks; `CREATE INDEX CONCURRENTLY` at scale; live debug API curl after migration.
 
 ## Documentation Plan
 
@@ -121,7 +123,7 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 - [x] Step 2: Add migration `0003` for `content_tsv`, GIN, and `pg_trgm`.
 - [x] Step 3: Switch lexical repository SQL to the indexed `content_tsv` path.
 - [x] Step 4: Document indexed lexical verification and architecture impact.
-- [ ] Step 5: Final verification, handoff, commit table, and PR closure readiness.
+- [x] Step 5: Final verification, handoff, commit table, and PR closure readiness.
 
 ## Pull request
 
@@ -138,6 +140,19 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 - Step 3 lints: no diagnostics in `app/models/chunk.py`, `app/embedding_pipeline/lexical_search_repository.py`, or lexical repository tests.
 - Step 4 docs: `README.md`, `docs/technical/README.md`, `docs/arquitectura-estimador-cag.html`, and Second Brain note `learnings/second-brain-master-ia/proyectos/estimador-cag/aprendizajes/indexed-lexical-tsvector.md` updated.
 - Step 4 regression: `uv run pytest tests/test_alembic_migration.py tests/embedding_pipeline/test_lexical_search_repository.py -q` (`6 passed`).
+- Step 5 final automated: `uv run pytest` (`592 passed, 11 skipped, 12 deselected`).
+- Step 5 manual DB: migration up/down and indexed `EXPLAIN` passed on Compose Postgres; final Alembic revision is `0003 (head)`.
+
+## Handoff from feature-048
+
+Feature-048 ships the indexed lexical retrieval path on branch `feature/048-indexed-lexical-tsvector-migration` and PR `#44`.
+
+- Migration `0003_add_chunks_content_tsv_and_trgm.py` adds `pg_trgm`, generated `chunks.content_tsv`, GIN index `ix_chunks_content_tsv_gin`, and trigram GIN index `ix_chunks_content_trgm`.
+- `app/models/chunk.py` maps `content_tsv`; `LexicalSearchRepository` now ranks and filters with `content_tsv @@ websearch_to_tsquery(...)` and `ts_rank_cd(content_tsv, ...)`.
+- Retrieval-debug HTTP response shape is unchanged: lexical rows still expose rank, ids, normalized score, and `matched_terms`; no trigram score is exposed yet.
+- Rollback is version-gated: `alembic downgrade 0002` drops the generated column and indexes, so running at DB revision `0002` should pair with app code rollback to the feature-043 baseline.
+- Verification evidence: full fast suite passed; Compose Postgres `EXPLAIN` showed `Bitmap Index Scan on ix_chunks_content_tsv_gin`; final local DB revision was restored to `0003 (head)`.
+- Residual risks: large-corpus latency and `CREATE INDEX CONCURRENTLY` production behavior were not benchmarked; live `POST /api/v1/retrieval-debug` curl was not run after migration.
 
 ## Repository commits (master-ia)
 
@@ -147,3 +162,4 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 | `da3a983` | Recorded the draft WIP PR for feature-048. |
 | `ef6a454` | Added the `0003` indexed lexical migration and static DDL coverage. |
 | `afaa728` | Switched lexical search to the indexed `content_tsv` path without changing the response contract. |
+| `52ce689` | Documented the indexed lexical path, verification commands, architecture guide, and rollback policy. |
