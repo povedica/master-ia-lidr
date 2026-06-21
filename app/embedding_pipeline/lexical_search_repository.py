@@ -44,6 +44,9 @@ def _extract_highlighted_terms(headline: str) -> list[str]:
 class LexicalSearchRepository:
     """Read ranked chunks by Postgres full-text match against chunk content."""
 
+    def __init__(self, *, text_search_config: str = "spanish") -> None:
+        self._text_search_config = text_search_config
+
     def build_search_statement(
         self,
         *,
@@ -52,11 +55,11 @@ class LexicalSearchRepository:
         filters: RetrievalMetadataFilters | None = None,
     ) -> Select[tuple[int, int, str, str, dict[str, object], float, str]]:
         query_param = bindparam("query", query)
-        ts_query = func.websearch_to_tsquery("english", query_param)
+        ts_query = func.websearch_to_tsquery(self._text_search_config, query_param)
         document_vector = ChunkModel.content_tsv
         ts_rank = func.ts_rank_cd(document_vector, ts_query).label("ts_rank")
         headline = func.ts_headline(
-            "english",
+            self._text_search_config,
             ChunkModel.content,
             ts_query,
             "StartSel=<<, StopSel=>>, MaxWords=35, MinWords=1",
