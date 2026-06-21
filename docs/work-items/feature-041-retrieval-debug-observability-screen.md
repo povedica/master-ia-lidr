@@ -68,6 +68,21 @@ Residual risk / follow-ups:
 - Feature-044 should centralize explanation generation; feature-043 only added the first lexical signal (`lexical_exact_match`) beside the existing vector helper.
 - Feature-048 remains responsible for indexed lexical performance; feature-043 intentionally ships a sequential-scan teaching baseline.
 
+## Handoff from feature-048
+
+Feature-048 (`feature/048-indexed-lexical-tsvector-migration`, PR `#44`) completed the optional indexed lexical path for the retrieval debug epic:
+
+- Alembic migration `0003_add_chunks_content_tsv_and_trgm.py` adds `pg_trgm`, generated `chunks.content_tsv`, `ix_chunks_content_tsv_gin`, and `ix_chunks_content_trgm`.
+- `LexicalSearchRepository` now ranks with `ts_rank_cd(content_tsv, websearch_to_tsquery(...))` and filters with `content_tsv @@ ...`, replacing the feature-043 on-the-fly `to_tsvector` baseline.
+- The retrieval-debug API contract did not change: lexical branch rows and final-result lexical fields keep the same shape and `matched_terms` behavior.
+- Manual Compose verification showed `Bitmap Index Scan on ix_chunks_content_tsv_gin`; downgrade to `0002` removed `content_tsv`, and the local DB was upgraded back to `0003 (head)`.
+- Rollback note: DB downgrade to `0002` should be paired with app code rollback to the feature-043 baseline because feature-048 code expects `content_tsv`.
+
+Residual risk / follow-ups:
+
+- Large-corpus latency benchmarks and production `CREATE INDEX CONCURRENTLY` behavior remain out of scope.
+- A future feature may use `pg_trgm` for explicit similarity scoring; feature-048 only provisions the extension/index and keeps the HTTP contract unchanged.
+
 ## Handoff from feature-044
 
 Feature-044 (`feature/044-hybrid-fusion-ranking-diff-explanation`, PR `#40`) completed hybrid rank fusion, ranking diff, and the controlled explanation engine that unlock feature-045. This epic-level handoff captures the state that downstream sub-features should assume:

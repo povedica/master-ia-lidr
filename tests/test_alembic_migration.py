@@ -31,3 +31,21 @@ def test_hnsw_migration_creates_cosine_index_on_embedding() -> None:
     assert "embedding IS NOT NULL" in source
     assert "m = 16" in source or "m=16" in source
     assert "ef_construction = 64" in source or "ef_construction=64" in source
+
+
+def test_indexed_lexical_migration_creates_tsvector_and_trigram_indexes() -> None:
+    source = _migration_source("0003_add_chunks_content_tsv_and_trgm.py")
+    normalized_source = " ".join(source.split())
+
+    assert 'down_revision: str | None = "0002"' in source or 'down_revision = "0002"' in source
+    assert "CREATE EXTENSION IF NOT EXISTS pg_trgm" in source
+    assert "content_tsv" in source
+    assert "GENERATED ALWAYS AS" in source
+    assert "to_tsvector('english', content)" in normalized_source
+    assert "ix_chunks_content_tsv_gin" in source
+    assert "USING gin (content_tsv)" in normalized_source
+    assert "ix_chunks_content_trgm" in source
+    assert "gin_trgm_ops" in source
+    assert "DROP INDEX IF EXISTS ix_chunks_content_trgm" in source
+    assert "DROP INDEX IF EXISTS ix_chunks_content_tsv_gin" in source
+    assert "DROP COLUMN IF EXISTS content_tsv" in source

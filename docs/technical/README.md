@@ -31,7 +31,9 @@ The goal is documentation that supports development, debugging, and growth witho
 - [21. Embedding pipeline (Session 07)](#21-embedding-pipeline-session-07)
 - [22. Postgres pgvector baseline (feature-036)](#22-postgres-pgvector-baseline-feature-036)
 - [23. Semantic search endpoint (feature-038)](#23-semantic-search-endpoint-feature-038)
-- [24. Worktree task orchestrator](#24-worktree-task-orchestrator)
+- [24. HNSW vector index (feature-040)](#24-hnsw-vector-index-feature-040)
+- [25. Indexed lexical search (feature-048)](#25-indexed-lexical-search-feature-048)
+- [26. Worktree task orchestrator](#26-worktree-task-orchestrator)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
 ## 1. Overview
@@ -867,18 +869,19 @@ The `app` service depends on healthy `postgres` and receives `DATABASE_URL=postg
 |------|------|
 | `app/database.py` | `Base`, async engine factory, `async_sessionmaker`, `session_scope` helper |
 | `app/models/document.py` | `documents` table — unique `source_path`, JSONB `metadata` |
-| `app/models/chunk.py` | `chunks` table — FK `ON DELETE CASCADE`, `Vector(1536)`, GIN on `metadata` |
+| `app/models/chunk.py` | `chunks` table — FK `ON DELETE CASCADE`, generated `content_tsv`, `Vector(1536)`, GIN on `metadata` |
 | `alembic/env.py` | Async migrations; reads `DATABASE_URL` from `Settings`; registers pgvector types |
 | `alembic/versions/0001_initial_schema.py` | `CREATE EXTENSION vector`, tables, non-vector indexes |
 | `alembic/versions/0002_add_chunks_embedding_hnsw_index.py` | HNSW cosine index on `chunks.embedding` (feature-040) |
+| `alembic/versions/0003_add_chunks_content_tsv_and_trgm.py` | Generated lexical `tsvector`, GIN full-text index, and `pg_trgm` trigram index (feature-048) |
 
 ### Schema summary
 
 **`documents`:** `id`, `source_path` (unique), `document_type`, `ingested_at`, `metadata` (JSONB).
 
-**`chunks`:** `id`, `document_id` → `documents.id`, `chunk_type`, `content`, `embedding` (`vector(1536)`, nullable), `metadata` (JSONB), `created_at`.
+**`chunks`:** `id`, `document_id` → `documents.id`, `chunk_type`, `content`, `content_tsv` (stored generated `tsvector`), `embedding` (`vector(1536)`, nullable), `metadata` (JSONB), `created_at`.
 
-Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_type`, `ix_chunks_metadata_gin`, `ix_chunks_embedding_hnsw` (HNSW, `vector_cosine_ops`, partial on non-null embeddings). See [§24](#24-hnsw-vector-index-feature-040).
+Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_type`, `ix_chunks_metadata_gin`, `ix_chunks_embedding_hnsw` (HNSW, `vector_cosine_ops`, partial on non-null embeddings), `ix_chunks_content_tsv_gin` (GIN on `content_tsv`), and `ix_chunks_content_trgm` (GIN `gin_trgm_ops` on `content`). See [§24](#24-hnsw-vector-index-feature-040) and [§25](#25-indexed-lexical-search-feature-048).
 
 ### Manual verification checklist
 
@@ -886,8 +889,8 @@ Indexes: `ix_documents_source_path`, `ix_chunks_document_id`, `ix_chunks_chunk_t
 2. Connection: `docker compose exec postgres psql -U estimator -d estimator -c "SELECT version();"`
 3. Migrate: `export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator && uv run alembic upgrade head`
 4. Inspect: `docker compose exec postgres psql -U estimator -d estimator -c "\dt"` and `\d chunks`
-5. Confirm extension: `SELECT extname FROM pg_extension WHERE extname = 'vector';`
-6. Confirm HNSW index: `SELECT indexname FROM pg_indexes WHERE indexname = 'ix_chunks_embedding_hnsw';`
+5. Confirm extensions: `SELECT extname FROM pg_extension WHERE extname IN ('vector', 'pg_trgm');`
+6. Confirm HNSW and lexical indexes: `SELECT indexname FROM pg_indexes WHERE indexname IN ('ix_chunks_embedding_hnsw', 'ix_chunks_content_tsv_gin', 'ix_chunks_content_trgm');`
 7. Run observability report: `docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvector_observability.sql`
 8. Regression: `uv run pytest tests/embedding_pipeline/` (no live DB required by default)
 
@@ -976,16 +979,16 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
 
-### Retrieval debug API and internal screen (features 042-047)
+### Retrieval debug API and internal screen (features 042-048)
 
-Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence. Feature-045 adds the rerank placeholder interface: a `Reranker` protocol, default `NoOpReranker`, rerank branch output, no-op warning, and test-only fake rerankers that prove the response contract can represent reorder and filter effects. Feature-046 adds metadata filters across retrieval branches. Feature-047 adds the internal React screen at `/debug/retrieval`, gated by `VITE_ENABLE_RETRIEVAL_DEBUG=true`, for interactive tuning and inspection.
+Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence. Feature-045 adds the rerank placeholder interface: a `Reranker` protocol, default `NoOpReranker`, rerank branch output, no-op warning, and test-only fake rerankers that prove the response contract can represent reorder and filter effects. Feature-046 adds metadata filters across retrieval branches. Feature-047 adds the internal React screen at `/debug/retrieval`, gated by `VITE_ENABLE_RETRIEVAL_DEBUG=true`, for interactive tuning and inspection. Feature-048 keeps the same debug API contract but moves lexical ranking onto the generated `chunks.content_tsv` column and its GIN index.
 
 | Path | Role |
 |------|------|
 | `app/routers/retrieval_debug.py` | HTTP routes, DI, safe errors, completion logging |
 | `app/embedding_pipeline/retrieval_debug.py` | Vector, lexical, and hybrid branch orchestration, metadata filter propagation, score normalization, explanations, diff assembly, chunk inspection service |
 | `app/embedding_pipeline/fusion.py` | Pure Reciprocal Rank Fusion, weighted fusion, ranking diff, and explanation helpers |
-| `app/embedding_pipeline/lexical_search_repository.py` | Postgres full-text search statement and lexical row mapping |
+| `app/embedding_pipeline/lexical_search_repository.py` | Indexed Postgres full-text search statement and lexical row mapping |
 | `app/embedding_pipeline/metadata_filters.py` | Shared SQLAlchemy predicates for retrieval debug metadata filters |
 | `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads plus optional single-chunk distance and lexical matched-term queries |
 | `app/embedding_pipeline/retrieval_debug_schemas.py` | Request/response schemas and nullable branch container |
@@ -1043,19 +1046,19 @@ Controlled explanation signals:
 - `hybrid_rescued`
 - `rerank_promoted`, `rerank_demoted`
 
-Lexical SQL baseline:
+Indexed lexical SQL:
 
 ```sql
 SELECT id, document_id, chunk_type, content, metadata,
-       ts_rank_cd(to_tsvector('english', content), websearch_to_tsquery('english', :query)) AS ts_rank,
+       ts_rank_cd(content_tsv, websearch_to_tsquery('english', :query)) AS ts_rank,
        ts_headline('english', content, websearch_to_tsquery('english', :query), 'StartSel=<<, StopSel=>>') AS headline
 FROM chunks
-WHERE to_tsvector('english', content) @@ websearch_to_tsquery('english', :query)
+WHERE content_tsv @@ websearch_to_tsquery('english', :query)
 ORDER BY ts_rank DESC
 LIMIT :top_k;
 ```
 
-Lexical `score` is min-max normalized over the branch's `ts_rank_cd` values. When every lexical rank is equal, all returned lexical entries receive `score = 1.0`. `matched_terms` is extracted from highlighted `ts_headline` output, lower-cased, deduplicated, and sorted for deterministic debug output. This is intentionally an on-the-fly sequential-scan baseline; indexed `tsvector` or `pg_trgm` work belongs to `feature-048`.
+Lexical `score` is min-max normalized over the branch's `ts_rank_cd` values. When every lexical rank is equal, all returned lexical entries receive `score = 1.0`. `matched_terms` is extracted from highlighted `ts_headline` output, lower-cased, deduplicated, and sorted for deterministic debug output. The `0003` migration also creates `pg_trgm` and `ix_chunks_content_trgm` for exact technical-token diagnostics, but the HTTP response shape stays unchanged.
 
 Metadata filters are applied before branch ordering and `LIMIT`, so branch diffs and hybrid rescue explanations describe only the scoped candidate set. Filters that match nothing are valid: the endpoint returns `200` with empty branch lists and empty `final_results`.
 
@@ -1162,7 +1165,77 @@ docker compose exec -T postgres psql -U estimator -d estimator < scripts/pgvecto
 
 Downgrade path: `uv run alembic downgrade 0001` drops `ix_chunks_embedding_hnsw` only.
 
-## 24. Worktree task orchestrator
+## 25. Indexed lexical search (feature-048)
+
+Increment after the lexical retrieval-debug baseline. It replaces on-the-fly `to_tsvector('english', chunks.content)` ranking with a generated `content_tsv` column and GIN index, mirroring the feature-040 pattern for vector search performance.
+
+### Index definition
+
+Migration `0003_add_chunks_content_tsv_and_trgm.py`:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+ALTER TABLE chunks
+ADD COLUMN content_tsv tsvector
+GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+
+CREATE INDEX ix_chunks_content_tsv_gin
+ON chunks
+USING gin (content_tsv);
+
+CREATE INDEX ix_chunks_content_trgm
+ON chunks
+USING gin (content gin_trgm_ops);
+```
+
+`ix_chunks_content_tsv_gin` supports the lexical branch's `content_tsv @@ websearch_to_tsquery(...)` predicate. `ix_chunks_content_trgm` is available for exact technical-token diagnostics and future similarity probes; the current debug API contract does not expose a new trigram score.
+
+### Query planner behaviour
+
+After `alembic upgrade head`, verify the objects exist:
+
+```bash
+docker compose exec -T postgres psql -U estimator -d estimator -c \
+  "SELECT extname FROM pg_extension WHERE extname = 'pg_trgm';"
+
+docker compose exec -T postgres psql -U estimator -d estimator -c \
+  "SELECT indexname, indexdef FROM pg_indexes WHERE indexname IN ('ix_chunks_content_tsv_gin', 'ix_chunks_content_trgm');"
+```
+
+Diagnostic `EXPLAIN` (small corpora may still prefer sequential scan without this hint):
+
+```sql
+ANALYZE chunks;
+SET enable_seqscan = off;
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id,
+       ts_rank_cd(content_tsv, websearch_to_tsquery('english', 'JWT OAuth2')) AS ts_rank
+FROM chunks
+WHERE content_tsv @@ websearch_to_tsquery('english', 'JWT OAuth2')
+ORDER BY ts_rank DESC
+LIMIT 10;
+```
+
+Expect `Bitmap Index Scan` or `Index Scan` using `ix_chunks_content_tsv_gin` when the planner chooses the full-text index. Do **not** set `enable_seqscan = off` in production; it is only a local diagnostic aid.
+
+### Downgrade and rollback
+
+`uv run alembic downgrade 0002` drops `ix_chunks_content_trgm`, `ix_chunks_content_tsv_gin`, and `chunks.content_tsv`. The `pg_trgm` extension is intentionally retained because extensions can be shared by other database objects. Application code at feature-048 expects `0003`; rolling the database back to `0002` should be paired with rolling the application code back to the feature-043 lexical baseline.
+
+### Verification
+
+```bash
+uv run pytest tests/test_alembic_migration.py tests/embedding_pipeline/test_lexical_search_repository.py -q
+export DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator
+uv run alembic upgrade head
+# Run the EXPLAIN query above on a populated corpus.
+uv run alembic downgrade 0002
+```
+
+Work item: [feature-048](../work-items/feature-048-indexed-lexical-tsvector-migration.md).
+
+## 26. Worktree task orchestrator
 
 `scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.
 
