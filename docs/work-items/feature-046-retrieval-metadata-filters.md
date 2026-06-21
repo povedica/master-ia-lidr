@@ -106,6 +106,10 @@ When filters are present, vector and lexical branches both restrict candidates b
 - `README.md`: filter example in internal-tools section.
 - Second Brain: note on isolating variables for relevance tuning.
 
+## Pull Request
+
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/42
+
 ## Implementation Plan
 
 - [ ] Step 1: `filters` schema + validation tests (RED→GREEN).
@@ -127,3 +131,9 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [ ] Step 3: Apply filters in vector and lexical repositories.
 - [ ] Step 4: Wire filters through retrieval debug orchestration and API contract.
 - [ ] Step 5: Documentation, handoff, and final verification.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `cc3e016` | Track the feature work item, initial estimation, and implementation progress for metadata filters. |
