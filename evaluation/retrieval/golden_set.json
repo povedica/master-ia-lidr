@@ -1,0 +1,34 @@
+{
+  "queries": [
+    {
+      "id": "q1-oauth-stripe",
+      "query": "Plataforma e-commerce con integración Stripe, OAuth2 y catálogo de productos",
+      "relevant_budget_ids": ["BUD-2024-014", "BUD-2024-032"],
+      "notes": "Exact technical tokens (Stripe, OAuth2) should favor hybrid lexical recall."
+    },
+    {
+      "id": "q2-jwt-api",
+      "query": "API REST con autenticación JWT, refresh tokens y despliegue en Kubernetes",
+      "relevant_budget_ids": ["BUD-2024-067", "BUD-2025-011"],
+      "notes": "Mixed exact tokens plus semantic scope; labels require domain review."
+    },
+    {
+      "id": "q3-crm-paraphrase",
+      "query": "Sistema de gestión de relaciones con clientes para equipos comerciales B2B",
+      "relevant_budget_ids": ["BUD-2024-045", "BUD-2023-078"],
+      "notes": "Paraphrase-heavy query where vector recall should dominate."
+    },
+    {
+      "id": "q4-payments-mobile",
+      "query": "Aplicación móvil de pagos con PSD2, SCA y wallet digital",
+      "relevant_budget_ids": ["BUD-2024-099", "BUD-2025-019"],
+      "notes": "Regulatory acronyms plus mobile domain."
+    },
+    {
+      "id": "q5-data-platform",
+      "query": "Plataforma de datos con pipelines ETL, PostgreSQL y dashboards analíticos",
+      "relevant_budget_ids": ["BUD-2024-056", "BUD-2025-024"],
+      "notes": "Mixed technical stack query for hybrid evaluation."
+    }
+  ]
+}
