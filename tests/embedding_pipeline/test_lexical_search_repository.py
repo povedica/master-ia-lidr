@@ -12,14 +12,15 @@ from app.embedding_pipeline.lexical_search_repository import LexicalSearchReposi
 from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 
 
-def test_lexical_search_statement_uses_postgres_full_text_ranking() -> None:
+def test_lexical_search_statement_uses_indexed_tsvector_ranking() -> None:
     repository = LexicalSearchRepository()
 
     statement = repository.build_search_statement(query="JWT OAuth2", top_k=7)
 
     compiled = str(statement.compile(dialect=postgresql.dialect()))
     assert "websearch_to_tsquery" in compiled
-    assert "to_tsvector" in compiled
+    assert "chunks.content_tsv" in compiled
+    assert "to_tsvector(%(to_tsvector_1)s, chunks.content)" not in compiled
     assert "ts_rank_cd" in compiled
     assert "@@" in compiled
     assert "ORDER BY ts_rank DESC" in compiled

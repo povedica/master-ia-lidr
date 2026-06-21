@@ -119,7 +119,7 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 - [x] Step 1: Add static migration coverage for indexed lexical DDL.
 - [x] Step 2: Add migration `0003` for `content_tsv`, GIN, and `pg_trgm`.
-- [ ] Step 3: Switch lexical repository SQL to the indexed `content_tsv` path.
+- [x] Step 3: Switch lexical repository SQL to the indexed `content_tsv` path.
 - [ ] Step 4: Document indexed lexical verification and architecture impact.
 - [ ] Step 5: Final verification, handoff, commit table, and PR closure readiness.
 
@@ -132,6 +132,10 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 - Step 1 RED: `uv run pytest tests/test_alembic_migration.py -q` failed because `0003_add_chunks_content_tsv_and_trgm.py` did not exist yet.
 - Step 2 automated: `uv run pytest tests/test_alembic_migration.py -q` (`3 passed`).
+- Step 3 RED: `uv run pytest tests/embedding_pipeline/test_lexical_search_repository.py::test_lexical_search_statement_uses_indexed_tsvector_ranking -q` failed because the SQL still referenced on-the-fly `to_tsvector`.
+- Step 3 automated: `uv run pytest tests/embedding_pipeline/test_lexical_search_repository.py -q` (`3 passed`).
+- Step 3 regression: `uv run pytest tests/test_alembic_migration.py tests/embedding_pipeline/test_lexical_search_repository.py -q` (`6 passed`).
+- Step 3 lints: no diagnostics in `app/models/chunk.py`, `app/embedding_pipeline/lexical_search_repository.py`, or lexical repository tests.
 
 ## Repository commits (master-ia)
 
@@ -139,3 +143,4 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 | --- | --- |
 | `3895ff6` | Planned the indexed lexical migration and implementation cadence before code. |
 | `da3a983` | Recorded the draft WIP PR for feature-048. |
+| `ef6a454` | Added the `0003` indexed lexical migration and static DDL coverage. |
