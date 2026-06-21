@@ -27,7 +27,11 @@ type TuningState = {
   vectorWeight: string
   lexicalWeight: string
   rerankEnabled: boolean
+  documentType: string
   clientSector: string
+  mainTechnology: string
+  sourceName: string
+  language: string
   tags: string
   yearFrom: string
   yearTo: string
@@ -56,7 +60,11 @@ const initialTuning: TuningState = {
   vectorWeight: '0.5',
   lexicalWeight: '0.5',
   rerankEnabled: false,
+  documentType: '',
   clientSector: '',
+  mainTechnology: '',
+  sourceName: '',
+  language: '',
   tags: '',
   yearFrom: '',
   yearTo: '',
@@ -98,8 +106,20 @@ function buildRetrievalDebugRequest(
   const yearFrom = parseOptionalInteger(tuning.yearFrom)
   const yearTo = parseOptionalInteger(tuning.yearTo)
   const filters: NonNullable<RetrievalDebugRequest['filters']> = {}
+  if (tuning.documentType.trim()) {
+    filters.document_type = tuning.documentType.trim()
+  }
   if (tuning.clientSector.trim()) {
     filters.client_sector = tuning.clientSector.trim()
+  }
+  if (tuning.mainTechnology.trim()) {
+    filters.main_technology = tuning.mainTechnology.trim()
+  }
+  if (tuning.sourceName.trim()) {
+    filters.source_name = tuning.sourceName.trim()
+  }
+  if (tuning.language.trim()) {
+    filters.language = tuning.language.trim()
   }
   if (tags.length > 0) {
     filters.tags = tags
@@ -194,7 +214,7 @@ export function RetrievalDebugPage({
       const nextResponse = await runDebug(request)
       setRecentSearches(saveRecentSearch({ query: trimmedQuery, strategy, tuning }))
       setResponse(nextResponse)
-      if (nextResponse.warnings.length > 0 && nextResponse.final_results.length > 0) {
+      if (nextResponse.warnings.length > 0) {
         setStatus('partial')
       } else {
         setStatus(nextResponse.final_results.length > 0 ? 'results' : 'empty')
@@ -453,6 +473,9 @@ function ChunkInspectorDrawer({
             <InspectorValue label="Chunk type" value={chunk.chunk_type} />
             <InspectorValue label="Distance" value={chunk.distance ?? 'n/a'} />
             <InspectorValue label="Similarity" value={chunk.similarity ?? 'n/a'} />
+            {chunk.matched_terms.length > 0 && (
+              <InspectorValue label="Matched terms" value={chunk.matched_terms.join(', ')} />
+            )}
           </section>
           <section className="grid gap-3 md:grid-cols-2">
             <InspectorValue
@@ -764,6 +787,15 @@ function TuningPanel({
         onChange={(maxResults) => onChange({ maxResults })}
         value={tuning.maxResults}
       />
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <input
+          checked={tuning.hybridEnabled}
+          disabled={disabled}
+          onChange={(ev) => onChange({ hybridEnabled: ev.target.checked })}
+          type="checkbox"
+        />
+        Enable hybrid
+      </label>
       <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
         Hybrid method
         <select
@@ -776,6 +808,13 @@ function TuningPanel({
           <option value="weighted">weighted</option>
         </select>
       </label>
+      <NumberField
+        disabled={disabled}
+        inputClass={inputClass}
+        label="RRF k"
+        onChange={(rrfK) => onChange({ rrfK })}
+        value={tuning.rrfK}
+      />
       <NumberField
         disabled={disabled}
         inputClass={inputClass}
@@ -804,9 +843,37 @@ function TuningPanel({
       <TextField
         disabled={disabled}
         inputClass={inputClass}
+        label="Document type"
+        onChange={(documentType) => onChange({ documentType })}
+        value={tuning.documentType}
+      />
+      <TextField
+        disabled={disabled}
+        inputClass={inputClass}
         label="Client sector"
         onChange={(clientSector) => onChange({ clientSector })}
         value={tuning.clientSector}
+      />
+      <TextField
+        disabled={disabled}
+        inputClass={inputClass}
+        label="Main technology"
+        onChange={(mainTechnology) => onChange({ mainTechnology })}
+        value={tuning.mainTechnology}
+      />
+      <TextField
+        disabled={disabled}
+        inputClass={inputClass}
+        label="Source name"
+        onChange={(sourceName) => onChange({ sourceName })}
+        value={tuning.sourceName}
+      />
+      <TextField
+        disabled={disabled}
+        inputClass={inputClass}
+        label="Language"
+        onChange={(language) => onChange({ language })}
+        value={tuning.language}
       />
       <TextField
         disabled={disabled}

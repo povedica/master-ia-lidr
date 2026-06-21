@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Select, desc, select
+from sqlalchemy import Select, bindparam, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.embedding_pipeline.lexical_search_repository import _extract_highlighted_terms
 from app.embedding_pipeline.retrieval_debug_schemas import ChunkInspectionResponse
 from app.models.chunk import Chunk as ChunkModel
 from app.models.document import Document as DocumentModel
@@ -26,6 +27,28 @@ class RetrievalDebugRepository:
             .where(ChunkModel.embedding.is_not(None))
         )
 
+    def build_chunk_matched_terms_statement(
+        self,
+        *,
+        chunk_id: int,
+        query: str,
+    ) -> Select[tuple[str]]:
+        query_param = bindparam("query", query)
+        ts_query = func.websearch_to_tsquery("english", query_param)
+        document_vector = func.to_tsvector("english", ChunkModel.content)
+        headline = func.ts_headline(
+            "english",
+            ChunkModel.content,
+            ts_query,
+            "StartSel=<<, StopSel=>>, MaxWords=35, MinWords=1",
+        ).label("headline")
+        return (
+            select(headline)
+            .where(ChunkModel.id == chunk_id)
+            .where(document_vector.op("@@")(ts_query))
+            .limit(1)
+        )
+
     async def get_chunk_distance(
         self,
         session: AsyncSession,
@@ -41,6 +64,22 @@ class RetrievalDebugRepository:
         )
         distance = result.scalar_one_or_none()
         return float(distance) if distance is not None else None
+
+    async def get_chunk_matched_terms(
+        self,
+        session: AsyncSession,
+        *,
+        chunk_id: int,
+        query: str,
+    ) -> list[str]:
+        result = await session.execute(
+            self.build_chunk_matched_terms_statement(
+                chunk_id=chunk_id,
+                query=query,
+            )
+        )
+        headline = result.scalar_one_or_none()
+        return _extract_highlighted_terms(str(headline or ""))
 
     async def get_chunk_inspection(
         self,

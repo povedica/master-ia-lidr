@@ -140,6 +140,7 @@ export const chunkInspectionResponseSchema = z.object({
   next_chunk: z.record(z.string(), z.unknown()).nullable(),
   distance: z.number().nullable().optional(),
   similarity: z.number().nullable().optional(),
+  matched_terms: z.array(z.string()).default([]),
 })
 
 export type RetrievalDebugRequest = z.infer<typeof retrievalDebugRequestSchema>

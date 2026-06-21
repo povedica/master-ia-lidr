@@ -35,7 +35,7 @@ uv run uvicorn app.main:app --reload
 ## Internal retrieval debug screen
 
 The debug screen is intentionally hidden unless `VITE_ENABLE_RETRIEVAL_DEBUG=true`.
-It consumes `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` to compare vector, lexical, hybrid, and rerank lanes, tune request knobs, inspect ranking diffs, and open chunk context in a drawer.
+It consumes `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` to compare vector, lexical, hybrid, and rerank lanes, tune request knobs, inspect ranking diffs, and open chunk context in a drawer with distance, similarity, and lexical `matched_terms` when a query is provided.
 
 ```bash
 cd web

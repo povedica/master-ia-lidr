@@ -116,6 +116,7 @@ const chunkInspectionResponse: ChunkInspectionResponse = {
   next_chunk: { content_excerpt: 'Next context' },
   distance: 0.25,
   similarity: 0.75,
+  matched_terms: ['oauth', 'backend'],
 }
 
 describe('RetrievalDebugPage', () => {
@@ -177,13 +178,20 @@ describe('RetrievalDebugPage', () => {
     await userEvent.type(screen.getByLabelText('Lexical top k'), '8')
     await userEvent.clear(screen.getByLabelText('Max results'))
     await userEvent.type(screen.getByLabelText('Max results'), '7')
+    await userEvent.click(screen.getByLabelText('Enable hybrid'))
     await userEvent.selectOptions(screen.getByLabelText('Hybrid method'), 'weighted')
+    await userEvent.clear(screen.getByLabelText('RRF k'))
+    await userEvent.type(screen.getByLabelText('RRF k'), '75')
     await userEvent.clear(screen.getByLabelText('Vector weight'))
     await userEvent.type(screen.getByLabelText('Vector weight'), '0.7')
     await userEvent.clear(screen.getByLabelText('Lexical weight'))
     await userEvent.type(screen.getByLabelText('Lexical weight'), '0.3')
     await userEvent.click(screen.getByLabelText('Enable rerank'))
+    await userEvent.type(screen.getByLabelText('Document type'), 'historical_budget')
     await userEvent.type(screen.getByLabelText('Client sector'), 'finance')
+    await userEvent.type(screen.getByLabelText('Main technology'), 'python')
+    await userEvent.type(screen.getByLabelText('Source name'), 'budget_2024_q1')
+    await userEvent.type(screen.getByLabelText('Language'), 'en')
     await userEvent.type(screen.getByLabelText('Tags'), 'python, postgres')
     await userEvent.type(screen.getByLabelText('Year from'), '2023')
     await userEvent.type(screen.getByLabelText('Year to'), '2025')
@@ -196,14 +204,18 @@ describe('RetrievalDebugPage', () => {
       vector: { top_k: 12, threshold: 0.42 },
       lexical: { top_k: 8 },
       hybrid: {
-        enabled: true,
+        enabled: false,
         method: 'weighted',
-        rrf_k: 60,
+        rrf_k: 75,
         weights: { vector: 0.7, lexical: 0.3 },
       },
       rerank: { enabled: true },
       filters: {
+        document_type: 'historical_budget',
         client_sector: 'finance',
+        main_technology: 'python',
+        source_name: 'budget_2024_q1',
+        language: 'en',
         tags: ['python', 'postgres'],
         year: { from: 2023, to: 2025 },
       },
@@ -261,6 +273,23 @@ describe('RetrievalDebugPage', () => {
     expect(screen.getByText('lexical branch failed; showing vector results only')).toBeTruthy()
   })
 
+  it('renders warnings even when no final results are returned', async () => {
+    render(
+      <RetrievalDebugPage
+        runDebug={vi.fn().mockResolvedValue({
+          ...emptyResponse,
+          warnings: ['lexical branch failed; no results available'],
+        })}
+      />,
+    )
+
+    await userEvent.type(screen.getByLabelText('Query'), 'OAuth backend')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Partial retrieval results')).toBeTruthy()
+    expect(screen.getByText('lexical branch failed; no results available')).toBeTruthy()
+  })
+
   it('opens the chunk inspector drawer from a result row', async () => {
     const inspectChunk = vi.fn().mockResolvedValue(chunkInspectionResponse)
     render(
@@ -279,5 +308,6 @@ describe('RetrievalDebugPage', () => {
     expect(screen.getByText('Previous context')).toBeTruthy()
     expect(screen.getByText('Next context')).toBeTruthy()
     expect(screen.getByText('text-embedding-3-small')).toBeTruthy()
+    expect(screen.getByText('oauth, backend')).toBeTruthy()
   })
 })

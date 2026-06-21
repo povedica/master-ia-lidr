@@ -976,9 +976,9 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
 
-### Retrieval debug API (features 042-045)
+### Retrieval debug API and internal screen (features 042-047)
 
-Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence. Feature-045 adds the rerank placeholder interface: a `Reranker` protocol, default `NoOpReranker`, rerank branch output, no-op warning, and test-only fake rerankers that prove the response contract can represent reorder and filter effects.
+Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence. Feature-045 adds the rerank placeholder interface: a `Reranker` protocol, default `NoOpReranker`, rerank branch output, no-op warning, and test-only fake rerankers that prove the response contract can represent reorder and filter effects. Feature-046 adds metadata filters across retrieval branches. Feature-047 adds the internal React screen at `/debug/retrieval`, gated by `VITE_ENABLE_RETRIEVAL_DEBUG=true`, for interactive tuning and inspection.
 
 | Path | Role |
 |------|------|
@@ -987,8 +987,10 @@ Feature-042 adds the internal observability layer without changing `POST /api/v1
 | `app/embedding_pipeline/fusion.py` | Pure Reciprocal Rank Fusion, weighted fusion, ranking diff, and explanation helpers |
 | `app/embedding_pipeline/lexical_search_repository.py` | Postgres full-text search statement and lexical row mapping |
 | `app/embedding_pipeline/metadata_filters.py` | Shared SQLAlchemy predicates for retrieval debug metadata filters |
-| `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads and optional single-chunk distance query |
+| `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads plus optional single-chunk distance and lexical matched-term queries |
 | `app/embedding_pipeline/retrieval_debug_schemas.py` | Request/response schemas and nullable branch container |
+| `web/src/features/retrieval-debug/` | Internal React screen, Zod client, state machine, tuning controls, ranking diff, and chunk inspector drawer |
+| `web/src/appRouting.ts` / `web/src/App.tsx` | Env-gated `/debug/retrieval` route selection |
 
 `POST /api/v1/retrieval-debug` request:
 
@@ -1062,6 +1064,8 @@ Chunk inspector:
 ```bash
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend"
 ```
+
+With `?query=`, the inspector adds vector `distance` / normalized `similarity` for the selected chunk and lexical `matched_terms` from a single-chunk `ts_headline` query. The inspector does not rerank or mutate retrieval output; it only explains the selected persisted chunk in context.
 
 Status/error contract: empty corpus returns `200` with empty lists, invalid input returns `422`, unknown chunk returns `404`, empty `DATABASE_URL` returns `503`, unexpected failures return safe `500` details.
 

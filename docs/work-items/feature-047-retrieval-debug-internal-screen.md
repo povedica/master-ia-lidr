@@ -97,18 +97,18 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Acceptance Criteria
 
-- [ ] AC-01: An env-gated internal route renders the debug screen only when `VITE_ENABLE_RETRIEVAL_DEBUG` is enabled; it is absent from end-user navigation.
-- [ ] AC-02: `QueryBox` submits query + strategy; recent searches persist in `localStorage` and reuse on click; Search disabled while loading.
-- [ ] AC-03: `TuningPanel` exposes top-k, threshold, max results, hybrid fusion config, rerank toggle, and metadata filters mapped to the request schema with valid bounds.
-- [ ] AC-04: `ComparativeResultsTable` shows all required per-result columns (position, ids, title, excerpt, semantic/lexical/fusion/rerank scores+ranks, strategies, metadata, reason).
-- [ ] AC-05: `ResultExplanation` renders `summary` + `signals` chips from the controlled vocabulary.
-- [ ] AC-06: `BranchTabs` shows vector/lexical/hybrid/rerank rankings; `null` branches show "not run".
-- [ ] AC-07: `RankingDiffView` renders common / exclusive / hybrid-rescued / big-movers / dropped sets from `diff`.
-- [ ] AC-08: `ChunkInspectorDrawer` opens on result click and shows content, neighbor context, parent document, metadata, embedding model, chunk type, distance, matched terms.
-- [ ] AC-09: Loading, error (`422`/`503`/`5xx`), empty, and partial states each render correctly.
-- [ ] AC-10: Backend `warnings` (lexical failure, rerank no-op) display as non-blocking notices.
-- [ ] AC-11: Component tests (Vitest) cover each state and key interactions with a mocked API; suite green.
-- [ ] AC-12: README documents enabling the flag and using the screen; it is clearly internal-only.
+- [x] AC-01: An env-gated internal route renders the debug screen only when `VITE_ENABLE_RETRIEVAL_DEBUG` is enabled; it is absent from end-user navigation.
+- [x] AC-02: `QueryBox` submits query + strategy; recent searches persist in `localStorage` and reuse on click; Search disabled while loading.
+- [x] AC-03: `TuningPanel` exposes top-k, threshold, max results, hybrid fusion config, rerank toggle, and metadata filters mapped to the request schema with valid bounds.
+- [x] AC-04: `ComparativeResultsTable` shows all required per-result columns (position, ids, title, excerpt, semantic/lexical/fusion/rerank scores+ranks, strategies, metadata, reason).
+- [x] AC-05: `ResultExplanation` renders `summary` + `signals` chips from the controlled vocabulary.
+- [x] AC-06: `BranchTabs` shows vector/lexical/hybrid/rerank rankings; `null` branches show "not run".
+- [x] AC-07: `RankingDiffView` renders common / exclusive / hybrid-rescued / big-movers / dropped sets from `diff`.
+- [x] AC-08: `ChunkInspectorDrawer` opens on result click and shows content, neighbor context, parent document, metadata, embedding model, chunk type, distance, similarity, and matched terms when `query` is provided.
+- [x] AC-09: Loading, error (`422`/`503`/`5xx`), empty, and partial states each render correctly.
+- [x] AC-10: Backend `warnings` (lexical failure, rerank no-op) display as non-blocking notices.
+- [x] AC-11: Component tests (Vitest) cover each state and key interactions with a mocked API; suite green.
+- [x] AC-12: README documents enabling the flag and using the screen; it is clearly internal-only.
 
 ## Test Plan
 
@@ -117,10 +117,12 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Verification
 
-- Verified: `cd web && npm test` (`9 passed`, `47 passed` tests).
+- Verified: `cd web && npm test` (`9 files passed`, `48 passed` tests).
 - Verified: `cd web && npm run build`.
 - Verified: `cd web && npm run lint`.
 - Verified: `ReadLints` reported no errors in edited frontend files.
+- Verified: `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_chunk_inspection_response_exposes_document_and_embedding_metadata tests/embedding_pipeline/test_retrieval_debug_router.py::test_chunk_inspector_returns_context_and_optional_similarity -q` (`2 passed`) after extending chunk inspection with `matched_terms`.
+- Verified: `cd web && npm test -- --run src/features/retrieval-debug/components/RetrievalDebugPage.test.tsx` (`10 passed`) for tuning controls, filter mapping, warnings, and drawer matched-term rendering.
 - Not verified: live end-to-end Compose backend screen check with an ingested corpus.
 - Not verified: real reranker behavior; the current backend reranker remains a no-op placeholder.
 - Not verified: formal accessibility audit.
@@ -171,20 +173,23 @@ Shipped interfaces:
 - `web/src/appRouting.ts` gates `/debug/retrieval` behind `VITE_ENABLE_RETRIEVAL_DEBUG=true`.
 - `web/src/features/retrieval-debug/api/retrievalDebugApi.ts` mirrors the backend debug request, response, ranking diff, and chunk inspection contracts with Zod.
 - `RetrievalDebugPage` owns the debug UI state machine: `idle`, `loading`, `results`, `empty`, `error`, and `partial`.
-- The screen supports query/strategy input, tuning controls, metadata filters, recent searches in `localStorage`, comparative result rendering, branch rankings, ranking diff, non-blocking warnings, and a chunk inspector drawer.
+- The screen supports query/strategy input, full tuning controls (`hybrid.enabled`, `rrf_k`, weights, rerank), metadata filters (`document_type`, `client_sector`, `main_technology`, `source_name`, `language`, `tags`, `year`), recent searches in `localStorage`, comparative result rendering, branch rankings, ranking diff, non-blocking warnings including zero-result partials, and a chunk inspector drawer with distance/similarity plus lexical `matched_terms` when a query is provided.
 
 Changed contracts:
 
 - `web/.env.example` now includes `VITE_ENABLE_RETRIEVAL_DEBUG=false`.
 - `web/vitest.config.ts` runs Vitest under `jsdom` and discovers `*.test.tsx`.
 - `web/package.json` adds React testing dependencies for component tests.
+- `GET /api/v1/retrieval-debug/chunks/{id}?query=` now includes `matched_terms` in the chunk inspection response, aligning the backend contract with epic AC-14 and the drawer UI.
 
 Verification evidence:
 
-- `cd web && npm test` passed with `47 passed`.
+- `cd web && npm test` passed with `48 passed`.
 - `cd web && npm run build` passed.
 - `cd web && npm run lint` passed.
 - `ReadLints` reported no errors in edited frontend files.
+- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_chunk_inspection_response_exposes_document_and_embedding_metadata tests/embedding_pipeline/test_retrieval_debug_router.py::test_chunk_inspector_returns_context_and_optional_similarity -q` passed.
+- `cd web && npm test -- --run src/features/retrieval-debug/components/RetrievalDebugPage.test.tsx` passed with `10 passed`.
 
 Not verified:
 

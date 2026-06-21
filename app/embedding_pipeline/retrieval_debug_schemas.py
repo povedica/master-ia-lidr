@@ -253,3 +253,4 @@ class ChunkInspectionResponse(BaseModel):
     next_chunk: dict[str, Any] | None
     distance: float | None = None
     similarity: float | None = None
+    matched_terms: list[str] = Field(default_factory=list)
