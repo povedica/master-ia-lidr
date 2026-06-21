@@ -117,8 +117,8 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 ## Implementation progress
 
-- [ ] Step 1: Add static migration coverage for indexed lexical DDL.
-- [ ] Step 2: Add migration `0003` for `content_tsv`, GIN, and `pg_trgm`.
+- [x] Step 1: Add static migration coverage for indexed lexical DDL.
+- [x] Step 2: Add migration `0003` for `content_tsv`, GIN, and `pg_trgm`.
 - [ ] Step 3: Switch lexical repository SQL to the indexed `content_tsv` path.
 - [ ] Step 4: Document indexed lexical verification and architecture impact.
 - [ ] Step 5: Final verification, handoff, commit table, and PR closure readiness.
@@ -127,3 +127,15 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 
 - PR: https://github.com/povedica/master-ia-lidr/pull/44 (draft, WIP)
 - Branch: `feature/048-indexed-lexical-tsvector-migration`
+
+## Verification log
+
+- Step 1 RED: `uv run pytest tests/test_alembic_migration.py -q` failed because `0003_add_chunks_content_tsv_and_trgm.py` did not exist yet.
+- Step 2 automated: `uv run pytest tests/test_alembic_migration.py -q` (`3 passed`).
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `3895ff6` | Planned the indexed lexical migration and implementation cadence before code. |
+| `da3a983` | Recorded the draft WIP PR for feature-048. |
