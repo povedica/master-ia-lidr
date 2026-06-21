@@ -214,3 +214,16 @@ Recommended first tests for feature-045:
 
 - Add rerank placeholder tests that consume existing `branches.hybrid`, preserve `diff.dropped_by_rerank`, and verify `rerank_*` signals remain controlled.
 - Re-run `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_service.py -q` before adding any rerank behavior.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `2c0215c` | Planned feature-044 execution and progress tracking in the canonical work item. |
+| `ea04485` | Recorded the draft WIP PR for the hybrid fusion implementation branch. |
+| `389b8f4` | Added pure RRF and weighted fusion primitives with deterministic tests. |
+| `0fcf2de` | Added the pure ranking diff builder for consensus, exclusive, rescued, moved, and dropped sets. |
+| `83e9a93` | Added the controlled explanation engine for semantic, lexical, consensus, rescue, and threshold signals. |
+| `7f39c67` | Extended retrieval debug schemas for hybrid config, fusion fields, and diff responses. |
+| `91ec264` | Wired hybrid fusion into the retrieval debug service with final ordering, diff, explanations, and disabled fallback. |
+| `f1954e4` | Updated repository docs and architecture docs for hybrid fusion diagnostics. |
