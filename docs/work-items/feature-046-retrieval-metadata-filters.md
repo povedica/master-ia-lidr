@@ -80,8 +80,8 @@ When filters are present, vector and lexical branches both restrict candidates b
 - [x] AC-01: `filters` model validates types (e.g. `year` ints) and ignores empty/unknown keys; malformed types → `422`.
 - [x] AC-02: `build_metadata_filters` emits correct predicates for scalar keys via JSONB containment.
 - [x] AC-03: `tags` filter uses documented JSONB array semantics; `year` range is inclusive with optional bounds.
-- [ ] AC-04: Vector branch restricts candidates to matching chunks (repository test).
-- [ ] AC-05: Lexical branch restricts candidates to matching chunks (repository test).
+- [x] AC-04: Vector branch restricts candidates to matching chunks (repository test).
+- [x] AC-05: Lexical branch restricts candidates to matching chunks (repository test).
 - [ ] AC-06: Hybrid fuses only filtered candidates; `applied_config` echoes normalized filters.
 - [ ] AC-07: Filters matching nothing → `200` with empty branches; no error.
 - [ ] AC-08: `POST /api/v1/search` query/behavior unchanged (regression test).
@@ -128,7 +128,7 @@ When filters are present, vector and lexical branches both restrict candidates b
 
 - [x] Step 1: Filter schema and validation tests.
 - [x] Step 2: Pure SQLAlchemy metadata filter builder and unit tests.
-- [ ] Step 3: Apply filters in vector and lexical repositories.
+- [x] Step 3: Apply filters in vector and lexical repositories.
 - [ ] Step 4: Wire filters through retrieval debug orchestration and API contract.
 - [ ] Step 5: Documentation, handoff, and final verification.
 
@@ -138,4 +138,5 @@ When filters are present, vector and lexical branches both restrict candidates b
 | --- | --- |
 | `cc3e016` | Track the feature work item, initial estimation, and implementation progress for metadata filters. |
 | `7edd31b` | Add and verify the retrieval debug metadata filter request schema. |
-| pending | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
+| `fac1723` | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
+| pending | Apply retrieval metadata filters in vector and lexical repository statements. |

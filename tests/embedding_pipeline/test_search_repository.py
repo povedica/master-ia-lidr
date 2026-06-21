@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.dialects import postgresql
 
+from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 
 EMBEDDING_DIM = 1536
@@ -31,6 +32,27 @@ def test_search_statement_orders_by_distance_and_limits_k() -> None:
     compiled = str(statement.compile(dialect=postgresql.dialect()))
     assert "ORDER BY" in compiled.upper()
     assert "LIMIT" in compiled.upper()
+
+
+def test_search_statement_applies_metadata_filters_when_provided() -> None:
+    repository = SemanticSearchRepository()
+    filters = RetrievalMetadataFilters(
+        document_type="historical_budget",
+        client_sector="finance",
+        year={"from": 2023},
+    )
+
+    statement = repository.build_search_statement(
+        query_vector=_query_vector(),
+        k=7,
+        filters=filters,
+    )
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+    assert "JOIN documents" in compiled
+    assert "chunks.metadata @>" in compiled
+    assert "documents.document_type" in compiled
+    assert "CAST((chunks.metadata ->>" in compiled
 
 
 @pytest.mark.asyncio

@@ -45,3 +45,9 @@ def build_metadata_filters(
         predicates.append(DocumentModel.document_type == filters.document_type)
 
     return predicates
+
+
+def metadata_filters_require_document_join(filters: RetrievalMetadataFilters | None) -> bool:
+    """Return whether predicates reference document-level columns."""
+
+    return filters is not None and filters.document_type is not None
