@@ -43,6 +43,66 @@ class RerankBranchConfig(BaseModel):
     enabled: bool = False
 
 
+class RetrievalYearFilter(BaseModel):
+    """Inclusive year bounds for retrieval debug metadata filtering."""
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    from_: int | None = Field(default=None, alias="from")
+    to: int | None = None
+
+    def is_empty(self) -> bool:
+        return self.from_ is None and self.to is None
+
+
+class RetrievalMetadataFilters(BaseModel):
+    """Optional metadata filters applied to retrieval debug branches."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    document_type: str | None = None
+    client_sector: str | None = None
+    main_technology: str | None = None
+    source_name: str | None = None
+    language: str | None = None
+    tags: list[str] | None = None
+    year: RetrievalYearFilter | None = None
+
+    @field_validator(
+        "document_type",
+        "client_sector",
+        "main_technology",
+        "source_name",
+        "language",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def normalize_tags(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            return value
+        tags = [tag.strip() for tag in value if isinstance(tag, str) and tag.strip()]
+        return tags or None
+
+    @model_validator(mode="after")
+    def normalize_empty_year(self) -> RetrievalMetadataFilters:
+        if self.year is not None and self.year.is_empty():
+            self.year = None
+        return self
+
+    def is_empty(self) -> bool:
+        return not self.model_dump(exclude_none=True)
+
+
 class RetrievalDebugRequest(BaseModel):
     """Request contract for explainable retrieval diagnostics."""
 
@@ -52,6 +112,7 @@ class RetrievalDebugRequest(BaseModel):
     lexical: LexicalBranchConfig = Field(default_factory=LexicalBranchConfig)
     hybrid: HybridBranchConfig = Field(default_factory=HybridBranchConfig)
     rerank: RerankBranchConfig = Field(default_factory=RerankBranchConfig)
+    filters: RetrievalMetadataFilters | None = None
     max_results: int = Field(default=10, ge=1, le=50)
 
     @field_validator("query")
@@ -74,6 +135,12 @@ class RetrievalDebugRequest(BaseModel):
         if "all" in normalized and len(normalized) > 1:
             raise ValueError("'all' cannot be combined with explicit strategies")
         return normalized
+
+    @model_validator(mode="after")
+    def ignore_empty_filters(self) -> RetrievalDebugRequest:
+        if self.filters is not None and self.filters.is_empty():
+            self.filters = None
+        return self
 
 
 class BranchResultEntry(BaseModel):

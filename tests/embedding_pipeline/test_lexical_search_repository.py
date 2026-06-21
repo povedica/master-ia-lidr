@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.dialects import postgresql
 
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchRepository
+from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 
 
 def test_lexical_search_statement_uses_postgres_full_text_ranking() -> None:
@@ -23,6 +24,27 @@ def test_lexical_search_statement_uses_postgres_full_text_ranking() -> None:
     assert "@@" in compiled
     assert "ORDER BY ts_rank DESC" in compiled
     assert "LIMIT" in compiled
+
+
+def test_lexical_search_statement_applies_metadata_filters_when_provided() -> None:
+    repository = LexicalSearchRepository()
+    filters = RetrievalMetadataFilters(
+        document_type="historical_budget",
+        client_sector="finance",
+        tags=["backend"],
+    )
+
+    statement = repository.build_search_statement(
+        query="JWT OAuth2",
+        top_k=7,
+        filters=filters,
+    )
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+    assert "JOIN documents" in compiled
+    assert "chunks.metadata @>" in compiled
+    assert "documents.document_type" in compiled
+    assert "@@" in compiled
 
 
 @pytest.mark.asyncio

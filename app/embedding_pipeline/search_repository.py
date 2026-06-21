@@ -9,8 +9,14 @@ from __future__ import annotations
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.embedding_pipeline.metadata_filters import (
+    build_metadata_filters,
+    metadata_filters_require_document_join,
+)
+from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 from app.embedding_pipeline.schemas import SearchResult
 from app.models.chunk import Chunk as ChunkModel
+from app.models.document import Document as DocumentModel
 
 
 class SemanticSearchRepository:
@@ -21,9 +27,10 @@ class SemanticSearchRepository:
         *,
         query_vector: list[float],
         k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> Select[tuple[int, int, str, str, dict[str, object], float]]:
         distance = ChunkModel.embedding.cosine_distance(query_vector).label("distance")
-        return (
+        statement = (
             select(
                 ChunkModel.id,
                 ChunkModel.document_id,
@@ -36,6 +43,11 @@ class SemanticSearchRepository:
             .order_by(distance)
             .limit(k)
         )
+        if metadata_filters_require_document_join(filters):
+            statement = statement.join(DocumentModel, ChunkModel.document_id == DocumentModel.id)
+        for predicate in build_metadata_filters(filters):
+            statement = statement.where(predicate)
+        return statement
 
     async def search_chunks(
         self,
@@ -43,8 +55,13 @@ class SemanticSearchRepository:
         *,
         query_vector: list[float],
         k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> list[SearchResult]:
-        statement = self.build_search_statement(query_vector=query_vector, k=k)
+        statement = self.build_search_statement(
+            query_vector=query_vector,
+            k=k,
+            filters=filters,
+        )
         result = await session.execute(statement)
         rows = result.all()
         return [

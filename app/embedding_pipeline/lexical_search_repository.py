@@ -8,7 +8,13 @@ from dataclasses import dataclass
 from sqlalchemy import Select, bindparam, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.embedding_pipeline.metadata_filters import (
+    build_metadata_filters,
+    metadata_filters_require_document_join,
+)
+from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 from app.models.chunk import Chunk as ChunkModel
+from app.models.document import Document as DocumentModel
 
 _HEADLINE_MATCH_RE = re.compile(r"<<([^<>]+)>>")
 
@@ -43,6 +49,7 @@ class LexicalSearchRepository:
         *,
         query: str,
         top_k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> Select[tuple[int, int, str, str, dict[str, object], float, str]]:
         query_param = bindparam("query", query)
         ts_query = func.websearch_to_tsquery("english", query_param)
@@ -55,7 +62,7 @@ class LexicalSearchRepository:
             "StartSel=<<, StopSel=>>, MaxWords=35, MinWords=1",
         ).label("headline")
 
-        return (
+        statement = (
             select(
                 ChunkModel.id,
                 ChunkModel.document_id,
@@ -69,6 +76,11 @@ class LexicalSearchRepository:
             .order_by(desc(ts_rank))
             .limit(top_k)
         )
+        if metadata_filters_require_document_join(filters):
+            statement = statement.join(DocumentModel, ChunkModel.document_id == DocumentModel.id)
+        for predicate in build_metadata_filters(filters):
+            statement = statement.where(predicate)
+        return statement
 
     async def search_chunks(
         self,
@@ -76,8 +88,13 @@ class LexicalSearchRepository:
         *,
         query: str,
         top_k: int,
+        filters: RetrievalMetadataFilters | None = None,
     ) -> list[LexicalSearchResult]:
-        statement = self.build_search_statement(query=query, top_k=top_k)
+        statement = self.build_search_statement(
+            query=query,
+            top_k=top_k,
+            filters=filters,
+        )
         result = await session.execute(statement)
         rows = result.all()
         return [
