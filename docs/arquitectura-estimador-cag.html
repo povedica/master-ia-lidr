@@ -1478,7 +1478,7 @@
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
               <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores en Postgres)</li>
               <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
-              <li><code>retrieval-debug</code> — API interna para explicar ramas vectorial y lexical e inspeccionar chunks (features 042–043)</li>
+              <li><code>retrieval-debug</code> — API interna para explicar ramas vectorial, lexical e híbrida, comparar rankings e inspeccionar chunks (features 042–044)</li>
             </ul>
           </div>
           <div class="card">
@@ -2403,7 +2403,7 @@ flowchart TD
           <strong>Persistencia Postgres (feature-036):</strong> servicio <code>postgres</code> (pgvector), modelos <code>documents</code>/<code>chunks</code>, Alembic async. Índice HNSW <code>ix_chunks_embedding_hnsw</code> con <code>vector_cosine_ops</code> (feature-040).
           <strong>Ingest transaccional (feature-037):</strong> <code>POST /api/v1/embeddings/ingest</code> persiste un presupuesto por petición vía <code>run_persistent_ingest()</code>; respuesta con metadatos (sin vectores crudos); <code>409</code> si <code>source_path</code> duplicado.
           <strong>Búsqueda semántica (feature-038):</strong> <code>POST /api/v1/search</code> embebe la query con el mismo modelo, rankea chunks por distancia coseno (<code>&lt;=&gt;</code>) y devuelve top-<code>k</code>. Postgres puede usar índice HNSW <code>ix_chunks_embedding_hnsw</code> (feature-040) sin cambiar el contrato HTTP.
-          <strong>Retrieval debug (features 042–043):</strong> <code>POST /api/v1/retrieval-debug</code> devuelve ramas vectorial y lexical: la vectorial rankea por distancia coseno; la lexical usa <code>websearch_to_tsquery</code> + <code>to_tsvector('english', chunks.content)</code> + <code>ts_rank_cd</code> como baseline secuencial, con <code>matched_terms</code>. <code>GET /api/v1/retrieval-debug/chunks/{id}</code> muestra contenido completo, vecinos y documento padre.
+          <strong>Retrieval debug (features 042–044):</strong> <code>POST /api/v1/retrieval-debug</code> devuelve ramas vectorial, lexical e híbrida: la vectorial rankea por distancia coseno; la lexical usa <code>websearch_to_tsquery</code> + <code>to_tsvector('english', chunks.content)</code> + <code>ts_rank_cd</code> como baseline secuencial, con <code>matched_terms</code>; la híbrida fusiona con RRF o weighted fusion, expone <code>fusion_score</code>/<code>fusion_rank</code>, <code>diff</code> y señales controladas. <code>GET /api/v1/retrieval-debug/chunks/{id}</code> muestra contenido completo, vecinos y documento padre.
           Comparación vs estimator: <code>docs/work-items/adr-001-embedding-pipeline-vs-estimator-ingestion.md</code>.
         </div>
 
@@ -2418,7 +2418,7 @@ flowchart TD
             <ul>
               <li><strong>Ingest HTTP persistido:</strong> <code>POST /api/v1/embeddings/ingest</code> — un presupuesto por petición → filas en <code>documents</code>/<code>chunks</code> + metadatos de ingestión (sin vectores en la respuesta).</li>
               <li><strong>Búsqueda semántica:</strong> <code>POST /api/v1/search</code> — query en lenguaje natural → top-<code>k</code> chunks rankeados por distancia coseno.</li>
-              <li><strong>Debug retrieval interno:</strong> <code>POST /api/v1/retrieval-debug</code> y <code>GET /api/v1/retrieval-debug/chunks/{id}</code> — observabilidad de ramas vectorial/lexical, términos encontrados y contexto completo del chunk.</li>
+              <li><strong>Debug retrieval interno:</strong> <code>POST /api/v1/retrieval-debug</code> y <code>GET /api/v1/retrieval-debug/chunks/{id}</code> — observabilidad de ramas vectorial/lexical/híbrida, términos encontrados, diff de rankings y contexto completo del chunk.</li>
               <li><strong>Ingest desde directorio:</strong> <code>python -m app.scripts.ingest_from_dir --dir …</code> — JSON en disco → <code>run_ingest</code> en memoria (o <code>--dry-run</code>).</li>
               <li><strong>Compare ad hoc:</strong> <code>python -m app.scripts.compare</code> — dos textos → similitud coseno.</li>
             </ul>
@@ -2471,9 +2471,9 @@ flowchart TD
                 <td>Corpus persistido consultable por similitud semántica; índice HNSW cosine (feature-040).</td>
               </tr>
               <tr>
-                <td>6b</td><td>042–043</td><td><code>retrieval_debug.py</code> + <code>retrieval_debug_repository.py</code> + <code>lexical_search_repository.py</code> + <code>routers/retrieval_debug.py</code></td>
-                <td>Ramas vector y lexical: rank, scores normalizados, <code>matched_terms</code>, explicación, warnings y chunk inspector</td>
-                <td>Permite comparar similitud semántica contra coincidencia exacta de términos técnicos antes de fusionar rankings.</td>
+                <td>6b</td><td>042–044</td><td><code>retrieval_debug.py</code> + <code>fusion.py</code> + <code>retrieval_debug_repository.py</code> + <code>lexical_search_repository.py</code> + <code>routers/retrieval_debug.py</code></td>
+                <td>Ramas vector, lexical e híbrida: rank, scores normalizados, <code>matched_terms</code>, <code>fusion_score</code>, <code>diff</code>, explicación, warnings y chunk inspector</td>
+                <td>Permite comparar similitud semántica contra coincidencia exacta, ver consenso/divergencia y explicar rescates por hybrid fusion.</td>
               </tr>
               <tr>
                 <td>7</td><td>034</td><td><code>app/scripts/compare.py</code></td>
@@ -2821,7 +2821,7 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
               <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Persist one budget + chunk embeddings</td><td>run_persistent_ingest → Postgres</td></tr>
               <tr><td>POST</td><td><code>/api/v1/search</code></td><td>Semantic search top-k chunks</td><td>embed_one + pgvector cosine distance</td></tr>
-              <tr><td>POST</td><td><code>/api/v1/retrieval-debug</code></td><td>Internal explainable vector retrieval</td><td>embed_one + vector branch trace</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/retrieval-debug</code></td><td>Internal explainable hybrid retrieval</td><td>vector + lexical branches → hybrid fusion + ranking diff</td></tr>
               <tr><td>GET</td><td><code>/api/v1/retrieval-debug/chunks/{id}</code></td><td>Chunk inspector with neighbors</td><td>Postgres chunk/document context</td></tr>
             </tbody>
           </table>

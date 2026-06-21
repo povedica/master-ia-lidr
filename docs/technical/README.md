@@ -976,14 +976,15 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 Automated tests mock `OpenAIEmbedder` and DB session; they do not require live Postgres or OpenAI.
 
-### Retrieval debug API (features 042-043)
+### Retrieval debug API (features 042-044)
 
-Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers.
+Feature-042 adds the internal observability layer without changing `POST /api/v1/search`. Feature-043 adds the lexical full-text branch so operators can compare semantic retrieval with exact-term matching for acronyms, versions, standards, and identifiers. Feature-044 adds hybrid fusion, ranking diff, and controlled explanations over vector + lexical evidence.
 
 | Path | Role |
 |------|------|
 | `app/routers/retrieval_debug.py` | HTTP routes, DI, safe errors, completion logging |
-| `app/embedding_pipeline/retrieval_debug.py` | Vector and lexical branch orchestration, score normalization, explanations, chunk inspection service |
+| `app/embedding_pipeline/retrieval_debug.py` | Vector, lexical, and hybrid branch orchestration, score normalization, explanations, diff assembly, chunk inspection service |
+| `app/embedding_pipeline/fusion.py` | Pure Reciprocal Rank Fusion, weighted fusion, ranking diff, and explanation helpers |
 | `app/embedding_pipeline/lexical_search_repository.py` | Postgres full-text search statement and lexical row mapping |
 | `app/embedding_pipeline/retrieval_debug_repository.py` | Chunk/document/neighbor reads and optional single-chunk distance query |
 | `app/embedding_pipeline/retrieval_debug_schemas.py` | Request/response schemas and nullable branch container |
@@ -993,9 +994,10 @@ Feature-042 adds the internal observability layer without changing `POST /api/v1
 ```json
 {
   "query": "JWT refresh token rotation for OAuth2 REST API",
-  "strategies": ["vector", "lexical"],
+  "strategies": ["vector", "lexical", "hybrid"],
   "vector": {"top_k": 20, "threshold": 0.6},
   "lexical": {"top_k": 20},
+  "hybrid": {"enabled": true, "method": "rrf", "rrf_k": 60},
   "max_results": 10
 }
 ```
@@ -1004,9 +1006,18 @@ Response shape:
 
 - `branches.vector[]`: vector rank, ids, `distance`, normalized `score`.
 - `branches.lexical[]`: lexical rank, ids, normalized `score`, and `matched_terms`; `distance` is `null` because lexical rank is not a vector distance.
-- `branches.hybrid`, `branches.rerank`: `null`; requested future branches produce warnings.
-- `final_results[]`: capped vector results enriched with lexical fields when the same chunk appears in both branches; lexical-only requests return lexical-ranked final results.
-- `timings_ms`: `vector`, `lexical`, and `total`.
+- `branches.hybrid[]`: fused rank, ids, and `score`; default method is Reciprocal Rank Fusion (`score = Σ weight/(rrf_k + rank)`), while `method="weighted"` combines normalized branch scores with server-normalized weights.
+- `branches.rerank`: `null`; requested rerank still produces a warning until feature-045.
+- `final_results[]`: hybrid requests are ordered by `fusion_rank` and include `fusion_score`, semantic fields, lexical fields, `source_strategies`, metadata, excerpt, and controlled explanations.
+- `diff`: `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank` (empty until feature-045).
+- `timings_ms`: `vector`, `lexical`, `hybrid`, and `total`.
+
+Controlled explanation signals:
+
+- `semantic_strong`, `semantic_weak`, `below_threshold`
+- `lexical_exact_match`
+- `branch_consensus`
+- `hybrid_rescued`
 
 Lexical SQL baseline:
 
