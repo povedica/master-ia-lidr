@@ -14,6 +14,7 @@ from app.embedding_pipeline.retrieval_debug_schemas import (
     LexicalBranchConfig,
     RankingDiffEntryResponse,
     RankingDiffResponse,
+    RerankBranchConfig,
     ResultExplanation,
     RetrievalDebugRequest,
     RetrievalDebugResponse,
@@ -50,6 +51,23 @@ def test_retrieval_debug_request_accepts_hybrid_config_defaults() -> None:
     assert request.hybrid.method == "rrf"
     assert request.hybrid.rrf_k == 60
     assert request.hybrid.weights is None
+
+
+def test_retrieval_debug_request_accepts_rerank_config_defaults() -> None:
+    request = RetrievalDebugRequest(query="JWT OAuth2", strategies=["rerank"])
+
+    assert request.rerank == RerankBranchConfig()
+    assert request.rerank.enabled is False
+
+
+def test_retrieval_debug_request_accepts_enabled_rerank_config() -> None:
+    request = RetrievalDebugRequest(
+        query="JWT OAuth2",
+        strategies=["rerank"],
+        rerank={"enabled": True},
+    )
+
+    assert request.rerank.enabled is True
 
 
 def test_retrieval_debug_request_rejects_weighted_hybrid_without_weights() -> None:
@@ -183,6 +201,27 @@ def test_debug_result_accepts_hybrid_fusion_fields() -> None:
 
     assert result.fusion_score == 0.82
     assert result.fusion_rank == 1
+
+
+def test_debug_result_accepts_rerank_fields() -> None:
+    result = DebugResult(
+        final_position=1,
+        chunk_id=156,
+        document_id=12,
+        title="BUD-2024-014 AUTH-001",
+        content_excerpt="JWT auth with OAuth2 refresh token rotation",
+        rerank_score=None,
+        rerank_rank=1,
+        source_strategies=["vector", "lexical", "hybrid", "rerank"],
+        metadata={"component_id": "AUTH-001"},
+        explanation=ResultExplanation(
+            summary="rerank placeholder kept the fused order.",
+            signals=[],
+        ),
+    )
+
+    assert result.rerank_score is None
+    assert result.rerank_rank == 1
 
 
 def test_retrieval_debug_response_accepts_ranking_diff() -> None:
