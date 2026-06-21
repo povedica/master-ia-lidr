@@ -163,3 +163,4 @@ Feature-048 ships the indexed lexical retrieval path on branch `feature/048-inde
 | `ef6a454` | Added the `0003` indexed lexical migration and static DDL coverage. |
 | `afaa728` | Switched lexical search to the indexed `content_tsv` path without changing the response contract. |
 | `52ce689` | Documented the indexed lexical path, verification commands, architecture guide, and rollback policy. |
+| `cd3a83c` | Recorded final verification, acceptance, and handoff for feature-048. |
