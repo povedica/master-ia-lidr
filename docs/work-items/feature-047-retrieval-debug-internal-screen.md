@@ -162,7 +162,7 @@ Clicking a result opens a drawer (calls `GET /retrieval-debug/chunks/{id}?query=
 
 ## Pull Request
 
-- Draft PR: https://github.com/povedica/master-ia-lidr/pull/43
+- Ready PR: https://github.com/povedica/master-ia-lidr/pull/43
 
 ## Handoff from feature-047
 
