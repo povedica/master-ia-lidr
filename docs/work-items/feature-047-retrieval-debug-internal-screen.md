@@ -215,3 +215,4 @@ Recommended first tests for the next implementer:
 | `49236db` | Add the env-gated retrieval debug page shell and basic state machine. |
 | `f698b7d` | Add query controls, tuning controls, request mapping, and recent searches. |
 | `50dcc67` | Render comparative results, explanation chips, branch rankings, and ranking diff. |
+| `bd3e2be` | Add chunk inspector, partial warnings, frontend docs, architecture notes, and final verification. |
