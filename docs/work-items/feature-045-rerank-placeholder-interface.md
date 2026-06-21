@@ -222,3 +222,5 @@ Verified after Step 2:
 | `9296ed3` | Planned the rerank placeholder task, estimation, progress tracking, and TDD verification steps. |
 | `cf35559` | Recorded the draft PR link and initialized the repository commit report. |
 | `1e7d6c0` | Added the `Reranker` protocol, `NoOpReranker`, rerank candidate/result value objects, and unit coverage for no-op identity behavior. |
+| `1c256d2` | Recorded the no-op reranker implementation commit in the work item. |
+| `70f6e21` | Added `rerank.enabled`, nullable result rerank fields, and schema tests for the rerank debug contract. |
