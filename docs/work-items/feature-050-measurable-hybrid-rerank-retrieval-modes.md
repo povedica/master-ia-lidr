@@ -572,39 +572,39 @@ chunk counts as a hit if its `budget_id` is in the query's `relevant_budget_ids`
 
 ## Acceptance Criteria
 
-- [ ] AC-01: Migration `0004` regenerates `chunks.content_tsv` with `to_tsvector('spanish', content)`
+- [x] AC-01: Migration `0004` regenerates `chunks.content_tsv` with `to_tsvector('spanish', content)`
       and a GIN index; `alembic downgrade 0003` restores the `english` definition (round-trip verified).
-- [ ] AC-02: `LexicalSearchRepository` uses a configurable text-search config defaulting to `spanish`
+- [x] AC-02: `LexicalSearchRepository` uses a configurable text-search config defaulting to `spanish`
       for `websearch_to_tsquery` and `ts_headline`; lexical response shape is unchanged.
-- [ ] AC-03: `RetrievalMode` + `resolve_mode` map A/B/C/D to the exact branch/fusion/rerank plan in §5.2
+- [x] AC-03: `RetrievalMode` + `resolve_mode` map A/B/C/D to the exact branch/fusion/rerank plan in §5.2
       (unit-tested, deterministic).
-- [ ] AC-04: `POST /api/v1/retrieval` accepts `mode` (or applies `RETRIEVAL_DEFAULT_MODE`) and echoes
+- [x] AC-04: `POST /api/v1/retrieval` accepts `mode` (or applies `RETRIEVAL_DEFAULT_MODE`) and echoes
       the applied mode + resolved config in the response.
-- [ ] AC-05: Mode A returns vector-only top-5 identical in ordering to the current
+- [x] AC-05: Mode A returns vector-only top-5 identical in ordering to the current
       `SemanticSearchRepository` path (no behavior regression).
-- [ ] AC-06: Mode B fuses vector + lexical via `reciprocal_rank_fusion` into one ranking cut to
+- [x] AC-06: Mode B fuses vector + lexical via `reciprocal_rank_fusion` into one ranking cut to
       `top_k_final`, with `fusion_score` and `matched_terms` populated.
-- [ ] AC-07: Modes C and D run recall(top-`recall_k`) → cross-encoder rerank → top-`top_k_final`, with
+- [x] AC-07: Modes C and D run recall(top-`recall_k`) → cross-encoder rerank → top-`top_k_final`, with
       `rerank_score` driving final order.
-- [ ] AC-08: `CrossEncoderReranker` implements the existing `Reranker` protocol unchanged
+- [x] AC-08: `CrossEncoderReranker` implements the existing `Reranker` protocol unchanged
       (`is_noop = False`) and receives **full chunk content** in `RerankCandidate.content`.
-- [ ] AC-09: With `RETRIEVAL_RERANK_MODEL` empty (or `RETRIEVAL_RERANK_ENABLED=false`), modes C/D degrade
+- [x] AC-09: With `RETRIEVAL_RERANK_MODEL` empty (or `RETRIEVAL_RERANK_ENABLED=false`), modes C/D degrade
       to A/B and emit a clear no-op/disabled `warnings` entry — never a 500.
-- [ ] AC-10: A branch failure produces a partial result + `warnings`, not a hard error (gather contract
+- [x] AC-10: A branch failure produces a partial result + `warnings`, not a hard error (gather contract
       preserved).
-- [ ] AC-11: Golden set file exists with 5 queries and manual `relevant_budget_ids`; schema validated.
-- [ ] AC-12: `retrieval_eval.py` runs all four modes over the golden set and computes mean precision@5
+- [x] AC-11: Golden set file exists with 5 queries and manual `relevant_budget_ids`; schema validated.
+- [x] AC-12: `retrieval_eval.py` runs all four modes over the golden set and computes mean precision@5
       (budget-level, deduped) and latency p50/p95/mean per mode.
-- [ ] AC-13: The runner emits `comparison.md`, `results.json`, and `recommendation.md`; the table shows
+- [x] AC-13: The runner emits `comparison.md`, `results.json`, and `recommendation.md`; the table shows
       Δ precision@5 and Δ latency vs mode A.
-- [ ] AC-14: The eval detects a no-op reranker (`is_noop`) and annotates/fails so C/D are never silently
+- [x] AC-14: The eval detects a no-op reranker (`is_noop`) and annotates/fails so C/D are never silently
       equal to A/B.
-- [ ] AC-15: Structured logs include mode, counts, timings; no query text, content, embeddings, or
+- [x] AC-15: Structured logs include mode, counts, timings; no query text, content, embeddings, or
       secrets are logged.
-- [ ] AC-16: `POST /api/v1/search` and `POST /api/v1/retrieval-debug` are unchanged (regression-safe).
-- [ ] AC-17: Default offline test suite passes with no real API key and no live DB; eval tests that need
+- [x] AC-16: `POST /api/v1/search` and `POST /api/v1/retrieval-debug` are unchanged (regression-safe).
+- [x] AC-17: Default offline test suite passes with no real API key and no live DB; eval tests that need
       a model/DB are marked `slow`/opt-in per testing standards.
-- [ ] AC-18: `.env.example`, `README.md`, technical docs, and architecture HTML document the modes,
+- [x] AC-18: `.env.example`, `README.md`, technical docs, and architecture HTML document the modes,
       flags, Spanish FTS, and the evaluation workflow.
 
 ---
@@ -636,26 +636,58 @@ chunk counts as a hit if its `budget_id` is in the query's `relevant_budget_ids`
 
 ## Verification
 
-- **Automated:** `uv run pytest` (default fast suite, offline) green; targeted runs for new modules
-  (`tests/embedding_pipeline/test_retrieval_service.py`, `…/test_retrieval_eval.py`,
-  `…/test_cross_encoder_reranker.py`, `tests/test_alembic_migration.py`).
-- **Manual (opt-in / `slow`):** Compose Postgres migration round-trip + `EXPLAIN` GIN usage; live curl
-  of `/api/v1/retrieval` per mode; one full evaluation run producing the three artifacts.
-- **Not verified yet (until implementation):** real cross-encoder latency/quality on the corpus;
-  statistical significance of precision@5 with only 5 queries (directional only); production latency.
+- **Automated:** `uv run pytest` — `616 passed, 11 skipped, 12 deselected` (2026-06-21).
+- **Automated (targeted):** `tests/embedding_pipeline/test_retrieval_service.py`,
+  `test_retrieval_router.py`, `test_retrieval_eval.py`, `test_cross_encoder_reranker.py`,
+  `tests/test_alembic_migration.py`, `tests/test_config.py`.
+- **Manual (opt-in / live DB):** Compose Postgres migration round-trip; curl `/api/v1/retrieval` per mode;
+  full `retrieval_eval.py` run with rerank model configured.
+- **Not verified:** real cross-encoder quality/latency on populated corpus; statistical significance of
+  precision@5 with 5 golden queries; production SLAs.
+
+## Handoff from feature-050
+
+Shipped interfaces:
+
+- `POST /api/v1/retrieval` with modes A/B/C/D, lean `RetrievalResponse`, stage timings, and warnings.
+- `RetrievalService.retrieve(...)` for internal reuse; estimation wiring remains a follow-up.
+- Settings: `RETRIEVAL_*` in `app/config.py` and `.env.example`.
+- Migration `0004_set_chunks_content_tsv_spanish.py` (Spanish FTS).
+- `CrossEncoderReranker` + `build_reranker(settings)` behind existing `Reranker` protocol.
+- Evaluation: `evaluation/retrieval/golden_set.json`, `app/embedding_pipeline/retrieval_eval.py`,
+  `app/scripts/retrieval_eval.py`.
+
+Recommended first checks for follow-up (wire mode into estimation):
+
+- `tests/embedding_pipeline/test_retrieval_service.py` — mode matrix with fakes.
+- `tests/embedding_pipeline/test_retrieval_router.py` — HTTP contract + 503 without DB.
+
+Residual risks: golden-set labels need domain review; rerank adds `sentence-transformers` + torch weight;
+eval CLI requires live DB and API key.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| docs | Normalize feature-050 work item headers for start-task gate |
+| feat | Spanish FTS migration 0004 + configurable LexicalSearchRepository |
+| feat | RETRIEVAL_* settings and defaults |
+| feat | RetrievalService modes A-D, production endpoint, CrossEncoderReranker |
+| feat | Evaluation harness, golden set, retrieval_eval CLI |
+| docs | README, technical docs, architecture HTML, Second Brain, work-item closure |
 
 ---
 
 ## 13. Documentation plan
 
-- `README.md`: new `/api/v1/retrieval` capability, the four modes, flags, and how to run the
+- [x] `README.md`: new `/api/v1/retrieval` capability, the four modes, flags, and how to run the
   evaluation.
-- `docs/technical/README.md`: mode → plan mapping, recall-then-rerank, Spanish FTS migration rationale,
+- [x] `docs/technical/README.md`: mode → plan mapping, recall-then-rerank, Spanish FTS migration rationale,
   RRF reuse, reranker contract, evaluation methodology (precision@5 dedup rule, latency protocol,
   biases).
-- `docs/arquitectura-estimador-cag.html`: add the production retrieval node and the evaluation loop.
-- Second Brain: a learning note on hybrid vs rerank trade-offs and how to read the comparison table.
-- `.env.example`: all new `RETRIEVAL_*` variables with safe defaults.
+- [x] `docs/arquitectura-estimador-cag.html`: add the production retrieval node and the evaluation loop.
+- [x] Second Brain: a learning note on hybrid vs rerank trade-offs and how to read the comparison table.
+- [x] `.env.example`: all new `RETRIEVAL_*` variables with safe defaults.
 
 ---
 
@@ -667,20 +699,22 @@ chunk counts as a hit if its `budget_id` is in the query's `relevant_budget_ids`
 
 ## Implementation progress
 
-- [ ] Step 1: **Spanish FTS** — migration `0004` + static migration tests; make
+- [x] Step 1: **Spanish FTS** — migration `0004` + static migration tests; make
       `LexicalSearchRepository` text-search config configurable (default `spanish`); repository tests.
       *Validate:* migration round-trip + lexical statement shape before proceeding.
-- [ ] Step 2: **Settings `RETRIEVAL_*`** — typed config + `.env.example`; config tests.
-- [ ] Step 3: **Mode resolver + service (A/B)** — `RetrievalMode`, `resolve_mode`, `RetrievalService`;
+- [x] Step 2: **Settings `RETRIEVAL_*`** — typed config + `.env.example`; config tests.
+- [x] Step 3: **Mode resolver + service (A/B)** — `RetrievalMode`, `resolve_mode`, `RetrievalService`;
       unit + integration tests with fakes. *Validate:* A equals vector path; B fuses correctly.
-- [ ] Step 4: **Production endpoint** — `retrieval_schemas.py`, `app/routers/retrieval.py`, register in
+- [x] Step 4: **Production endpoint** — `retrieval_schemas.py`, `app/routers/retrieval.py`, register in
       `main.py`; contract tests + safe `503` on empty `DATABASE_URL`. *Validate:* A/B over HTTP.
-- [ ] Step 5: **Cross-encoder reranker + modes C/D** — `CrossEncoderReranker`, DI + flags, no-op
+- [x] Step 5: **Cross-encoder reranker + modes C/D** — `CrossEncoderReranker`, DI + flags, no-op
       degradation + warnings; tests with fake scorer. *Validate:* C/D reorder; degradation safe.
-- [ ] Step 6: **Evaluation framework** — golden set, metric helpers, `retrieval_eval.py` runner,
+- [x] Step 6: **Evaluation framework** — golden set, metric helpers, `retrieval_eval.py` runner,
       artifact rendering, no-op detection; unit tests.
-- [ ] Step 7: **Docs + final verification** — README, technical docs, architecture HTML, Second Brain,
+- [x] Step 7: **Docs + final verification** — README, technical docs, architecture HTML, Second Brain,
       `.env.example`; full suite; handoff section.
+
+**PR:** https://github.com/povedica/master-ia-lidr/pull/45 (draft WIP)
 
 ### Technical risks that would block progress
 

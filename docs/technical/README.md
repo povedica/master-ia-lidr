@@ -1235,6 +1235,23 @@ uv run alembic downgrade 0002
 
 Work item: [feature-048](../work-items/feature-048-indexed-lexical-tsvector-migration.md).
 
+## 25b. Production retrieval modes (feature-050)
+
+Production-facing retrieval promotes the debug primitives into four explicit modes selectable via `POST /api/v1/retrieval` or `RETRIEVAL_DEFAULT_MODE`:
+
+| Mode | Vector | Lexical + RRF | Cross-encoder rerank |
+| --- | --- | --- | --- |
+| A | yes | no | no |
+| B | yes | yes | no |
+| C | yes | no | yes |
+| D | yes | yes | yes |
+
+Migration `0004_set_chunks_content_tsv_spanish.py` regenerates `chunks.content_tsv` with `to_tsvector('spanish', content)`; `LexicalSearchRepository` defaults to the same regconfig. `RetrievalService` orchestrates recall (`recall_k`), optional `reciprocal_rank_fusion`, optional `CrossEncoderReranker`, and final cut (`top_k_final`). Modes C/D degrade to A/B with warnings when `RETRIEVAL_RERANK_ENABLED=false` or `RETRIEVAL_RERANK_MODEL` is empty.
+
+Evaluation (`app/scripts/retrieval_eval.py`) runs all four modes over `evaluation/retrieval/golden_set.json`, computes budget-level precision@5 (deduped top-5 budgets), latency p50/p95/mean (cold run excluded), and writes `comparison.md`, `results.json`, and `recommendation.md`. The runner fails when a no-op reranker would invalidate C/D comparisons.
+
+Work item: [feature-050](../work-items/feature-050-measurable-hybrid-rerank-retrieval-modes.md).
+
 ## 26. Worktree task orchestrator
 
 `scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.
