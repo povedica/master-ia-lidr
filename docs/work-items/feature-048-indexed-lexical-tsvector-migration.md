@@ -122,3 +122,8 @@ After `uv run alembic upgrade head`: `chunks.content_tsv` exists as a stored gen
 - [ ] Step 3: Switch lexical repository SQL to the indexed `content_tsv` path.
 - [ ] Step 4: Document indexed lexical verification and architecture impact.
 - [ ] Step 5: Final verification, handoff, commit table, and PR closure readiness.
+
+## Pull request
+
+- PR: https://github.com/povedica/master-ia-lidr/pull/44 (draft, WIP)
+- Branch: `feature/048-indexed-lexical-tsvector-migration`
