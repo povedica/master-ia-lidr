@@ -134,6 +134,53 @@ Residual risk / follow-ups:
 - A future real reranker may need full chunk content in `RerankCandidate.content`; the current no-op path uses the final result excerpt and does not affect the HTTP response contract.
 - Feature-046 should verify filters compose with rerank enabled after vector/lexical candidate narrowing.
 
+## Handoff from feature-046
+
+Feature-046 (`feature/046-retrieval-metadata-filters`, PR `#42`) completed metadata filters for the retrieval debug branches:
+
+- `RetrievalMetadataFilters` supports `document_type`, `client_sector`, `main_technology`, `source_name`, `language`, `tags`, and inclusive `year` bounds.
+- Vector and lexical repositories apply filters before branch ranking and limiting; empty filters normalize away and unknown keys remain ignored by schema validation.
+- `applied_config.filters` echoes normalized filters so the UI can show the exact scoped candidate set.
+- The implementation keeps production `POST /api/v1/search` unchanged and confines filters to the debug retrieval path.
+
+Verification carried from feature-046:
+
+- `uv run pytest tests/embedding_pipeline -q` — `200 passed, 2 deselected`.
+- `uv run pytest` — `589 passed, 11 skipped, 12 deselected`.
+
+Residual risk / follow-ups:
+
+- Live Compose/Postgres smoke with realistic filter combinations was not run during feature-046 closure.
+- Large-corpus planner behavior for JSONB filters and year casts remains a performance follow-up, not a contract blocker.
+
+## Handoff from feature-047
+
+Feature-047 (`feature/047-retrieval-debug-internal-screen`, PR `#43`) completed the operator-facing React screen and closes the epic's headline deliverable:
+
+- `/debug/retrieval` is gated behind `VITE_ENABLE_RETRIEVAL_DEBUG=true` and is not part of normal end-user navigation.
+- The screen consumes the existing debug API contract and renders query/strategy input, full tuning controls, metadata filters, recent searches, comparative results, explanation chips, branch rankings, ranking diff, non-blocking warnings, and a chunk inspector drawer.
+- The chunk inspector now displays full chunk context, distance/similarity, and lexical `matched_terms` when a query is provided, aligning AC-14 with the UI.
+- Frontend Zod schemas mirror the retrieval debug request, response, ranking diff, and chunk inspection contracts.
+- Documentation is synchronized in `README.md`, `web/README.md`, `web/.env.example`, `docs/technical/README.md`, `docs/arquitectura-estimador-cag.html`, the feature-047 work item, and the Second Brain learning note.
+
+Verification carried from feature-047:
+
+- `cd web && npm test` — `48 passed`.
+- `cd web && npm run build` — passed.
+- `cd web && npm run lint` — passed.
+- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py::test_chunk_inspection_response_exposes_document_and_embedding_metadata tests/embedding_pipeline/test_retrieval_debug_router.py::test_chunk_inspector_returns_context_and_optional_similarity -q` — `2 passed`.
+- `cd web && npm test -- --run src/features/retrieval-debug/components/RetrievalDebugPage.test.tsx` — `10 passed`.
+
+Residual risk / follow-ups:
+
+- Live Compose/Postgres end-to-end screen smoke with an ingested corpus remains manual and not yet executed.
+- The internal route is guarded by a frontend build-time flag only; production authz remains out of scope.
+- Formal accessibility review and screenshot capture for class/demo material remain follow-ups.
+
+## Epic closure status
+
+The epic is implemented through sub-features 042-047, with optional performance feature-048 also shipped. The remaining work is operational hardening and validation (live smoke, authz, accessibility, persisted debug runs), not core feature completion.
+
 ## Objective
 
 Provide an internal screen and supporting API to inspect and tune the **retrieval stage** of the RAG system. The goal is to make retrieval explainable instead of a black box: given a natural-language query, an operator must see *which* chunks are retrieved, *which strategy* retrieved them, *with what score/rank*, *how the ranking changes when strategies are combined*, and *which signals explain the final order*.
@@ -379,24 +426,24 @@ Use the existing API client patterns under `web/src/features/...` and Zod schema
 
 ## Acceptance Criteria
 
-- [ ] AC-01: `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` appear in OpenAPI under `/api/v1`.
-- [ ] AC-02: A valid request with `strategies: "all"` returns `200` with `branches` for vector, lexical, hybrid, and a rerank placeholder, plus `final_results`, `diff`, `timings_ms`, and `warnings`.
-- [ ] AC-03: Vector branch reuses the existing cosine-distance path and exposes `rank`, `distance`, and a normalized `score`; production `POST /api/v1/search` behavior is unchanged.
-- [ ] AC-04: Lexical branch returns ranked rows with `matched_terms` for a query containing exact technical tokens (e.g. `JWT`, `OAuth2`).
-- [ ] AC-05: Hybrid branch applies RRF by default and reflects configurable `method`/`weights`/`rrf_k`; disabling fusion omits the hybrid branch.
-- [ ] AC-06: Each `final_results` item includes final position, chunk id, document id, title/reference, excerpt, semantic score/rank/distance, lexical score/rank, fusion score/rank, rerank score/rank (nullable), `source_strategies`, metadata, and a structured `explanation`.
-- [ ] AC-07: `explanation.signals` uses the controlled vocabulary and correctly flags consensus, hybrid-rescue, below-threshold, and rerank no-op cases in deterministic tests.
-- [ ] AC-08: `diff` reports common, per-branch-exclusive, hybrid-rescued, big-movers, and dropped-by-threshold/rerank sets consistently with the branch rankings.
-- [ ] AC-09: Threshold drops weak vector hits and they appear in `diff.dropped_by_threshold`; `max_results` limits the final list.
-- [ ] AC-10: Metadata filters restrict candidates per branch; unknown/empty filters are ignored without error.
-- [ ] AC-11: `rerank.enabled=true` with no real model returns rerank ranks equal to input order and a clear `warnings` entry (no-op placeholder).
-- [ ] AC-12: Empty corpus returns `200` with empty branches/results; invalid input returns `422`; empty `DATABASE_URL` returns a safe `503`.
-- [ ] AC-13: A failing single branch yields a partial response (other branches present) with a `retrieval_debug_branch_failed` warning, not a 500.
-- [ ] AC-14: `GET /retrieval-debug/chunks/{id}` returns full content, neighbor context, full metadata, embedding model, chunk type, and per-query distance/matched terms when `query` is provided; unknown id → `404`.
-- [ ] AC-15: The internal React screen implements requirements A–G with loading, error, empty, and partial states and recent-search reuse, gated behind `VITE_ENABLE_RETRIEVAL_DEBUG`.
-- [ ] AC-16: Structured logs are emitted for debug runs and branch failures without secrets, embeddings, or API keys.
-- [ ] AC-17: Default test suite passes without real API keys or live Postgres (mocked embedder, fake lexical/branch results, mocked frontend API).
-- [ ] AC-18: README, technical docs, architecture HTML, and a Second Brain note describe the screen, the debug API contract, and how to read scores/diff/explanations.
+- [x] AC-01: `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` appear in OpenAPI under `/api/v1`.
+- [x] AC-02: A valid request with `strategies: "all"` returns `200` with `branches` for vector, lexical, hybrid, and a rerank placeholder, plus `final_results`, `diff`, `timings_ms`, and `warnings`.
+- [x] AC-03: Vector branch reuses the existing cosine-distance path and exposes `rank`, `distance`, and a normalized `score`; production `POST /api/v1/search` behavior is unchanged.
+- [x] AC-04: Lexical branch returns ranked rows with `matched_terms` for a query containing exact technical tokens (e.g. `JWT`, `OAuth2`).
+- [x] AC-05: Hybrid branch applies RRF by default and reflects configurable `method`/`weights`/`rrf_k`; disabling fusion omits the hybrid branch.
+- [x] AC-06: Each `final_results` item includes final position, chunk id, document id, title/reference, excerpt, semantic score/rank/distance, lexical score/rank, fusion score/rank, rerank score/rank (nullable), `source_strategies`, metadata, and a structured `explanation`.
+- [x] AC-07: `explanation.signals` uses the controlled vocabulary and correctly flags consensus, hybrid-rescue, below-threshold, and rerank no-op cases in deterministic tests.
+- [x] AC-08: `diff` reports common, per-branch-exclusive, hybrid-rescued, big-movers, and dropped-by-threshold/rerank sets consistently with the branch rankings.
+- [x] AC-09: Threshold drops weak vector hits and they appear in `diff.dropped_by_threshold`; `max_results` limits the final list.
+- [x] AC-10: Metadata filters restrict candidates per branch; unknown/empty filters are ignored without error.
+- [x] AC-11: `rerank.enabled=true` with no real model returns rerank ranks equal to input order and a clear `warnings` entry (no-op placeholder).
+- [x] AC-12: Empty corpus returns `200` with empty branches/results; invalid input returns `422`; empty `DATABASE_URL` returns a safe `503`.
+- [x] AC-13: A failing single branch yields a partial response (other branches present) with a `retrieval_debug_branch_failed` warning, not a 500.
+- [x] AC-14: `GET /retrieval-debug/chunks/{id}` returns full content, neighbor context, full metadata, embedding model, chunk type, and per-query distance/matched terms when `query` is provided; unknown id → `404`.
+- [x] AC-15: The internal React screen implements requirements A–G with loading, error, empty, and partial states and recent-search reuse, gated behind `VITE_ENABLE_RETRIEVAL_DEBUG`.
+- [x] AC-16: Structured logs are emitted for debug runs and branch failures without secrets, embeddings, or API keys.
+- [x] AC-17: Default test suite passes without real API keys or live Postgres (mocked embedder, fake lexical/branch results, mocked frontend API).
+- [x] AC-18: README, technical docs, architecture HTML, and a Second Brain note describe the screen, the debug API contract, and how to read scores/diff/explanations.
 
 ## Test Plan
 
@@ -438,13 +485,13 @@ Use the existing API client patterns under `web/src/features/...` and Zod schema
 
 This epic is **not implemented directly**. Implementation is delegated to the sub-features in dependency order. Each sub-feature owns its own baby-step plan, tests, and verification.
 
-- [ ] `feature-042-retrieval-debug-api-foundation.md` — debug API + vector branch + chunk inspector.
-- [ ] `feature-043-lexical-fulltext-search-branch.md` — lexical full-text branch.
-- [ ] `feature-044-hybrid-fusion-ranking-diff-explanation.md` — fusion + diff + explanation.
-- [ ] `feature-045-rerank-placeholder-interface.md` — NoOp reranker + signals.
-- [ ] `feature-046-retrieval-metadata-filters.md` — metadata filters across branches.
-- [ ] `feature-047-retrieval-debug-internal-screen.md` — React screen (A–G + states).
-- [ ] `feature-048-indexed-lexical-tsvector-migration.md` — (optional) indexed lexical path.
+- [x] `feature-042-retrieval-debug-api-foundation.md` — debug API + vector branch + chunk inspector.
+- [x] `feature-043-lexical-fulltext-search-branch.md` — lexical full-text branch.
+- [x] `feature-044-hybrid-fusion-ranking-diff-explanation.md` — fusion + diff + explanation.
+- [x] `feature-045-rerank-placeholder-interface.md` — NoOp reranker + signals.
+- [x] `feature-046-retrieval-metadata-filters.md` — metadata filters across branches.
+- [x] `feature-047-retrieval-debug-internal-screen.md` — React screen (A–G + states).
+- [x] `feature-048-indexed-lexical-tsvector-migration.md` — (optional) indexed lexical path.
 
 Start with: `/start-task docs/work-items/feature-042-retrieval-debug-api-foundation.md`
 
@@ -456,13 +503,13 @@ This epic was split into seven independently executable sub-features on 2026-06-
 
 | # | File | Status | Depends on | Size | Why this sub-feature (one line) |
 |---|------|--------|-----------|------|---------------------------------|
-| 042 | `feature-042-retrieval-debug-api-foundation.md` | Written | 036–040 | M | Make existing vector retrieval observable/explainable via a stable debug API + chunk inspector. |
-| 043 | `feature-043-lexical-fulltext-search-branch.md` | Written | 042 | M | Add the first non-semantic signal: exact-term lexical matching with `matched_terms`. |
-| 044 | `feature-044-hybrid-fusion-ranking-diff-explanation.md` | Written | 042, 043 | M | Combine + compare branches: fusion, consensus/divergence diff, explanation engine. |
-| 045 | `feature-045-rerank-placeholder-interface.md` | Written | 044 | S | Lock the rerank contract now (NoOp) so a real reranker is a drop-in later. |
-| 046 | `feature-046-retrieval-metadata-filters.md` | Written | 042 | S–M | Scope the corpus (sector/year/tags…) to isolate variables when tuning. |
-| 047 | `feature-047-retrieval-debug-internal-screen.md` | Written | 042–046 | L | The operator-facing screen (requirements A–G + states): the headline deliverable. |
-| 048 | `feature-048-indexed-lexical-tsvector-migration.md` | Written (optional) | 043 | S | Replace the lexical sequential-scan baseline with an indexed `content_tsv` + GIN + `pg_trgm` path. |
+| 042 | `feature-042-retrieval-debug-api-foundation.md` | Shipped | 036–040 | M | Make existing vector retrieval observable/explainable via a stable debug API + chunk inspector. |
+| 043 | `feature-043-lexical-fulltext-search-branch.md` | Shipped | 042 | M | Add the first non-semantic signal: exact-term lexical matching with `matched_terms`. |
+| 044 | `feature-044-hybrid-fusion-ranking-diff-explanation.md` | Shipped | 042, 043 | M | Combine + compare branches: fusion, consensus/divergence diff, explanation engine. |
+| 045 | `feature-045-rerank-placeholder-interface.md` | Shipped | 044 | S | Lock the rerank contract now (NoOp) so a real reranker is a drop-in later. |
+| 046 | `feature-046-retrieval-metadata-filters.md` | Shipped | 042 | S–M | Scope the corpus (sector/year/tags…) to isolate variables when tuning. |
+| 047 | `feature-047-retrieval-debug-internal-screen.md` | Shipped | 042–046 | L | The operator-facing screen (requirements A–G + states): the headline deliverable. |
+| 048 | `feature-048-indexed-lexical-tsvector-migration.md` | Shipped (optional) | 043 | S | Replace the lexical sequential-scan baseline with an indexed `content_tsv` + GIN + `pg_trgm` path. |
 
 ### Mandatory blocks present in every sub-feature
 
@@ -502,3 +549,9 @@ Each document above includes, beyond the standard `/start-task` strict-gate sect
 - Size: L epic, split into 7 sub-features (042–048; 048 optional).
 - Suggested order: 042 → 043 → 044 → 045 → 046 → 047, with 048 any time after 043.
 - Each sub-feature is independently shippable and verifiable.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `d638ed9` | Close the final retrieval debug screen and epic acceptance gaps: inspector matched terms, full tuning/filter controls, zero-result warnings, verification evidence, and synchronized docs. |

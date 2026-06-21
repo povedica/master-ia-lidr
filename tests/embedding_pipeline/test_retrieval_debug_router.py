@@ -65,6 +65,7 @@ class _FakeSearchRepository:
 class _FakeChunkRepository:
     def __init__(self) -> None:
         self.distance_calls = 0
+        self.matched_terms_calls = 0
 
     async def get_chunk_inspection(
         self,
@@ -106,6 +107,19 @@ class _FakeChunkRepository:
         if chunk_id != 156:
             return None
         return 0.25
+
+    async def get_chunk_matched_terms(
+        self,
+        session: object,
+        *,
+        chunk_id: int,
+        query: str,
+    ) -> list[str]:
+        del session, query
+        self.matched_terms_calls += 1
+        if chunk_id != 156:
+            return []
+        return ["oauth", "backend"]
 
 
 class _FakeSession:
@@ -233,8 +247,10 @@ def test_chunk_inspector_returns_context_and_optional_similarity(
     assert body["next_chunk"]["chunk_id"] == 157
     assert body["distance"] == pytest.approx(0.25)
     assert body["similarity"] == pytest.approx(0.75)
+    assert body["matched_terms"] == ["oauth", "backend"]
     assert retrieval_debug_client.fake_embedder.embed_one_calls == 1  # type: ignore[attr-defined]
     assert retrieval_debug_client.chunk_repository.distance_calls == 1  # type: ignore[attr-defined]
+    assert retrieval_debug_client.chunk_repository.matched_terms_calls == 1  # type: ignore[attr-defined]
 
 
 def test_chunk_inspector_unknown_chunk_returns_404(retrieval_debug_client: TestClient) -> None:

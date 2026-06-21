@@ -220,6 +220,8 @@ For sequence diagrams, error mapping, and logging details, see [docs/technical/R
 
 The `web/` package is a **React + Vite + TypeScript** browser UI. On load it creates a session (`POST /api/v1/sessions`), lists recent sessions in a sidebar (`GET /api/v1/sessions`), and submits the simplified form to `POST /api/v1/sessions/{session_id}/estimate`. **Project metadata** and the structured **estimate** render in separate panels.
 
+The internal retrieval debug screen lives at `/debug/retrieval` and is hidden unless `VITE_ENABLE_RETRIEVAL_DEBUG=true`. It consumes the debug API to compare vector, lexical, hybrid, and rerank lanes, tune request knobs, render ranking diffs and explanation chips, and inspect chunk context in a drawer. Keep the flag disabled for normal end-user builds.
+
 | Mode | How it runs |
 |------|-------------|
 | **Docker** | Static nginx container — assets built at image build time |
@@ -232,6 +234,12 @@ npm run build    # production bundle
 npm run preview  # serve dist/ locally
 npm run test     # Vitest unit tests
 npm run lint     # ESLint
+```
+
+```bash
+cd web
+VITE_ENABLE_RETRIEVAL_DEBUG=true npm run dev
+# Open http://127.0.0.1:5173/debug/retrieval
 ```
 
 See [web/README.md](web/README.md) for environment variables and appearance settings.
@@ -718,7 +726,7 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 - `branches.hybrid[]` fuses vector and lexical rankings with Reciprocal Rank Fusion by default (`Σ weight/(rrf_k + rank)`) or weighted normalized branch scores. Hybrid `final_results[]` are ordered by `fusion_rank`, include `fusion_score`, semantic/lexical evidence when present, `diff`, and explanation signals (`semantic_strong`, `semantic_weak`, `lexical_exact_match`, `branch_consensus`, `hybrid_rescued`, `below_threshold`).
 - `rerank.enabled=true` runs the configured reranker after fusion/branch ordering. The default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and emits a warning that rerank is a no-op placeholder. Injected future rerankers can reorder or filter candidates without changing the response contract; promotions/demotions use `rerank_promoted` and `rerank_demoted`.
 - `diff` reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`. The lexical branch keeps the same response contract after the indexed `content_tsv` migration.
-- `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity for that single chunk.
+- `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity and single-chunk lexical `matched_terms`.
 - Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only, including branch result counts but not query text or chunk content.
 
 ```bash

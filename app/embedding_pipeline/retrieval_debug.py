@@ -737,12 +737,18 @@ async def inspect_retrieval_debug_chunk(
         chunk_id=chunk_id,
         query_vector=query_vector,
     )
+    matched_terms = await repository.get_chunk_matched_terms(
+        session,
+        chunk_id=chunk_id,
+        query=stripped_query,
+    )
     if distance is None:
-        return response
+        return response.model_copy(update={"matched_terms": matched_terms})
 
     return response.model_copy(
         update={
             "distance": distance,
             "similarity": _clamp_score(1.0 - distance),
+            "matched_terms": matched_terms,
         }
     )

@@ -319,7 +319,9 @@ def test_chunk_inspection_response_exposes_document_and_embedding_metadata() -> 
         next_chunk=None,
         distance=None,
         similarity=None,
+        matched_terms=["oauth", "backend"],
     )
 
     assert response.embedding_present is True
     assert response.document["source_path"] == "data/budgets/example.json"
+    assert response.matched_terms == ["oauth", "backend"]

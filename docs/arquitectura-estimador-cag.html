@@ -1478,7 +1478,7 @@
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
               <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores en Postgres)</li>
               <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
-              <li><code>retrieval-debug</code> — API interna para explicar ramas vectorial, lexical e híbrida, comparar rankings e inspeccionar chunks (features 042–044)</li>
+              <li><code>retrieval-debug</code> — API interna y pantalla React gated por <code>VITE_ENABLE_RETRIEVAL_DEBUG</code> para explicar ramas vectorial, lexical e híbrida, comparar rankings e inspeccionar chunks (features 042–047)</li>
             </ul>
           </div>
           <div class="card">
@@ -2474,6 +2474,11 @@ flowchart TD
                 <td>6b</td><td>042–048</td><td><code>retrieval_debug.py</code> + <code>fusion.py</code> + <code>rerank.py</code> + <code>metadata_filters.py</code> + <code>retrieval_debug_repository.py</code> + <code>lexical_search_repository.py</code> + <code>routers/retrieval_debug.py</code></td>
                 <td>Ramas vector, lexical, híbrida y rerank placeholder: rank, scores normalizados, filtros JSONB/documento, <code>matched_terms</code>, <code>fusion_score</code>, <code>rerank_rank</code>, <code>diff</code>, explicación, warnings y chunk inspector</td>
                 <td>Permite comparar similitud semántica contra coincidencia exacta, aislar variables de relevancia por metadata, explicar rescates por hybrid fusion y reservar una lane estable para reranking sin coste de modelo.</td>
+              </tr>
+              <tr>
+                <td>6c</td><td>047</td><td><code>web/src/features/retrieval-debug/</code> + <code>web/src/App.tsx</code></td>
+                <td>Pantalla interna <code>/debug/retrieval</code> gated por <code>VITE_ENABLE_RETRIEVAL_DEBUG</code>: query, tuning controls, resultados comparativos, explanations, branch rankings, diff y drawer de chunk con distancia, similitud y <code>matched_terms</code>.</td>
+                <td>Convierte el contrato debug en una herramienta visual para diagnosticar relevancia sin exponerla a la navegación de usuario final.</td>
               </tr>
               <tr>
                 <td>7</td><td>034</td><td><code>app/scripts/compare.py</code></td>
