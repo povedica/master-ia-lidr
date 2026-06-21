@@ -6,6 +6,7 @@ import pytest
 
 from app.embedding_pipeline.fusion import (
     build_ranking_diff,
+    build_explanation,
     reciprocal_rank_fusion,
     weighted_fusion,
 )
@@ -18,6 +19,38 @@ def _entry(*, rank: int, chunk_id: int, score: float) -> BranchResultEntry:
         chunk_id=chunk_id,
         document_id=chunk_id + 1000,
         score=score,
+    )
+
+
+def _vector_entry(
+    *,
+    rank: int,
+    chunk_id: int,
+    score: float,
+    distance: float,
+) -> BranchResultEntry:
+    return BranchResultEntry(
+        rank=rank,
+        chunk_id=chunk_id,
+        document_id=chunk_id + 1000,
+        score=score,
+        distance=distance,
+    )
+
+
+def _lexical_entry(
+    *,
+    rank: int,
+    chunk_id: int,
+    score: float,
+    matched_terms: list[str],
+) -> BranchResultEntry:
+    return BranchResultEntry(
+        rank=rank,
+        chunk_id=chunk_id,
+        document_id=chunk_id + 1000,
+        score=score,
+        matched_terms=matched_terms,
     )
 
 
@@ -114,3 +147,42 @@ def test_build_ranking_diff_groups_consensus_rescues_and_movers() -> None:
     ]
     assert [entry.chunk_id for entry in diff.dropped_by_threshold] == [102]
     assert diff.dropped_by_rerank == []
+
+
+def test_build_explanation_uses_controlled_signals() -> None:
+    branches = {
+        "vector": [
+            _vector_entry(rank=1, chunk_id=101, score=0.8, distance=0.2),
+            _vector_entry(rank=2, chunk_id=102, score=0.3, distance=0.7),
+        ],
+        "lexical": [
+            _lexical_entry(rank=1, chunk_id=101, score=1.0, matched_terms=["oauth2"]),
+            _lexical_entry(rank=2, chunk_id=103, score=0.9, matched_terms=["jwt"]),
+        ],
+    }
+    final = [
+        _entry(rank=1, chunk_id=103, score=0.7),
+        _entry(rank=2, chunk_id=101, score=0.6),
+        _entry(rank=3, chunk_id=102, score=0.5),
+    ]
+    diff = build_ranking_diff(
+        branches,
+        final,
+        threshold_drops=[102],
+        big_mover_threshold=2,
+        rescue_rank_threshold=2,
+    )
+
+    consensus = build_explanation(final[1], branches=branches, diff=diff, threshold=0.5)
+    rescued = build_explanation(final[0], branches=branches, diff=diff, threshold=0.5)
+    weak = build_explanation(final[2], branches=branches, diff=diff, threshold=0.5)
+
+    assert consensus.signals == [
+        "semantic_strong",
+        "lexical_exact_match",
+        "branch_consensus",
+    ]
+    assert "consensus" in consensus.summary
+    assert rescued.signals == ["lexical_exact_match", "hybrid_rescued"]
+    assert "rescued" in rescued.summary
+    assert weak.signals == ["semantic_weak", "below_threshold"]

@@ -5,9 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections.abc import Mapping, Sequence
 
-from app.embedding_pipeline.retrieval_debug_schemas import BranchResultEntry
+from app.embedding_pipeline.retrieval_debug_schemas import BranchResultEntry, ResultExplanation
 
 BranchRankings = Mapping[str, Sequence[BranchResultEntry]]
+CONTROLLED_EXPLANATION_SIGNALS = {
+    "semantic_strong",
+    "semantic_weak",
+    "lexical_exact_match",
+    "branch_consensus",
+    "hybrid_rescued",
+    "below_threshold",
+}
 
 
 @dataclass(frozen=True)
@@ -82,6 +90,16 @@ def _branch_ranks_by_chunk(branch_rankings: BranchRankings) -> dict[int, dict[st
         for entry in ranking:
             ranks.setdefault(entry.chunk_id, {})[branch_name] = entry.rank
     return ranks
+
+
+def _entries_by_branch(branches: BranchRankings, chunk_id: int) -> dict[str, BranchResultEntry]:
+    entries: dict[str, BranchResultEntry] = {}
+    for branch_name, ranking in branches.items():
+        for entry in ranking:
+            if entry.chunk_id == chunk_id:
+                entries[branch_name] = entry
+                break
+    return entries
 
 
 def _diff_entry(
@@ -261,4 +279,70 @@ def build_ranking_diff(
         big_movers=big_movers,
         dropped_by_threshold=dropped_by_threshold,
         dropped_by_rerank=dropped_by_rerank,
+    )
+
+
+def build_explanation(
+    entry: BranchResultEntry,
+    *,
+    branches: BranchRankings,
+    diff: RankingDiff | None = None,
+    threshold: float | None = None,
+) -> ResultExplanation:
+    """Build a deterministic explanation from actual branch evidence."""
+
+    branch_entries = _entries_by_branch(branches, entry.chunk_id)
+    vector_entry = branch_entries.get("vector")
+    lexical_entry = branch_entries.get("lexical")
+    signals: list[str] = []
+    summary_parts: list[str] = []
+
+    if vector_entry is not None:
+        is_semantic_strong = (
+            vector_entry.distance is not None and vector_entry.distance <= 0.4
+        ) or vector_entry.score >= 0.7
+        semantic_signal = "semantic_strong" if is_semantic_strong else "semantic_weak"
+        signals.append(semantic_signal)
+        summary_parts.append(
+            "strong semantic match"
+            if semantic_signal == "semantic_strong"
+            else "weaker semantic match"
+        )
+        if threshold is not None and vector_entry.score < threshold:
+            signals.append("below_threshold")
+            summary_parts.append("below the configured semantic threshold")
+
+    if lexical_entry is not None:
+        signals.append("lexical_exact_match")
+        if lexical_entry.matched_terms:
+            terms = ", ".join(lexical_entry.matched_terms)
+            summary_parts.append(f"exact lexical match on {terms}")
+        else:
+            summary_parts.append("exact lexical match")
+
+    if len(branch_entries) >= 2:
+        signals.append("branch_consensus")
+        summary_parts.append("branch consensus")
+
+    rescued_ids = {
+        rescued.chunk_id
+        for rescued in (diff.hybrid_rescued if diff is not None else [])
+    }
+    if entry.chunk_id in rescued_ids:
+        signals.append("hybrid_rescued")
+        summary_parts.append("rescued by hybrid fusion")
+
+    unknown_signals = set(signals) - CONTROLLED_EXPLANATION_SIGNALS
+    if unknown_signals:
+        raise ValueError(f"unknown explanation signals: {', '.join(sorted(unknown_signals))}")
+
+    if not summary_parts:
+        return ResultExplanation(
+            summary="hybrid fused result without branch-specific evidence.",
+            signals=[],
+        )
+
+    return ResultExplanation(
+        summary=f"{'; '.join(summary_parts)}.",
+        signals=signals,
     )
