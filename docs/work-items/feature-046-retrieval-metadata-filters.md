@@ -185,4 +185,4 @@ Recommended first tests for feature-047:
 | `fac1723` | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
 | `46903f1` | Apply retrieval metadata filters in vector and lexical repository statements. |
 | `0551ee5` | Wire metadata filters through retrieval debug orchestration and API responses. |
-| pending | Document retrieval debug metadata filters, verification, and handoff. |
+| `606ab6d` | Document retrieval debug metadata filters, verification, and handoff. |
