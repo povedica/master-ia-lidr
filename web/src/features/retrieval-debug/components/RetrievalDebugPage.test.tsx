@@ -21,6 +21,84 @@ const emptyResponse: RetrievalDebugResponse = {
   diff: null,
 }
 
+const resultsResponse: RetrievalDebugResponse = {
+  ...emptyResponse,
+  warnings: [],
+  branches: {
+    vector: [
+      {
+        rank: 1,
+        chunk_id: 156,
+        document_id: 12,
+        score: 0.91,
+        distance: 0.09,
+        matched_terms: [],
+      },
+    ],
+    lexical: null,
+    hybrid: [
+      {
+        rank: 1,
+        chunk_id: 156,
+        document_id: 12,
+        score: 0.6,
+        distance: null,
+        matched_terms: ['oauth'],
+      },
+    ],
+    rerank: null,
+  },
+  final_results: [
+    {
+      final_position: 1,
+      chunk_id: 156,
+      document_id: 12,
+      title: 'OAuth component',
+      content_excerpt: 'Backend OAuth implementation',
+      semantic_score: 0.91,
+      semantic_rank: 1,
+      semantic_distance: 0.09,
+      lexical_score: null,
+      lexical_rank: null,
+      fusion_score: 0.6,
+      fusion_rank: 1,
+      rerank_score: null,
+      rerank_rank: null,
+      matched_terms: ['oauth'],
+      source_strategies: ['vector', 'hybrid'],
+      metadata: { component_id: 'AUTH-001' },
+      explanation: {
+        summary: 'Strong semantic match.',
+        signals: ['semantic_strong', 'hybrid_rescued'],
+      },
+    },
+  ],
+  diff: {
+    common: [],
+    vector_only: [],
+    lexical_only: [],
+    hybrid_rescued: [
+      {
+        chunk_id: 156,
+        document_id: 12,
+        source_strategies: ['vector', 'hybrid'],
+        branch_ranks: { vector: 1, hybrid: 1 },
+      },
+    ],
+    big_movers: [
+      {
+        chunk_id: 156,
+        document_id: 12,
+        from_rank: 3,
+        to_rank: 1,
+        delta: 2,
+      },
+    ],
+    dropped_by_threshold: [],
+    dropped_by_rerank: [],
+  },
+}
+
 describe('RetrievalDebugPage', () => {
   afterEach(() => {
     cleanup()
@@ -127,5 +205,23 @@ describe('RetrievalDebugPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'OAuth backend (all)' }))
 
     expect(screen.getByLabelText('Query')).toHaveProperty('value', 'OAuth backend')
+  })
+
+  it('renders comparative results, branch rankings, explanations, and ranking diff', async () => {
+    render(<RetrievalDebugPage runDebug={vi.fn().mockResolvedValue(resultsResponse)} />)
+
+    await userEvent.type(screen.getByLabelText('Query'), 'OAuth backend')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('OAuth component')).toBeTruthy()
+    expect(screen.getByText('Backend OAuth implementation')).toBeTruthy()
+    expect(screen.getByText('Strong semantic match.')).toBeTruthy()
+    expect(screen.getByText('semantic_strong')).toBeTruthy()
+    expect(screen.getByText('hybrid_rescued')).toBeTruthy()
+    expect(screen.getByText('vector #1')).toBeTruthy()
+    expect(screen.getByText('lexical not run')).toBeTruthy()
+    expect(screen.getByText('Hybrid rescued')).toBeTruthy()
+    expect(screen.getAllByText('chunk 156 / doc 12').length).toBeGreaterThan(0)
+    expect(screen.getByText('3 -> 1')).toBeTruthy()
   })
 })

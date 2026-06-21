@@ -259,12 +259,241 @@ export function RetrievalDebugPage({
           <p className="text-sm font-medium text-red-700 dark:text-red-300">{errorMessage}</p>
         )}
         {status === 'results' && response && (
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Showing {response.final_results.length} final retrieval results.
-          </p>
+          <ResultsPanel response={response} />
         )}
       </section>
     </main>
+  )
+}
+
+function ResultsPanel({ response }: { response: RetrievalDebugResponse }) {
+  return (
+    <div className="space-y-6">
+      <ComparativeResultsTable results={response.final_results} />
+      <BranchRankings branches={response.branches} />
+      {response.diff && <RankingDiffView diff={response.diff} />}
+    </div>
+  )
+}
+
+function ComparativeResultsTable({
+  results,
+}: {
+  results: RetrievalDebugResponse['final_results']
+}) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Comparative results
+      </h2>
+      <div className="mt-3 overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+          <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Final</th>
+              <th className="px-3 py-2">Chunk</th>
+              <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2">Scores</th>
+              <th className="px-3 py-2">Strategies</th>
+              <th className="px-3 py-2">Metadata</th>
+              <th className="px-3 py-2">Reason</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {results.map((result) => (
+              <tr key={result.chunk_id}>
+                <td className="px-3 py-3 font-semibold">#{result.final_position}</td>
+                <td className="px-3 py-3">
+                  <span>chunk {result.chunk_id} / doc {result.document_id}</span>
+                </td>
+                <td className="px-3 py-3">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{result.title}</p>
+                  <p className="mt-1 max-w-md text-slate-600 dark:text-slate-400">
+                    {result.content_excerpt}
+                  </p>
+                </td>
+                <td className="px-3 py-3">
+                  <ScoreList result={result} />
+                </td>
+                <td className="px-3 py-3">
+                  <ChipList values={result.source_strategies} />
+                </td>
+                <td className="px-3 py-3">
+                  <MetadataPreview metadata={result.metadata} />
+                </td>
+                <td className="px-3 py-3">
+                  <ResultExplanation explanation={result.explanation} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function ScoreList({ result }: { result: RetrievalDebugResponse['final_results'][number] }) {
+  const rows = [
+    ['semantic', result.semantic_score, result.semantic_rank],
+    ['lexical', result.lexical_score, result.lexical_rank],
+    ['fusion', result.fusion_score, result.fusion_rank],
+    ['rerank', result.rerank_score, result.rerank_rank],
+  ] as const
+  return (
+    <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+      {rows.map(([label, score, rank]) => (
+        <li key={label}>
+          {label}: {score == null ? 'n/a' : score.toFixed(3)}
+          {rank == null ? '' : ` / #${rank}`}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ChipList({ values }: { values: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {values.map((value) => (
+        <span
+          className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+          key={value}
+        >
+          {value}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function MetadataPreview({ metadata }: { metadata: Record<string, unknown> }) {
+  const entries = Object.entries(metadata).slice(0, 3)
+  if (entries.length === 0) {
+    return <span className="text-xs text-slate-500">none</span>
+  }
+  return (
+    <dl className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+      {entries.map(([key, value]) => (
+        <div key={key}>
+          <dt className="inline font-medium">{key}: </dt>
+          <dd className="inline">{String(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function ResultExplanation({
+  explanation,
+}: {
+  explanation: RetrievalDebugResponse['final_results'][number]['explanation']
+}) {
+  return (
+    <div>
+      <p className="max-w-sm text-sm text-slate-700 dark:text-slate-300">{explanation.summary}</p>
+      <div className="mt-2">
+        <ChipList values={explanation.signals} />
+      </div>
+    </div>
+  )
+}
+
+function BranchRankings({ branches }: { branches: RetrievalDebugResponse['branches'] }) {
+  const branchEntries = [
+    ['vector', branches.vector],
+    ['lexical', branches.lexical],
+    ['hybrid', branches.hybrid],
+    ['rerank', branches.rerank],
+  ] as const
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Branch rankings</h2>
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {branchEntries.map(([name, entries]) => (
+          <div
+            className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+            key={name}
+          >
+            <h3 className="font-medium capitalize">{name}</h3>
+            {entries === null ? (
+              <p className="mt-2 text-sm text-slate-500">{name} not run</p>
+            ) : entries.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">{name} empty</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                {entries.map((entry) => (
+                  <li key={`${name}:${entry.chunk_id}`}>
+                    <span>
+                      {name} #{entry.rank}
+                    </span>{' '}
+                    - chunk {entry.chunk_id} - score {entry.score.toFixed(3)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function RankingDiffView({ diff }: { diff: NonNullable<RetrievalDebugResponse['diff']> }) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Ranking diff</h2>
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <DiffEntries title="Common" entries={diff.common} />
+        <DiffEntries title="Vector only" entries={diff.vector_only} />
+        <DiffEntries title="Lexical only" entries={diff.lexical_only} />
+        <DiffEntries title="Hybrid rescued" entries={diff.hybrid_rescued} />
+        <DiffEntries title="Dropped by threshold" entries={diff.dropped_by_threshold} />
+        <DiffEntries title="Dropped by rerank" entries={diff.dropped_by_rerank} />
+        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <h3 className="font-medium">Big movers</h3>
+          {diff.big_movers.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">none</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+              {diff.big_movers.map((entry) => (
+                <li key={`mover:${entry.chunk_id}`}>
+                  chunk {entry.chunk_id} / doc {entry.document_id}:{' '}
+                  <span>
+                    {entry.from_rank} -&gt; {entry.to_rank}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function DiffEntries({
+  entries,
+  title,
+}: {
+  entries: NonNullable<RetrievalDebugResponse['diff']>['common']
+  title: string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+      <h3 className="font-medium">{title}</h3>
+      {entries.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-500">none</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+          {entries.map((entry) => (
+            <li key={`${title}:${entry.chunk_id}`}>
+              chunk {entry.chunk_id} / doc {entry.document_id}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
