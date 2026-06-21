@@ -172,49 +172,6 @@ Every `final_result` has a deterministic `explanation.summary` and a `signals` l
 - [x] Step 5: Hybrid service wiring.
 - [x] Step 6: Documentation and full validation.
 
-## Handoff from feature-044
-
-Feature-044 shipped hybrid rank fusion for the internal retrieval debug API on branch `feature/044-hybrid-fusion-ranking-diff-explanation` and PR `#40`.
-
-Shipped interfaces:
-
-- `POST /api/v1/retrieval-debug` now accepts `hybrid` config with `enabled`, `method: "rrf"|"weighted"`, `rrf_k`, and optional branch `weights`.
-- `strategies` can include `hybrid`; `strategies: ["all"]` resolves to vector, lexical, hybrid, and future rerank warning.
-- `branches.hybrid[]` exposes fused rank entries with `rank`, `chunk_id`, `document_id`, and `score`.
-- Hybrid `final_results[]` are ordered by `fusion_rank`, capped by `max_results`, and include `fusion_score`, semantic evidence, lexical evidence, `source_strategies`, metadata, excerpt, and controlled explanations.
-- `diff` now reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`.
-
-Changed contracts:
-
-- `RetrievalDebugRequest` includes `hybrid`; `method="weighted"` without weights returns `422`.
-- `DebugResult` includes nullable `fusion_score` and `fusion_rank`.
-- `RetrievalDebugResponse` includes nullable `diff`; it is present for enabled hybrid responses and `null` for vector/lexical-only or disabled hybrid fallback.
-- `timings_ms` includes a `hybrid` key.
-- Controlled explanation signals are centralized in `app/embedding_pipeline/fusion.py`.
-
-Verification evidence:
-
-- `uv run pytest tests/embedding_pipeline/test_fusion.py -q` — passed during Steps 1–3.
-- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q` — `23 passed`.
-- `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_schemas.py tests/embedding_pipeline/test_retrieval_debug_service.py -q` — `35 passed`.
-- `uv run pytest tests/embedding_pipeline -q` — `180 passed, 2 deselected`.
-- `uv run pytest` — `571 passed, 11 skipped, 12 deselected`.
-
-Not verified:
-
-- Live Compose/Postgres curl smoke for `strategies: ["vector", "lexical", "hybrid"]`, `"all"`, weighted config, and `enabled=false`.
-- Rerank behavior; `dropped_by_rerank` remains empty for feature-045.
-
-Residual risks:
-
-- Hybrid rescue and big-mover thresholds are deterministic constants in the service; future UI work may tune them after real corpus inspection.
-- RRF scores are intentionally raw RRF contributions, while weighted fusion scores are normalized weighted sums; docs describe both, but UI labels should avoid comparing them as the same scale.
-
-Recommended first tests for feature-045:
-
-- Add rerank placeholder tests that consume existing `branches.hybrid`, preserve `diff.dropped_by_rerank`, and verify `rerank_*` signals remain controlled.
-- Re-run `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_service.py -q` before adding any rerank behavior.
-
 ## Repository commits (master-ia)
 
 | Commit | Summary |

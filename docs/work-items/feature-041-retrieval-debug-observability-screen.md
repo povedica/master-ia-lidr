@@ -68,6 +68,36 @@ Residual risk / follow-ups:
 - Feature-044 should centralize explanation generation; feature-043 only added the first lexical signal (`lexical_exact_match`) beside the existing vector helper.
 - Feature-048 remains responsible for indexed lexical performance; feature-043 intentionally ships a sequential-scan teaching baseline.
 
+## Handoff from feature-044
+
+Feature-044 (`feature/044-hybrid-fusion-ranking-diff-explanation`, PR `#40`) completed hybrid rank fusion, ranking diff, and the controlled explanation engine that unlock feature-045. This epic-level handoff captures the state that downstream sub-features should assume:
+
+- `POST /api/v1/retrieval-debug` now accepts `hybrid` config with `enabled`, `method: "rrf"|"weighted"`, `rrf_k`, and optional branch `weights`.
+- `strategies` can include `hybrid`; `strategies: ["all"]` resolves to vector, lexical, hybrid, and future rerank warning.
+- `branches.hybrid[]` exposes fused rank entries with `rank`, `chunk_id`, `document_id`, and `score`.
+- Hybrid `final_results[]` are ordered by `fusion_rank`, capped by `max_results`, and include `fusion_score`, semantic evidence, lexical evidence, `source_strategies`, metadata, excerpt, and controlled explanations.
+- `diff` now reports `common`, `vector_only`, `lexical_only`, `hybrid_rescued`, `big_movers`, `dropped_by_threshold`, and `dropped_by_rerank`.
+- `RetrievalDebugRequest` includes `hybrid`; `method="weighted"` without weights returns `422`.
+- `DebugResult` includes nullable `fusion_score` and `fusion_rank`.
+- `RetrievalDebugResponse` includes nullable `diff`; it is present for enabled hybrid responses and `null` for vector/lexical-only or disabled hybrid fallback.
+- `timings_ms` includes a `hybrid` key.
+- Controlled explanation signals are centralized in `app/embedding_pipeline/fusion.py`.
+
+Verification carried from feature-044:
+
+- `uv run pytest tests/embedding_pipeline/test_fusion.py -q` — passed during Steps 1–3.
+- `uv run pytest tests/embedding_pipeline/test_retrieval_debug_schemas.py -q` — `23 passed`.
+- `uv run pytest tests/embedding_pipeline/test_fusion.py tests/embedding_pipeline/test_retrieval_debug_schemas.py tests/embedding_pipeline/test_retrieval_debug_service.py -q` — `35 passed`.
+- `uv run pytest tests/embedding_pipeline -q` — `180 passed, 2 deselected`.
+- `uv run pytest` — `571 passed, 11 skipped, 12 deselected`.
+
+Residual risk / follow-ups:
+
+- Live Compose/Postgres curl smoke for `strategies: ["vector", "lexical", "hybrid"]`, `"all"`, weighted config, and `enabled=false` was not run during feature-044 closure.
+- Rerank behavior remains out of scope; `dropped_by_rerank` stays empty until feature-045.
+- Hybrid rescue and big-mover thresholds are deterministic constants in the service; future UI work may tune them after real corpus inspection.
+- RRF scores are intentionally raw RRF contributions, while weighted fusion scores are normalized weighted sums; UI labels should avoid comparing them as the same scale.
+
 ## Objective
 
 Provide an internal screen and supporting API to inspect and tune the **retrieval stage** of the RAG system. The goal is to make retrieval explainable instead of a black box: given a natural-language query, an operator must see *which* chunks are retrieved, *which strategy* retrieved them, *with what score/rank*, *how the ranking changes when strategies are combined*, and *which signals explain the final order*.
