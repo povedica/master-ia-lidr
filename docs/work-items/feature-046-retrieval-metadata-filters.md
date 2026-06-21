@@ -78,8 +78,8 @@ When filters are present, vector and lexical branches both restrict candidates b
 ## Acceptance Criteria
 
 - [x] AC-01: `filters` model validates types (e.g. `year` ints) and ignores empty/unknown keys; malformed types → `422`.
-- [ ] AC-02: `build_metadata_filters` emits correct predicates for scalar keys via JSONB containment.
-- [ ] AC-03: `tags` filter uses documented JSONB array semantics; `year` range is inclusive with optional bounds.
+- [x] AC-02: `build_metadata_filters` emits correct predicates for scalar keys via JSONB containment.
+- [x] AC-03: `tags` filter uses documented JSONB array semantics; `year` range is inclusive with optional bounds.
 - [ ] AC-04: Vector branch restricts candidates to matching chunks (repository test).
 - [ ] AC-05: Lexical branch restricts candidates to matching chunks (repository test).
 - [ ] AC-06: Hybrid fuses only filtered candidates; `applied_config` echoes normalized filters.
@@ -127,7 +127,7 @@ When filters are present, vector and lexical branches both restrict candidates b
 ## Implementation progress
 
 - [x] Step 1: Filter schema and validation tests.
-- [ ] Step 2: Pure SQLAlchemy metadata filter builder and unit tests.
+- [x] Step 2: Pure SQLAlchemy metadata filter builder and unit tests.
 - [ ] Step 3: Apply filters in vector and lexical repositories.
 - [ ] Step 4: Wire filters through retrieval debug orchestration and API contract.
 - [ ] Step 5: Documentation, handoff, and final verification.
@@ -137,4 +137,5 @@ When filters are present, vector and lexical branches both restrict candidates b
 | Commit | Summary |
 | --- | --- |
 | `cc3e016` | Track the feature work item, initial estimation, and implementation progress for metadata filters. |
-| pending | Add and verify the retrieval debug metadata filter request schema. |
+| `7edd31b` | Add and verify the retrieval debug metadata filter request schema. |
+| pending | Add shared SQLAlchemy predicates for retrieval debug metadata filters. |
