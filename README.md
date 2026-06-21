@@ -627,7 +627,7 @@ The pipeline includes:
 - **Embedder** (`embedder.py`) — `OpenAIEmbedder` calls `text-embedding-3-small` (1536 dims) with batched requests, rate-limit retry, and cost tracking.
 - **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
 - **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**.
-- **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector-branch ranks, normalized scores, explanations, timings, metadata, and chunk context without changing `/search`.
+- **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector and lexical branch ranks, normalized scores, matched terms, explanations, timings, metadata, and chunk context without changing `/search`.
 - **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
 Full setup, verification, and design rationale: [Semantic search with pgvector](#semantic-search-with-pgvector).
@@ -710,15 +710,21 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 
 **Internal retrieval debug API** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`):
 
-- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (currently `vector`, future branches return `null` + warning), `vector.top_k`, optional `vector.threshold`, and `max_results`.
+- `POST /api/v1/retrieval-debug` accepts `query`, `strategies` (`vector`, `lexical`, or `all`; `hybrid`/`rerank` still return `null` + warning), `vector.top_k`, optional `vector.threshold`, `lexical.top_k`, and `max_results`.
 - `branches.vector[]` exposes raw vector rank, `distance`, and normalized `score = max(0, min(1, 1 - distance))`; `final_results[]` adds title, excerpt, metadata, source strategies, and explanation signals (`semantic_strong`, `semantic_weak`, `below_threshold`).
+- `branches.lexical[]` uses Postgres `websearch_to_tsquery` + `to_tsvector('english', chunks.content)` + `ts_rank_cd`; scores are min-max normalized within the lexical branch and `matched_terms` records the highlighted query lexemes. This is a sequential-scan baseline; indexed FTS is deferred to `feature-048`.
 - `GET /api/v1/retrieval-debug/chunks/{id}` returns full chunk content, previous/next chunk context, parent document metadata, embedding model, and `embedding_present`; optional `?query=` adds distance/similarity for that single chunk.
-- Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only.
+- Status codes: `200` success, `404` unknown chunk, `422` invalid request, `503` when `DATABASE_URL` is unset, `500` generic failure. Success logs emit `retrieval_debug_completed` with safe metadata only, including branch result counts but not query text or chunk content.
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
   -H 'Content-Type: application/json' \
   -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["vector"],"vector":{"top_k":20,"threshold":0.6},"max_results":10}' \
+  | python3 -m json.tool
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"JWT refresh token rotation for OAuth2 REST API","strategies":["lexical"],"lexical":{"top_k":20},"max_results":10}' \
   | python3 -m json.tool
 
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
@@ -895,7 +901,7 @@ Read `distance` as cosine distance: **lower = more similar** (~0.2–0.4 strong 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval-debug \
   -H 'Content-Type: application/json' \
-  -d '{"query":"REST API with OAuth authentication for fintech sector","strategies":["vector"],"vector":{"top_k":10},"max_results":5}' \
+  -d '{"query":"REST API with OAuth authentication for fintech sector","strategies":["vector","lexical"],"vector":{"top_k":10},"lexical":{"top_k":10},"max_results":5}' \
   | python3 -m json.tool
 
 curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20backend" \
@@ -904,7 +910,7 @@ curl -sS "http://127.0.0.1:8000/api/v1/retrieval-debug/chunks/156?query=OAuth%20
 uv run pytest tests/embedding_pipeline/test_retrieval_debug_*.py -q
 ```
 
-Use this internal API to explain vector retrieval: `distance` remains raw cosine distance, `score` is normalized similarity, `source_strategies` is `["vector"]` in feature-042, and non-vector branches are intentionally `null` until later retrieval sub-features.
+Use this internal API to compare semantic and lexical retrieval: vector `distance` remains raw cosine distance, vector `score` is normalized similarity, lexical `score` is branch-local min-max normalized `ts_rank_cd`, and `matched_terms` shows the exact full-text evidence for technical tokens such as acronyms, versions, and identifiers.
 
 **Query demo script** (`query_examples.py`)
 

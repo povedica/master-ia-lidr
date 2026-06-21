@@ -63,6 +63,7 @@ async def retrieval_debug(
                 "request_id": request_id,
                 "strategies": request.strategies,
                 "vector_result_count": len(response.branches.vector or []),
+                "lexical_result_count": len(response.branches.lexical or []),
                 "timings_ms": response.timings_ms,
                 "max_results": request.max_results,
             },

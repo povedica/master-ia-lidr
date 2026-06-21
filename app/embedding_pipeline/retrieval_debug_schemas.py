@@ -16,12 +16,19 @@ class VectorBranchConfig(BaseModel):
     threshold: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
+class LexicalBranchConfig(BaseModel):
+    """Configuration for the lexical full-text branch of a retrieval debug request."""
+
+    top_k: int = Field(default=10, ge=1, le=50)
+
+
 class RetrievalDebugRequest(BaseModel):
     """Request contract for explainable retrieval diagnostics."""
 
     query: str
     strategies: list[str] = Field(default_factory=lambda: ["vector"])
     vector: VectorBranchConfig = Field(default_factory=VectorBranchConfig)
+    lexical: LexicalBranchConfig = Field(default_factory=LexicalBranchConfig)
     max_results: int = Field(default=10, ge=1, le=50)
 
     @field_validator("query")
@@ -53,7 +60,8 @@ class BranchResultEntry(BaseModel):
     chunk_id: int
     document_id: int
     score: float = Field(ge=0.0, le=1.0)
-    distance: float = Field(ge=0.0)
+    distance: float | None = Field(default=None, ge=0.0)
+    matched_terms: list[str] = Field(default_factory=list)
 
 
 class BranchesContainer(BaseModel):
@@ -80,9 +88,12 @@ class DebugResult(BaseModel):
     document_id: int
     title: str
     content_excerpt: str
-    semantic_score: float = Field(ge=0.0, le=1.0)
-    semantic_rank: int = Field(ge=1)
-    semantic_distance: float = Field(ge=0.0)
+    semantic_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    semantic_rank: int | None = Field(default=None, ge=1)
+    semantic_distance: float | None = Field(default=None, ge=0.0)
+    lexical_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    lexical_rank: int | None = Field(default=None, ge=1)
+    matched_terms: list[str] = Field(default_factory=list)
     source_strategies: list[str]
     metadata: dict[str, Any]
     explanation: ResultExplanation

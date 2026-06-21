@@ -393,6 +393,10 @@ Maintain a lightweight block (when useful):
 - [ ] Full applicable **`uv run pytest`** for the touched project(s).
 - [ ] Canonical document: acceptance criteria and **verification** match reality.
 - [ ] **`docs/arquitectura-estimador-cag.html`** updated when the feature changed routes, guardrails, orchestration, or env surface (or explicitly marked N/A in the work item with reason).
+- [ ] **Handoff recorded** using a section named exactly `## Handoff from feature-NNN`:
+  - If the feature is **not subdivided**, add the handoff section to the same canonical feature document.
+  - If the feature is a **sub-feature of an epic**, add the handoff section to the **next sub-feature document** and to the **parent epic document**.
+  - The handoff must summarize shipped interfaces, changed contracts, verification evidence, not-verified items, residual risks, and recommended first tests for the next implementer.
 - [ ] **`git status`** clean or intentional; no secrets staged.
 - [ ] **`## Repository commits (master-ia)`** table updated with **English** summaries.
 - [ ] **Branch pushed** and **WIP draft PR opened** on the remote (unless the user explicitly opted out in Phase 4.1).
@@ -414,6 +418,7 @@ Answer briefly:
 **Outputs:**
 
 - **Feature-specific**: canonical document (consider **Learnings** subsection — optional but encouraged for non-trivial work).
+- **Next-work handoff**: `## Handoff from feature-NNN` in the correct destination(s) before `/finish-task`.
 - **Reusable**: `learnings/second-brain-master-ia/proyectos/<project>/aprendizajes/` (Spanish allowed for reflective notes per project norms; paths and commands still English).
 - **Rule candidates**: propose updates to `.cursor/rules/` **only** if broadly applicable and non-duplicative.
 
@@ -480,11 +485,13 @@ Fix before moving on; do not advance the plan with a red suite.
 - Coding does not regress into “big bang” batches for testable logic.
 - Documentation and commit-log destinations remain clear throughout.
 - Unless the user opted out, the work starts on a **pushed branch** with a **draft PR** carrying the `wip` label before production code.
+- Before closure, the correct `## Handoff from feature-NNN` section has been written either in the same feature document (non-subdivided feature) or in both the parent epic and the next sub-feature document (subdivided feature).
 
 ---
 
 ## Changelog
 
+- **2026-06-21**: Added mandatory `## Handoff from feature-NNN` documentation before closure: same feature for non-subdivided work; next sub-feature plus parent epic for subdivided feature chains.
 - **2026-06-07**: Phase 5.E / Phase 6 — mandatory sync of `docs/arquitectura-estimador-cag.html` for pipeline, guardrails, orchestration, or env-surface features.
 - **2026-05-17 (b)**: Phase 5.F and hard-stop discipline: commit each verified baby step during `/start-task` without waiting for a separate user “commit” request.
 - **2026-05-17**: Restricted `/start-task` to `docs/work-items/feature-NNN-<slug>.md`, added strict feature documentation gate, same-feature WIP blocking by branch or PR, mandatory draft PR with `wip` label before code, and `## Estimation` planning output.
@@ -493,5 +500,5 @@ Fix before moving on; do not advance the plan with a red suite.
 
 ---
 
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-06-21  
 **Status:** Active
