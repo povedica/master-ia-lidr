@@ -319,7 +319,7 @@ uv run python app/scripts/retrieval_eval.py --repetitions 5
 | `1b39dae` | docs(retrieval): record golden-set corpus review for evaluation |
 | `0e26693` | feat(retrieval): add A/B/C/D evaluation evidence artifacts |
 | `11c0ddf` | docs(retrieval): close feature-051 verification log |
-| (pending) | docs(retrieval): technical README + exercise DoD documentation |
+| `a9194b0` | docs(retrieval): technical README + exercise DoD documentation |
 
 ## Handoff from feature-051
 
