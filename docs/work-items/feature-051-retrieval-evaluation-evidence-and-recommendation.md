@@ -32,12 +32,12 @@ Existing shipped pieces from `feature-050`:
 - `app/scripts/retrieval_eval.py` can run the evaluation and emit `results.json`, `comparison.md`, and `recommendation.md`.
 - `evaluation/retrieval/golden_set.json` contains 5 labeled queries.
 
-Current gap:
+Current gap (closed 2026-06-23):
 
-- No files exist under `evaluation/retrieval/results/**`.
-- The golden-set labels have not been reviewed as domain labels.
-- Real cross-encoder relevance and latency have not been measured on the populated corpus.
-- The final recommendation has not been written from actual numbers.
+- ~~No files under `evaluation/retrieval/results/**`~~ → `evaluation/retrieval/results/20260623T154959Z/`
+- ~~Golden-set labels not reviewed~~ → corpus audit in `notes`
+- ~~No real reranker/latency measurement~~ → run with `cross-encoder/ms-marco-MiniLM-L-6-v2`
+- ~~No final recommendation from numbers~~ → mode **B** recommended; rerank not justified
 
 ## Scope
 
@@ -156,20 +156,58 @@ The final recommendation should be committed as generated evidence, not hand-wav
 
 ## Acceptance Criteria
 
-- [ ] AC-01: A timestamped directory exists under `evaluation/retrieval/results/` containing `results.json`, `comparison.md`, and `recommendation.md`.
-- [ ] AC-02: `results.json` includes all four modes A/B/C/D with per-query precision@5, latency samples, retrieved budget ids, and hit budget ids.
-- [ ] AC-03: `comparison.md` includes one row per mode with mean precision@5, latency p50/p95/mean, delta precision vs A, and delta latency vs A.
-- [ ] AC-04: `recommendation.md` explicitly chooses a production candidate mode and explains the precision/latency trade-off.
-- [ ] AC-05: Modes C and D were run with a real non-noop reranker; the run does not silently degrade to A/B.
-- [ ] AC-06: The final run uses `recall_k=50` and `top_k_final=5`; `rrf_k` and reranker model id are documented.
-- [ ] AC-07: The golden-set labels are reviewed against the current corpus, and any changes are justified in `notes`.
-- [ ] AC-08: The evaluation fails or is clearly blocked if the corpus is empty, embeddings are missing, `budget_id` metadata is absent, or the reranker is no-op.
-- [ ] AC-09: No real secrets, local API keys, full prompts, embeddings, or sensitive `.env` values appear in committed artifacts.
-- [ ] AC-10: Default offline tests pass with no real API keys and no live database.
-- [ ] AC-11: Any new tests for preflight or artifact rendering are deterministic and do not call real external APIs.
-- [ ] AC-12: Manual verification records Alembic/database readiness and a successful A/B/C/D evaluation run.
-- [ ] AC-13: The work item's verification section is updated with exact commands, outputs, not-verified items, and residual risk.
-- [ ] AC-14: `README.md` or `docs/technical/README.md` is updated only if the final execution workflow or interpretation guidance differs from current docs.
+- [x] AC-01: Timestamped directory `evaluation/retrieval/results/20260623T154959Z/` with all three artifacts.
+- [x] AC-02: `results.json` includes modes A–D with per-query precision, latency samples, retrieved and hit budget ids.
+- [x] AC-03: `comparison.md` includes delta precision and latency vs mode A for all modes.
+- [x] AC-04: `recommendation.md` recommends mode B and states reranking did not justify latency in this run.
+- [x] AC-05: Modes C/D ran with real `cross-encoder/ms-marco-MiniLM-L-6-v2` (non-noop).
+- [x] AC-06: `recall_k=50`, `top_k_final=5`, `rrf_k=60`, reranker model documented.
+- [x] AC-07: Golden-set labels reviewed; corpus audit notes added per query.
+- [x] AC-08: Preflight blocks empty corpus, stale Alembic, missing budget_id, and no-op reranker.
+- [x] AC-09: Committed artifacts contain no secrets or `.env` values.
+- [x] AC-10: Default offline pytest suite passes without live DB or API keys.
+- [x] AC-11: New preflight tests are deterministic mocks/fakes only.
+- [x] AC-12: Manual Alembic/corpus/evaluation run recorded in Verification.
+- [x] AC-13: Verification section updated with exact commands, outputs, not-verified items, and residual risk.
+- [x] AC-14: `README.md` and `docs/technical/README.md` updated (§25c methodology + interpretation).
+
+## Definition of Done — hybrid retrieval exercise (full stack)
+
+This feature closes the **end-to-end exercise** spanning features 043–050 plus evidence work here. Use this table to audit completeness.
+
+| # | Criterion | How verified | Status |
+| --- | --- | --- | --- |
+| 1 | Alembic `0004`: `content_tsv` = `to_tsvector('spanish', content)` + GIN | Migration file + `alembic current` → `0004` | Done |
+| 2 | Lexical search: `content_tsv`, `ts_rank_cd`, Spanish config | `LexicalSearchRepository` + offline tests | Done |
+| 3 | Hybrid: vector + lexical RRF, configurable `rrf_k` | `reciprocal_rank_fusion`, modes B/D | Done |
+| 4 | Modes A/B/C/D invocable without code changes | `POST /api/v1/retrieval`, env vars | Done |
+| 5 | Rerank: recall 50 → cross-encoder → top 5; env toggle | `CrossEncoderReranker`, settings | Done |
+| 6 | Golden set: 5 queries, manual `relevant_budget_ids` | `evaluation/retrieval/golden_set.json` | Done |
+| 7 | Evaluation runner: A/B/C/D, precision@5, latency, table | `app/scripts/retrieval_eval.py` | Done |
+| 8 | Final conclusion: recommended mode + rerank trade-off | `recommendation.md` (generated) | Done |
+| 9 | Offline tests: modes, RRF, rerank, metrics, migration, preflight | `uv run pytest` (620+ passed) | Done |
+| 10 | Live run on populated DB with committed artifacts | `20260623T154959Z/` | Done |
+
+### Testing layers explained
+
+| Layer | Purpose | Command / artifact | Requires |
+| --- | --- | --- | --- |
+| **Unit / offline** | Correct orchestration and metric math; block invalid configs | `uv run pytest tests/embedding_pipeline/test_retrieval_*.py` | No DB, no API keys |
+| **Preflight** | Prevent misleading eval when corpus or reranker is invalid | Built into `retrieval_eval.py`; exit 2 | Live DB read-only |
+| **Live evaluation** | Directional quality/latency comparison on real corpus | `retrieval_eval.py --repetitions 5` | Postgres, OpenAI, cross-encoder |
+| **Committed evidence** | Reproducible audit trail for the exercise | `evaluation/retrieval/results/<timestamp>/` | Successful live run |
+
+### What the numbers mean
+
+- **Precision@5:** fraction of the top-5 **unique budgets** retrieved that appear in `relevant_budget_ids` for that query (chunk duplicates collapsed).
+- **Latency:** wall-clock per `RetrievalService.retrieve()` call; warmup excluded from aggregation; p50/p95/mean pooled across all query×repetition samples for each mode.
+- **Δ vs A:** mode A is the vector-only baseline; positive Δ precision means more relevant budgets in top-5; positive Δ latency means slower.
+
+### Exercise outcome (2026-06-23)
+
+- **Recommended production candidate:** mode **B** (hybrid RRF, no rerank).
+- **Rerank verdict:** not justified on this evidence — C/D lowered precision@5 from 0.240 to 0.120 with ~70 ms extra p50 latency.
+- **Caveats:** 5 queries; 39-chunk local corpus; not production SLA; reranker is general-purpose (`ms-marco-MiniLM-L-6-v2`).
 
 ## Test Plan
 
@@ -227,7 +265,7 @@ The final recommendation should be committed as generated evidence, not hand-wav
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/46 (draft, label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/46 — merged via `/finish-task` (includes feature-050 base commits)
 
 ## Verification
 
@@ -270,29 +308,18 @@ uv run python app/scripts/retrieval_eval.py --repetitions 5
 
 ## Acceptance Criteria
 
-- [x] AC-01: Timestamped directory `evaluation/retrieval/results/20260623T154959Z/` with all three artifacts.
-- [x] AC-02: `results.json` includes modes A–D with per-query precision, latency samples, retrieved and hit budget ids.
-- [x] AC-03: `comparison.md` includes delta precision and latency vs mode A for all modes.
-- [x] AC-04: `recommendation.md` recommends mode B and states reranking did not justify latency in this run.
-- [x] AC-05: Modes C/D ran with real `cross-encoder/ms-marco-MiniLM-L-6-v2` (non-noop).
-- [x] AC-06: `recall_k=50`, `top_k_final=5`, `rrf_k=60`, reranker model documented above.
-- [x] AC-07: Golden-set labels reviewed; corpus audit notes added per query.
-- [x] AC-08: Preflight blocks empty corpus, stale Alembic, missing budget_id, and no-op reranker.
-- [x] AC-09: Committed artifacts contain no secrets or `.env` values.
-- [x] AC-10: Default offline pytest suite passes without live DB or API keys.
-- [x] AC-11: New preflight tests are deterministic mocks/fakes only.
-- [x] AC-12: Manual Alembic/corpus/evaluation run recorded above.
-- [x] AC-13: Verification section updated in this work item.
-- [x] AC-14: No README change required; existing feature-050 evaluation docs remain accurate.
+(See **Definition of Done — hybrid retrieval exercise** above; all AC-01–AC-14 satisfied.)
 
 ## Repository commits (master-ia)
 
 | Commit | Summary |
 |--------|---------|
-| (docs) | Add feature-051 work item |
-| `feat(retrieval): add evaluation preflight checks for corpus and reranker` | Preflight validation + tests |
-| `docs(retrieval): record golden-set corpus review for evaluation` | Golden-set audit notes |
-| `feat(retrieval): add A/B/C/D evaluation evidence artifacts` | Committed run under `20260623T154959Z` |
+| `bf95c55` | docs(retrieval): add feature-051 evaluation evidence work item |
+| `9b33167` | feat(retrieval): add evaluation preflight checks for corpus and reranker |
+| `1b39dae` | docs(retrieval): record golden-set corpus review for evaluation |
+| `0e26693` | feat(retrieval): add A/B/C/D evaluation evidence artifacts |
+| `11c0ddf` | docs(retrieval): close feature-051 verification log |
+| (pending) | docs(retrieval): technical README + exercise DoD documentation |
 
 ## Handoff from feature-051
 

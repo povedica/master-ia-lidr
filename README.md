@@ -747,13 +747,21 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 | Response `results[]` | list | Lean ranked rows with nullable branch scores |
 | Response `warnings` | list | No-op rerank, branch failures, kill-switch notices |
 
-Modes: **A** vector-only (baseline); **B** vector + lexical RRF; **C** vector + cross-encoder rerank; **D** hybrid + rerank. Lexical FTS uses migration `0004` (`content_tsv` generated with `spanish`). Evaluation harness:
+Modes: **A** vector-only (baseline); **B** vector + lexical RRF; **C** vector + cross-encoder rerank; **D** hybrid + rerank. Lexical FTS uses migration `0004` (`content_tsv` generated with `spanish`).
+
+**Evaluation harness** (modes A–D over the golden set):
 
 ```bash
-uv run python -m app.scripts.retrieval_eval --golden-set evaluation/retrieval/golden_set.json
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+RETRIEVAL_RERANK_ENABLED=true \
+RETRIEVAL_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2 \
+RETRIEVAL_RECALL_K=50 \
+RETRIEVAL_TOP_K_FINAL=5 \
+RETRIEVAL_RRF_K=60 \
+uv run python app/scripts/retrieval_eval.py --repetitions 5
 ```
 
-Requires populated Postgres, `OPENAI_API_KEY`, and (for modes C/D) `RETRIEVAL_RERANK_ENABLED=true` plus `RETRIEVAL_RERANK_MODEL`. Writes `comparison.md`, `results.json`, and `recommendation.md` under `evaluation/retrieval/results/<timestamp>/`.
+Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op reranker for modes C/D. Preflight blocks empty corpus, missing embeddings/`budget_id`, stale Alembic, or no-op reranker. Writes `comparison.md`, `results.json`, and `recommendation.md` under `evaluation/retrieval/results/<timestamp>/`. Committed evidence: `evaluation/retrieval/results/20260623T154959Z/` (mode **B** recommended; rerank did not justify latency on this corpus). See [docs/technical/README.md](docs/technical/README.md) §25c for methodology and interpretation.
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \
