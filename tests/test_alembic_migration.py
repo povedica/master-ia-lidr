@@ -49,3 +49,17 @@ def test_indexed_lexical_migration_creates_tsvector_and_trigram_indexes() -> Non
     assert "DROP INDEX IF EXISTS ix_chunks_content_trgm" in source
     assert "DROP INDEX IF EXISTS ix_chunks_content_tsv_gin" in source
     assert "DROP COLUMN IF EXISTS content_tsv" in source
+
+
+def test_spanish_lexical_migration_regenerates_content_tsv_and_round_trips() -> None:
+    source = _migration_source("0004_set_chunks_content_tsv_spanish.py")
+    normalized_source = " ".join(source.split())
+
+    assert 'down_revision: str | None = "0003"' in source or 'down_revision = "0003"' in source
+    assert "to_tsvector('spanish', content)" in normalized_source
+    assert "ix_chunks_content_tsv_gin" in source
+    assert "USING gin (content_tsv)" in normalized_source
+    assert "DROP INDEX IF EXISTS ix_chunks_content_tsv_gin" in source
+    assert "DROP COLUMN IF EXISTS content_tsv" in source
+    downgrade_section = source.split("def downgrade", maxsplit=1)[1]
+    assert "to_tsvector('english', content)" in " ".join(downgrade_section.split())

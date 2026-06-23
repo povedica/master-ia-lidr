@@ -7,9 +7,10 @@ import { useAppearance } from './theme/useAppearance'
 function App() {
   const { mode, setMode } = useAppearance()
   const themeControl = <ThemeControl mode={mode} onModeChange={setMode} />
+  const retrievalDebugEnabled = import.meta.env.VITE_ENABLE_RETRIEVAL_DEBUG === 'true'
   const showRetrievalDebug = shouldShowRetrievalDebugPage(
     window.location.pathname,
-    import.meta.env.VITE_ENABLE_RETRIEVAL_DEBUG === 'true',
+    retrievalDebugEnabled,
   )
 
   return (
@@ -17,7 +18,10 @@ function App() {
       {showRetrievalDebug ? (
         <RetrievalDebugPage themeControl={themeControl} />
       ) : (
-        <EstimationWorkbench themeControl={themeControl} />
+        <EstimationWorkbench
+          retrievalDebugHref={retrievalDebugEnabled ? '/debug/retrieval' : undefined}
+          themeControl={themeControl}
+        />
       )}
     </div>
   )

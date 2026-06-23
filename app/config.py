@@ -347,6 +347,26 @@ class Settings(BaseSettings):
             "Empty disables DB-backed features until configured."
         ),
     )
+    # --- Production retrieval modes (feature-050): hybrid + rerank A/B/C/D ---
+    retrieval_default_mode: str = Field(
+        default="A",
+        description="Default retrieval mode when the request omits mode (A|B|C|D).",
+    )
+    retrieval_lexical_text_search_config: str = Field(
+        default="spanish",
+        description="Postgres text search configuration for lexical retrieval.",
+    )
+    retrieval_recall_k: int = Field(default=50, ge=1, le=200)
+    retrieval_top_k_final: int = Field(default=5, ge=1, le=50)
+    retrieval_rrf_k: int = Field(default=60, ge=1)
+    retrieval_rerank_enabled: bool = Field(
+        default=False,
+        description="Global kill switch; when false, modes C/D degrade to A/B.",
+    )
+    retrieval_rerank_model: str = Field(
+        default="",
+        description="Cross-encoder model id; empty uses NoOpReranker.",
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(

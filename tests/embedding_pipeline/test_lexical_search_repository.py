@@ -17,14 +17,26 @@ def test_lexical_search_statement_uses_indexed_tsvector_ranking() -> None:
 
     statement = repository.build_search_statement(query="JWT OAuth2", top_k=7)
 
-    compiled = str(statement.compile(dialect=postgresql.dialect()))
+    compiled_stmt = statement.compile(dialect=postgresql.dialect())
+    compiled = str(compiled_stmt)
+    assert repository._text_search_config == "spanish"
     assert "websearch_to_tsquery" in compiled
+    assert compiled_stmt.params.get("websearch_to_tsquery_1") == "spanish"
     assert "chunks.content_tsv" in compiled
     assert "to_tsvector(%(to_tsvector_1)s, chunks.content)" not in compiled
     assert "ts_rank_cd" in compiled
     assert "@@" in compiled
     assert "ORDER BY ts_rank DESC" in compiled
     assert "LIMIT" in compiled
+
+
+def test_lexical_search_statement_accepts_configurable_text_search_config() -> None:
+    repository = LexicalSearchRepository(text_search_config="english")
+
+    statement = repository.build_search_statement(query="JWT OAuth2", top_k=7)
+
+    compiled_stmt = statement.compile(dialect=postgresql.dialect())
+    assert compiled_stmt.params.get("websearch_to_tsquery_1") == "english"
 
 
 def test_lexical_search_statement_applies_metadata_filters_when_provided() -> None:

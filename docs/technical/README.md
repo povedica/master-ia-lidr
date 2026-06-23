@@ -1235,6 +1235,109 @@ uv run alembic downgrade 0002
 
 Work item: [feature-048](../work-items/feature-048-indexed-lexical-tsvector-migration.md).
 
+## 25b. Production retrieval modes (feature-050)
+
+Production-facing retrieval promotes the debug primitives into four explicit modes selectable via `POST /api/v1/retrieval` or `RETRIEVAL_DEFAULT_MODE`:
+
+| Mode | Vector | Lexical + RRF | Cross-encoder rerank |
+| --- | --- | --- | --- |
+| A | yes | no | no |
+| B | yes | yes | no |
+| C | yes | no | yes |
+| D | yes | yes | yes |
+
+Migration `0004_set_chunks_content_tsv_spanish.py` regenerates `chunks.content_tsv` with `to_tsvector('spanish', content)`; `LexicalSearchRepository` defaults to the same regconfig. `RetrievalService` orchestrates recall (`recall_k`), optional `reciprocal_rank_fusion`, optional `CrossEncoderReranker`, and final cut (`top_k_final`). Modes C/D degrade to A/B with warnings when `RETRIEVAL_RERANK_ENABLED=false` or `RETRIEVAL_RERANK_MODEL` is empty.
+
+Evaluation (`app/scripts/retrieval_eval.py`) runs all four modes over `evaluation/retrieval/golden_set.json`, computes budget-level precision@5 (deduped top-5 budgets), latency p50/p95/mean (cold run excluded), and writes `comparison.md`, `results.json`, and `recommendation.md`. The runner fails when a no-op reranker would invalidate C/D comparisons.
+
+Work item: [feature-050](../work-items/feature-050-measurable-hybrid-rerank-retrieval-modes.md).
+
+## 25c. Retrieval evaluation evidence (feature-051)
+
+Feature-050 ships the harness; feature-051 closes the exercise with **committed empirical evidence** and interpretation guidance.
+
+### Exercise Definition of Done (full stack)
+
+| Layer | Criterion | Status | Evidence |
+| --- | --- | --- | --- |
+| **Schema** | Alembic `0004`: `chunks.content_tsv` generated with `to_tsvector('spanish', content)` + GIN index | Done | `alembic/versions/0004_set_chunks_content_tsv_spanish.py` |
+| **Lexical** | FTS on `content_tsv`, `ts_rank_cd`, Spanish regconfig | Done | `LexicalSearchRepository` |
+| **Hybrid** | Vector + lexical fused with RRF; `RETRIEVAL_RRF_K` configurable | Done | `reciprocal_rank_fusion`, modes B/D |
+| **Modes A–D** | Invocable via API/env without code changes | Done | `POST /api/v1/retrieval`, `RetrievalService` |
+| **Rerank** | `recall_k=50` → cross-encoder → `top_k_final=5`; toggle via env | Done | `CrossEncoderReranker`, `RETRIEVAL_RERANK_*` |
+| **Golden set** | 5 queries with manual `relevant_budget_ids` | Done | `evaluation/retrieval/golden_set.json` |
+| **Harness** | Runner measures precision@5 + latency for A/B/C/D | Done | `app/scripts/retrieval_eval.py` |
+| **Offline tests** | Modes, RRF, rerank, metrics, migration, preflight | Done | `tests/embedding_pipeline/test_retrieval_*.py`, `tests/test_alembic_migration.py` |
+| **Live evidence** | Real run on populated DB; artifacts committed | Done | `evaluation/retrieval/results/20260623T154959Z/` |
+| **Conclusion** | Recommended mode + rerank latency trade-off | Done | `recommendation.md` in evidence dir |
+
+### Two-layer testing model
+
+1. **Offline (default CI):** pytest with fakes/mocks — validates mode orchestration, metric math, preflight rules, and API contracts. Does **not** measure retrieval quality on real data. No live DB, OpenAI, or cross-encoder download in the default suite.
+2. **Live evaluation (manual, opt-in):** `retrieval_eval.py` against Postgres + OpenAI embeddings + sentence-transformers reranker. Produces the comparison table and recommendation. Mark any automated live eval as `@pytest.mark.slow` if added later.
+
+### Preflight (before the measurement loop)
+
+`validate_evaluation_preflight` + DB snapshot checks:
+
+- `DATABASE_URL` set
+- Alembic revision `0004`
+- Chunks with `embedding`, `content_tsv`, and `metadata.budget_id`
+- `RETRIEVAL_RERANK_ENABLED=true` and non-no-op `RETRIEVAL_RERANK_MODEL` (required so C/D are valid)
+- Every `relevant_budget_ids` label in the golden set exists in the corpus
+
+Exit code `2` on failure — no misleading zero-metric artifacts.
+
+### Measurement protocol
+
+For each of the 5 golden queries × 4 modes (A/B/C/D):
+
+1. Optional **warmup** retrieve (excluded from latency aggregation)
+2. **`--repetitions` timed runs** (default 5) via `time.perf_counter()`
+3. **Precision@5:** deduplicate retrieved chunk rows by `budget_id`, take top-5 unique budgets, score hits against `relevant_budget_ids` (budget-level, not chunk-level)
+4. **Aggregate per mode:** mean precision@5 across queries; global latency p50/p95/mean over all samples
+
+Fixed settings for the committed run: `RETRIEVAL_RECALL_K=50`, `RETRIEVAL_TOP_K_FINAL=5`, `RETRIEVAL_RRF_K=60`, reranker `cross-encoder/ms-marco-MiniLM-L-6-v2`.
+
+### Interpreting `comparison.md`
+
+| Column | Meaning |
+| --- | --- |
+| Precision@5 | Mean over 5 queries; 0.0–1.0; higher is better |
+| Latency p50/p95/mean | End-to-end retrieve time in ms (local Docker Postgres) |
+| Δ Precision@5 vs A | Lift over vector-only baseline |
+| Δ Latency p50 vs A | Latency cost vs baseline |
+
+Treat the 5-query golden set as **directional evidence**, not a statistically significant benchmark. Re-run after corpus ingest changes.
+
+### Committed evidence (2026-06-23)
+
+Corpus: 39 chunks, 25 distinct budgets (local Docker Postgres, Alembic `0004`).
+
+| Mode | Precision@5 | p50 (ms) | Δ vs A |
+| --- | ---: | ---: | --- |
+| A | 0.240 | 167.2 | — |
+| B | 0.240 | 166.4 | +0.000 / −0.7 ms |
+| C | 0.120 | 242.6 | −0.120 / +75.5 ms |
+| D | 0.120 | 237.0 | −0.120 / +69.9 ms |
+
+**Recommendation:** mode **B** (hybrid RRF, no rerank). Reranking reduced precision@5 and added ~70 ms p50 on this corpus; not justified by this evidence alone.
+
+### Reproduce
+
+```bash
+uv run alembic upgrade head   # must reach 0004
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+RETRIEVAL_RERANK_ENABLED=true \
+RETRIEVAL_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2 \
+RETRIEVAL_RECALL_K=50 \
+RETRIEVAL_TOP_K_FINAL=5 \
+RETRIEVAL_RRF_K=60 \
+uv run python app/scripts/retrieval_eval.py --repetitions 5
+```
+
+Work item: [feature-051](../work-items/feature-051-retrieval-evaluation-evidence-and-recommendation.md).
+
 ## 26. Worktree task orchestrator
 
 `scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.

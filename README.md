@@ -242,6 +242,13 @@ VITE_ENABLE_RETRIEVAL_DEBUG=true npm run dev
 # Open http://127.0.0.1:5173/debug/retrieval
 ```
 
+When using Docker Compose, rebuild the web image with the flag enabled because Vite env variables are baked into the static bundle:
+
+```bash
+VITE_ENABLE_RETRIEVAL_DEBUG=true docker compose up -d --build web
+# Open http://127.0.0.1:5175/debug/retrieval
+```
+
 See [web/README.md](web/README.md) for environment variables and appearance settings.
 
 ---
@@ -265,9 +272,10 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/sessions/{session_id}/estimate` | Simplified transcript-centered submit |
 | `POST` | `/api/v1/embeddings/ingest` | Persist a budget document and its chunk embeddings (Postgres + pgvector) |
 | `POST` | `/api/v1/search` | Semantic search over persisted chunks (pgvector cosine distance) |
+| `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank) |
 | `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
 
-The `embeddings/ingest` and `search` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
+The `embeddings/ingest`, `search`, and `retrieval` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
 
 ### Stateless estimation (v1)
 
@@ -636,6 +644,7 @@ The pipeline includes:
 - **Embedder** (`embedder.py`) — `OpenAIEmbedder` calls `text-embedding-3-small` (1536 dims) with batched requests, rate-limit retry, and cost tracking.
 - **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
 - **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**.
+- **Production retrieval** (`app/routers/retrieval.py`) — `POST /api/v1/retrieval` runs modes **A** vector-only, **B** hybrid RRF, **C** vector + cross-encoder rerank, **D** hybrid + rerank; defaults preserve mode **A** (vector-only baseline).
 - **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector and lexical branch ranks, normalized scores, matched terms, explanations, timings, metadata, and chunk context without changing `/search`.
 - **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
@@ -648,6 +657,13 @@ Optional env (defaults work without extra config):
 | `EMBEDDING_PIPELINE_MODEL` | `text-embedding-3-small` | Embedding model for ingest |
 | `EMBEDDING_PIPELINE_BATCH_SIZE` | `100` | Chunks per API request in `embed_many` |
 | `DATABASE_URL` | *(empty)* | Async Postgres DSN (`postgresql+asyncpg://...`); set automatically in Compose for `app` |
+| `RETRIEVAL_DEFAULT_MODE` | `A` | Default mode when request omits `mode` (`A|B|C|D`) |
+| `RETRIEVAL_LEXICAL_TEXT_SEARCH_CONFIG` | `spanish` | Postgres FTS config for lexical branch |
+| `RETRIEVAL_RECALL_K` | `50` | Recall width before fusion/rerank |
+| `RETRIEVAL_TOP_K_FINAL` | `5` | Final cut after fusion/rerank |
+| `RETRIEVAL_RRF_K` | `60` | RRF constant for hybrid modes |
+| `RETRIEVAL_RERANK_ENABLED` | `false` | Global rerank kill switch |
+| `RETRIEVAL_RERANK_MODEL` | *(empty)* | Cross-encoder model id; empty ⇒ no-op rerank |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | Base URL for `query_examples.py`; Compose sets `http://app:8000` for the `app` service |
 
 Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the compare CLI wraps them with `asyncio.run`.
@@ -716,6 +732,42 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 ```
 
 **Reading search results:** `distance` is pgvector cosine distance — **lower is more similar**. Values around 0.2–0.4 often indicate a strong match on this corpus; 0.65+ suggests moderate similarity. Semantic search is not keyword search: a query mentioning SAML may rank OAuth chunks highly if the corpus has no SAML text but shares “authentication” and “API” signals. See [`output_examples.txt`](output_examples.txt) and [Semantic search with pgvector](#semantic-search-with-pgvector) for worked examples.
+
+**Production retrieval API** (`POST /api/v1/retrieval`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Request `query` | `str` | Non-empty reformulated retrieval text |
+| Request `mode` | `A\|B\|C\|D` | Optional; defaults to `RETRIEVAL_DEFAULT_MODE` |
+| Request `recall_k` | `int` | Optional recall width (default from settings) |
+| Request `top_k_final` | `int` | Optional final cut (default from settings) |
+| Response `mode` | `str` | Applied mode (may degrade C/D when rerank disabled) |
+| Response `applied_config` | `object` | Branches, fusion, rerank flags, timings config |
+| Response `timings_ms` | `object` | Per-stage latency (`vector`, `lexical`, `fusion`, `rerank`, `total`) |
+| Response `results[]` | list | Lean ranked rows with nullable branch scores |
+| Response `warnings` | list | No-op rerank, branch failures, kill-switch notices |
+
+Modes: **A** vector-only (baseline); **B** vector + lexical RRF; **C** vector + cross-encoder rerank; **D** hybrid + rerank. Lexical FTS uses migration `0004` (`content_tsv` generated with `spanish`).
+
+**Evaluation harness** (modes A–D over the golden set):
+
+```bash
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+RETRIEVAL_RERANK_ENABLED=true \
+RETRIEVAL_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2 \
+RETRIEVAL_RECALL_K=50 \
+RETRIEVAL_TOP_K_FINAL=5 \
+RETRIEVAL_RRF_K=60 \
+uv run python app/scripts/retrieval_eval.py --repetitions 5
+```
+
+Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op reranker for modes C/D. Preflight blocks empty corpus, missing embeddings/`budget_id`, stale Alembic, or no-op reranker. Writes `comparison.md`, `results.json`, and `recommendation.md` under `evaluation/retrieval/results/<timestamp>/`. Committed evidence: `evaluation/retrieval/results/20260623T154959Z/` (mode **B** recommended; rerank did not justify latency on this corpus). See [docs/technical/README.md](docs/technical/README.md) §25c for methodology and interpretation.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"API REST con OAuth2 y Stripe","mode":"B"}'
+```
 
 **Internal retrieval debug API** (`POST /api/v1/retrieval-debug`, `GET /api/v1/retrieval-debug/chunks/{id}`):
 

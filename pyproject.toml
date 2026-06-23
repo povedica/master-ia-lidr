@@ -25,6 +25,7 @@ dependencies = [
     "pgvector>=0.3",
     "alembic>=1.13",
     "greenlet>=3.5.1",
+    "sentence-transformers>=5.6.0",
 ]
 
 [dependency-groups]

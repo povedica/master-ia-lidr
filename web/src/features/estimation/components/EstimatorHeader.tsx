@@ -16,6 +16,7 @@ export function EstimatorHeader({
   resetInProgress,
   onNewConversation,
   onRetrySession,
+  retrievalDebugHref,
   themeControl,
 }: {
   sessionId: string | null
@@ -24,6 +25,7 @@ export function EstimatorHeader({
   resetInProgress: boolean
   onNewConversation: () => void
   onRetrySession: () => void
+  retrievalDebugHref?: string
   themeControl: ReactNode
 }) {
   const statusLabel =
@@ -88,6 +90,14 @@ export function EstimatorHeader({
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3">
+        {retrievalDebugHref ? (
+          <a
+            className="rounded border border-violet-300 px-4 py-2 text-sm font-medium text-violet-800 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-200 dark:hover:bg-violet-950"
+            href={retrievalDebugHref}
+          >
+            Retrieval Debug
+          </a>
+        ) : null}
         <button
           type="button"
           disabled={formDisabled}

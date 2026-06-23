@@ -1478,6 +1478,7 @@
               <li><code>sessions</code> — multi-turno con memoria en RAM</li>
               <li><code>embeddings/ingest</code> — pipeline Session 07 (presupuestos → vectores en Postgres)</li>
               <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
+              <li><code>retrieval</code> — producción A/B/C/D: vector, híbrido RRF, rerank cross-encoder y evaluación (feature-050)</li>
               <li><code>retrieval-debug</code> — API interna y pantalla React gated por <code>VITE_ENABLE_RETRIEVAL_DEBUG</code> para explicar ramas vectorial, lexical e híbrida, comparar rankings e inspeccionar chunks (features 042–047)</li>
             </ul>
           </div>
@@ -2826,6 +2827,7 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>POST</td><td><code>/api/v1/sessions/{id}/estimate</code></td><td>Submit simplificado</td><td>Parser → SessionService → LLMPipeline</td></tr>
               <tr><td>POST</td><td><code>/api/v1/embeddings/ingest</code></td><td>Persist one budget + chunk embeddings</td><td>run_persistent_ingest → Postgres</td></tr>
               <tr><td>POST</td><td><code>/api/v1/search</code></td><td>Semantic search top-k chunks</td><td>embed_one + pgvector cosine distance</td></tr>
+              <tr><td>POST</td><td><code>/api/v1/retrieval</code></td><td>Production retrieval modes A/B/C/D</td><td>vector ± lexical RRF ± cross-encoder rerank + eval harness</td></tr>
               <tr><td>POST</td><td><code>/api/v1/retrieval-debug</code></td><td>Internal explainable hybrid retrieval</td><td>vector + lexical branches → hybrid fusion → optional no-op rerank + ranking diff</td></tr>
               <tr><td>GET</td><td><code>/api/v1/retrieval-debug/chunks/{id}</code></td><td>Chunk inspector with neighbors</td><td>Postgres chunk/document context</td></tr>
             </tbody>
