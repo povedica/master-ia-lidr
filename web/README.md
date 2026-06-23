@@ -43,6 +43,13 @@ VITE_ENABLE_RETRIEVAL_DEBUG=true npm run dev
 # Open http://127.0.0.1:5173/debug/retrieval
 ```
 
+For Docker Compose, the flag is baked into the nginx-served static bundle at build time:
+
+```bash
+VITE_ENABLE_RETRIEVAL_DEBUG=true docker compose up -d --build web
+# Open http://127.0.0.1:5175/debug/retrieval
+```
+
 ## Appearance
 
 The header includes **System / Light / Dark** theme controls. The choice is stored in **`localStorage`** under key `estimador-cag-appearance` (default **system**). A small inline script in `index.html` applies the class before the first paint to reduce flash.

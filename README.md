@@ -242,6 +242,13 @@ VITE_ENABLE_RETRIEVAL_DEBUG=true npm run dev
 # Open http://127.0.0.1:5173/debug/retrieval
 ```
 
+When using Docker Compose, rebuild the web image with the flag enabled because Vite env variables are baked into the static bundle:
+
+```bash
+VITE_ENABLE_RETRIEVAL_DEBUG=true docker compose up -d --build web
+# Open http://127.0.0.1:5175/debug/retrieval
+```
+
 See [web/README.md](web/README.md) for environment variables and appearance settings.
 
 ---

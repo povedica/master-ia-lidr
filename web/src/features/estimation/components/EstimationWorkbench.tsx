@@ -31,7 +31,13 @@ function firstOrderedFieldWithError(
   return Object.keys(fieldErrors).find((k) => k !== '_form') ?? null
 }
 
-export function EstimationWorkbench({ themeControl }: { themeControl: React.ReactNode }) {
+export function EstimationWorkbench({
+  retrievalDebugHref,
+  themeControl,
+}: {
+  retrievalDebugHref?: string
+  themeControl: React.ReactNode
+}) {
   const {
     sessionId,
     sessionStatus,
@@ -184,6 +190,7 @@ export function EstimationWorkbench({ themeControl }: { themeControl: React.Reac
             resetInProgress={resetInProgress}
             onNewConversation={() => void handleNewConversation()}
             onRetrySession={() => void bootstrapSession()}
+            retrievalDebugHref={retrievalDebugHref}
             themeControl={themeControl}
           />
 
