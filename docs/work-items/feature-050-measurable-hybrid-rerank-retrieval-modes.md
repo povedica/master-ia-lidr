@@ -675,6 +675,7 @@ eval CLI requires live DB and API key.
 | feat | RetrievalService modes A-D, production endpoint, CrossEncoderReranker |
 | feat | Evaluation harness, golden set, retrieval_eval CLI |
 | docs | README, technical docs, architecture HTML, Second Brain, work-item closure |
+| `8a2871d` | `feat(web): link retrieval debug screen from home` |
 
 ---
 
