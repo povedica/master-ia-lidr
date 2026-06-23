@@ -5,15 +5,19 @@ from __future__ import annotations
 import pytest
 
 from app.embedding_pipeline.retrieval_eval import (
+    CorpusSnapshot,
     GoldenQuery,
     ModeMetrics,
     QueryModeResult,
+    REQUIRED_ALEMBIC_REVISION,
     aggregate_latency_ms,
     detect_noop_rerank_warning,
     load_golden_set,
     precision_at_5,
     render_comparison_markdown,
     summarize_mode_metrics,
+    validate_evaluation_preflight,
+    validate_golden_set_corpus_coverage,
 )
 from app.embedding_pipeline.retrieval_service import RetrievalMode
 
@@ -102,3 +106,96 @@ def test_summarize_mode_metrics_averages_precision() -> None:
     ]
     summary = summarize_mode_metrics(results)
     assert summary.precision_at_5 == pytest.approx(0.3)
+
+
+def test_validate_golden_set_corpus_coverage_flags_missing_labels() -> None:
+    golden = [
+        GoldenQuery(
+            id="q1",
+            query="test",
+            relevant_budget_ids=frozenset({"BUD-2024-014", "BUD-MISSING"}),
+        )
+    ]
+    errors = validate_golden_set_corpus_coverage(
+        golden,
+        frozenset({"BUD-2024-014"}),
+    )
+    assert any("BUD-MISSING" in error for error in errors)
+
+
+def test_validate_evaluation_preflight_fails_on_empty_corpus() -> None:
+    from types import SimpleNamespace
+
+    settings = SimpleNamespace(
+        database_url="postgresql+asyncpg://local/test",
+        retrieval_rerank_enabled=True,
+    )
+    reranker = SimpleNamespace(is_noop=False)
+    corpus = CorpusSnapshot(
+        chunk_count=0,
+        chunks_with_embedding=0,
+        chunks_with_content_tsv=0,
+        chunks_with_budget_id=0,
+        distinct_budget_ids=frozenset(),
+    )
+    result = validate_evaluation_preflight(
+        settings=settings,
+        reranker=reranker,
+        corpus=corpus,
+        alembic_revision=REQUIRED_ALEMBIC_REVISION,
+        golden_queries=[],
+    )
+    assert result.ok is False
+    assert any("empty" in error.lower() for error in result.errors)
+
+
+def test_validate_evaluation_preflight_fails_on_noop_reranker() -> None:
+    from types import SimpleNamespace
+
+    settings = SimpleNamespace(
+        database_url="postgresql+asyncpg://local/test",
+        retrieval_rerank_enabled=True,
+    )
+    reranker = SimpleNamespace(is_noop=True)
+    corpus = CorpusSnapshot(
+        chunk_count=10,
+        chunks_with_embedding=10,
+        chunks_with_content_tsv=10,
+        chunks_with_budget_id=10,
+        distinct_budget_ids=frozenset({"BUD-2024-014"}),
+    )
+    result = validate_evaluation_preflight(
+        settings=settings,
+        reranker=reranker,
+        corpus=corpus,
+        alembic_revision=REQUIRED_ALEMBIC_REVISION,
+        golden_queries=[],
+    )
+    assert result.ok is False
+    assert any("no-op" in error.lower() for error in result.errors)
+
+
+def test_validate_evaluation_preflight_fails_on_stale_alembic_revision() -> None:
+    from types import SimpleNamespace
+
+    settings = SimpleNamespace(
+        database_url="postgresql+asyncpg://local/test",
+        retrieval_rerank_enabled=True,
+    )
+    reranker = SimpleNamespace(is_noop=False)
+    corpus = CorpusSnapshot(
+        chunk_count=10,
+        chunks_with_embedding=10,
+        chunks_with_content_tsv=10,
+        chunks_with_budget_id=10,
+        distinct_budget_ids=frozenset({"BUD-2024-014"}),
+    )
+    result = validate_evaluation_preflight(
+        settings=settings,
+        reranker=reranker,
+        corpus=corpus,
+        alembic_revision="0003",
+        golden_queries=[],
+    )
+    assert result.ok is False
+    assert any("0004" in error for error in result.errors)

@@ -18,12 +18,15 @@ from app.embedding_pipeline.rerank import build_reranker
 from app.embedding_pipeline.retrieval_eval import (
     QueryModeResult,
     detect_noop_rerank_warning,
+    fetch_alembic_revision,
+    fetch_corpus_snapshot,
     load_golden_set,
     metrics_to_json,
     precision_at_5,
     render_comparison_markdown,
     render_recommendation_markdown,
     summarize_mode_metrics,
+    validate_evaluation_preflight,
 )
 from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
 
@@ -48,14 +51,28 @@ def _parse_args() -> argparse.Namespace:
 
 async def _run_evaluation(args: argparse.Namespace) -> int:
     settings = Settings()
-    if not settings.database_url.strip():
-        print("DATABASE_URL is required for retrieval evaluation.", file=sys.stderr)
-        return 1
-
     golden_queries = load_golden_set(args.golden_set)
     service = RetrievalService()
     embedder = OpenAIEmbedder(settings)
     reranker = build_reranker(settings)
+
+    reset_session_factory()
+    session_factory = get_session_factory(settings)
+    async with session_factory() as session:
+        alembic_revision = await fetch_alembic_revision(session)
+        corpus = await fetch_corpus_snapshot(session)
+        preflight = validate_evaluation_preflight(
+            settings=settings,
+            reranker=reranker,
+            corpus=corpus,
+            alembic_revision=alembic_revision,
+            golden_queries=golden_queries,
+        )
+        if not preflight.ok:
+            for error in preflight.errors:
+                print(error, file=sys.stderr)
+            return 2
+
     noop_warnings = [
         warning
         for mode in (RetrievalMode.C, RetrievalMode.D)
