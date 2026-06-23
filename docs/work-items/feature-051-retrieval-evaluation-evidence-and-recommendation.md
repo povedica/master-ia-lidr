@@ -185,39 +185,21 @@ The final recommendation should be committed as generated evidence, not hand-wav
   - Run the full evaluation command with a configured non-noop reranker.
   - Inspect `comparison.md` and `recommendation.md` for consistency with `results.json`.
 
-## Verification
-
-- Automated:
-  - `uv run pytest tests/embedding_pipeline/test_retrieval_eval.py -q`
-  - `uv run pytest tests/embedding_pipeline/test_retrieval_service.py tests/embedding_pipeline/test_cross_encoder_reranker.py -q`
-  - `uv run pytest`
-- Manual:
-  - `uv run alembic current`
-  - Database smoke query confirming `chunks.content_tsv`, embeddings, and `budget_id` metadata.
-  - `RETRIEVAL_RERANK_ENABLED=true RETRIEVAL_RERANK_MODEL=<cross-encoder-model-id> uv run python app/scripts/retrieval_eval.py --repetitions 5`
-- Not verified yet:
-  - Real precision/latency until the live evaluation command succeeds.
-  - Production latency; local measurements are directional.
-  - Statistical significance; the golden set has only 5 queries.
-
 ## Documentation Plan
 
-- Update this work item with the final verification log and generated artifact path.
-- Update `docs/technical/README.md` only if the final evaluation process needs extra interpretation notes beyond `feature-050`.
-- Add or update the relevant Second Brain learning note with:
-  - Which mode won.
-  - Whether reranking justified latency.
-  - What the small golden set can and cannot prove.
+- [x] Update this work item with the final verification log and generated artifact path.
+- [x] Update `docs/technical/README.md` only if needed — not required; feature-050 docs sufficient.
+- [x] Second Brain note updated: `learnings/.../retrieval-hybrid-vs-rerank-tradeoffs.md`.
 
 ## Implementation Plan
 
-- [ ] Step 1: Baseline review: confirm current git state, inspect `feature-050`, golden set, eval script, and absence/presence of result artifacts.
-- [ ] Step 2: Preflight validation: verify database readiness, Alembic head, chunk counts, embedding coverage, `budget_id` metadata, and non-noop reranker configuration.
-- [ ] Step 3: Golden-set review: check that the 5 labels exist in the corpus and update `notes` only if evidence requires it.
-- [ ] Step 4: Optional hardening: add small preflight or no-op safeguards if the runner can emit misleading artifacts; cover with deterministic tests.
-- [ ] Step 5: Run the full A/B/C/D evaluation with `recall_k=50`, `top_k_final=5`, fixed `rrf_k`, and a documented cross-encoder model.
-- [ ] Step 6: Review artifacts: validate `results.json`, `comparison.md`, and `recommendation.md` agree and contain no secrets or local-only sensitive data.
-- [ ] Step 7: Documentation and verification sweep: update this work item, relevant docs/Second Brain note if needed, run tests, and record residual risk.
+- [x] Step 1: Baseline review: confirm current git state, inspect `feature-050`, golden set, eval script, and absence/presence of result artifacts.
+- [x] Step 2: Preflight validation: verify database readiness, Alembic head, chunk counts, embedding coverage, `budget_id` metadata, and non-noop reranker configuration.
+- [x] Step 3: Golden-set review: check that the 5 labels exist in the corpus and update `notes` only if evidence requires it.
+- [x] Step 4: Optional hardening: add small preflight or no-op safeguards if the runner can emit misleading artifacts; cover with deterministic tests.
+- [x] Step 5: Run the full A/B/C/D evaluation with `recall_k=50`, `top_k_final=5`, fixed `rrf_k`, and a documented cross-encoder model.
+- [x] Step 6: Review artifacts: validate `results.json`, `comparison.md`, and `recommendation.md` agree and contain no secrets or local-only sensitive data.
+- [x] Step 7: Documentation and verification sweep: update this work item, relevant docs/Second Brain note if needed, run tests, and record residual risk.
 
 ## Learnings
 
@@ -235,8 +217,91 @@ The final recommendation should be committed as generated evidence, not hand-wav
 
 ## Implementation Progress
 
-- [ ] Not started.
+- [x] Step 1: Baseline review — feature-050 merged as base; golden set and eval harness confirmed.
+- [x] Step 2: Preflight validation — Alembic 0004, 39 chunks, reranker `cross-encoder/ms-marco-MiniLM-L-6-v2`.
+- [x] Step 3: Golden-set review — all 10 label budget ids present in corpus; notes updated.
+- [x] Step 4: Preflight hardening — corpus/Alembic/rerank/golden coverage checks with unit tests.
+- [x] Step 5: Full A/B/C/D run — `evaluation/retrieval/results/20260623T154959Z/`.
+- [x] Step 6: Artifact review — no secrets; modes A–D consistent across JSON and markdown.
+- [x] Step 7: Documentation and verification sweep — work item, Second Brain note, pytest green.
 
 ## Pull Request
 
-- TBD during `/start-task`.
+- https://github.com/povedica/master-ia-lidr/pull/46 (draft, label `wip`)
+
+## Verification
+
+### Automated (2026-06-23)
+
+- `uv run pytest tests/embedding_pipeline/test_retrieval_eval.py -q` → 12 passed
+- `uv run pytest tests/embedding_pipeline/test_retrieval_service.py tests/embedding_pipeline/test_cross_encoder_reranker.py -q` → 9 passed
+- `uv run pytest` → 620 passed, 11 skipped, 12 deselected
+
+### Manual (2026-06-23)
+
+- `DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator uv run alembic current` → `0004`
+- Corpus smoke: 39 chunks, 39 embeddings, 39 `content_tsv`, 39 `metadata.budget_id`, 25 distinct budgets
+- Evaluation command:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+RETRIEVAL_RERANK_ENABLED=true \
+RETRIEVAL_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2 \
+RETRIEVAL_RECALL_K=50 \
+RETRIEVAL_TOP_K_FINAL=5 \
+RETRIEVAL_RRF_K=60 \
+uv run python app/scripts/retrieval_eval.py --repetitions 5
+```
+
+- Artifacts: `evaluation/retrieval/results/20260623T154959Z/{results.json,comparison.md,recommendation.md}`
+- Winner: **Mode B** (hybrid RRF, no rerank) — precision@5 0.240, p50 166.4 ms; reranking (C/D) reduced precision@5 to 0.120 with ~70 ms extra p50 latency on this corpus.
+
+### Not verified
+
+- Production latency or load under concurrent traffic
+- Statistical significance (golden set has only 5 queries)
+- Reranker quality with a larger or domain-tuned cross-encoder
+
+### Residual risk
+
+- Small golden set and mixed corpus (production budgets plus test/concurrency fixtures) make precision directional only.
+- Local Docker Postgres latency differs from deployed environments.
+- Rerank degraded precision here; a different model or larger recall pool might change the trade-off.
+
+## Acceptance Criteria
+
+- [x] AC-01: Timestamped directory `evaluation/retrieval/results/20260623T154959Z/` with all three artifacts.
+- [x] AC-02: `results.json` includes modes A–D with per-query precision, latency samples, retrieved and hit budget ids.
+- [x] AC-03: `comparison.md` includes delta precision and latency vs mode A for all modes.
+- [x] AC-04: `recommendation.md` recommends mode B and states reranking did not justify latency in this run.
+- [x] AC-05: Modes C/D ran with real `cross-encoder/ms-marco-MiniLM-L-6-v2` (non-noop).
+- [x] AC-06: `recall_k=50`, `top_k_final=5`, `rrf_k=60`, reranker model documented above.
+- [x] AC-07: Golden-set labels reviewed; corpus audit notes added per query.
+- [x] AC-08: Preflight blocks empty corpus, stale Alembic, missing budget_id, and no-op reranker.
+- [x] AC-09: Committed artifacts contain no secrets or `.env` values.
+- [x] AC-10: Default offline pytest suite passes without live DB or API keys.
+- [x] AC-11: New preflight tests are deterministic mocks/fakes only.
+- [x] AC-12: Manual Alembic/corpus/evaluation run recorded above.
+- [x] AC-13: Verification section updated in this work item.
+- [x] AC-14: No README change required; existing feature-050 evaluation docs remain accurate.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+|--------|---------|
+| (docs) | Add feature-051 work item |
+| `feat(retrieval): add evaluation preflight checks for corpus and reranker` | Preflight validation + tests |
+| `docs(retrieval): record golden-set corpus review for evaluation` | Golden-set audit notes |
+| `feat(retrieval): add A/B/C/D evaluation evidence artifacts` | Committed run under `20260623T154959Z` |
+
+## Handoff from feature-051
+
+**Shipped:** Preflight gate in `app/embedding_pipeline/retrieval_eval.py` and `app/scripts/retrieval_eval.py`; golden-set corpus audit; committed evaluation artifacts recommending **mode B** (hybrid RRF without rerank) for the current local corpus.
+
+**Evidence path:** `evaluation/retrieval/results/20260623T154959Z/`
+
+**Settings used:** `RETRIEVAL_RECALL_K=50`, `RETRIEVAL_TOP_K_FINAL=5`, `RETRIEVAL_RRF_K=60`, `RETRIEVAL_RERANK_ENABLED=true`, `RETRIEVAL_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2`, Alembic `0004`, Spanish FTS.
+
+**Recommended next step for estimations:** Wire `RETRIEVAL_DEFAULT_MODE=B` (or explicit mode in retrieval calls) only after product review; reranking is not justified by this 5-query run.
+
+**First checks for next implementer:** Re-run `uv run python app/scripts/retrieval_eval.py` after corpus ingest changes; confirm preflight passes; compare new `comparison.md` deltas before changing default mode.
