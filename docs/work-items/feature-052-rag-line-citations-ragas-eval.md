@@ -607,7 +607,7 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 
 | Commit | Summary |
 | --- | --- |
-| _(pending)_ | `refactor(services): extract resolve_first_litellm_route for shared provider resolution` |
+| d1a3bea | `refactor(services): extract resolve_first_litellm_route for shared provider resolution` |
 
 ## Pull Request
 
