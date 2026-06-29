@@ -1,0 +1,29 @@
+{
+  "queries": [
+    {
+      "id": "q1-oauth-stripe",
+      "question": "Plataforma e-commerce con integración Stripe, OAuth2 y catálogo de productos",
+      "ground_truth": "Estimación de referencia: autenticación OAuth2 (~24h: login social, tokens, refresh), pagos Stripe (~32h: checkout, webhooks, reembolsos), catálogo de productos (~40h: CRUD, variantes, búsqueda). Total orientativo ~96h backend + ~24h frontend."
+    },
+    {
+      "id": "q2-jwt-api",
+      "question": "API REST con autenticación JWT, refresh tokens y despliegue en Kubernetes",
+      "ground_truth": "Estimación de referencia: API REST core (~48h), autenticación JWT + refresh (~20h), hardening seguridad (~12h), manifests Helm/K8s + CI/CD (~28h). Total orientativo ~108h."
+    },
+    {
+      "id": "q3-crm-paraphrase",
+      "question": "Sistema de gestión de relaciones con clientes para equipos comerciales B2B",
+      "ground_truth": "Estimación de referencia: módulo CRM contactos y cuentas (~36h), pipeline comercial (~28h), reporting básico (~16h), permisos por rol (~12h). Total orientativo ~92h."
+    },
+    {
+      "id": "q4-payments-mobile",
+      "question": "Aplicación móvil de pagos con PSD2, SCA y wallet digital",
+      "ground_truth": "Estimación de referencia: app móvil pagos (~56h), integración PSD2/SCA (~32h), wallet digital (~24h), backend compliance (~20h). Total orientativo ~132h."
+    },
+    {
+      "id": "q5-data-platform",
+      "question": "Plataforma de datos con pipelines ETL, PostgreSQL y dashboards analíticos",
+      "ground_truth": "Estimación de referencia: pipelines ETL (~40h), modelado PostgreSQL (~24h), dashboards analíticos (~28h), observabilidad datos (~16h). Total orientativo ~108h."
+    }
+  ]
+}

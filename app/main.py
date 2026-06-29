@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from app.config import get_settings
 from app.cors import configure_cors
 from app.middleware.llm_call_audit_middleware import llm_call_audit_middleware
-from app.routers import embeddings, estimations, estimations_v2, retrieval, retrieval_debug, search, sessions
+from app.routers import embeddings, estimations, estimations_v2, rag_estimations, retrieval, retrieval_debug, search, sessions
 from app.services.llm_chain import build_provider_chain
 from app.services.observability.bootstrap import init_observability, shutdown_observability
 
@@ -71,6 +71,7 @@ app.include_router(embeddings.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(retrieval_debug.router, prefix="/api/v1")
 app.include_router(retrieval.router, prefix="/api/v1")
+app.include_router(rag_estimations.router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -89,6 +90,7 @@ def read_root() -> dict[str, str]:
         "embeddings": "POST /api/v1/embeddings/ingest",
         "search": "POST /api/v1/search",
         "retrieval": "POST /api/v1/retrieval",
+        "estimate_rag": "POST /api/v1/estimate/rag",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
     }
 

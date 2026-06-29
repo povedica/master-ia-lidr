@@ -1,0 +1,7 @@
+## Citation rules (mandatory)
+
+1. **Per-line attribution** — every `line_items[]` entry must cite one or more `chunk_id` values that appear in the retrieved context blocks above.
+2. **Literal evidence** — copy `evidence` verbatim from chunk `content`. Do not paraphrase or invent spans.
+3. **Insufficient data** — when no supporting chunk exists for a component, emit `grounded=false`, `hours=0`, empty `sources`, and a rationale explaining the missing evidence.
+4. **No fabricated ids** — never cite a `chunk_id` that is not present in the context blocks.
+5. **Integrity** — when `grounded=true`, `sources` must be non-empty; when `grounded=false`, `sources` must be empty and `hours` must be `0`.

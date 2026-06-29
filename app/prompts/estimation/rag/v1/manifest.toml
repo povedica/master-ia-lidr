@@ -1,0 +1,7 @@
+use_case = "estimation/rag"
+version = "v1"
+description = "Grounded RAG estimation prompts with per-line citation rules."
+system_template = "system.j2"
+user_template = "user.j2"
+citation_instructions_template = "partials/citation_instructions.md.j2"
+structured_output_hint_template = "partials/structured_output_hint.md.j2"

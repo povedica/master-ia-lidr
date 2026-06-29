@@ -367,6 +367,18 @@ class Settings(BaseSettings):
         default="",
         description="Cross-encoder model id; empty uses NoOpReranker.",
     )
+    rag_estimation_retrieval_mode: str = Field(
+        default="B",
+        description="Default retrieval mode for POST /api/v1/estimate/rag (A|B|C|D).",
+    )
+    ragas_judge_model: str = Field(
+        default="gpt-4o-mini",
+        description="Judge model for offline RAGAS generation eval (dev/slow only).",
+    )
+    ragas_embedding_model: str = Field(
+        default="text-embedding-3-small",
+        description="Embedding model for offline RAGAS generation eval (dev/slow only).",
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(
