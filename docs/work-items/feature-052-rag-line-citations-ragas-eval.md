@@ -588,7 +588,7 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 
 ## Implementation progress
 
-- [ ] Step 1: `provider_routing` + refactor `EstimationService` (FR-12, AC-14)
+- [x] Step 1: `provider_routing` + refactor `EstimationService` (FR-12, AC-14)
 - [ ] Step 2: `RagEstimationResult` schema + unit tests (FR-01–03, AC-01/02)
 - [ ] Step 3: `citation_report` + `verify_citations` (FR-07, AC-06/07)
 - [ ] Step 4: `ChunkContentRepository` (FR-04, AC-03)
@@ -603,6 +603,12 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - [ ] Step 13: Manual RAGAS baseline + README/docs/Second Brain (AC-16)
 - [ ] Step 14: Full fast pytest sweep + verification evidence
 
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| _(pending)_ | `refactor(services): extract resolve_first_litellm_route for shared provider resolution` |
+
 ## Pull Request
 
-_WIP draft PR URL recorded after branch setup._
+- **WIP draft:** https://github.com/povedica/master-ia-lidr/pull/47 (label: `wip`)
