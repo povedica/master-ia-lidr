@@ -1,0 +1,12 @@
+## Structured output
+
+Return strict JSON only. Required top-level fields:
+
+- `schema_version`: `"rag-1"`
+- `summary`: concise overview (20–2000 chars)
+- `line_items`: array of components with `component`, `hours`, `rationale`, `grounded`, `sources`
+- `total_hours`: sum of grounded line hours (server may recompute)
+- `currency`: default `"EUR"`
+- `insufficient_context`: `true` only when the entire request cannot be grounded
+
+Each `sources[]` entry requires integer `chunk_id`, `document_id`, optional `budget_id`, and non-empty literal `evidence`.
