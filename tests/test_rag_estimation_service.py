@@ -1,0 +1,161 @@
+"""Unit tests for RagEstimationService orchestration."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.config import Settings
+from app.embedding_pipeline.chunk_content_repository import ChunkContent, ChunkContentRepository
+from app.embedding_pipeline.retrieval_schemas import (
+    RetrievalAppliedConfig,
+    RetrievalResponse,
+    RetrievalResultRow,
+    RetrievalRerankConfig,
+    RetrievalTimingsMs,
+)
+from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
+from app.schemas.citation_report import CitationLineStatus
+from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
+from app.services.llm_chain import LitellmChainProvider
+from app.services.llm_types import UsageInfo
+from app.services.rag_estimation_service import RagEstimationService
+
+
+def _retrieval_response(*chunk_ids: int) -> RetrievalResponse:
+    return RetrievalResponse(
+        query="test",
+        mode="B",
+        applied_config=RetrievalAppliedConfig(
+            mode="B",
+            recall_k=50,
+            top_k_final=5,
+            branches=["vector", "lexical"],
+            rerank=RetrievalRerankConfig(enabled=False, model="", is_noop=True),
+            text_search_config="spanish",
+        ),
+        timings_ms=RetrievalTimingsMs(total=10),
+        results=[
+            RetrievalResultRow(
+                final_position=index + 1,
+                chunk_id=chunk_id,
+                document_id=7,
+                budget_id="BUD-2024-014",
+                score=0.9,
+                metadata={"budget_id": "BUD-2024-014"},
+            )
+            for index, chunk_id in enumerate(chunk_ids)
+        ],
+    )
+
+
+def _service(
+    *,
+    retrieval: RetrievalService | None = None,
+    content_repository: ChunkContentRepository | None = None,
+) -> RagEstimationService:
+    settings = Settings(_env_file=None)
+    providers = [
+        LitellmChainProvider(
+            name="openai",
+            litellm_model="gpt-4o-mini",
+            api_key="test-key",
+            timeout_seconds=30.0,
+        )
+    ]
+    return RagEstimationService(
+        settings=settings,
+        retrieval_service=retrieval or AsyncMock(spec=RetrievalService),
+        content_repository=content_repository or ChunkContentRepository(),
+        providers=providers,
+    )
+
+
+@pytest.mark.asyncio
+async def test_insufficient_context_when_retrieval_returns_no_rows() -> None:
+    retrieval = AsyncMock(spec=RetrievalService)
+    retrieval.retrieve = AsyncMock(return_value=_retrieval_response())
+    retrieval.retrieve.return_value = RetrievalResponse(
+        query="test",
+        mode="B",
+        applied_config=_retrieval_response().applied_config,
+        timings_ms=RetrievalTimingsMs(total=1),
+        results=[],
+    )
+    service = _service(retrieval=retrieval)
+
+    outcome = await service.estimate(
+        "OAuth platform",
+        request_id="req_insufficient",
+        session=AsyncMock(),
+        embedder=AsyncMock(),
+        reranker=AsyncMock(),
+        mode=RetrievalMode.B,
+        recall_k=50,
+        top_k_final=5,
+    )
+
+    assert outcome.result.insufficient_context is True
+    assert outcome.result.line_items == []
+    assert outcome.chunk_texts == []
+
+
+@pytest.mark.asyncio
+async def test_happy_path_generates_and_verifies_citations() -> None:
+    retrieval = AsyncMock(spec=RetrievalService)
+    retrieval.retrieve = AsyncMock(return_value=_retrieval_response(42))
+    content_repository = AsyncMock(spec=ChunkContentRepository)
+    content_repository.get_contents_by_ids = AsyncMock(
+        return_value={
+            42: ChunkContent(
+                chunk_id=42,
+                document_id=7,
+                budget_id="BUD-2024-014",
+                content="OAuth2 login integration scope",
+                metadata={"budget_id": "BUD-2024-014"},
+            )
+        }
+    )
+    llm_result = RagEstimationResult(
+        summary="Grounded estimate for OAuth integration from retrieved budget chunk.",
+        line_items=[
+            RagEstimationLineItem(
+                component="authentication",
+                hours=12.0,
+                rationale="OAuth2 scope from retrieved chunk.",
+                grounded=True,
+                sources=[
+                    SourceReference(
+                        chunk_id=42,
+                        document_id=7,
+                        budget_id="BUD-2024-014",
+                        evidence="OAuth2 login integration scope",
+                    )
+                ],
+            )
+        ],
+        total_hours=12.0,
+        insufficient_context=False,
+    )
+    service = _service(retrieval=retrieval, content_repository=content_repository)
+
+    with patch(
+        "app.services.rag_estimation_service.complete_structured",
+        new=AsyncMock(return_value=(llm_result, UsageInfo(prompt_tokens=1, completion_tokens=2, total_tokens=3), "stop")),
+    ):
+        outcome = await service.estimate(
+            "OAuth platform",
+            request_id="req_ok",
+            session=AsyncMock(),
+            embedder=AsyncMock(),
+            reranker=AsyncMock(),
+            mode=RetrievalMode.B,
+            recall_k=50,
+            top_k_final=5,
+        )
+
+    assert outcome.result.line_items[0].grounded is True
+    assert outcome.report.lines[0].status == CitationLineStatus.GROUNDED_OK
+    assert outcome.chunk_texts == ["OAuth2 login integration scope"]
+    assert outcome.provider == "openai"
