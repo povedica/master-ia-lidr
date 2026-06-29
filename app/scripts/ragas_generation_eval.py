@@ -27,11 +27,10 @@ from app.embedding_pipeline.generation_eval import (
     validate_generation_preflight,
 )
 from app.embedding_pipeline.retrieval_eval import fetch_alembic_revision, fetch_corpus_snapshot
-from app.embedding_pipeline.retrieval_service import RetrievalMode, parse_retrieval_mode
 from app.embedding_pipeline.rerank import build_reranker
+from app.embedding_pipeline.retrieval_service import RetrievalService, parse_retrieval_mode
 from app.services.llm_chain import build_provider_chain
 from app.services.rag_estimation_service import RagEstimationService
-from app.embedding_pipeline.retrieval_service import RetrievalService
 
 
 def _parse_args() -> argparse.Namespace:

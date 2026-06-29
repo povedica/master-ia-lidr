@@ -763,6 +763,32 @@ uv run python app/scripts/retrieval_eval.py --repetitions 5
 
 Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op reranker for modes C/D. Preflight blocks empty corpus, missing embeddings/`budget_id`, stale Alembic, or no-op reranker. Writes `comparison.md`, `results.json`, and `recommendation.md` under `evaluation/retrieval/results/<timestamp>/`. Committed evidence: `evaluation/retrieval/results/20260623T154959Z/` (mode **B** recommended; rerank did not justify latency on this corpus). See [docs/technical/README.md](docs/technical/README.md) §25c for methodology and interpretation.
 
+**Grounded RAG estimation** (`POST /api/v1/estimate/rag`):
+
+- Separate from CAG v2: no semantic cache, ACB, or v2 output guardrails; basic non-empty input validation only.
+- Flow: `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit).
+- Response includes per-line `sources`, `grounded`, and `citation_summary` counts (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`).
+- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Plataforma e-commerce con Stripe y OAuth2"}'
+```
+
+**RAGAS generation baseline** (offline, slow, dev dependency):
+
+```bash
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+OPENAI_API_KEY=... \
+RAG_ESTIMATION_RETRIEVAL_MODE=B \
+RAGAS_JUDGE_MODEL=gpt-4o-mini \
+RAGAS_EMBEDDING_MODEL=text-embedding-3-small \
+uv run python app/scripts/ragas_generation_eval.py
+```
+
+Golden set: `evaluation/generation/golden_set.json` (5 queries + expert `ground_truth`). Writes `metrics.json`, `comparison.md`, and `quality_note.md` under `evaluation/generation/results/<timestamp>/`. Preflight requires populated corpus, Alembic `0004`, importable `ragas`, and `OPENAI_API_KEY`. See [docs/technical/README.md](docs/technical/README.md) §25d.
+
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \
   -H 'Content-Type: application/json' \
