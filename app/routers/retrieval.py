@@ -4,23 +4,24 @@ from __future__ import annotations
 
 import logging
 from typing import Annotated
-from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.database import get_db_session
+from app.deps import get_request_id
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchRepository
 from app.embedding_pipeline.rerank import Reranker, build_reranker
 from app.embedding_pipeline.retrieval_schemas import RetrievalRequest, RetrievalResponse
 from app.embedding_pipeline.retrieval_service import (
-    RetrievalMode,
     RetrievalService,
     parse_retrieval_mode,
 )
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
+from app.middleware.rate_limiting import conditional_rate_limit
+from app.middleware.security import require_retrieval_key
 
 router = APIRouter(tags=["retrieval"])
 logger = logging.getLogger(__name__)
@@ -47,9 +48,15 @@ def get_reranker(settings: Annotated[Settings, Depends(get_settings)]) -> Rerank
     return build_reranker(settings)
 
 
-@router.post("/retrieval", response_model=RetrievalResponse)
+@router.post(
+    "/retrieval",
+    response_model=RetrievalResponse,
+    dependencies=[Depends(require_retrieval_key)],
+)
+@conditional_rate_limit("120/minute")
 async def retrieve_chunks(
-    request: RetrievalRequest,
+    request: Request,
+    payload: RetrievalRequest,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     embedder: Annotated[OpenAIEmbedder, Depends(get_embedder)],
@@ -59,8 +66,8 @@ async def retrieve_chunks(
 ) -> RetrievalResponse:
     """Run production retrieval in mode A/B/C/D."""
 
-    request_id = f"rtv_{uuid4().hex[:12]}"
-    mode_raw = request.mode or settings.retrieval_default_mode
+    request_id = get_request_id(request)
+    mode_raw = payload.mode or settings.retrieval_default_mode
     try:
         mode = parse_retrieval_mode(mode_raw)
     except ValueError as exc:
@@ -69,12 +76,12 @@ async def retrieve_chunks(
             detail=str(exc),
         ) from exc
 
-    recall_k = request.recall_k or settings.retrieval_recall_k
-    top_k_final = request.top_k_final or settings.retrieval_top_k_final
+    recall_k = payload.recall_k or settings.retrieval_recall_k
+    top_k_final = payload.top_k_final or settings.retrieval_top_k_final
 
     try:
         return await _service.retrieve(
-            request.query,
+            payload.query,
             mode=mode,
             recall_k=recall_k,
             top_k_final=top_k_final,

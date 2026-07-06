@@ -5,10 +5,13 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.cors import configure_cors
 from app.middleware.llm_call_audit_middleware import llm_call_audit_middleware
+from app.middleware.rate_limiting import limiter, rate_limit_exceeded_handler
+from app.middleware.request_id import install_request_id_logging, request_id_middleware
 from app.routers import embeddings, estimations, estimations_v2, rag_estimations, retrieval, retrieval_debug, search, sessions
 from app.services.llm_chain import build_provider_chain
 from app.services.observability.bootstrap import init_observability, shutdown_observability
@@ -18,6 +21,7 @@ logging.basicConfig(
     level=getattr(logging, _log_level.upper(), logging.INFO),
     format="%(levelname)s %(name)s %(message)s",
 )
+install_request_id_logging()
 
 
 @asynccontextmanager
@@ -62,6 +66,9 @@ app = FastAPI(
 )
 
 configure_cors(app, get_settings())
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.middleware("http")(request_id_middleware)
 app.middleware("http")(llm_call_audit_middleware)
 
 app.include_router(estimations.router, prefix="/api/v1")

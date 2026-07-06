@@ -379,6 +379,19 @@ class Settings(BaseSettings):
         default="text-embedding-3-small",
         description="Embedding model for offline RAGAS generation eval (dev/slow only).",
     )
+    # --- API hardening (feature-056): optional keys + rate limits ---
+    retrieval_api_key: str = Field(
+        default="",
+        description="When set, POST /api/v1/retrieval requires X-API-Key header.",
+    )
+    estimate_api_key: str = Field(
+        default="",
+        description="When set, POST /api/v1/estimate/rag requires X-API-Key header.",
+    )
+    rate_limit_enabled: bool = Field(
+        default=False,
+        description="When true, apply slowapi limits on secured retrieval/RAG routes.",
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(
