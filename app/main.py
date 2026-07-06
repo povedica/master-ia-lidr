@@ -12,7 +12,17 @@ from app.cors import configure_cors
 from app.middleware.llm_call_audit_middleware import llm_call_audit_middleware
 from app.middleware.rate_limiting import limiter, rate_limit_exceeded_handler
 from app.middleware.request_id import install_request_id_logging, request_id_middleware
-from app.routers import embeddings, estimations, estimations_v2, rag_estimations, retrieval, retrieval_debug, search, sessions
+from app.routers import (
+    embeddings,
+    estimations,
+    estimations_v2,
+    rag_estimations,
+    retrieval,
+    retrieval_debug,
+    runtime_config,
+    search,
+    sessions,
+)
 from app.services.llm_chain import build_provider_chain
 from app.services.observability.bootstrap import init_observability, shutdown_observability
 
@@ -79,6 +89,7 @@ app.include_router(search.router, prefix="/api/v1")
 app.include_router(retrieval_debug.router, prefix="/api/v1")
 app.include_router(retrieval.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
+app.include_router(runtime_config.router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -99,6 +110,8 @@ def read_root() -> dict[str, str]:
         "retrieval": "POST /api/v1/retrieval",
         "estimate_rag": "POST /api/v1/estimate/rag",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
+        "config_retrieval": "GET/PUT /api/v1/config/retrieval",
+        "config_models": "GET/PUT /api/v1/config/models",
     }
 
 
