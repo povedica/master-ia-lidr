@@ -114,8 +114,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Task hours | `POST /v1/estimate/tasks/hours` | — | ❌ Phase 2 |
 | Corpus index jobs | `POST /embeddings/index/runs`, poll, stats | — | ❌ Phase 3 |
 | Batch ingestion jobs | `POST /api/v1/ingestion/runs` | — | ❌ Phase 4 (optional) |
-| Runtime model config | `GET/PUT /api/v1/config/models` | — | ❌ Phase 1 |
-| Runtime retrieval config | `GET/PUT /api/v1/config/retrieval` | env-only `Settings` | ❌ Phase 1 |
+| Runtime model config | `GET/PUT /api/v1/config/models` | `GET/PUT /api/v1/config/models` (Redis override) | ✅ feature-057 |
+| Runtime retrieval config | `GET/PUT /api/v1/config/retrieval` | `GET/PUT /api/v1/config/retrieval` (Redis override, wired to rerank) | ✅ feature-057 |
 | Retrieval debug | — | `POST /api/v1/retrieval-debug` | 🔵 keep |
 | API key auth | `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY` | none | ❌ Phase 1 |
 | Rate limiting | `slowapi` per key | none | ❌ Phase 1 |
@@ -189,7 +189,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | --- | --- | --- | --- |
 | API keys (retrieval/estimate) | `api/security.py` | — | ❌ Phase 1 |
 | Rate limits | `api/rate_limiting.py` + slowapi | — | ❌ Phase 1 |
-| Runtime config Redis | `foundation/llm/runtime_config.py` | — | ❌ Phase 1 |
+| Runtime config Redis | `foundation/llm/runtime_config.py` | `app/services/runtime_config.py` | ✅ feature-057 |
 | Request ID middleware | `main.py` | per-handler `request_id` | 🟡 unify |
 | Dev/prod config split | `APP_ENV` patterns | `app_env`, `dev_mode` | ✅ |
 
@@ -535,6 +535,8 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] Phase 0 — feature-052 complete (merged PR #47)
 - [x] Phase 1 Step 2 — feature-056 API hardening (ready for `/finish-task` on PR #48)
 - [ ] **Parallel wave 1** — `feature-055` + `feature-057` via worktrees (`docs/technical/feature-053-parity-parallel.manifest.yaml`)
+  - [x] `feature-057` — runtime config Redis endpoints implemented in its worktree; WIP PR opened (see `feature-057-runtime-config-redis-endpoints.md`).
+  - [ ] `feature-055` — in progress in its own worktree.
 
 ### Parallel orchestration (wave 1)
 

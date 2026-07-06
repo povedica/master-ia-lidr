@@ -1480,6 +1480,7 @@
               <li><code>search</code> — búsqueda semántica top-k sobre chunks persistidos (feature-038)</li>
               <li><code>retrieval</code> — producción A/B/C/D: vector, híbrido RRF, rerank cross-encoder y evaluación (feature-050)</li>
               <li><code>retrieval-debug</code> — API interna y pantalla React gated por <code>VITE_ENABLE_RETRIEVAL_DEBUG</code> para explicar ramas vectorial, lexical e híbrida, comparar rankings e inspeccionar chunks (features 042–047)</li>
+              <li><code>config</code> — <code>GET/PUT /api/v1/config/retrieval</code> y <code>/config/models</code>: overrides en Redis (merge sobre <code>Settings</code>), abiertos en dev, sin reinicio (feature-057)</li>
             </ul>
           </div>
           <div class="card">
@@ -2837,8 +2838,13 @@ docker compose exec app python -m app.scripts.compare --text-a "..." --text-b ".
               <tr><td>POST</td><td><code>/api/v1/retrieval</code></td><td>Production retrieval modes A/B/C/D</td><td>vector ± lexical RRF ± cross-encoder rerank + eval harness</td></tr>
               <tr><td>POST</td><td><code>/api/v1/retrieval-debug</code></td><td>Internal explainable hybrid retrieval</td><td>vector + lexical branches → hybrid fusion → optional no-op rerank + ranking diff</td></tr>
               <tr><td>GET</td><td><code>/api/v1/retrieval-debug/chunks/{id}</code></td><td>Chunk inspector with neighbors</td><td>Postgres chunk/document context</td></tr>
+              <tr><td>GET / PUT</td><td><code>/api/v1/config/retrieval</code></td><td>Runtime retrieval config (rerank toggle, models)</td><td>Redis override merged over <code>Settings</code></td></tr>
+              <tr><td>GET / PUT</td><td><code>/api/v1/config/models</code></td><td>Runtime model config (structured/judge model)</td><td>Redis override merged over <code>Settings</code></td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="alert info">
+          <strong>Runtime config (feature-057):</strong> <code>app/routers/runtime_config.py</code> exposes both endpoints, delegating to <code>app/services/runtime_config.py</code>, which stores a small JSON blob per resource under <code>master-ia:runtime:retrieval</code> / <code>master-ia:runtime:models</code> (Redis DSN from <code>REDIS_URL</code>). <code>GET</code> always returns an <em>effective</em> config: the Redis override merged field-by-field over env <code>Settings</code>; missing/unset fields fall back to env defaults, and an unreachable or unconfigured Redis degrades reads to env defaults rather than failing. <code>PUT</code> accepts a partial body (only the fields to change) and returns <code>503</code> when Redis is unavailable to persist the write. <code>POST /api/v1/retrieval</code> resolves an effective <code>Settings</code> copy (<code>get_effective_settings</code> dependency) before building the reranker, so toggling <code>rerank_enabled</code> changes behavior on the very next request — no restart, same degrade-to-A/B semantics as the <code>RETRIEVAL_RERANK_ENABLED</code> env kill switch. Config routes stay open in dev (no <code>X-API-Key</code>); retrieval/RAG keep their feature-056 auth.
         </div>
       </section>
 
