@@ -392,6 +392,14 @@ class Settings(BaseSettings):
         default=False,
         description="When true, apply slowapi limits on secured retrieval/RAG routes.",
     )
+    # --- Runtime config (feature-057): Redis-backed model/retrieval overrides ---
+    redis_url: str = Field(
+        default="",
+        description=(
+            "Generic Redis DSN reused by runtime config overrides "
+            "(GET/PUT /api/v1/config/*); empty falls back to env Settings only."
+        ),
+    )
 
     def acb_blocking_severities_set(self) -> frozenset[str]:
         return frozenset(
