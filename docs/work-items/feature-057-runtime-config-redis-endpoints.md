@@ -178,7 +178,7 @@ master-ia:runtime:models
 ## Pull Request
 
 - **Branch:** `feature/057-runtime-config-redis-endpoints`
-- _(URL after WIP PR opened)_
+- **WIP PR:** https://github.com/povedica/master-ia-lidr/pull/50
 
 ## How to start
 

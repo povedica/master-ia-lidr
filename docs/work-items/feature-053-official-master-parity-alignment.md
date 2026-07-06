@@ -535,7 +535,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] Phase 0 — feature-052 complete (merged PR #47)
 - [x] Phase 1 Step 2 — feature-056 API hardening (ready for `/finish-task` on PR #48)
 - [ ] **Parallel wave 1** — `feature-055` + `feature-057` via worktrees (`docs/technical/feature-053-parity-parallel.manifest.yaml`)
-  - [x] `feature-057` — runtime config Redis endpoints implemented in its worktree; WIP PR opened (see `feature-057-runtime-config-redis-endpoints.md`).
+  - [x] `feature-057` — runtime config Redis endpoints implemented in its worktree; WIP PR https://github.com/povedica/master-ia-lidr/pull/50.
   - [ ] `feature-055` — in progress in its own worktree.
 
 ### Parallel orchestration (wave 1)
