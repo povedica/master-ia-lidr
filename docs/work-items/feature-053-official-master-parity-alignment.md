@@ -491,7 +491,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 ### Baby steps (first slice to `/start-task`)
 
 - [x] **Step 1:** Complete feature-052 Steps 15–17 (RAGAS fix + UI).
-- [ ] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(in progress — branch `feature/056-api-security-rate-limit-request-id`)_
+- [ ] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(WIP — https://github.com/povedica/master-ia-lidr/pull/48)_
 - [ ] **Step 3:** `feature-054` — `--gate` / `--monitor` on generation eval.
 - [ ] **Step 4:** `feature-059` — query reformulator wired into `RagEstimationService`.
 - [ ] **Step 5:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
@@ -536,7 +536,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 ## Pull Request
 
-- **WIP (feature-056 slice):** _pending first push_
+- **WIP (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
 
 ---
