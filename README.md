@@ -220,6 +220,8 @@ For sequence diagrams, error mapping, and logging details, see [docs/technical/R
 
 The `web/` package is a **React + Vite + TypeScript** browser UI. On load it creates a session (`POST /api/v1/sessions`), lists recent sessions in a sidebar (`GET /api/v1/sessions`), and submits the simplified form to `POST /api/v1/sessions/{session_id}/estimate`. **Project metadata** and the structured **estimate** render in separate panels.
 
+**Grounded RAG citations** (feature-052): the estimate result panel includes **Run RAG estimate**, which calls `POST /api/v1/estimate/rag` with the one-line summary + transcript as the retrieval question. Results appear on the **RAG citations** tab: per-line `component`, `hours`, `grounded`, `rationale`, `sources[]`, plus a `citation_summary` audit strip (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`). This path is separate from the CAG v2 session estimate (no semantic cache / ACB).
+
 The internal retrieval debug screen lives at `/debug/retrieval` and is hidden unless `VITE_ENABLE_RETRIEVAL_DEBUG=true`. It consumes the debug API to compare vector, lexical, hybrid, and rerank lanes, tune request knobs, render ranking diffs and explanation chips, and inspect chunk context in a drawer. Keep the flag disabled for normal end-user builds.
 
 | Mode | How it runs |
@@ -776,6 +778,8 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
   -d '{"question":"Plataforma e-commerce con Stripe y OAuth2"}'
 ```
 
+In **`web/`**, fill the transcript (and optional one-line summary), then use **Run RAG estimate** in the estimate result panel and open the **RAG citations** tab to compare the UI table with the JSON payload.
+
 **RAGAS generation baseline** (offline, slow, dev dependency):
 
 ```bash
@@ -787,7 +791,7 @@ RAGAS_EMBEDDING_MODEL=text-embedding-3-small \
 uv run python app/scripts/ragas_generation_eval.py
 ```
 
-Golden set: `evaluation/generation/golden_set.json` (5 queries + expert `ground_truth`). Writes `metrics.json`, `comparison.md`, and `quality_note.md` under `evaluation/generation/results/<timestamp>/`. Preflight requires populated corpus, Alembic `0004`, importable `ragas`, and `OPENAI_API_KEY`. See [docs/technical/README.md](docs/technical/README.md) §25d.
+Golden set: `evaluation/generation/golden_set.json` (5 queries + expert `ground_truth`). Writes `metrics.json`, `comparison.md`, and `quality_note.md` under `evaluation/generation/results/<timestamp>/`. The runner shapes a natural-language RAGAS `answer` via `format_ragas_answer()` (not raw JSON) and serializes non-finite metrics as `null` / `n/a`. Preflight requires populated corpus, Alembic `0004`, importable `ragas`, and `OPENAI_API_KEY`. See [docs/technical/README.md](docs/technical/README.md) §25d.
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \

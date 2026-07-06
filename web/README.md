@@ -2,6 +2,12 @@
 
 React + Vite + TypeScript client for the **session-first simplified estimator**. On load the app creates a session (`POST /api/v1/sessions`), lists recent sessions in a collapsible sidebar (`GET /api/v1/sessions`), and submits the short form to `POST /api/v1/sessions/{session_id}/estimate`. Submits use **JSON** when there are no new files; when the user attaches files, `estimateInSession` sends **`multipart/form-data`** with the same field names as the API. **Project metadata** appears in the right panel (Readable grouped view or **Memory (current)** JSON); the structured **estimate** renders in a full-width panel below.
 
+## Grounded RAG citations (feature-052)
+
+The estimate result panel exposes **Run RAG estimate**, which posts to `POST /api/v1/estimate/rag` with the one-line summary + transcript as the question (`web/src/features/estimation/api/ragEstimateApi.ts`). The **RAG citations** tab renders `RagCitationTable` / `RagCitationSummary`: per-line `component`, `hours`, `grounded`, `rationale`, `sources[]`, and `citation_summary` counts. This is additive to the CAG v2 session estimate path.
+
+Requires the same populated Postgres corpus as retrieval eval and a running API (`uv run uvicorn app.main:app --reload`).
+
 ## Setup
 
 ```bash

@@ -1353,6 +1353,7 @@ Production retrieval (feature-050) is wired to structured generation through a *
 | Prompts | `app/prompts/estimation/rag/v1/` | English citation rules (literal evidence, insufficiency) |
 | Eval golden set | `evaluation/generation/golden_set.json` | 5 queries + answer-level `ground_truth` (distinct from retrieval labels) |
 | Eval runner | `app/scripts/ragas_generation_eval.py` | RAGAS faithfulness, answer relevancy, context precision/recall |
+| Web UI | `web/src/features/estimation/` (`ragEstimateApi.ts`, `RagCitationTable`, `RagCitationSummary`) | **Run RAG estimate** + citations tab in `EstimateResultPanel` |
 
 **Explicitly not inherited from v2:** semantic input guardrails, semantic cache, ACB, and v2 output guardrails. Hardening the RAG endpoint with input guardrails is a documented follow-up.
 
@@ -1370,7 +1371,7 @@ RAG_ESTIMATION_RETRIEVAL_MODE=B \
 uv run python app/scripts/ragas_generation_eval.py
 ```
 
-Artifacts: `evaluation/generation/results/<timestamp>/{metrics.json,comparison.md,quality_note.md}`.
+Artifacts: `evaluation/generation/results/<timestamp>/{metrics.json,comparison.md,quality_note.md}`. RAGAS `answer` is prose from `format_ragas_answer()`; non-finite metric floats serialize as `null` in JSON and `n/a` in markdown.
 
 Work item: [feature-052](../work-items/feature-052-rag-line-citations-ragas-eval.md).
 

@@ -760,8 +760,8 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 **Recommended first checks for next implementer**
 
 1. `uv run pytest tests/test_rag_estimation_endpoint.py -q`
-2. Implement FR-17; re-run `uv run python app/scripts/ragas_generation_eval.py` and confirm finite `answer_relevancy` + valid `metrics.json`.
-3. Implement FR-16; confirm citations table in `web/` matches `POST /api/v1/estimate/rag` JSON.
+2. Re-run `uv run python app/scripts/ragas_generation_eval.py` and confirm finite `answer_relevancy` + valid `metrics.json`.
+3. In `web/`, **Run RAG estimate** and confirm citations table matches `POST /api/v1/estimate/rag` JSON.
 4. Local curl to `/api/v1/estimate/rag` with populated `DATABASE_URL`.
 
 ## Pull Request
