@@ -151,7 +151,7 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 ## Pull Request
 
 - **Branch:** `feature/055-ragas-eval-gate-and-monitor`
-- _(URL after WIP PR opened)_
+- **URL:** https://github.com/povedica/master-ia-lidr/pull/49 (WIP draft)
 
 ## Repository commits (master-ia)
 
