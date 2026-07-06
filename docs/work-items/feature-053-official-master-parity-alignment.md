@@ -475,8 +475,9 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 | ID | Slug | Phase | Depends on |
 | --- | --- | --- | --- |
-| feature-054 | `ragas-eval-gate-and-monitor` | 0 | feature-052 _(renamed; `feature-054-agentic-estimation-loop` is Session 12, out of parity track)_ |
-| feature-055 | `web-rag-citations-table` | 0 | feature-052 |
+| feature-054 | `agentic-estimation-loop` | Session 12 | — _(out of parity track; see `feature-054-agentic-estimation-loop.md`)_ |
+| feature-055 | `ragas-eval-gate-and-monitor` | 0 | feature-052 |
+| feature-055b | `web-rag-citations-table` | 0 | feature-052 _(shipped in feature-052)_ |
 | feature-056 | `api-security-rate-limit-request-id` | 1 | — |
 | feature-057 | `runtime-config-redis-endpoints` | 1 | feature-056 |
 | feature-058 | `rag-coherence-and-eval-gate` | 1 | feature-054 |
@@ -492,7 +493,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 - [x] **Step 1:** Complete feature-052 Steps 15–17 (RAGAS fix + UI).
 - [x] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(PR — https://github.com/povedica/master-ia-lidr/pull/48)_
-- [ ] **Step 3:** `feature-054` — `--gate` / `--monitor` on generation eval.
+- [ ] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval.
 - [ ] **Step 4:** `feature-059` — query reformulator wired into `RagEstimationService`.
 - [ ] **Step 5:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
 - [ ] **Step 6:** `feature-061` — `advanced_retrieve` + endpoint.
@@ -533,6 +534,21 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 - [x] Phase 0 — feature-052 complete (merged PR #47)
 - [x] Phase 1 Step 2 — feature-056 API hardening (ready for `/finish-task` on PR #48)
+- [ ] **Parallel wave 1** — `feature-055` + `feature-057` via worktrees (`docs/technical/feature-053-parity-parallel.manifest.yaml`)
+
+### Parallel orchestration (wave 1)
+
+| Task | Work item | Branch | Parallel with |
+| --- | --- | --- | --- |
+| 055 | `feature-055-ragas-eval-gate-and-monitor.md` | `feature/055-ragas-eval-gate-and-monitor` | 057 |
+| 057 | `feature-057-runtime-config-redis-endpoints.md` | `feature/057-runtime-config-redis-endpoints` | 055 |
+
+```bash
+uv run python scripts/worktree_tasks.py plan -f docs/technical/feature-053-parity-parallel.manifest.yaml
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-parity-parallel.manifest.yaml
+```
+
+Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — use Cursor agents per `INSTRUCTIONS.md` in each worktree.
 
 ## Pull Request
 
