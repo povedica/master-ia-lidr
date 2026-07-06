@@ -153,6 +153,15 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 - **Branch:** `feature/055-ragas-eval-gate-and-monitor`
 - _(URL after WIP PR opened)_
 
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `cc76733` | test(generation-eval): add failing gate/monitor unit tests (RED) |
+| `3082d1c` | feat(generation-eval): add RAGAS baseline gate/monitor helpers (GREEN) |
+| `104ca23` | feat(ragas-eval): wire --gate/--monitor/--baseline/--tolerance CLI flags |
+| `3bddd42` | docs(ragas-eval): add baseline template and gate/monitor usage docs |
+
 ## How to start
 
 ```text
