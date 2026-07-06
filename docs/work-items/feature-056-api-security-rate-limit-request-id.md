@@ -109,7 +109,7 @@ RATE_LIMIT_ENABLED=false
 - [x] **AC-04:** With keys unset, retrieval accepts unauthenticated POST.
 - [x] **AC-05:** With `RATE_LIMIT_ENABLED=true`, 11th RAG request within a minute → 429 + `Retry-After`.
 - [x] **AC-06:** `GET /health` response includes `X-Request-ID`; client id echoed when sent.
-- [ ] **AC-07:** `README.md` documents new env vars and curl examples with `X-API-Key`.
+- [x] **AC-07:** `README.md` documents new env vars and curl examples with `X-API-Key`.
 - [x] **AC-08:** `uv run pytest` fast suite green (excluding pre-existing shell-env `test_config` failures).
 - [x] **AC-09:** CAG v1/v2 and session estimate tests unchanged (no auth regression).
 
@@ -144,7 +144,7 @@ uv run pytest -q
 | --- | --- |
 | Targeted security/rate/id tests | **Verified** — 10 passed (2026-07-06) |
 | Full fast pytest | **Verified** — 667 passed; 2 pre-existing `test_config` failures when shell sets `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED` |
-| README curl examples | **Not verified** — AC-07 pending |
+| README curl examples | **Verified** — Security § API hardening + Configuration table (2026-07-06) |
 | Live staging with real keys | **Not verified** |
 
 **Residual risk:** `conditional_rate_limit` reads `get_settings()` at request time; tests must patch `app.middleware.rate_limiting.get_settings` when overriding `rate_limit_enabled` (cached `lru_cache` on config module).
@@ -154,7 +154,7 @@ uv run pytest -q
 | Artifact | Status |
 | --- | --- |
 | `.env.example` | Done |
-| `README.md` | Pending — API hardening subsection |
+| `README.md` | Done — API hardening subsection |
 | `docs/technical/README.md` | Optional — cross-link when parity matrix row updated |
 | `feature-053` progress | Updated with PR link |
 
@@ -165,13 +165,13 @@ uv run pytest -q
 - [x] **Step 3:** `request_id.py` + `tests/test_request_id_middleware.py`.
 - [x] **Step 4:** `rate_limiting.py` + wire `main.py` + rate limit test.
 - [x] **Step 5:** Wire `retrieval.py` + `rag_estimations.py` with `get_request_id`.
-- [ ] **Step 6:** README subsection + mark AC-07; `/finish-task` closure.
+- [x] **Step 6:** README subsection + mark AC-07; `/finish-task` closure.
 
 ## Estimation
 
 - Size: **S**
 - Estimated time: **2–3 hours**
-- Planned steps: **6** (Step 6 docs/closure remaining)
+- Planned steps: **6** (complete)
 
 ## Implementation progress
 
@@ -180,7 +180,7 @@ uv run pytest -q
 - [x] Step 3: Request ID middleware
 - [x] Step 4: Rate limiting
 - [x] Step 5: Router wiring
-- [ ] Step 6: README + closure
+- [x] Step 6: README + closure prep
 
 ## Pull Request
 
@@ -193,6 +193,35 @@ uv run pytest -q
 | --- | --- |
 | _(on branch)_ | `feat(api): add optional API keys, rate limits, and request ID middleware` |
 | _(on branch)_ | `docs(feature-053): record feature-056 WIP PR and Step 2 progress` |
+| _(on branch)_ | `docs(readme): document API hardening env vars and curl examples (feature-056)` |
+
+## Handoff from feature-056
+
+**Shipped interfaces**
+
+- `POST /api/v1/retrieval` — optional `require_retrieval_key` + `120/minute` when `RATE_LIMIT_ENABLED=true`
+- `POST /api/v1/estimate/rag` — optional `require_estimate_key` + `10/minute` when limits enabled
+- Global `request_id_middleware` + `RequestIdLogFilter`; `get_request_id(request)` in `app/deps.py`
+- Settings: `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY`, `RATE_LIMIT_ENABLED` (see `.env.example`)
+
+**Verification evidence**
+
+- `uv run pytest tests/test_api_security.py tests/test_api_rate_limiting.py tests/test_request_id_middleware.py` — 10 passed
+- Full fast suite green except pre-existing shell-env `test_config` failures when `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED` are set in the shell
+
+**Not verified**
+
+- Live staging with real keys and `RATE_LIMIT_ENABLED=true` under load
+
+**Residual risks**
+
+- Tests overriding `rate_limit_enabled` must patch `app.middleware.rate_limiting.get_settings` (cached `lru_cache` on config)
+- CAG/session/embeddings routes remain unsecured by design until a future work item
+
+**Recommended first tests for feature-057**
+
+- Confirm runtime config endpoints respect the same auth dependencies when wired
+- Regression: retrieval/RAG tests with keys unset (default open access)
 
 ## How to start
 

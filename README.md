@@ -19,6 +19,7 @@ Built as an **AI Engineering learning baseline**: typed settings, provider abstr
 | **Providers** | OpenAI and Anthropic via [LiteLLM](https://github.com/BerriAI/litellm), with ordered fallback and optional static degraded mode. |
 | **Semantic cache** | Optional Redis Stack / RediSearch vector cache for `POST /api/v2/estimate` (off by default). |
 | **Observability** | Optional [Langfuse](https://langfuse.com) traces via OpenTelemetry (off by default). |
+| **API hardening** | Optional `X-API-Key` on retrieval and RAG estimate routes, opt-in per-key rate limits, global `X-Request-ID` correlation. |
 | **Web UI** | React + Vite + TypeScript workbench in `web/` with session sidebar, multipart uploads, and theme controls. |
 
 ---
@@ -274,10 +275,13 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/sessions/{session_id}/estimate` | Simplified transcript-centered submit |
 | `POST` | `/api/v1/embeddings/ingest` | Persist a budget document and its chunk embeddings (Postgres + pgvector) |
 | `POST` | `/api/v1/search` | Semantic search over persisted chunks (pgvector cosine distance) |
-| `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank) |
+| `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank); optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
+| `POST` | `/api/v1/estimate/rag` | Grounded RAG estimation with citation audit; optional `X-API-Key` when `ESTIMATE_API_KEY` is set |
 | `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
 
-The `embeddings/ingest`, `search`, and `retrieval` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
+The `embeddings/ingest`, `search`, `retrieval`, and `estimate/rag` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
+
+Every HTTP response includes an **`X-Request-ID`** header (client-supplied values are echoed). See [API hardening](#api-hardening-retrieval--rag).
 
 ### Stateless estimation (v1)
 
@@ -455,6 +459,9 @@ Copy `.env.example` for the full list. Key settings:
 | `SEMANTIC_CACHE_*` | see `.env.example` | Semantic cache for v2 (defaults: off / log-only) |
 | `ACB_*` | see `.env.example` | Actor-Critic-Boss session orchestration (default: off) |
 | `OTEL_*` / `LANGFUSE_*` | see `.env.example` | Observability export (defaults: off) |
+| `RETRIEVAL_API_KEY` | *(empty)* | When set, `POST /api/v1/retrieval` requires matching `X-API-Key` |
+| `ESTIMATE_API_KEY` | *(empty)* | When set, `POST /api/v1/estimate/rag` requires matching `X-API-Key` |
+| `RATE_LIMIT_ENABLED` | `false` | When `true`, limits retrieval to 120/min and RAG estimate to 10/min per API-key bucket (IP fallback) |
 
 Chat completions go through **LiteLLM**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (prefixes are added automatically), or set a fully qualified id in `DEFAULT_LLM_MODEL`.
 
@@ -470,7 +477,7 @@ master-ia/
 │   ├── cors.py                 # CORS configuration
 │   ├── database.py             # Async SQLAlchemy engine/session (Postgres + pgvector)
 │   ├── routers/                # HTTP boundaries (v1, v2, sessions, embeddings, search)
-│   ├── middleware/             # HTTP middleware (LLM-call audit)
+│   ├── middleware/             # HTTP middleware (request ID, rate limits, LLM-call audit)
 │   ├── services/               # CAG, LLM chain, sessions, semantic cache, observability
 │   ├── guardrails/             # Input/output policy pipeline (+ ACB policy)
 │   ├── schemas/                # Pydantic request/response models
@@ -773,6 +780,7 @@ Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op 
 - Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
 
 ```bash
+# When ESTIMATE_API_KEY is set in .env, add: -H 'X-API-Key: your-estimate-key'
 curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
   -H 'Content-Type: application/json' \
   -d '{"question":"Plataforma e-commerce con Stripe y OAuth2"}'
@@ -794,6 +802,7 @@ uv run python app/scripts/ragas_generation_eval.py
 Golden set: `evaluation/generation/golden_set.json` (5 queries + expert `ground_truth`). Writes `metrics.json`, `comparison.md`, and `quality_note.md` under `evaluation/generation/results/<timestamp>/`. The runner shapes a natural-language RAGAS `answer` via `format_ragas_answer()` (not raw JSON) and serializes non-finite metrics as `null` / `n/a`. Preflight requires populated corpus, Alembic `0004`, importable `ragas`, and `OPENAI_API_KEY`. See [docs/technical/README.md](docs/technical/README.md) §25d.
 
 ```bash
+# When RETRIEVAL_API_KEY is set in .env, add: -H 'X-API-Key: your-retrieval-key'
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \
   -H 'Content-Type: application/json' \
   -d '{"query":"API REST con OAuth2 y Stripe","mode":"B"}'
@@ -1099,6 +1108,8 @@ For the v1 Markdown + SSE contract details, see [docs/technical/README.md §11](
 | CORS error from web UI | Origin not allowed | Add dev URL to `FRONTEND_ORIGINS` in `.env` |
 | Semantic cache never hits | Cache disabled or log-only | Set `SEMANTIC_CACHE_ENABLED=true`, configure Redis URL, set `SEMANTIC_CACHE_LOG_ONLY=false` |
 | `/favicon.ico` returns `404` | No favicon served by API | Expected — browsers request it automatically |
+| `401` on `/api/v1/retrieval` or `/api/v1/estimate/rag` | API key required but missing or wrong | Set `RETRIEVAL_API_KEY` / `ESTIMATE_API_KEY` in `.env` and send matching `X-API-Key`; leave keys empty for open local dev |
+| `429` on retrieval or RAG | Rate limit exceeded | `RATE_LIMIT_ENABLED=true` — wait for `Retry-After` (60s) or reduce request rate |
 
 More detail: [docs/technical/README.md §20](docs/technical/README.md#20-troubleshooting).
 
@@ -1112,6 +1123,45 @@ More detail: [docs/technical/README.md §20](docs/technical/README.md#20-trouble
 - The default test suite does not require real provider keys.
 - Session state is **in-memory only** — not suitable for multi-instance production without external storage.
 - Guardrails reduce risk but are not a substitute for production content moderation or auth.
+
+### API hardening (retrieval & RAG)
+
+Optional protection for **`POST /api/v1/retrieval`** and **`POST /api/v1/estimate/rag`** only. CAG v1/v2, sessions, embeddings ingest, and search remain open by default.
+
+| Variable | Default | Behavior |
+|----------|---------|----------|
+| `RETRIEVAL_API_KEY` | *(empty)* | When non-empty, retrieval requests must send `X-API-Key` with a constant-time match |
+| `ESTIMATE_API_KEY` | *(empty)* | Independent key for RAG estimate; retrieval key does not unlock RAG |
+| `RATE_LIMIT_ENABLED` | `false` | When `true`: retrieval **120/minute**, RAG estimate **10/minute** per API-key bucket (client IP when no header) |
+
+**Request correlation:** every response includes `X-Request-ID`. Send your own id to trace logs across services; otherwise the API generates one.
+
+**Staging / production example** (`.env`):
+
+```text
+RETRIEVAL_API_KEY=change-me-retrieval
+ESTIMATE_API_KEY=change-me-estimate
+RATE_LIMIT_ENABLED=true
+```
+
+```bash
+# Retrieval (401 without header when RETRIEVAL_API_KEY is set)
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: change-me-retrieval' \
+  -H 'X-Request-ID: my-trace-001' \
+  -d '{"query":"API REST con OAuth2","mode":"B"}'
+
+# RAG estimate (401 without header when ESTIMATE_API_KEY is set)
+curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: change-me-estimate' \
+  -d '{"question":"Plataforma e-commerce con Stripe y OAuth2"}'
+
+# Rate limit breach → 429 with Retry-After: 60 and JSON detail
+```
+
+Automated coverage: `tests/test_api_security.py`, `tests/test_api_rate_limiting.py`, `tests/test_request_id_middleware.py`.
 
 ---
 
