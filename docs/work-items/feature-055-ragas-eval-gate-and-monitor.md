@@ -81,12 +81,12 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `uv run python app/scripts/ragas_generation_eval.py --gate` with mocked metrics above baseline exits 0 in unit test.
-- [ ] **AC-02:** Same harness with metrics below baseline − tolerance exits 1 in unit test.
-- [ ] **AC-03:** `--monitor` prints faithfulness and answer relevancy without changing exit code semantics.
-- [ ] **AC-04:** `evaluation/generation/RAGAS_BASELINE.md` exists with documented tolerance.
-- [ ] **AC-05:** `uv run pytest tests/embedding_pipeline/test_generation_gate.py` passes without API keys.
-- [ ] **AC-06:** Fast suite `uv run pytest` unchanged (no new slow tests in default collection).
+- [x] **AC-01:** `uv run python app/scripts/ragas_generation_eval.py --gate` with mocked metrics above baseline exits 0 in unit test.
+- [x] **AC-02:** Same harness with metrics below baseline − tolerance exits 1 in unit test.
+- [x] **AC-03:** `--monitor` prints faithfulness and answer relevancy without changing exit code semantics.
+- [x] **AC-04:** `evaluation/generation/RAGAS_BASELINE.md` exists with documented tolerance.
+- [x] **AC-05:** `uv run pytest tests/embedding_pipeline/test_generation_gate.py` passes without API keys.
+- [x] **AC-06:** Fast suite `uv run pytest` unchanged (no new slow tests in default collection).
 
 ## Test Plan
 
@@ -122,10 +122,10 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Implementation Plan
 
-- [ ] **Step 1:** `test_generation_gate.py` RED — baseline parse + compare pure functions.
-- [ ] **Step 2:** Implement gate helpers GREEN in `generation_eval.py`.
-- [ ] **Step 3:** Wire CLI flags + exit codes in `ragas_generation_eval.py`.
-- [ ] **Step 4:** Add `RAGAS_BASELINE.md` + README; mark ACs.
+- [x] **Step 1:** `test_generation_gate.py` RED — baseline parse + compare pure functions.
+- [x] **Step 2:** Implement gate helpers GREEN in `generation_eval.py`.
+- [x] **Step 3:** Wire CLI flags + exit codes in `ragas_generation_eval.py`.
+- [x] **Step 4:** Add `RAGAS_BASELINE.md` + README; mark ACs.
 
 ## Estimation
 
@@ -135,10 +135,18 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Implementation progress
 
-- [ ] Step 1: Gate unit tests (RED)
-- [ ] Step 2: Gate helpers
-- [ ] Step 3: CLI wiring
-- [ ] Step 4: Docs + baseline
+- [x] Step 1: Gate unit tests (RED) — `tests/embedding_pipeline/test_generation_gate.py` (14 tests), verified failing on collection before helpers existed.
+- [x] Step 2: Gate helpers — `BaselineParseError`, `GenerationBaseline`, `GateMetricComparison`, `GateResult`, `load_baseline`, `evaluate_gate`, `gate_exit_code`, `render_gate_summary`, `render_monitor_summary`, `gate_result_to_json` in `app/embedding_pipeline/generation_eval.py`.
+- [x] Step 3: CLI wiring — `--gate`, `--monitor`, `--baseline`, `--tolerance` flags in `app/scripts/ragas_generation_eval.py`; exit 0/1/2 semantics; optional `gate_result` merged into `metrics.json` only when `--gate` is used. Added 2 CLI arg-parsing unit tests.
+- [x] Step 4: Docs + baseline — `evaluation/generation/RAGAS_BASELINE.md` seeded from run `20260629T185540Z`; `README.md` gate/monitor usage section; `docs/technical/README.md` §25d "Regression gate and monitor (feature-055)" subsection.
+
+**Verified:**
+- `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` → 16 passed.
+- `uv run pytest -q` (fast suite) → 683 passed, 11 skipped, 12 deselected, **2 pre-existing failures** (`tests/test_config.py::test_database_url_defaults_to_empty_string`, `tests/test_config.py::test_retrieval_settings_defaults_are_backward_compatible`) confirmed unrelated to this change — same failures reproduce on the unmodified main worktree due to local `.env` values leaking into `Settings(_env_file=None)` default assertions.
+- `uv run python app/scripts/ragas_generation_eval.py --help` shows all four new flags.
+- `load_baseline()` manually verified against the real committed `RAGAS_BASELINE.md`.
+
+**Not verified (out of scope / requires live infra):** `--gate`/`--monitor` against a real live RAGAS run with `OPENAI_API_KEY` and populated Postgres (excluded from this slice per Scope; remains a manual follow-up).
 
 ## Pull Request
 
