@@ -1,0 +1,18 @@
+# Parallel worktree manifest for feature-053 parity track (wave 1).
+# Base branch includes feature-056 API hardening until PR #48 merges to main.
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: feature/056-api-security-rate-limit-request-id
+  max_parallel: 2
+  env_strategy: symlink
+tasks:
+  - work_item: docs/work-items/feature-055-ragas-eval-gate-and-monitor.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: eval-scripts
+  - work_item: docs/work-items/feature-057-runtime-config-redis-endpoints.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: api-config
