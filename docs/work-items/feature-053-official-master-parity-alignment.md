@@ -550,7 +550,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 /start-task docs/work-items/feature-056-api-security-rate-limit-request-id.md
 ```
 
-(Child work items `feature-054` … `feature-065` are **named in this roadmap** but not yet created as separate files; create them with `/write-feature` or manually when starting each slice.)
+(Child work items `feature-055` … `feature-065` are **named in this roadmap**; create missing files with `/write-feature` when starting each slice. **`feature-056`** exists at `docs/work-items/feature-056-api-security-rate-limit-request-id.md`.)
 
 For the full program track:
 
