@@ -727,6 +727,9 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 | 11f3f9c | `feat(eval): add generation golden set and loader for RAGAS baseline` |
 | 88915d8 | `feat(eval): add generation_eval RAGAS helpers and dev dependencies` |
 | c873f08 | `feat(scripts): add ragas_generation_eval offline baseline runner` |
+| 36447b3 | `docs(feature-052): complete verification, handoff, and user documentation` |
+| a7131b1 | `feat(feature-052): add RAG citations UI and NaN-safe RAGAS reporting` |
+| 65975c0 | `docs(feature-052): document RAG citations UI and RAGAS reporting` |
 
 ## Handoff from feature-052
 
@@ -766,4 +769,4 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 
 ## Pull Request
 
-- **WIP draft:** https://github.com/povedica/master-ia-lidr/pull/47 (label: `wip`)
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/47 (feature-052 complete)
