@@ -1,8 +1,10 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { ZodError } from 'zod'
 
-import { useSessionEstimate } from '../hooks/useSessionEstimate'
+import { RagEstimateApiError, runRagEstimate, type RagEstimationResponse } from '../api/ragEstimateApi'
+import { useSessionEstimate, type PanelStatus } from '../hooks/useSessionEstimate'
 import { assertFilesWithinLimits } from '../lib/attachmentRefs'
+import { buildRagQuestion } from '../lib/buildRagQuestion'
 import {
   buildInitialSimplifiedForm,
   mapToSessionEstimateBody,
@@ -65,6 +67,9 @@ export function EstimationWorkbench({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formSummary, setFormSummary] = useState<string | null>(null)
   const [fileList, setFileList] = useState<File[]>([])
+  const [ragResponse, setRagResponse] = useState<RagEstimationResponse | null>(null)
+  const [ragStatus, setRagStatus] = useState<PanelStatus>('empty')
+  const [ragError, setRagError] = useState<string | null>(null)
   const hadFieldErrorsRef = useRef(false)
 
   const formDisabled = sessionStatus !== 'ready' || resetInProgress || selectInProgress
@@ -102,6 +107,9 @@ export function EstimationWorkbench({
       setFieldErrors({})
       setFormSummary(null)
       setFileList([])
+      setRagResponse(null)
+      setRagStatus('empty')
+      setRagError(null)
       const outcome = await selectSession(targetSessionId)
       if (!outcome.ok) {
         setFormSummary(outcome.message)
@@ -121,6 +129,9 @@ export function EstimationWorkbench({
     setFileList([])
     setFieldErrors({})
     setFormSummary(null)
+    setRagResponse(null)
+    setRagStatus('empty')
+    setRagError(null)
     clearPanels()
     await resetConversation()
   }, [clearPanels, resetConversation])
@@ -169,6 +180,29 @@ export function EstimationWorkbench({
     }
   }
 
+  const handleRunRagEstimate = useCallback(async () => {
+    setRagError(null)
+    setRagStatus('loading')
+    try {
+      const question = buildRagQuestion(form)
+      if (!question.trim()) {
+        setRagStatus('error')
+        setRagError('Add a transcript or one-line summary before running RAG estimate.')
+        return
+      }
+      const response = await runRagEstimate({ question })
+      setRagResponse(response)
+      setRagStatus('available')
+    } catch (exc) {
+      setRagStatus('error')
+      if (exc instanceof RagEstimateApiError && exc.status === 503) {
+        setRagError('RAG estimation is temporarily unavailable.')
+        return
+      }
+      setRagError(exc instanceof Error ? exc.message : 'Unable to complete RAG estimate.')
+    }
+  }, [form])
+
   return (
     <div className="mx-auto max-w-[96rem] px-4 py-8 text-left text-slate-900 dark:text-slate-100">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -215,6 +249,11 @@ export function EstimationWorkbench({
               estimate={estimate}
               errorMessage={estimateError}
               warnings={warnings}
+              ragResponse={ragResponse}
+              ragStatus={ragStatus}
+              ragErrorMessage={ragError}
+              onRunRagEstimate={() => void handleRunRagEstimate()}
+              ragRunDisabled={formDisabled || !form.transcript.trim()}
             />
           </div>
         </div>

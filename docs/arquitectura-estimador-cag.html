@@ -1607,6 +1607,13 @@
                         <span class="arch-node-title">v2 /estimate</span>
                         <span class="arch-node-sub">JSON estructurado</span>
                       </button>
+                      <button type="button" class="arch-node" data-id="router-rag" data-layer="router"
+                        data-title="POST /api/v1/estimate/rag"
+                        data-file="app/routers/rag_estimations.py"
+                        data-desc="Estimación RAG grounded: retrieve → re-fetch chunk content → prompts rag/v1 → RagEstimationResult → verify_citations. Fuera de LLMPipeline (sin caché/ACB/guardrails v2).">
+                        <span class="arch-node-title">v1 /estimate/rag</span>
+                        <span class="arch-node-sub">citas por línea</span>
+                      </button>
                       <button type="button" class="arch-node" data-id="router-sessions" data-layer="router"
                         data-title="/api/v1/sessions/*"
                         data-file="app/routers/sessions.py"

@@ -1338,6 +1338,43 @@ uv run python app/scripts/retrieval_eval.py --repetitions 5
 
 Work item: [feature-051](../work-items/feature-051-retrieval-evaluation-evidence-and-recommendation.md).
 
+## 25d. Grounded RAG estimation and RAGAS baseline (feature-052)
+
+Production retrieval (feature-050) is wired to structured generation through a **separate** endpoint that does not mutate the CAG v2 contract.
+
+| Piece | Location | Role |
+| --- | --- | --- |
+| HTTP | `POST /api/v1/estimate/rag` (`app/routers/rag_estimations.py`) | Orchestrates only; DI mirrors `retrieval.py` |
+| Schema | `app/schemas/rag_estimation_result.py` | `RagEstimationResult` (`schema_version=rag-1`), per-line `sources` / `grounded` |
+| Content fetch | `app/embedding_pipeline/chunk_content_repository.py` | Re-read chunk text by `chunk_id` (retrieval rows carry no content) |
+| Context | `app/services/rag_context_assembler.py` | `[CHUNK START]…[CHUNK END]` blocks for prompts |
+| Generation | `RagEstimationService` + `complete_structured` | Instructor path with `RagEstimationResult` |
+| Audit | `app/services/citation_verification.py` | Post-generation chunk-id membership (`dangling_citation`, etc.) |
+| Prompts | `app/prompts/estimation/rag/v1/` | English citation rules (literal evidence, insufficiency) |
+| Eval golden set | `evaluation/generation/golden_set.json` | 5 queries + answer-level `ground_truth` (distinct from retrieval labels) |
+| Eval runner | `app/scripts/ragas_generation_eval.py` | RAGAS faithfulness, answer relevancy, context precision/recall |
+| Web UI | `web/src/features/estimation/` (`ragEstimateApi.ts`, `RagCitationTable`, `RagCitationSummary`) | **Run RAG estimate** + citations tab in `EstimateResultPanel` |
+
+**Explicitly not inherited from v2:** semantic input guardrails, semantic cache, ACB, and v2 output guardrails. Hardening the RAG endpoint with input guardrails is a documented follow-up.
+
+**Settings:** `RAG_ESTIMATION_RETRIEVAL_MODE` (default `B`), `RAGAS_JUDGE_MODEL`, `RAGAS_EMBEDDING_MODEL`; reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+
+**Offline tests (default CI):** schema integrity, citation verification, assembler, chunk repository, endpoint with fakes, generation golden loader, metric renderers — no live OpenAI or Postgres in the default suite.
+
+**Live RAGAS run (manual, slow):**
+
+```bash
+uv run alembic upgrade head
+DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
+OPENAI_API_KEY=... \
+RAG_ESTIMATION_RETRIEVAL_MODE=B \
+uv run python app/scripts/ragas_generation_eval.py
+```
+
+Artifacts: `evaluation/generation/results/<timestamp>/{metrics.json,comparison.md,quality_note.md}`. RAGAS `answer` is prose from `format_ragas_answer()`; non-finite metric floats serialize as `null` in JSON and `n/a` in markdown.
+
+Work item: [feature-052](../work-items/feature-052-rag-line-citations-ragas-eval.md).
+
 ## 26. Worktree task orchestrator
 
 `scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.

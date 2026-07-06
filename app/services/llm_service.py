@@ -28,6 +28,7 @@ from app.services.estimation_prompt_rendering import (
 from app.services.prompt_renderer import PromptRenderer
 from app.services.prompt_versions import resolve_prompt_template_set
 from app.services.llm_chain import LitellmChainProvider
+from app.services.provider_routing import resolve_first_litellm_route
 from app.services.structured_llm_client import (
     StructuredCompletionError,
     complete_structured,
@@ -588,6 +589,8 @@ class EstimationService:
         raise EstimationError("All providers failed.")
 
     def _first_litellm_route(self) -> LitellmChainProvider | None:
+        """Return the first LiteLLM chain provider (used by ACB orchestrator)."""
+
         for provider in self._providers:
             if isinstance(provider, LitellmChainProvider):
                 return provider
@@ -664,8 +667,8 @@ class EstimationService:
     ) -> StructuredEstimateBundle:
         """Jinja prompts + Instructor structured completion (v2 API)."""
 
-        provider = self._first_litellm_route()
-        if provider is None:
+        route = resolve_first_litellm_route(self._providers)
+        if route is None:
             raise EstimationError(
                 "Structured estimation requires a live LiteLLM provider (configure OpenAI or Anthropic)."
             )
@@ -687,7 +690,9 @@ class EstimationService:
             examples_version=EXAMPLES_VERSION,
             settings=self._settings,
         )
-        litellm_model, api_key, timeout = provider.litellm_route()
+        litellm_model = route.litellm_model
+        api_key = route.api_key
+        timeout = route.timeout_seconds
         system_prompt = system_prompt_override or rendered.system_prompt
         user_prompt = user_prompt_override or rendered.user_prompt
         record_structured_call_overrides(
@@ -698,7 +703,7 @@ class EstimationService:
         try:
             domain_result, raw_usage, finish = await complete_structured(
                 litellm_model=litellm_model,
-                chain_provider=provider.name,
+                chain_provider=route.provider_name,
                 api_key=api_key,
                 timeout_seconds=timeout,
                 system_prompt=system_prompt,
@@ -721,8 +726,8 @@ class EstimationService:
             result=domain_result,
             prompt_version=rendered.prompt_version,
             examples_version=rendered.examples_version,
-            model=provider.model,
-            provider=provider.name,
+            model=route.model,
+            provider=route.provider_name,
             usage=merged_usage,
             degraded=False,
             finish_reason=finish,

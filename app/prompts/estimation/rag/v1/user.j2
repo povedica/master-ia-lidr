@@ -1,0 +1,13 @@
+# Grounded estimation request
+
+Business question:
+
+{{ question }}
+
+## Retrieved context
+
+Use **only** the chunks below when citing evidence. Each block includes integer `chunk_id` and `document_id` values you may reference in `sources`.
+
+{{ prompt_block }}
+
+Produce a JSON object that validates against the `RagEstimationResult` schema (`schema_version`: `rag-1`).
