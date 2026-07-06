@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -153,6 +154,46 @@ class TestEvaluateGate:
 
         assert result.passed is True
         assert result.tolerance == pytest.approx(0.25)
+
+
+class TestCliFlags:
+    def test_parse_args_recognizes_gate_monitor_flags(self) -> None:
+        from app.scripts.ragas_generation_eval import _parse_args
+
+        argv = sys.argv
+        sys.argv = [
+            "ragas_generation_eval.py",
+            "--gate",
+            "--monitor",
+            "--baseline",
+            "custom_baseline.md",
+            "--tolerance",
+            "0.1",
+        ]
+        try:
+            args = _parse_args()
+        finally:
+            sys.argv = argv
+
+        assert args.gate is True
+        assert args.monitor is True
+        assert args.baseline == Path("custom_baseline.md")
+        assert args.tolerance == pytest.approx(0.1)
+
+    def test_parse_args_defaults_gate_monitor_to_false(self) -> None:
+        from app.scripts.ragas_generation_eval import _parse_args
+
+        argv = sys.argv
+        sys.argv = ["ragas_generation_eval.py"]
+        try:
+            args = _parse_args()
+        finally:
+            sys.argv = argv
+
+        assert args.gate is False
+        assert args.monitor is False
+        assert args.baseline == Path("evaluation/generation/RAGAS_BASELINE.md")
+        assert args.tolerance is None
 
 
 class TestRenderSummaries:
