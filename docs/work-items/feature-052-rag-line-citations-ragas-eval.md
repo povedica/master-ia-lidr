@@ -8,6 +8,8 @@ This feature also delivers the **retrieval → generation wiring** that `feature
 
 The new capability ships as a **separate, additive surface** (`POST /api/v1/estimate/rag`) so the existing CAG v2 path (`/api/v2/estimate`), its guardrails, semantic cache, and ACB orchestration remain untouched.
 
+**Post-implementation gap (2026-06-29, closed 2026-07-06):** FR-16 (`web/` citations table) and FR-17 (RAGAS answer shaping + NaN-safe metrics) are implemented. Re-run `app/scripts/ragas_generation_eval.py` locally to refresh baseline artifacts with finite `answer_relevancy` and valid `metrics.json`.
+
 ## Context
 
 ### Current codebase (verified baseline)
@@ -42,6 +44,27 @@ These were ambiguous in the first draft and are now **fixed** decisions:
 6. **Logging:** stdlib `logging` + `extra={}` (no new dependency). The exercise's "structured logging" requirement is met by the existing `extra={}` convention.
 7. **Eval logic placement:** importable module `app/embedding_pipeline/generation_eval.py` + thin runner `app/scripts/ragas_generation_eval.py`, mirroring retrieval eval.
 
+### RAGAS baseline findings (live run `20260629T185540Z`)
+
+Artifacts: `evaluation/generation/results/20260629T185540Z/{comparison.md,metrics.json,quality_note.md}`.
+
+| Metric | Mean | Observation |
+| --- | ---: | --- |
+| faithfulness | 0.569 | Moderate; q4-payments-mobile lowest (0.385). |
+| answer_relevancy | **NaN** | **Defect:** all five queries returned NaN; mean also NaN. |
+| context_precision | 0.863 | Strong retrieval ranking on this corpus. |
+| context_recall | 0.140 | Weakest usable metric; q1–q3 scored 0.0. |
+
+**Root causes and corrections (implemented in FR-17, 2026-07-06):**
+
+1. **`answer_relevancy` NaN:** the runner passes `answer=outcome.result.model_dump_json()` into RAGAS. Structured JSON is a poor `answer` shape for `answer_relevancy` (embedding/judge mismatch → NaN). **Fix:** build a compact natural-language answer string for RAGAS only (e.g. `summary` + one line per `component`/`hours`/`rationale`); keep JSON available for faithfulness if needed.
+2. **Invalid `metrics.json`:** `json.dumps` wrote bare `NaN`, which is not valid JSON. **Fix:** normalize non-finite floats to `null` before serialization; render `n/a` in `comparison.md` instead of `nan`.
+3. **NaN-propagating means:** `statistics.mean` over NaN values yields NaN. **Fix:** use `math.nanmean` (or skip non-finite values) in `summarize_generation_metrics` and document skipped metrics in `quality_note.md`.
+4. **`quality_note.md` incomplete:** it correctly flags low `context_recall` but omits the broken `answer_relevancy` column. **Fix:** when any metric is non-finite, the note must call it out explicitly.
+5. **Low `context_recall` (directional):** likely mix of (a) expert `ground_truth` prose not aligning with retrieved chunk texts, and (b) retrieval coverage gaps for q1–q3. Tune in a separate iteration: review `ground_truth` wording, try higher `recall_k`, or compare against retrieval golden `relevant_budget_ids`.
+
+**Exercise stack note:** the Session 11 prose references OpenAI Responses API (`client.responses.parse`) and `structlog`. This repo intentionally uses **`complete_structured` (Instructor + LiteLLM)** and **stdlib `logging` + `extra={}`** instead; that decision stands. If a future business path consumes cited estimation inside the session flow, the **HTTP contract for existing endpoints must not change** — only enrich the response body with per-line `sources` / `grounded` (same additive pattern as `RagEstimationResponse.result`).
+
 ### Layering invariant
 
 Dependency direction must stay **`app/services` → `app/embedding_pipeline`** (never the reverse). `RagEstimationService`, `rag_context_assembler`, and `verify_citations` live in `app/services` and may import from `app/embedding_pipeline`. The chunk-content repository lives in `app/embedding_pipeline` (DB access to the `chunks` table, next to `retrieval_debug_repository.py`) and must not import from `app/services`.
@@ -63,6 +86,8 @@ Dependency direction must stay **`app/services` → `app/embedding_pipeline`** (
 - New settings (`RAG_ESTIMATION_RETRIEVAL_MODE`, `RAGAS_*`) and `.env.example` placeholders.
 - Unit/integration tests (mocked LLM + fakes); RAGAS run marked `slow`.
 - README + Second Brain (Session 11) documentation.
+- **`web/` citations table UI** (FR-16): render grounded line items with sources and citation audit summary from `RagEstimationResponse` (or equivalent enriched session payload).
+- **RAGAS reporting fixes** (FR-17): human-readable RAGAS `answer`, NaN-safe metrics serialization and markdown rendering.
 
 ### Excludes
 
@@ -71,9 +96,10 @@ Dependency direction must stay **`app/services` → `app/embedding_pipeline`** (
 - Routing RAG through `LLMPipeline` / semantic cache / ACB.
 - Semantic input guardrails (prompt-injection, domain) on the RAG endpoint → see FR-11 (explicit follow-up).
 - Fuzzy/literal evidence-substring verification (Phase 2, out of scope; see Learnings).
-- Frontend (Rails / React) changes beyond optionally consuming the new additive fields.
+- Replacing the CAG v2 session estimate path with RAG (RAG remains additive; v2 unchanged).
 - CI gating on RAGAS scores; expanding beyond 5 golden queries.
 - Real API keys or committed eval artifacts containing secrets.
+- Adding `structlog` or migrating structured generation to OpenAI Responses API (exercise prose only; out of scope).
 
 ## Functional Requirements
 
@@ -398,6 +424,62 @@ Runner and any test invoking real RAGAS are marked `@pytest.mark.slow` (deselect
 
 - `comparison.md`: one row per query (q1..q5) with `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`, plus a final `mean` row.
 - `quality_note.md`: 2–3 sentences identifying the weakest queries/metrics (e.g. low faithfulness from poorly grounded citations; low context_recall suggesting retrieval coverage gaps).
+- Non-finite metric values render as `n/a` in markdown and `null` in JSON; means skip non-finite inputs (see §RAGAS baseline findings).
+
+### FR-16 — Frontend line-level citations table (`web/`)
+
+The exercise requires the **UI to show the grounded estimation table**, not only the CAG effort breakdown. Today `StructuredEstimateSummary` binds to v2 `EstimationResult` (`phases`, `line_items[].name`, `cost_eur`) and **ignores** RAG citation fields.
+
+**Minimum UI contract** (additive; no breaking change to existing CAG views):
+
+1. **Detection:** when the estimate payload matches `RagEstimationResult` (`schema_version === "rag-1"`) or the parent response includes `citation_summary`, render the citations view (in addition to or instead of the CAG effort table when RAG-only).
+2. **Citations table** — one row per `result.line_items[]`:
+
+| Column | Source |
+| --- | --- |
+| Component | `line_items[].component` |
+| Hours | `line_items[].hours` |
+| Grounded | `line_items[].grounded` (badge: yes/no) |
+| Rationale | `line_items[].rationale` (truncated with expand) |
+| Sources | nested list: `chunk_id`, `document_id`, optional `budget_id`, `evidence` excerpt |
+
+3. **Citation summary strip** above or below the table from `citation_summary`: counts for `grounded_ok`, `dangling`, `insufficient`, `integrity_violations`; highlight when `has_dangling === true`.
+4. **Global insufficiency:** when `result.insufficient_context === true`, show an empty-state message instead of an effort table.
+5. **Data source (pick one in implementation; both acceptable):**
+   - **A (preferred for exercise demo):** dedicated RAG action calling `POST /api/v1/estimate/rag` with the project question (e.g. from transcript/metadata), displaying `RagEstimationResponse` in the result panel or a sibling tab.
+   - **B (session enrichment):** if the backend later attaches `result.line_items[]` with `sources`/`grounded` to the session estimate response, bind the same table component without changing route URLs — **enrich body only**.
+
+Reuse existing table styling from `StructuredEstimateSummary` / retrieval debug (`web/src/features/retrieval-debug/`). Do **not** parse Markdown or free text for citations.
+
+**Suggested modules:**
+
+```text
+web/src/features/estimation/
+├── components/
+│   ├── RagCitationTable.tsx          # line_items + sources table
+│   ├── RagCitationSummary.tsx        # citation_summary chips
+│   └── EstimateResultPanel.tsx       # branch: CAG vs RAG renderers
+└── api/
+    └── ragEstimateApi.ts             # POST /api/v1/estimate/rag client (if path A)
+```
+
+Vitest: fixture `RagEstimationResponse` → table rows include component, grounded badge, at least one source row when `grounded=true`.
+
+### FR-17 — RAGAS answer shaping and NaN-safe metrics
+
+`app/embedding_pipeline/generation_eval.py` + runner:
+
+```python
+def format_ragas_answer(result: RagEstimationResult) -> str:
+    """Natural-language answer for RAGAS metrics (not raw JSON)."""
+```
+
+- Runner uses `format_ragas_answer(outcome.result)` for the RAGAS `answer` field instead of `model_dump_json()`.
+- `summarize_generation_metrics` and `metrics_to_json` treat non-finite floats as missing (`null` / skipped in mean).
+- `render_generation_comparison_markdown` prints `n/a` for missing metrics.
+- `render_quality_note` mentions any metric column that is entirely non-finite.
+
+Unit tests: NaN inputs do not produce invalid JSON; markdown mean row shows `n/a` when all relevancy values are NaN.
 
 ## Technical Approach
 
@@ -426,6 +508,11 @@ app/
 evaluation/generation/
 ├── golden_set.json                  # 5 queries + ground_truth
 └── results/<timestamp>/             # metrics.json, comparison.md, quality_note.md (gitignored unless secret-free)
+
+web/src/features/estimation/
+├── components/RagCitationTable.tsx
+├── components/RagCitationSummary.tsx
+└── api/ragEstimateApi.ts            # optional if FR-16 path A
 ```
 
 Register the router in `app/main.py` (or the central router include) under `/api/v1`.
@@ -473,8 +560,10 @@ Reuse existing `retrieval_recall_k` / `retrieval_top_k_final` (do not duplicate)
 | Unit | `ChunkContentRepository` SQL build (statement-level / fake session) | `tests/embedding_pipeline/test_chunk_content_repository.py` | none |
 | Unit | Generation golden loader (missing ground_truth, dup ids) | `tests/embedding_pipeline/test_generation_golden_set.py` | none |
 | Unit | RAGAS dataset builder + metric summary (mock evaluate) | `tests/embedding_pipeline/test_generation_eval.py` | none |
+| Unit | `format_ragas_answer` + NaN-safe `metrics_to_json` / markdown | `tests/embedding_pipeline/test_generation_eval.py` | none |
 | Unit | `provider_routing.resolve_first_litellm_route` | `tests/test_provider_routing.py` | none |
 | Integration | RAG endpoint with fake retrieval + fake `complete_structured`; happy path + injected dangling chunk_id | `tests/test_rag_estimation_endpoint.py` | none (mock LLM) |
+| Frontend unit | `RagCitationTable` renders line items, sources, summary from fixture | `web/src/features/estimation/**/*.test.tsx` | none |
 | Slow | Full RAGAS run on populated DB | `uv run python app/scripts/ragas_generation_eval.py` | `OPENAI_API_KEY` + DB |
 
 All default-suite tests mock `complete_structured` and retrieval (rules 03/05). Arrange-Act-Assert. Default `uv run pytest` must stay green with no API keys and no live DB.
@@ -492,12 +581,14 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - [x] **AC-09:** `POST /api/v1/estimate/rag` returns `RagEstimationResponse` with per-line `sources`/`grounded` and a `citation_summary`; existing v2/v1 endpoints unchanged.
 - [x] **AC-10:** `RagEstimationService` is instantiable and runnable outside FastAPI (used by the RAGAS runner) with injected dependencies.
 - [x] **AC-11:** `evaluation/generation/golden_set.json` has 5 entries with ids/questions aligned to the retrieval golden set, each with non-empty `ground_truth`; loader rejects missing `ground_truth` and duplicate ids.
-- [x] **AC-12:** RAGAS runner produces `comparison.md` with 5 query rows + a `mean` row for faithfulness, answer_relevancy, context_precision, context_recall. *(renderers + runner implemented; live artifact run not verified in agent session)*
-- [x] **AC-13:** `quality_note.md` contains 2–3 sentences interpreting the weakest queries/metrics. *(renderer implemented; live artifact run not verified in agent session)*
+- [x] **AC-12:** RAGAS runner produces `comparison.md` with 5 query rows + a `mean` row for faithfulness, answer_relevancy, context_precision, context_recall. *(Live run `20260629T185540Z` produced the table, but `answer_relevancy` is NaN for all rows — see FR-17.)*
+- [x] **AC-13:** `quality_note.md` contains 2–3 sentences interpreting the weakest queries/metrics. *(Live run flags `context_recall`; must also mention broken `answer_relevancy` after FR-17.)*
 - [x] **AC-14:** `provider_routing.resolve_first_litellm_route` is shared by `EstimationService` and `RagEstimationService`; existing structured-output tests stay green (no behavior change).
 - [x] **AC-15:** Default `uv run pytest` passes with no OpenAI calls and no live DB; RAGAS run + tests are `slow` and deselected by default. *(654 passed; 1 pre-existing env-sensitive config test may fail when `RETRIEVAL_RERANK_ENABLED=true` is set in the shell)*
 - [x] **AC-16:** README documents the RAG estimate endpoint + RAGAS baseline commands; `.env.example` lists `RAG_ESTIMATION_RETRIEVAL_MODE`, `RAGAS_JUDGE_MODEL`, `RAGAS_EMBEDDING_MODEL` (placeholders only).
 - [x] **AC-17:** Global insufficient-context path (zero retrieved rows) returns `insufficient_context=true` with empty `line_items` and no fabricated hours.
+- [x] **AC-18:** `web/` renders a **line-level citations table** (`component`, `hours`, `grounded`, `rationale`, `sources[]`) and `citation_summary` when a RAG estimate is available (FR-16).
+- [x] **AC-19:** RAGAS runner writes valid JSON (`metrics.json` with `null` not `NaN`), human-readable RAGAS `answer`, and `comparison.md`/`quality_note.md` handle non-finite metrics (FR-17).
 
 ## Test Plan
 
@@ -509,6 +600,7 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - Content repository: statement construction / fake-session round-trip for a set of ids; missing id absent from map.
 - Golden loader: rejects missing `ground_truth`, empty list, duplicate ids.
 - Generation eval: dataset shaping from `RagasSample`; mean computation; markdown table shape (mock RAGAS evaluate).
+- Generation eval: `format_ragas_answer` prose shape; NaN → `null` JSON; `n/a` markdown cells.
 - Provider routing: first live LiteLLM route selected; `None` when no live provider.
 
 ### Integration tests
@@ -518,31 +610,35 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - Empty retrieval → `insufficient_context=true`, no LLM call.
 - Provider failure path → 503 with safe message.
 
+### Frontend tests
+
+- `RagCitationTable`: grounded line shows sources with `chunk_id` and `evidence`; ungrounded line shows `hours=0` and empty sources.
+- `RagCitationSummary`: renders counts; dangling state visible when `has_dangling=true`.
+
 ### Manual checks
 
 1. Populate local DB (same corpus as feature-051); `alembic current` at head.
 2. `POST /api/v1/estimate/rag` for q1; inspect JSON for per-line `sources` + `grounded` + `citation_summary`.
-3. `uv run python app/scripts/ragas_generation_eval.py` with a valid `OPENAI_API_KEY`.
-4. Open `evaluation/generation/results/<timestamp>/comparison.md`; confirm 5 rows + mean; read `quality_note.md`.
+3. In **`web/`**, trigger a RAG estimate (FR-16 path) and confirm the citations table matches the JSON payload.
+4. `uv run python app/scripts/ragas_generation_eval.py` with a valid `OPENAI_API_KEY`.
+5. Open `evaluation/generation/results/<timestamp>/comparison.md`; confirm 5 rows + mean, finite `answer_relevancy`, valid `metrics.json`.
+6. Read `quality_note.md`; confirm weakest metric + any broken columns are mentioned.
 
 ## Verification
 
 ### Automated
 
 - **Verified:** `uv run pytest` — **654 passed**, 11 skipped, 12 deselected (2026-06-29). One pre-existing failure: `tests/test_config.py::test_retrieval_settings_defaults_are_backward_compatible` when shell env sets `RETRIEVAL_RERANK_ENABLED=true` (unrelated to feature-052).
-- **Verified:** targeted feature suite — `uv run pytest tests/test_citation_verification.py tests/test_rag_estimation_schema.py tests/test_rag_estimation_endpoint.py tests/test_provider_routing.py tests/test_rag_estimation_service.py tests/embedding_pipeline/test_generation_golden_set.py tests/embedding_pipeline/test_generation_eval.py -q` — **33 passed**.
+- **Verified:** targeted feature suite — 31 passed (2026-07-06, includes FR-17 tests).
+- **Verified:** `web/` Vitest — 55 passed; `RagCitationTable` + `buildRagQuestion` fixtures (FR-16).
+- **Verified:** `web/` production build (`npm run build`) — green (2026-07-06).
 
 ### Manual
 
-- **Not verified:** RAGAS baseline run on populated local DB (`DATABASE_URL` unset in agent verification environment).
-- **Not verified:** live `POST /api/v1/estimate/rag` against populated Postgres corpus.
-
-### Not verified yet (at spec time)
-
-- Live RAGAS scores on the production corpus.
-- Rails consumer parsing of the new additive fields.
-- Statistical significance of the 5-query baseline (directional only).
-- RAG endpoint behavior under semantic input-guardrail attacks (explicit follow-up, FR-11).
+- **Verified (partial):** RAGAS baseline run `evaluation/generation/results/20260629T185540Z/` — pre-FR-17 run; `answer_relevancy` NaN and invalid JSON documented as the motivation for FR-17.
+- **Not verified:** live RAGAS re-run after FR-17 (requires populated DB + `OPENAI_API_KEY`).
+- **Not verified:** live `POST /api/v1/estimate/rag` from curl against populated Postgres.
+- **Not verified:** manual `web/` RAG button against live API (UI + client implemented; Vitest covers rendering).
 
 ## Documentation Plan
 
@@ -567,6 +663,9 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - [x] **Step 12:** `app/scripts/ragas_generation_eval.py` thin runner + preflight (FR-14).
 - [x] **Step 13:** README + docs + Second Brain (AC-16). Manual RAGAS baseline run deferred (no local DB in verification env).
 - [x] **Step 14:** Full fast pytest sweep; verification evidence recorded below.
+- [x] **Step 15:** `format_ragas_answer` + NaN-safe metrics JSON/markdown + runner wiring (FR-17, AC-19).
+- [x] **Step 16:** `RagCitationTable` + `RagCitationSummary` + API client / result-panel branch (FR-16, AC-18).
+- [x] **Step 17:** Vitest fixtures + Session 11 note updated; local RAGAS re-run deferred (no DB in agent env).
 
 ## Learnings
 
@@ -580,6 +679,10 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - **RAGAS is slow + token-heavy:** 4 metrics × 5 queries × judge calls. Must be `@pytest.mark.slow`; never block default CI.
 - **Evidence literal check is Phase 2:** verifying `evidence` is a substring of chunk content is brittle (whitespace/normalization). Phase 1 verifies `chunk_id` membership only; substring verification is out of scope.
 - **feature-050 deferred wiring:** estimation↔retrieval wiring was an explicit follow-up; this feature delivers it as a new service, not a router tweak.
+- **Frontend gap (closed):** `web/` now exposes **Run RAG estimate** and a citations table via `RagCitationTable` / `RagCitationSummary` (FR-16).
+- **RAGAS answer must be prose:** `format_ragas_answer()` feeds RAGAS instead of `model_dump_json()` (FR-17).
+- **NaN is not JSON:** always normalize non-finite metric floats before `json.dumps`.
+- **context_recall vs precision:** high precision (0.863) with low recall (0.140) suggests ranking is sharp but retrieved contexts miss ground-truth coverage — tune retrieval or golden `ground_truth`, not only the generator prompt.
 
 ## Estimation
 
@@ -603,6 +706,9 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 - [x] Step 12: `ragas_generation_eval.py` runner (FR-14)
 - [x] Step 13: README/docs/Second Brain (AC-16); manual RAGAS baseline deferred
 - [x] Step 14: Full fast pytest sweep + verification evidence
+- [x] Step 15: RAGAS answer shaping + NaN-safe metrics (FR-17, AC-19)
+- [x] Step 16: Web citations table UI (FR-16, AC-18)
+- [x] Step 17: Vitest + Session 11 note (local RAGAS re-run deferred)
 
 ## Repository commits (master-ia)
 
@@ -640,20 +746,23 @@ All default-suite tests mock `complete_structured` and retrieval (rules 03/05). 
 
 **Verification evidence**
 
-- 654 pytest passes (fast suite); 33 targeted feature tests pass.
-- Not verified: live RAGAS run, live RAG endpoint against populated DB.
+- 31 targeted pytest passes (feature-052 suite, incl. FR-17).
+- 55 Vitest passes (`RagCitationTable`, `buildRagQuestion`, existing web suite).
+- RAGAS live run `20260629T185540Z`: pre-FR-17 baseline (NaN `answer_relevancy`); re-run locally after FR-17 for corrected metrics.
+- FR-16 UI: `POST /api/v1/estimate/rag` client + citations table in `EstimateResultPanel`.
 
 **Residual risks**
 
 - No semantic input guardrails on RAG endpoint (FR-11 follow-up).
 - Evidence substring verification deferred to Phase 2.
-- RAGAS baseline directional only (5 queries).
+- RAGAS baseline directional only (5 queries); post-FR-17 live re-run not executed in closure env.
 
 **Recommended first checks for next implementer**
 
 1. `uv run pytest tests/test_rag_estimation_endpoint.py -q`
-2. Local curl to `/api/v1/estimate/rag` with populated `DATABASE_URL`.
-3. `uv run python app/scripts/ragas_generation_eval.py` with OpenAI key + DB.
+2. Implement FR-17; re-run `uv run python app/scripts/ragas_generation_eval.py` and confirm finite `answer_relevancy` + valid `metrics.json`.
+3. Implement FR-16; confirm citations table in `web/` matches `POST /api/v1/estimate/rag` JSON.
+4. Local curl to `/api/v1/estimate/rag` with populated `DATABASE_URL`.
 
 ## Pull Request
 

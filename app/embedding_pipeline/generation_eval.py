@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
+
+from app.schemas.rag_estimation_result import RagEstimationResult
 
 
 @dataclass(frozen=True)
@@ -37,10 +40,10 @@ class QueryGenerationMetrics:
 @dataclass(frozen=True)
 class GenerationMetrics:
     per_query: tuple[QueryGenerationMetrics, ...]
-    mean_faithfulness: float
-    mean_answer_relevancy: float
-    mean_context_precision: float
-    mean_context_recall: float
+    mean_faithfulness: float | None
+    mean_answer_relevancy: float | None
+    mean_context_precision: float | None
+    mean_context_recall: float | None
 
 
 def load_generation_golden_set(path: Path) -> list[GenerationGoldenQuery]:
@@ -72,6 +75,21 @@ def load_generation_golden_set(path: Path) -> list[GenerationGoldenQuery]:
     return golden
 
 
+def format_ragas_answer(result: RagEstimationResult) -> str:
+    """Natural-language answer for RAGAS metrics (not raw JSON)."""
+
+    lines = [result.summary.strip()]
+    for item in result.line_items:
+        status = "grounded" if item.grounded else "ungrounded"
+        lines.append(
+            f"- {item.component}: {item.hours:g}h ({status}) — {item.rationale.strip()}"
+        )
+    if result.insufficient_context:
+        lines.append("(insufficient retrieval context)")
+    lines.append(f"Total: {result.total_hours:g}h {result.currency}")
+    return "\n".join(lines)
+
+
 def build_ragas_records(samples: Sequence[RagasSample]) -> list[dict[str, Any]]:
     """Shape samples into RAGAS-compatible record dicts."""
 
@@ -86,6 +104,27 @@ def build_ragas_records(samples: Sequence[RagasSample]) -> list[dict[str, Any]]:
     ]
 
 
+def _finite_mean(values: Sequence[float]) -> float | None:
+    finite = [value for value in values if math.isfinite(value)]
+    if not finite:
+        return None
+    return statistics.mean(finite)
+
+
+def _metric_is_finite(value: float) -> bool:
+    return math.isfinite(value)
+
+
+def _format_metric_cell(value: float | None) -> str:
+    if value is None or not math.isfinite(value):
+        return "n/a"
+    return f"{value:.3f}"
+
+
+def _json_metric_value(value: float) -> float | None:
+    return value if math.isfinite(value) else None
+
+
 def summarize_generation_metrics(
     per_query: Sequence[QueryGenerationMetrics],
 ) -> GenerationMetrics:
@@ -94,10 +133,10 @@ def summarize_generation_metrics(
 
     return GenerationMetrics(
         per_query=tuple(per_query),
-        mean_faithfulness=statistics.mean(item.faithfulness for item in per_query),
-        mean_answer_relevancy=statistics.mean(item.answer_relevancy for item in per_query),
-        mean_context_precision=statistics.mean(item.context_precision for item in per_query),
-        mean_context_recall=statistics.mean(item.context_recall for item in per_query),
+        mean_faithfulness=_finite_mean(item.faithfulness for item in per_query),
+        mean_answer_relevancy=_finite_mean(item.answer_relevancy for item in per_query),
+        mean_context_precision=_finite_mean(item.context_precision for item in per_query),
+        mean_context_recall=_finite_mean(item.context_recall for item in per_query),
     )
 
 
@@ -110,33 +149,71 @@ def render_generation_comparison_markdown(metrics: GenerationMetrics) -> str:
     ]
     for row in metrics.per_query:
         lines.append(
-            "| {id} | {faithfulness:.3f} | {answer_relevancy:.3f} | {context_precision:.3f} | {context_recall:.3f} |".format(
+            "| {id} | {faithfulness} | {answer_relevancy} | {context_precision} | {context_recall} |".format(
                 id=row.query_id,
-                faithfulness=row.faithfulness,
-                answer_relevancy=row.answer_relevancy,
-                context_precision=row.context_precision,
-                context_recall=row.context_recall,
+                faithfulness=_format_metric_cell(row.faithfulness),
+                answer_relevancy=_format_metric_cell(row.answer_relevancy),
+                context_precision=_format_metric_cell(row.context_precision),
+                context_recall=_format_metric_cell(row.context_recall),
             )
         )
     lines.append(
-        "| **mean** | {faithfulness:.3f} | {answer_relevancy:.3f} | {context_precision:.3f} | {context_recall:.3f} |".format(
-            faithfulness=metrics.mean_faithfulness,
-            answer_relevancy=metrics.mean_answer_relevancy,
-            context_precision=metrics.mean_context_precision,
-            context_recall=metrics.mean_context_recall,
+        "| **mean** | {faithfulness} | {answer_relevancy} | {context_precision} | {context_recall} |".format(
+            faithfulness=_format_metric_cell(metrics.mean_faithfulness),
+            answer_relevancy=_format_metric_cell(metrics.mean_answer_relevancy),
+            context_precision=_format_metric_cell(metrics.mean_context_precision),
+            context_recall=_format_metric_cell(metrics.mean_context_recall),
         )
     )
     return "\n".join(lines) + "\n"
 
 
-def render_quality_note(metrics: GenerationMetrics) -> str:
-    metric_names = (
-        ("faithfulness", lambda row: row.faithfulness, metrics.mean_faithfulness),
-        ("answer_relevancy", lambda row: row.answer_relevancy, metrics.mean_answer_relevancy),
-        ("context_precision", lambda row: row.context_precision, metrics.mean_context_precision),
-        ("context_recall", lambda row: row.context_recall, metrics.mean_context_recall),
+def _metric_columns(metrics: GenerationMetrics) -> tuple[tuple[str, float | None], ...]:
+    return (
+        ("faithfulness", metrics.mean_faithfulness),
+        ("answer_relevancy", metrics.mean_answer_relevancy),
+        ("context_precision", metrics.mean_context_precision),
+        ("context_recall", metrics.mean_context_recall),
     )
-    weakest_metric_name, _, weakest_mean = min(metric_names, key=lambda item: item[2])
+
+
+def _non_finite_metric_names(metrics: GenerationMetrics) -> list[str]:
+    accessors = (
+        ("faithfulness", lambda row: row.faithfulness),
+        ("answer_relevancy", lambda row: row.answer_relevancy),
+        ("context_precision", lambda row: row.context_precision),
+        ("context_recall", lambda row: row.context_recall),
+    )
+    broken: list[str] = []
+    for name, accessor in accessors:
+        if not any(_metric_is_finite(accessor(row)) for row in metrics.per_query):
+            broken.append(name)
+    return broken
+
+
+def render_quality_note(metrics: GenerationMetrics) -> str:
+    usable_metrics = [
+        (name, mean)
+        for name, mean in _metric_columns(metrics)
+        if mean is not None and math.isfinite(mean)
+    ]
+    broken_metrics = _non_finite_metric_names(metrics)
+
+    parts: list[str] = []
+    if broken_metrics:
+        joined = ", ".join(f"`{name}`" for name in broken_metrics)
+        parts.append(
+            f"The following metric columns had no finite per-query scores and were skipped in means: {joined}."
+        )
+
+    if not usable_metrics:
+        return (
+            " ".join(parts)
+            + " No aggregate metric means could be computed from this run. "
+            "Treat the 5-query baseline as directional only until the golden set grows."
+        ).strip()
+
+    weakest_metric_name, weakest_mean = min(usable_metrics, key=lambda item: item[1])
     weakest_query = min(
         metrics.per_query,
         key=lambda row: {
@@ -146,12 +223,13 @@ def render_quality_note(metrics: GenerationMetrics) -> str:
             "context_recall": row.context_recall,
         }[weakest_metric_name],
     )
-    return (
+    parts.append(
         f"The weakest aggregate metric in this baseline is **{weakest_metric_name}** "
         f"(mean {weakest_mean:.3f}). Query `{weakest_query.query_id}` scored lowest on that "
         f"axis and is the best candidate for prompt or retrieval tuning. Treat the 5-query "
         f"baseline as directional only until the golden set grows."
     )
+    return " ".join(parts)
 
 
 def metrics_to_json(metrics: GenerationMetrics) -> dict[str, Any]:
@@ -165,10 +243,10 @@ def metrics_to_json(metrics: GenerationMetrics) -> dict[str, Any]:
         "per_query": [
             {
                 "query_id": row.query_id,
-                "faithfulness": row.faithfulness,
-                "answer_relevancy": row.answer_relevancy,
-                "context_precision": row.context_precision,
-                "context_recall": row.context_recall,
+                "faithfulness": _json_metric_value(row.faithfulness),
+                "answer_relevancy": _json_metric_value(row.answer_relevancy),
+                "context_precision": _json_metric_value(row.context_precision),
+                "context_recall": _json_metric_value(row.context_recall),
             }
             for row in metrics.per_query
         ],

@@ -8,6 +8,8 @@
 - Citas por línea (`SourceReference`) y auditoría post-generación (`verify_citations`: `grounded_ok`, `dangling_citation`, `insufficient_data`).
 - Re-fetch de contenido por `chunk_id` (`ChunkContentRepository`) sin ampliar el contrato de retrieval feature-050.
 - Harness offline RAGAS: `evaluation/generation/golden_set.json` + `app/scripts/ragas_generation_eval.py`.
+- **UI (`web/`):** botón **Run RAG estimate**, tabla de citas (`RagCitationTable`) y resumen de auditoría (`RagCitationSummary`) en `EstimateResultPanel`.
+- **FR-17:** `format_ragas_answer()` (prosa para RAGAS) y métricas NaN-safe (`null` en JSON, `n/a` en markdown).
 
 ## Decisiones clave
 
@@ -18,9 +20,16 @@
 
 ## Baseline RAGAS
 
-No ejecutado en esta sesión: `DATABASE_URL` no estaba configurado en el entorno de verificación del agente.
+Run histórico (pre-FR-17): `evaluation/generation/results/20260629T185540Z/`.
 
-Para reproducir localmente:
+| Métrica | Media | Notas |
+| --- | ---: | --- |
+| faithfulness | 0.569 | Aceptable; peor q4-payments-mobile (0.385). |
+| answer_relevancy | **NaN** | Run anterior usaba JSON crudo; corregido con `format_ragas_answer()`. |
+| context_precision | 0.863 | Retrieval bien rankeado. |
+| context_recall | 0.140 | Métrica más débil; q1–q3 en 0.0. Revisar `ground_truth` y cobertura retrieval. |
+
+Tras FR-17, re-ejecutar localmente para baseline corregido:
 
 ```bash
 DATABASE_URL=postgresql+asyncpg://estimator:estimator@127.0.0.1:5432/estimator \
@@ -28,15 +37,22 @@ OPENAI_API_KEY=... \
 uv run python app/scripts/ragas_generation_eval.py
 ```
 
-Interpretar `comparison.md` (5 filas + mean) y `quality_note.md` tras el run.
+Interpretar `comparison.md` (5 filas + mean, `n/a` si alguna métrica no es finita) y `quality_note.md`.
 
 ## Verificación automatizada
 
 ```bash
+# Backend feature-052
 uv run pytest tests/test_rag_estimation_schema.py tests/test_citation_verification.py \
   tests/test_rag_estimation_endpoint.py tests/test_rag_estimation_service.py \
   tests/embedding_pipeline/test_generation_golden_set.py \
   tests/embedding_pipeline/test_generation_eval.py -q
+
+# Frontend citas RAG
+cd web && npm test
 ```
 
-Suite fast completa: ver work item feature-052 §Verification.
+## Manual (opcional)
+
+1. `POST /api/v1/estimate/rag` con corpus poblado; revisar `citation_summary` y `sources[]`.
+2. En `web/`, rellenar transcript → **Run RAG estimate** → pestaña **RAG citations**.

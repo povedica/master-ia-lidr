@@ -18,6 +18,7 @@ from app.embedding_pipeline.generation_eval import (
     RagasSample,
     build_ragas_records,
     extract_per_query_metrics,
+    format_ragas_answer,
     load_generation_golden_set,
     metrics_to_json,
     render_generation_comparison_markdown,
@@ -97,7 +98,7 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
                 RagasSample(
                     query_id=golden.id,
                     question=golden.question,
-                    answer=outcome.result.model_dump_json(),
+                    answer=format_ragas_answer(outcome.result),
                     contexts=list(outcome.chunk_texts),
                     ground_truth=golden.ground_truth,
                 )
