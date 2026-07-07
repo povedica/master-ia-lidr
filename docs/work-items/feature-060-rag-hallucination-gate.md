@@ -216,6 +216,7 @@ uv run pytest tests/test_rag_hallucination_gate.py tests/test_rag_estimation_ser
 | `8dda2c9` | feat: judge_estimate() with batched structured LLM judge |
 | `34a7b86` | feat: gate_estimate() aggregation |
 | `2c52b9a` | feat: wire hallucination gate into service and HTTP response |
+| `028b6dc` | docs: settings, README, architecture HTML, closure + handoff |
 
 ## Pull Request
 
