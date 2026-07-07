@@ -176,11 +176,15 @@ Settings already on `main`: `RAG_COHERENCE_ENABLED`, `RAG_COHERENCE_TOTAL_TOLERA
 
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [ ] Step 1: `EstimationQuery` schema + `compose_search_text()` (pure, TDD)
+- [ ] Step 2: `truncate_to_token_budget()` in context assembler (TDD)
+- [ ] Step 3: Reformulator module + settings (mocked LLM tests)
+- [ ] Step 4: Wire `RagEstimationService` + optional `transcript` on request
+- [ ] Step 5: Docs + `.env.example`
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+_(URL recorded after first push.)_
 
 ## How to start
 
