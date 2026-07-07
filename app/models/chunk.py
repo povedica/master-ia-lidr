@@ -20,6 +20,7 @@ class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (
         Index("ix_chunks_metadata_gin", "metadata", postgresql_using="gin"),
+        Index("ix_chunks_collection_chunk_type", "collection", "chunk_type"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -28,6 +29,12 @@ class Chunk(Base):
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+    )
+    collection: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="budgets",
+        default="budgets",
     )
     chunk_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)

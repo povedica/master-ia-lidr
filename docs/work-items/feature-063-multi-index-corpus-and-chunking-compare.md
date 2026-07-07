@@ -160,12 +160,16 @@ CHUNKING_COMPARE_DEFAULT_STRATEGIES=structural,recursive,sentence_window
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Alembic migration + ORM model update + backfill test.
-- [ ] **Step 2:** `collections.py` + router rules (TDD).
+- [x] **Step 1:** Alembic migration + ORM model update + collection registry (TDD).
+- [ ] **Step 2:** `collections.py` + router rules wired into advanced retrieval filter.
 - [ ] **Step 3:** Transcript parser + CLI ingest + integration test.
 - [ ] **Step 4:** Technical doc parser + ingest.
 - [ ] **Step 5:** `chunking_compare` + `POST /api/v1/embeddings/compare`.
 - [ ] **Step 6:** Wire collection filter into advanced retrieval + docs.
+
+## Implementation progress
+
+- [x] Step 1: `0005_add_chunks_collection` + `Chunk.collection` + `match_collections` / router rules
 
 ## Estimation
 
