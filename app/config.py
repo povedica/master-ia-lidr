@@ -380,6 +380,19 @@ class Settings(BaseSettings):
         ge=0.0,
         description="Allowed absolute delta between total_hours and sum of line item hours.",
     )
+    reformulation_enabled: bool = Field(
+        default=False,
+        description="When true, run LLM query reformulation even without a transcript.",
+    )
+    reformulation_model: str = Field(
+        default="",
+        description="Optional LiteLLM model id for query reformulation; empty uses first provider route.",
+    )
+    rag_context_max_tokens: int = Field(
+        default=8000,
+        ge=1,
+        description="Maximum assembled RAG context tokens before prompt rendering.",
+    )
     ragas_judge_model: str = Field(
         default="gpt-4o-mini",
         description="Judge model for offline RAGAS generation eval (dev/slow only).",
