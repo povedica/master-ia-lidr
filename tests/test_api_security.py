@@ -10,7 +10,7 @@ from app.database import get_db_session
 from app.embedding_pipeline.rerank import NoOpReranker
 from app.main import app
 from app.middleware import security
-from app.routers import rag_estimations, retrieval
+from app.routers import rag_estimations, retrieval, retrieval_advanced
 from tests.embedding_pipeline.test_retrieval_router import (
     _FakeEmbedder,
     _FakeLexicalRepository,
@@ -23,6 +23,7 @@ RET_KEY = "retrieval-secret"
 EST_KEY = "estimate-secret"
 
 RETRIEVAL_PATH = "/api/v1/retrieval"
+ADVANCED_RETRIEVAL_PATH = "/api/v1/retrieval/advanced"
 RAG_PATH = "/api/v1/estimate/rag"
 
 
@@ -46,6 +47,10 @@ def stub_downstream(monkeypatch: pytest.MonkeyPatch) -> None:
     app.dependency_overrides[retrieval.get_vector_repository] = lambda: _FakeVectorRepository()  # type: ignore[assignment]
     app.dependency_overrides[retrieval.get_lexical_repository] = lambda: _FakeLexicalRepository()  # type: ignore[assignment]
     app.dependency_overrides[retrieval.get_reranker] = lambda: NoOpReranker()  # type: ignore[assignment]
+    app.dependency_overrides[retrieval_advanced.get_embedder] = lambda: _FakeEmbedder()  # type: ignore[assignment]
+    app.dependency_overrides[retrieval_advanced.get_vector_repository] = lambda: _FakeVectorRepository()  # type: ignore[assignment]
+    app.dependency_overrides[retrieval_advanced.get_lexical_repository] = lambda: _FakeLexicalRepository()  # type: ignore[assignment]
+    app.dependency_overrides[retrieval_advanced.get_reranker] = lambda: NoOpReranker()  # type: ignore[assignment]
     app.dependency_overrides[rag_estimations.get_rag_estimation_service] = (  # type: ignore[assignment]
         lambda: _FakeRagService(_outcome(_grounded_result()))
     )
@@ -71,6 +76,23 @@ def test_retrieval_accepts_retrieval_key(client: TestClient) -> None:
     response = client.post(
         RETRIEVAL_PATH,
         json=_RETRIEVAL_BODY,
+        headers={"X-API-Key": RET_KEY},
+    )
+    assert response.status_code == 200
+
+
+def test_advanced_retrieval_requires_key_when_configured(client: TestClient) -> None:
+    response = client.post(
+        ADVANCED_RETRIEVAL_PATH,
+        json={"query": "OAuth backend", "preset": "A"},
+    )
+    assert response.status_code == 401
+
+
+def test_advanced_retrieval_accepts_retrieval_key(client: TestClient) -> None:
+    response = client.post(
+        ADVANCED_RETRIEVAL_PATH,
+        json={"query": "OAuth backend", "preset": "A"},
         headers={"X-API-Key": RET_KEY},
     )
     assert response.status_code == 200

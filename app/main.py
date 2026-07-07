@@ -18,6 +18,7 @@ from app.routers import (
     estimations_v2,
     rag_estimations,
     retrieval,
+    retrieval_advanced,
     retrieval_debug,
     runtime_config,
     search,
@@ -88,6 +89,7 @@ app.include_router(embeddings.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(retrieval_debug.router, prefix="/api/v1")
 app.include_router(retrieval.router, prefix="/api/v1")
+app.include_router(retrieval_advanced.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
 app.include_router(runtime_config.router, prefix="/api/v1")
 
@@ -108,6 +110,7 @@ def read_root() -> dict[str, str]:
         "embeddings": "POST /api/v1/embeddings/ingest",
         "search": "POST /api/v1/search",
         "retrieval": "POST /api/v1/retrieval",
+        "retrieval_advanced": "POST /api/v1/retrieval/advanced",
         "estimate_rag": "POST /api/v1/estimate/rag",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
         "config_retrieval": "GET/PUT /api/v1/config/retrieval",

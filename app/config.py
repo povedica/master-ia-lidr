@@ -367,6 +367,18 @@ class Settings(BaseSettings):
         default="",
         description="Cross-encoder model id; empty uses NoOpReranker.",
     )
+    retrieval_routing_enabled: bool = Field(
+        default=False,
+        description="When true, advanced retrieval may route queries to collections.",
+    )
+    query_transform_enabled: bool = Field(
+        default=False,
+        description="When true, advanced retrieval may rewrite queries before search.",
+    )
+    retrieval_temporal_decay_enabled: bool = Field(
+        default=False,
+        description="When true, advanced retrieval may apply recency weighting.",
+    )
     rag_estimation_retrieval_mode: str = Field(
         default="B",
         description="Default retrieval mode for POST /api/v1/estimate/rag (A|B|C|D).",
@@ -404,7 +416,7 @@ class Settings(BaseSettings):
     # --- API hardening (feature-056): optional keys + rate limits ---
     retrieval_api_key: str = Field(
         default="",
-        description="When set, POST /api/v1/retrieval requires X-API-Key header.",
+        description="When set, POST /api/v1/retrieval and /api/v1/retrieval/advanced require X-API-Key.",
     )
     estimate_api_key: str = Field(
         default="",

@@ -34,7 +34,7 @@ def _configured_key(settings: Settings, field_name: str) -> str | None:
 async def require_retrieval_key(
     x_api_key: str | None = Header(default=None, alias=_API_KEY_HEADER),
 ) -> None:
-    """Guard ``POST /api/v1/retrieval`` when ``RETRIEVAL_API_KEY`` is set."""
+    """Guard retrieval routes when ``RETRIEVAL_API_KEY`` is set."""
 
     settings = get_settings()
     _verify(x_api_key, _configured_key(settings, "retrieval_api_key"))
