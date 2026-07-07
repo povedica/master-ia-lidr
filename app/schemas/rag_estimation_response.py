@@ -10,6 +10,10 @@ from app.schemas.rag_estimation_result import RagEstimationResult
 
 class RagEstimateRequest(BaseModel):
     question: str = Field(..., min_length=1)
+    transcript: str | None = Field(
+        default=None,
+        description="Optional conversation transcript for query reformulation.",
+    )
     mode: str | None = Field(default=None, description="Retrieval mode A|B|C|D")
     recall_k: int | None = Field(default=None, ge=1, le=200)
     top_k_final: int | None = Field(default=None, ge=1, le=50)
@@ -20,6 +24,16 @@ class RagEstimateRequest(BaseModel):
         stripped = value.strip()
         if not stripped:
             raise ValueError("question must not be empty")
+        return stripped
+
+    @field_validator("transcript")
+    @classmethod
+    def strip_transcript(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("transcript must not be empty when provided")
         return stripped
 
 

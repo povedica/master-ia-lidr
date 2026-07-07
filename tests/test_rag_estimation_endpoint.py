@@ -238,3 +238,11 @@ def test_rag_estimate_provider_failure_returns_503(rag_client: TestClient) -> No
 def test_rag_estimate_rejects_empty_question(rag_client: TestClient) -> None:
     response = rag_client.post(RAG_PATH, json={"question": "   "})
     assert response.status_code == 422
+
+
+def test_rag_estimate_rejects_empty_transcript(rag_client: TestClient) -> None:
+    response = rag_client.post(
+        RAG_PATH,
+        json={"question": "OAuth e-commerce platform", "transcript": "   "},
+    )
+    assert response.status_code == 422

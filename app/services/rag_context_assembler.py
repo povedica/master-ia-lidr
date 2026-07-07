@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+import tiktoken
+
+from app.config import Settings
 from app.embedding_pipeline.chunk_content_repository import ChunkContent
 from app.embedding_pipeline.retrieval_schemas import RetrievalResultRow
 
 logger = logging.getLogger(__name__)
+
+_CHUNK_BLOCK_PATTERN = re.compile(
+    r"\[CHUNK START\].*?\[CHUNK END\]",
+    re.DOTALL,
+)
+_CHUNK_ID_PATTERN = re.compile(r"^chunk_id:\s*(\d+)\s*$", re.MULTILINE)
+_TIKTOKEN_FALLBACK_ENCODING = "cl100k_base"
+_DEFAULT_CONTEXT_MODEL = "gpt-4o-mini"
 
 
 @dataclass(frozen=True)
@@ -59,4 +71,83 @@ def assemble_rag_context(
         prompt_block="\n\n".join(blocks),
         chunk_ids=chunk_ids,
         chunk_texts=chunk_texts,
+    )
+
+
+def resolve_rag_context_encoding(settings: Settings) -> tiktoken.Encoding:
+    """Resolve tiktoken encoder for RAG context budgeting."""
+
+    model = settings.openai_model.strip() or _DEFAULT_CONTEXT_MODEL
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        logger.warning(
+            "rag_context_tiktoken_model_fallback",
+            extra={
+                "requested_model": model,
+                "fallback_encoding": _TIKTOKEN_FALLBACK_ENCODING,
+            },
+        )
+        return tiktoken.get_encoding(_TIKTOKEN_FALLBACK_ENCODING)
+
+
+def _split_chunk_blocks(text: str) -> list[str]:
+    if not text.strip():
+        return []
+    return _CHUNK_BLOCK_PATTERN.findall(text)
+
+
+def truncate_to_token_budget(
+    text: str,
+    *,
+    max_tokens: int,
+    encoding: tiktoken.Encoding,
+) -> str:
+    """Drop tail chunk blocks until the serialized context fits the token budget."""
+
+    if max_tokens <= 0 or not text.strip():
+        return ""
+
+    kept_blocks: list[str] = []
+    for block in _split_chunk_blocks(text):
+        candidate = "\n\n".join([*kept_blocks, block]) if kept_blocks else block
+        if len(encoding.encode(candidate)) <= max_tokens:
+            kept_blocks.append(block)
+            continue
+        break
+
+    return "\n\n".join(kept_blocks)
+
+
+def truncate_assembled_context(
+    assembled: AssembledContext,
+    *,
+    max_tokens: int,
+    encoding: tiktoken.Encoding,
+) -> AssembledContext:
+    """Truncate assembled RAG context at chunk boundaries and sync metadata."""
+
+    truncated_block = truncate_to_token_budget(
+        assembled.prompt_block,
+        max_tokens=max_tokens,
+        encoding=encoding,
+    )
+    if not truncated_block:
+        return AssembledContext(prompt_block="", chunk_ids=set(), chunk_texts=[])
+
+    original_blocks = _split_chunk_blocks(assembled.prompt_block)
+    text_by_id: dict[int, str] = {}
+    for block, text in zip(original_blocks, assembled.chunk_texts, strict=True):
+        match = _CHUNK_ID_PATTERN.search(block)
+        if match is not None:
+            text_by_id[int(match.group(1))] = text
+
+    surviving_ids: list[int] = []
+    for match in _CHUNK_ID_PATTERN.finditer(truncated_block):
+        surviving_ids.append(int(match.group(1)))
+
+    return AssembledContext(
+        prompt_block=truncated_block,
+        chunk_ids=set(surviving_ids),
+        chunk_texts=[text_by_id[chunk_id] for chunk_id in surviving_ids],
     )

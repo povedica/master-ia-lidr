@@ -126,14 +126,14 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 
 | Stage | Official module | `master-ia` module | Gap |
 | --- | --- | --- | --- |
-| Query reformulation | `generation/rag/query_reformulator.py` | — | ❌ `EstimationQuery` from transcript/question |
-| Search text composition | `compose_search_text()` | uses raw `question` string | ❌ |
+| Query reformulation | `generation/rag/query_reformulator.py` | `app/services/rag_query_reformulator.py` | ✅ `EstimationQuery` from transcript/question |
+| Search text composition | `compose_search_text()` | `app/schemas/estimation_query.py` | ✅ wired before retrieval |
 | Retrieval (basic) | `retrieval/pipeline.py` | `embedding_pipeline/retrieval_service.py` | 🟡 single `chunks` table vs multi-index |
 | Retrieval (advanced) | `retrieval/advanced_pipeline.py` | — | ❌ routing, query transform, temporal decay |
 | Multi-index collections | `retrieval/collections.py` | single `chunks` + `metadata_filters` | ❌ budgets / transcripts / technical_docs |
 | Reranking | `retrieval/reranker.py` | `embedding_pipeline/rerank.py` (`NoOpReranker` default) | 🟡 enable + wire in prod path |
-| Context assembly | `context_assembler.py` | `services/rag_context_assembler.py` | 🟡 no token budget truncation |
-| Token budget truncate | `truncate_to_token_budget()` | — | ❌ |
+| Context assembly | `context_assembler.py` | `services/rag_context_assembler.py` | ✅ includes `truncate_to_token_budget` |
+| Token budget truncate | `truncate_to_token_budget()` | `rag_context_assembler.py` | ✅ chunk-boundary truncation |
 | Augmentation S11 | `quality/augmentation.py` | — | ❌ compress + edge-loading reorder |
 | Generation | `estimator.py:generate_estimate()` | `RagEstimationService` + `complete_structured()` | 🟡 no structure-only mode |
 | Structure-only pass | `generate_structure()` | — | ❌ |
@@ -496,7 +496,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval. _(PR — https://github.com/povedica/master-ia-lidr/pull/49)_
 - [x] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(merged PR #50, 2026-07-07)_
 - [x] **Step 4:** `feature-058` — `check_coherence()` + eval gate integration on RAG path. _(PR — https://github.com/povedica/master-ia-lidr/pull/51)_
-- [ ] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
+- [x] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
 - [ ] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
 - [ ] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint.
 - [ ] **Step 8:** `feature-062` — stage routes + task hours.
@@ -568,7 +568,7 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 | --- | --- | --- | --- | --- |
 | 058 | `feature-058-rag-coherence-and-eval-gate.md` | `feature/058-rag-coherence-and-eval-gate` | 055, 057 on `main` | 054 (optional, separate track) |
 | 054 | `feature-054-agentic-estimation-loop.md` | `feature/054-agentic-estimation-loop` | — | 058 (optional) |
-| 059 | `feature-059-rag-query-reformulator-and-token-budget.md` | `feature/059-rag-query-reformulator-and-token-budget` | 058 | — (start after 058 merges) |
+| 059 | `feature-059-rag-query-reformulator-and-token-budget.md` | `feature/059-rag-query-reformulator-and-token-budget` | 058 | ✅ merged (PR #52) |
 | 060 | `feature-060-rag-hallucination-gate.md` | `feature/060-rag-hallucination-gate` | 059 | 061 |
 | 061 | `feature-061-advanced-retrieval-s10-pipeline.md` | `feature/061-advanced-retrieval-s10-pipeline` | 059 | 060 |
 
