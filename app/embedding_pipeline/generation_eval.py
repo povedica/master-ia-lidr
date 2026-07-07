@@ -1,15 +1,24 @@
-"""Evaluation helpers for grounded generation quality (feature-052)."""
+"""Evaluation helpers for grounded generation quality (feature-052, feature-055)."""
 
 from __future__ import annotations
 
 import json
 import math
+import re
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+import yaml
+
 from app.schemas.rag_estimation_result import RagEstimationResult
+
+DEFAULT_GATE_TOLERANCE = 0.05
+
+_GATED_METRIC_NAMES: tuple[str, ...] = ("faithfulness", "answer_relevancy")
+
+_FRONT_MATTER_PATTERN = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -44,6 +53,36 @@ class GenerationMetrics:
     mean_answer_relevancy: float | None
     mean_context_precision: float | None
     mean_context_recall: float | None
+
+
+class BaselineParseError(ValueError):
+    """Raised when a RAGAS baseline file is missing, malformed, or unreadable."""
+
+
+@dataclass(frozen=True)
+class GenerationBaseline:
+    tolerance: float
+    mean_faithfulness: float | None
+    mean_answer_relevancy: float | None
+    mean_context_precision: float | None
+    mean_context_recall: float | None
+
+
+@dataclass(frozen=True)
+class GateMetricComparison:
+    name: str
+    current: float | None
+    baseline: float | None
+    threshold: float | None
+    passed: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class GateResult:
+    passed: bool
+    tolerance: float
+    comparisons: tuple[GateMetricComparison, ...]
 
 
 def load_generation_golden_set(path: Path) -> list[GenerationGoldenQuery]:
@@ -249,6 +288,166 @@ def metrics_to_json(metrics: GenerationMetrics) -> dict[str, Any]:
                 "context_recall": _json_metric_value(row.context_recall),
             }
             for row in metrics.per_query
+        ],
+    }
+
+
+def load_baseline(path: Path) -> GenerationBaseline:
+    """Parse a RAGAS baseline Markdown file with a YAML front matter block."""
+
+    if not path.exists():
+        raise BaselineParseError(f"RAGAS baseline file not found: {path}")
+
+    text = path.read_text(encoding="utf-8")
+    match = _FRONT_MATTER_PATTERN.match(text)
+    if not match:
+        raise BaselineParseError(
+            f"RAGAS baseline file {path} is missing YAML front matter (--- ... ---)."
+        )
+
+    try:
+        payload = yaml.safe_load(match.group(1))
+    except yaml.YAMLError as exc:
+        raise BaselineParseError(
+            f"RAGAS baseline file {path} has invalid YAML front matter: {exc}"
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise BaselineParseError(f"RAGAS baseline file {path} front matter must be a mapping.")
+
+    metrics = payload.get("metrics")
+    if not isinstance(metrics, dict):
+        raise BaselineParseError(
+            f"RAGAS baseline file {path} is missing a 'metrics' mapping in its front matter."
+        )
+
+    tolerance_raw = payload.get("tolerance", DEFAULT_GATE_TOLERANCE)
+    try:
+        tolerance = float(tolerance_raw)
+    except (TypeError, ValueError) as exc:
+        raise BaselineParseError(
+            f"RAGAS baseline file {path} has a non-numeric tolerance: {tolerance_raw!r}"
+        ) from exc
+
+    def _metric(name: str) -> float | None:
+        value = metrics.get(name)
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError) as exc:
+            raise BaselineParseError(
+                f"RAGAS baseline file {path} has a non-numeric metric {name!r}: {value!r}"
+            ) from exc
+
+    return GenerationBaseline(
+        tolerance=tolerance,
+        mean_faithfulness=_metric("faithfulness"),
+        mean_answer_relevancy=_metric("answer_relevancy"),
+        mean_context_precision=_metric("context_precision"),
+        mean_context_recall=_metric("context_recall"),
+    )
+
+
+def evaluate_gate(
+    metrics: GenerationMetrics,
+    baseline: GenerationBaseline,
+    *,
+    tolerance: float | None = None,
+) -> GateResult:
+    """Compare current run means against a committed baseline with tolerance.
+
+    Only `faithfulness` and `answer_relevancy` are gated (FR-01). A metric is
+    skipped (treated as passing) when either the current or baseline value is
+    not finite, so NaN-prone metrics like `answer_relevancy` never block CI.
+    """
+
+    effective_tolerance = baseline.tolerance if tolerance is None else tolerance
+    current_by_name = {
+        "faithfulness": metrics.mean_faithfulness,
+        "answer_relevancy": metrics.mean_answer_relevancy,
+    }
+    baseline_by_name = {
+        "faithfulness": baseline.mean_faithfulness,
+        "answer_relevancy": baseline.mean_answer_relevancy,
+    }
+
+    comparisons: list[GateMetricComparison] = []
+    overall_passed = True
+    for name in _GATED_METRIC_NAMES:
+        current = current_by_name[name]
+        base = baseline_by_name[name]
+        if current is None or base is None:
+            comparisons.append(
+                GateMetricComparison(
+                    name=name,
+                    current=current,
+                    baseline=base,
+                    threshold=None,
+                    passed=True,
+                    reason="skipped (non-finite current or baseline value)",
+                )
+            )
+            continue
+
+        threshold = base - effective_tolerance
+        passed = current >= threshold
+        if not passed:
+            overall_passed = False
+        comparator = ">=" if passed else "<"
+        reason = (
+            f"current {current:.3f} {comparator} threshold {threshold:.3f} "
+            f"(baseline {base:.3f} - tolerance {effective_tolerance:.3f})"
+        )
+        comparisons.append(
+            GateMetricComparison(
+                name=name,
+                current=current,
+                baseline=base,
+                threshold=threshold,
+                passed=passed,
+                reason=reason,
+            )
+        )
+
+    return GateResult(passed=overall_passed, tolerance=effective_tolerance, comparisons=tuple(comparisons))
+
+
+def gate_exit_code(gate_result: GateResult) -> int:
+    return 0 if gate_result.passed else 1
+
+
+def render_gate_summary(gate_result: GateResult) -> str:
+    header = "PASS" if gate_result.passed else "REGRESSION"
+    lines = [f"[gate] {header} (tolerance={gate_result.tolerance:.3f})"]
+    for comparison in gate_result.comparisons:
+        status = "ok" if comparison.passed else "FAIL"
+        lines.append(f"  - {comparison.name}: {status} — {comparison.reason}")
+    return "\n".join(lines)
+
+
+def render_monitor_summary(metrics: GenerationMetrics) -> str:
+    """One-line faithfulness/answer relevancy summary for `--monitor` mode."""
+
+    faithfulness = _format_metric_cell(metrics.mean_faithfulness)
+    answer_relevancy = _format_metric_cell(metrics.mean_answer_relevancy)
+    return f"[monitor] faithfulness={faithfulness} answer_relevancy={answer_relevancy}"
+
+
+def gate_result_to_json(gate_result: GateResult) -> dict[str, Any]:
+    return {
+        "passed": gate_result.passed,
+        "tolerance": gate_result.tolerance,
+        "metrics": [
+            {
+                "name": comparison.name,
+                "current": comparison.current,
+                "baseline": comparison.baseline,
+                "threshold": comparison.threshold,
+                "passed": comparison.passed,
+                "reason": comparison.reason,
+            }
+            for comparison in gate_result.comparisons
         ],
     }
 

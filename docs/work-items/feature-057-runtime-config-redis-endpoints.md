@@ -145,20 +145,31 @@ master-ia:runtime:models
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Runtime config tests | `uv run pytest tests/test_runtime_config.py tests/test_runtime_config_api.py tests/test_runtime_config_retrieval_integration.py -q` | 23 passed |
-| Security regression (feature-056) | `uv run pytest tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` | 33 passed (combined with runtime config suite) |
-| Fast suite | `uv run pytest -q` | 690 passed, 11 skipped, 12 deselected; 2 pre-existing failures in `tests/test_config.py` (`test_database_url_defaults_to_empty_string`, `test_retrieval_settings_defaults_are_backward_compatible`) reproduced identically on the pre-feature-057 commit — caused by a locally symlinked `.env` (real secrets) leaking `DATABASE_URL`/`RETRIEVAL_RERANK_ENABLED` into `os.environ` via a pytest plugin during full-suite collection; not present in CI (no real `.env`) and unrelated to this feature's code. |
+| Runtime config tests | `uv run pytest tests/test_runtime_config.py tests/test_runtime_config_api.py tests/test_runtime_config_retrieval_integration.py -q` | 23 passed (2026-07-07 finish-task) |
+| Security regression (feature-056) | `uv run pytest tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` | 10 passed (2026-07-07 finish-task) |
+| Combined targeted suite | `uv run pytest tests/test_runtime_config*.py tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` | 33 passed (2026-07-07 finish-task) |
+| Fast suite | `uv run pytest -q` | 690 passed, 11 skipped, 12 deselected; 2 pre-existing failures in `tests/test_config.py` when a local `.env` leaks `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED` into `os.environ` during collection (not present in CI; unrelated to this feature) |
 
-**Residual risk:** none identified for the implemented scope. The two `test_config.py` failures above are local-environment noise, not a regression — tracked here for transparency rather than left silent.
+**Not verified**
+
+- Live Redis round-trip against a real Redis instance (tests use mocks/fakes only).
+- Runtime model overrides (`structured_model` / `judge_model`) applied end-to-end on estimate routes (persistence + GET/PUT only in this slice; retrieval `rerank_enabled` is wired).
+
+**Residual risk**
+
+- Config endpoints remain open in dev (no API keys); securing them is a follow-up.
+- RAG estimate path does not yet resolve runtime model overrides at request time (Phase 2).
+- Local `.env` symlink can still cause the two `test_config.py` failures documented above.
 
 ## Repository commits (master-ia)
 
 | Commit | Summary |
 | --- | --- |
-| _(on branch)_ | `feat(runtime-config): add Redis-backed retrieval/model override service` |
-| _(on branch)_ | `feat(api): add GET/PUT /api/v1/config/models and /config/retrieval` |
-| _(on branch)_ | `feat(retrieval): honor runtime rerank_enabled override at request time` |
-| _(on branch)_ | `docs(feature-057): document runtime config endpoints and update progress` |
+| `4f705a5` | `feat(runtime-config): add Redis-backed retrieval/model override service` |
+| `e261617` | `feat(api): add GET/PUT /api/v1/config/models and /config/retrieval` |
+| `3c9b71d` | `feat(retrieval): honor runtime rerank_enabled override at request time` |
+| `1a8e11d` | `docs(feature-057): document runtime config endpoints and update progress` |
+| `fc6f46f` | `docs(feature-057): record WIP PR #50 URL in work items` |
 
 ## Handoff from feature-057
 
@@ -171,14 +182,12 @@ master-ia:runtime:models
 
 **Verification evidence**
 
-- `uv run pytest tests/test_runtime_config.py tests/test_runtime_config_api.py tests/test_runtime_config_retrieval_integration.py -q` — 23 passed
-- `uv run pytest tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` — 10 passed (feature-056 regression untouched)
-- Full fast suite green (690 passed, 11 skipped, 12 deselected) except the same pre-existing shell-env `test_config.py` failures already documented in feature-056 when a local `.env` leaks `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED` into `os.environ` during collection (not present in CI).
+- See **Verification evidence** above (finish-task 2026-07-07).
 
 ## Pull Request
 
-- **Branch:** `feature/057-runtime-config-redis-endpoints`
-- **WIP PR:** https://github.com/povedica/master-ia-lidr/pull/50
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/50 (2026-07-07)
+- **Branch:** `feature/057-runtime-config-redis-endpoints` (deleted after merge)
 
 ## How to start
 

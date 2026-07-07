@@ -15,13 +15,20 @@ from app.database import get_session_factory, reset_session_factory
 from app.embedding_pipeline.chunk_content_repository import ChunkContentRepository
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.generation_eval import (
+    BaselineParseError,
     RagasSample,
     build_ragas_records,
+    evaluate_gate,
     extract_per_query_metrics,
     format_ragas_answer,
+    gate_exit_code,
+    gate_result_to_json,
+    load_baseline,
     load_generation_golden_set,
     metrics_to_json,
+    render_gate_summary,
     render_generation_comparison_markdown,
+    render_monitor_summary,
     render_quality_note,
     run_ragas_evaluation,
     summarize_generation_metrics,
@@ -46,6 +53,31 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Defaults to evaluation/generation/results/<timestamp>/",
+    )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help=(
+            "Compare aggregate metrics against the committed baseline and exit "
+            "1 on regression (see --baseline / --tolerance)."
+        ),
+    )
+    parser.add_argument(
+        "--monitor",
+        action="store_true",
+        help="Print a one-line faithfulness/answer relevancy summary (no exit code impact).",
+    )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=Path("evaluation/generation/RAGAS_BASELINE.md"),
+        help="Baseline Markdown file used by --gate.",
+    )
+    parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=None,
+        help="Override the tolerance documented in the baseline file.",
     )
     return parser.parse_args()
 
@@ -117,11 +149,27 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
     )
     metrics = summarize_generation_metrics(per_query)
 
+    if args.monitor:
+        print(render_monitor_summary(metrics))
+
+    exit_code = 0
+    metrics_json = metrics_to_json(metrics)
+    if args.gate:
+        try:
+            baseline = load_baseline(args.baseline)
+        except BaselineParseError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        gate_result = evaluate_gate(metrics, baseline, tolerance=args.tolerance)
+        print(render_gate_summary(gate_result))
+        metrics_json["gate_result"] = gate_result_to_json(gate_result)
+        exit_code = gate_exit_code(gate_result)
+
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     output_dir = args.output_dir or Path("evaluation/generation/results") / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "metrics.json").write_text(
-        json.dumps(metrics_to_json(metrics), indent=2),
+        json.dumps(metrics_json, indent=2),
         encoding="utf-8",
     )
     (output_dir / "comparison.md").write_text(
@@ -133,7 +181,7 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(f"Wrote generation evaluation artifacts to {output_dir}")
-    return 0
+    return exit_code
 
 
 def main() -> int:

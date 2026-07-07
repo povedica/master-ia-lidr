@@ -493,7 +493,8 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 - [x] **Step 1:** Complete feature-052 Steps 15–17 (RAGAS fix + UI).
 - [x] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(PR — https://github.com/povedica/master-ia-lidr/pull/48)_
-- [ ] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval.
+- [x] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval. _(PR — https://github.com/povedica/master-ia-lidr/pull/49)_
+- [ ] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(PR — https://github.com/povedica/master-ia-lidr/pull/50)_
 - [ ] **Step 4:** `feature-059` — query reformulator wired into `RagEstimationService`.
 - [ ] **Step 5:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
 - [ ] **Step 6:** `feature-061` — `advanced_retrieve` + endpoint.
@@ -513,6 +514,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 6. **Keep fork advantages:** Langfuse traces, retrieval-debug, v2 structured API, and work-item discipline are not gaps to close.
 7. **RAGAS dependency isolation:** official uses separate venv for scoring; document the same if `langchain-community` conflicts resurface.
 8. **Baseline run `20260629T185540Z`** proves retrieval precision is strong (0.863) but recall (0.140) and answer relevancy (broken) need work before claiming S11 parity.
+9. **Parallel wave 1 (2026-07-06):** `worktree_tasks.py` + manifest `docs/technical/feature-053-parity-parallel.manifest.yaml` prepared two worktrees; child slices shipped as separate WIP PRs (#49, #50). Review merge order: #48 → #49/#50 → next wave.
 
 ---
 
@@ -533,10 +535,9 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 ## Implementation progress (program track)
 
 - [x] Phase 0 — feature-052 complete (merged PR #47)
-- [x] Phase 1 Step 2 — feature-056 API hardening (ready for `/finish-task` on PR #48)
-- [ ] **Parallel wave 1** — `feature-055` + `feature-057` via worktrees (`docs/technical/feature-053-parity-parallel.manifest.yaml`)
-  - [x] `feature-057` — runtime config Redis endpoints implemented in its worktree; WIP PR https://github.com/povedica/master-ia-lidr/pull/50.
-  - [ ] `feature-055` — in progress in its own worktree.
+- [x] Phase 1 Step 2 — feature-056 API hardening (merged PR #48, 2026-07-07)
+- [x] Phase 1 Step 3 — feature-055 RAGAS gate/monitor (merged PR #49, 2026-07-07)
+- [x] **Parallel wave 1 — feature-057** runtime config (merged PR #50, 2026-07-07)
 
 ### Parallel orchestration (wave 1)
 
@@ -554,7 +555,9 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 
 ## Pull Request
 
-- **WIP (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
+- **Merged (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
+- **Merged (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
+- **Merged (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
 
 ---

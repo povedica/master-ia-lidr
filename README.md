@@ -804,6 +804,25 @@ uv run python app/scripts/ragas_generation_eval.py
 
 Golden set: `evaluation/generation/golden_set.json` (5 queries + expert `ground_truth`). Writes `metrics.json`, `comparison.md`, and `quality_note.md` under `evaluation/generation/results/<timestamp>/`. The runner shapes a natural-language RAGAS `answer` via `format_ragas_answer()` (not raw JSON) and serializes non-finite metrics as `null` / `n/a`. Preflight requires populated corpus, Alembic `0004`, importable `ragas`, and `OPENAI_API_KEY`. See [docs/technical/README.md](docs/technical/README.md) §25d.
 
+**RAGAS regression gate and monitor** (feature-055, CI-friendly):
+
+```bash
+# Gate: exit 1 on regression vs the committed baseline, exit 0 on pass.
+uv run python app/scripts/ragas_generation_eval.py --gate
+
+# Monitor: print a one-line faithfulness/answer relevancy summary (no gating).
+uv run python app/scripts/ragas_generation_eval.py --monitor
+
+# Combine, override baseline path and tolerance:
+uv run python app/scripts/ragas_generation_eval.py --gate --monitor \
+  --baseline evaluation/generation/RAGAS_BASELINE.md --tolerance 0.05
+```
+
+- `--gate` compares `mean_faithfulness` (and `mean_answer_relevancy` when finite) against `evaluation/generation/RAGAS_BASELINE.md` (or `--baseline`); a metric regresses when `current_mean < baseline_mean - tolerance`.
+- Exit codes: **0** pass (or no `--gate`), **1** gate regression, **2** preflight/baseline-load error (unchanged preflight semantics, extended to a missing/malformed baseline file).
+- `--monitor` never changes the exit code; it only prints a summary line for watch-mode / dashboards.
+- Gate/monitor helpers (`load_baseline`, `evaluate_gate`, `render_gate_summary`, `render_monitor_summary` in `app/embedding_pipeline/generation_eval.py`) are pure functions unit-tested with mocked metrics in `tests/embedding_pipeline/test_generation_gate.py`; they do not import `ragas` at collection time. See `evaluation/generation/RAGAS_BASELINE.md` for baseline provenance and update instructions.
+
 ```bash
 # When RETRIEVAL_API_KEY is set in .env, add: -H 'X-API-Key: your-retrieval-key'
 curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval \

@@ -81,12 +81,12 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `uv run python app/scripts/ragas_generation_eval.py --gate` with mocked metrics above baseline exits 0 in unit test.
-- [ ] **AC-02:** Same harness with metrics below baseline − tolerance exits 1 in unit test.
-- [ ] **AC-03:** `--monitor` prints faithfulness and answer relevancy without changing exit code semantics.
-- [ ] **AC-04:** `evaluation/generation/RAGAS_BASELINE.md` exists with documented tolerance.
-- [ ] **AC-05:** `uv run pytest tests/embedding_pipeline/test_generation_gate.py` passes without API keys.
-- [ ] **AC-06:** Fast suite `uv run pytest` unchanged (no new slow tests in default collection).
+- [x] **AC-01:** `uv run python app/scripts/ragas_generation_eval.py --gate` with mocked metrics above baseline exits 0 in unit test.
+- [x] **AC-02:** Same harness with metrics below baseline − tolerance exits 1 in unit test.
+- [x] **AC-03:** `--monitor` prints faithfulness and answer relevancy without changing exit code semantics.
+- [x] **AC-04:** `evaluation/generation/RAGAS_BASELINE.md` exists with documented tolerance.
+- [x] **AC-05:** `uv run pytest tests/embedding_pipeline/test_generation_gate.py` passes without API keys.
+- [x] **AC-06:** Fast suite `uv run pytest` unchanged (no new slow tests in default collection).
 
 ## Test Plan
 
@@ -104,46 +104,71 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Verification
 
-| Check | Command |
+| Check | Result |
 | --- | --- |
-| Gate unit tests | `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` |
-| Fast suite | `uv run pytest` |
-| CLI help | `uv run python app/scripts/ragas_generation_eval.py --help` |
+| Gate unit tests | **Verified** — 16 passed (2026-07-07) |
+| Fast suite | **Verified** — 683 passed; 2 pre-existing `test_config` failures from shell `.env` leakage |
+| CLI help | **Verified** — `--gate`, `--monitor`, `--baseline`, `--tolerance` present |
+| Live RAGAS gate with API keys | **Not verified** |
 
-**Not verified at spec time:** live gate against real RAGAS run with API keys.
+**Residual risk:** gate compares finite metrics only; `answer_relevancy` skipped when baseline or current value is non-finite.
 
 ## Documentation Plan
 
-| Artifact | Update |
+| Artifact | Status |
 | --- | --- |
-| `evaluation/generation/RAGAS_BASELINE.md` | New baseline template |
-| `README.md` | Gate/monitor CLI examples |
-| `feature-053` progress | Step 3 checkbox |
+| `evaluation/generation/RAGAS_BASELINE.md` | Done |
+| `README.md` | Done — gate/monitor CLI examples |
+| `feature-053` progress | Updated on merge |
 
 ## Implementation Plan
 
-- [ ] **Step 1:** `test_generation_gate.py` RED — baseline parse + compare pure functions.
-- [ ] **Step 2:** Implement gate helpers GREEN in `generation_eval.py`.
-- [ ] **Step 3:** Wire CLI flags + exit codes in `ragas_generation_eval.py`.
-- [ ] **Step 4:** Add `RAGAS_BASELINE.md` + README; mark ACs.
+- [x] **Step 1:** `test_generation_gate.py` RED — baseline parse + compare pure functions.
+- [x] **Step 2:** Implement gate helpers GREEN in `generation_eval.py`.
+- [x] **Step 3:** Wire CLI flags + exit codes in `ragas_generation_eval.py`.
+- [x] **Step 4:** Add `RAGAS_BASELINE.md` + README; mark ACs.
 
 ## Estimation
 
 - Size: **S**
 - Estimated time: **2 hours**
-- Planned steps: **4**
+- Planned steps: **4** (complete)
 
 ## Implementation progress
 
-- [ ] Step 1: Gate unit tests (RED)
-- [ ] Step 2: Gate helpers
-- [ ] Step 3: CLI wiring
-- [ ] Step 4: Docs + baseline
+- [x] Step 1: Gate unit tests (RED) — `tests/embedding_pipeline/test_generation_gate.py` (14 tests), verified failing on collection before helpers existed.
+- [x] Step 2: Gate helpers — `BaselineParseError`, `GenerationBaseline`, `GateMetricComparison`, `GateResult`, `load_baseline`, `evaluate_gate`, `gate_exit_code`, `render_gate_summary`, `render_monitor_summary`, `gate_result_to_json` in `app/embedding_pipeline/generation_eval.py`.
+- [x] Step 3: CLI wiring — `--gate`, `--monitor`, `--baseline`, `--tolerance` flags in `app/scripts/ragas_generation_eval.py`; exit 0/1/2 semantics; optional `gate_result` merged into `metrics.json` only when `--gate` is used. Added 2 CLI arg-parsing unit tests.
+- [x] Step 4: Docs + baseline — `evaluation/generation/RAGAS_BASELINE.md` seeded from run `20260629T185540Z`; `README.md` gate/monitor usage section; `docs/technical/README.md` §25d "Regression gate and monitor (feature-055)" subsection.
 
 ## Pull Request
 
-- **Branch:** `feature/055-ragas-eval-gate-and-monitor`
-- _(URL after WIP PR opened)_
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/49 (2026-07-07)
+- **Branch:** `feature/055-ragas-eval-gate-and-monitor` (deleted after merge)
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `cc76733` | test(generation-eval): add failing gate/monitor unit tests (RED) |
+| `3082d1c` | feat(generation-eval): add RAGAS baseline gate/monitor helpers (GREEN) |
+| `104ca23` | feat(ragas-eval): wire --gate/--monitor/--baseline/--tolerance CLI flags |
+| `3bddd42` | docs(ragas-eval): add baseline template and gate/monitor usage docs |
+| `d28309e` | docs(feature-055): record repository commits for this slice |
+| `ea4373f` | docs(feature-055): record WIP PR URL |
+
+## Handoff from feature-055
+
+**Shipped interfaces**
+
+- `app/embedding_pipeline/generation_eval.py` — `load_baseline()`, `evaluate_gate()`, `gate_exit_code()`, monitor/gate render helpers
+- `app/scripts/ragas_generation_eval.py` — `--gate`, `--monitor`, `--baseline`, `--tolerance` CLI flags
+- `evaluation/generation/RAGAS_BASELINE.md` — committed baseline template (run `20260629T185540Z`)
+
+**Recommended first tests for feature-058**
+
+- `check_coherence()` integration with gate exit codes
+- Regression: gate unit tests remain fast and keyless
 
 ## How to start
 

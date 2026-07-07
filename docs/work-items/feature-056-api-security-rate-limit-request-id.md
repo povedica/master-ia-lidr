@@ -184,8 +184,8 @@ uv run pytest -q
 
 ## Pull Request
 
-- **WIP draft:** https://github.com/povedica/master-ia-lidr/pull/48
-- **Branch:** `feature/056-api-security-rate-limit-request-id`
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/48 (2026-07-07)
+- **Branch:** `feature/056-api-security-rate-limit-request-id` (deleted after merge)
 
 ## Repository commits (master-ia)
 
