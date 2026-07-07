@@ -568,7 +568,7 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 | --- | --- | --- | --- | --- |
 | 058 | `feature-058-rag-coherence-and-eval-gate.md` | `feature/058-rag-coherence-and-eval-gate` | 055, 057 on `main` | 054 (optional, separate track) |
 | 054 | `feature-054-agentic-estimation-loop.md` | `feature/054-agentic-estimation-loop` | — | 058 (optional) |
-| 059 | `feature-059-rag-query-reformulator-and-token-budget.md` | `feature/059-rag-query-reformulator-and-token-budget` | 058 | — (start after 058 merges) |
+| 059 | `feature-059-rag-query-reformulator-and-token-budget.md` | `feature/059-rag-query-reformulator-and-token-budget` | 058 | ✅ merged (PR #52) |
 | 060 | `feature-060-rag-hallucination-gate.md` | `feature/060-rag-hallucination-gate` | 059 | 061 |
 | 061 | `feature-061-advanced-retrieval-s10-pipeline.md` | `feature/061-advanced-retrieval-s10-pipeline` | 059 | 060 |
 

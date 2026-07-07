@@ -153,7 +153,7 @@ RAG_CONTEXT_MAX_TOKENS=8000
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/52 (draft, label `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/52 — merged via `/finish-task`
 
 ## Repository commits (master-ia)
 
@@ -165,6 +165,30 @@ RAG_CONTEXT_MAX_TOKENS=8000
 | `08c2412` | feat(rag): add query reformulator with settings-driven LLM path |
 | `c455c1d` | feat(rag): wire reformulator and token budget into estimation service |
 | `69fe087` | docs(feature-059): document reformulator settings and RAG pipeline updates |
+| `0cccf4b` | docs(feature-059): record commit SHAs in implementation report |
+
+## Task closure (finish-task)
+
+**Verified**
+
+- `uv run pytest tests/test_rag_query_reformulator.py tests/test_rag_context_assembler.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py tests/test_rag_coherence.py -q` — 31 passed
+- `uv run pytest` — 732 passed (feature-059 scope green; 2 unrelated `test_config` failures from local `.env` overrides)
+- `.env.example`, `README.md`, `feature-053` parity rows, `docs/arquitectura-estimador-cag.html` synced
+
+**Not verified**
+
+- **AC-05:** offline retrieval P@5 on `q3-crm-paraphrase` (deferred to `@pytest.mark.slow` / eval harness follow-up)
+- `test_config.py` defaults with `_env_file=None` in this workspace (local `.env` pollutes `Settings()`)
+
+**Residual risk**
+
+- Live reformulation quality and retrieval lift on paraphrase queries not measured
+- Very low `RAG_CONTEXT_MAX_TOKENS` can drop all chunks → insufficient-context path
+
+**Follow-up**
+
+- `feature-060` — hallucination gate (handoff section in `feature-060-rag-hallucination-gate.md`)
+- Optional: AC-05 eval note under `evaluation/` when heavy tests are run
 
 ## Verification
 
@@ -213,9 +237,12 @@ retrieve → assemble → generate → verify_citations → check_coherence → 
 
 Settings already on `main`: `RAG_COHERENCE_ENABLED`, `RAG_COHERENCE_TOTAL_TOLERANCE`.
 
+## How to start
+
 ```text
 /start-task docs/work-items/feature-059-rag-query-reformulator-and-token-budget.md
 ```
 
 Parent: `docs/work-items/feature-053-official-master-parity-alignment.md` Phase 2 Step 5.
 Prerequisite: `feature-058` merged to `main` ✅ (PR #51).
+Status: **completed** — PR #52 merged.
