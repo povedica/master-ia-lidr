@@ -140,7 +140,7 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 
 ## Implementation Plan
 
-- [ ] **Step 1:** `StageConfig` + presets for modes A–D (TDD).
+- [x] **Step 1:** `StageConfig` + presets for modes A–D (TDD).
 - [ ] **Step 2:** `advanced_retrieve()` core with hybrid + rerank reuse.
 - [ ] **Step 3:** Router + query transform stubs.
 - [ ] **Step 4:** HTTP endpoint + schemas.
@@ -152,13 +152,46 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 - Estimated time: **6–8 hours**
 - Planned steps: **5**
 
+## Handoff from feature-059
+
+`feature-059` wires retrieval prep before generation:
+
+```text
+reformulate_query → compose_search_text → retrieve → assemble → truncate_assembled_context → generate → verify_citations → check_coherence
+```
+
+**Advanced retrieval is a parallel retrieval path** (not wired into `RagEstimationService` by default in this slice):
+
+- Accept the same composed search text contract as `RetrievalService.retrieve()`.
+- Reuse hybrid RRF and `Reranker` primitives; do not duplicate fusion math.
+- Honor `feature-057` runtime retrieval config for rerank toggle.
+
+**First verification after wiring:**
+
+```bash
+uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_retrieval_advanced_endpoint.py -q
+```
+
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [x] Step 1: `StageConfig` + presets for modes A–D (TDD)
+- [ ] Step 2: `advanced_retrieve()` core with hybrid + rerank reuse
+- [ ] Step 3: Router + query transform stubs
+- [ ] Step 4: HTTP endpoint + schemas
+- [ ] Step 5: Docs + eval mapping note
+
+## Repository commits (master-ia)
+
+| Step | Commit | Summary |
+| --- | --- | --- |
+| 1 | _pending push_ | `StageConfig` dataclass + mode A–D presets with validation and unit tests |
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/53
+- Branch: `feature/061-advanced-retrieval-s10-pipeline`
+- Worktree: `../master-ia-worktrees/feature-061-advanced-retrieval-s10-pipeline`
+- Parallel manifest: `docs/technical/feature-053-parity-parallel-wave2b.manifest.yaml`
 
 ## How to start
 
