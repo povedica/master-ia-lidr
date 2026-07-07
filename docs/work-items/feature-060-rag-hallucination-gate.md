@@ -183,6 +183,7 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 | SHA | Summary |
 | --- | --- |
 | `d97f8d2` | test+feat for step 1 — schemas, numeric_anchor(), gate_line() |
+| `8dda2c9` | feat: judge_estimate() with batched structured LLM judge |
 
 ## Pull Request
 
