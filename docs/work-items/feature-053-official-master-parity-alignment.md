@@ -138,7 +138,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Generation | `estimator.py:generate_estimate()` | `RagEstimationService` + `complete_structured()` | 🟡 no structure-only mode |
 | Structure-only pass | `generate_structure()` | — | ❌ |
 | Referential citations | `validation.py:verify_citations()` | `citation_verification.py` | 🟡 align status enum names |
-| Coherence check | `validation.py:check_coherence()` | — | ❌ |
+| Coherence check | `validation.py:check_coherence()` | `rag_coherence.py` | ✅ feature-058 |
 | Hallucination gate | `quality/hallucination.py` | — | ❌ anchor + judge + `gate_estimate()` |
 | Synthesis S11 | `quality/synthesis.py` | — | ❌ contradiction ranges |
 | Task-level hours | `task_hours.py` | — | ❌ per-task vector retrieval |
@@ -376,7 +376,7 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 - [ ] **AC-06:** Every response includes `X-Request-ID`; logs include same id in `extra`.
 - [ ] **AC-07:** `PUT /api/v1/config/retrieval` changes rerank toggle without restart; subsequent retrieval honors it.
 - [ ] **AC-08:** `ragas_generation_eval.py --gate` exits non-zero when faithfulness mean drops below baseline − tolerance (deterministic mock mode for CI).
-- [ ] **AC-09:** `check_coherence()` integrated; incoherent sample fails deterministically in unit test.
+- [ ] **AC-09:** `check_coherence()` integrated; incoherent sample fails deterministically in unit test. _(✅ feature-058)_
 
 ### Phase 2
 
@@ -480,7 +480,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 | feature-055b | `web-rag-citations-table` | 0 | feature-052 _(shipped in feature-052)_ |
 | feature-056 | `api-security-rate-limit-request-id` | 1 | — |
 | feature-057 | `runtime-config-redis-endpoints` | 1 | feature-056 |
-| feature-058 | `rag-coherence-and-eval-gate` | 1 | feature-054 |
+| feature-058 | `rag-coherence-and-eval-gate` | 1 | feature-055, feature-057 |
 | feature-059 | `rag-query-reformulator-and-token-budget` | 2 | feature-058 |
 | feature-060 | `rag-hallucination-gate` | 2 | feature-059 |
 | feature-061 | `advanced-retrieval-s10-pipeline` | 2 | feature-059 |
@@ -495,12 +495,13 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(PR — https://github.com/povedica/master-ia-lidr/pull/48)_
 - [x] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval. _(PR — https://github.com/povedica/master-ia-lidr/pull/49)_
 - [x] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(merged PR #50, 2026-07-07)_
-- [ ] **Step 4:** `feature-059` — query reformulator wired into `RagEstimationService`.
-- [ ] **Step 5:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
-- [ ] **Step 6:** `feature-061` — `advanced_retrieve` + endpoint.
-- [ ] **Step 7:** `feature-062` — stage routes + task hours.
-- [ ] **Step 8:** `feature-063` — multi-index migration + ingest.
-- [ ] **Step 9:** Update parity matrix in `docs/technical/README.md` to ✅ per row.
+- [x] **Step 4:** `feature-058` — `check_coherence()` + eval gate integration on RAG path. _(PR — https://github.com/povedica/master-ia-lidr/pull/51)_
+- [ ] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
+- [ ] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
+- [ ] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint.
+- [ ] **Step 8:** `feature-062` — stage routes + task hours.
+- [ ] **Step 9:** `feature-063` — multi-index migration + ingest.
+- [ ] **Step 10:** Update parity matrix in `docs/technical/README.md` to ✅ per row.
 
 ---
 
@@ -515,6 +516,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 7. **RAGAS dependency isolation:** official uses separate venv for scoring; document the same if `langchain-community` conflicts resurface.
 8. **Baseline run `20260629T185540Z`** proves retrieval precision is strong (0.863) but recall (0.140) and answer relevancy (broken) need work before claiming S11 parity.
 9. **Parallel wave 1 (2026-07-06):** `worktree_tasks.py` + manifest `docs/technical/feature-053-parity-parallel.manifest.yaml` prepared two worktrees; child slices shipped as separate WIP PRs (#49, #50). Review merge order: #48 → #49/#50 → next wave.
+10. **Wave 2 prep (2026-07-07):** `feature-058` dependency corrected (055+057, not 054). Work items 058–061 authored; wave 2 manifest at `docs/technical/feature-053-parity-parallel-wave2.manifest.yaml`. `feature-054` stays Session 12 track, optional parallel with 058.
 
 ---
 
@@ -538,6 +540,11 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] Phase 1 Step 2 — feature-056 API hardening (merged PR #48, 2026-07-07)
 - [x] Phase 1 Step 3 — feature-055 RAGAS gate/monitor (merged PR #49, 2026-07-07)
 - [x] **Parallel wave 1 — feature-057** runtime config (merged PR #50, 2026-07-07)
+- [x] **Parallel wave 2 — feature-058** RAG coherence (merged PR #51, 2026-07-07)
+
+### Session 12 track (outside parity wave)
+
+`feature-054-agentic-estimation-loop.md` is a **separate Session 12 exercise** (agentic loop + CLI deliverable). It is **not** on the parity critical path and does **not** block `feature-058`. The draft work item exists locally (untracked until committed); it may run **in parallel** with `feature-058` in a second worktree when desired (`mutex_group: agentic` vs `rag-pipeline`).
 
 ### Parallel orchestration (wave 1)
 
@@ -553,25 +560,65 @@ uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-pa
 
 Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — use Cursor agents per `INSTRUCTIONS.md` in each worktree.
 
+### Parallel orchestration (wave 2)
+
+**Goal:** Close Phase 1 (`feature-058`) then unlock Phase 2 (`feature-059` → parallel `060` + `061`).
+
+| Task | Work item | Branch | Depends on (merged) | Parallel with |
+| --- | --- | --- | --- | --- |
+| 058 | `feature-058-rag-coherence-and-eval-gate.md` | `feature/058-rag-coherence-and-eval-gate` | 055, 057 on `main` | 054 (optional, separate track) |
+| 054 | `feature-054-agentic-estimation-loop.md` | `feature/054-agentic-estimation-loop` | — | 058 (optional) |
+| 059 | `feature-059-rag-query-reformulator-and-token-budget.md` | `feature/059-rag-query-reformulator-and-token-budget` | 058 | — (start after 058 merges) |
+| 060 | `feature-060-rag-hallucination-gate.md` | `feature/060-rag-hallucination-gate` | 059 | 061 |
+| 061 | `feature-061-advanced-retrieval-s10-pipeline.md` | `feature/061-advanced-retrieval-s10-pipeline` | 059 | 060 |
+
+**Recommended wave 2a (parity-first):** implement `058` only on `main` (sequential). Optional **wave 2a′:** add `054` in a second worktree while `058` runs (`max_parallel: 2`).
+
+**Wave 2b (after 058 merges):** manifest `feature-053-parity-parallel-wave2b.manifest.yaml` — add `059` only.
+
+**Wave 2c (after 059 merges):** manifest `feature-053-parity-parallel-wave2c.manifest.yaml` — `060` + `061` in parallel.
+
+```bash
+# Wave 2a — plan + dry-run (parity + optional agentic)
+uv run python scripts/worktree_tasks.py plan -f docs/technical/feature-053-parity-parallel-wave2.manifest.yaml
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-parity-parallel-wave2.manifest.yaml --dry-run
+
+# Parity-only worktree
+uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-parity-parallel-wave2.manifest.yaml --only 058
+```
+
+Child work items **058–061** are written under `docs/work-items/`. **062–065** remain named-only until `/write-feature` before their wave.
+
 ## Pull Request
 
 - **Merged (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
 - **Merged (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
 - **Merged (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
+- **Merged (feature-058 slice):** https://github.com/povedica/master-ia-lidr/pull/51
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
 
 ---
 
 ## How to start
 
-1. Finish `feature-052` tail (Steps 15–17).
-2. Then run, for example:
+1. Phase 1 parity is **complete**. Continue Phase 2:
 
 ```text
-/start-task docs/work-items/feature-056-api-security-rate-limit-request-id.md
+/start-task docs/work-items/feature-059-rag-query-reformulator-and-token-budget.md
 ```
 
-(Child work items `feature-055` … `feature-065` are **named in this roadmap**; create missing files with `/write-feature` when starting each slice. **`feature-056`** exists at `docs/work-items/feature-056-api-security-rate-limit-request-id.md`.)
+2. Optional Session 12 track in parallel (separate worktree):
+
+```text
+/start-task docs/work-items/feature-054-agentic-estimation-loop.md
+```
+
+3. After `feature-059` merges, run wave 2c in parallel (`060` + `061`):
+
+```text
+/start-task docs/work-items/feature-060-rag-hallucination-gate.md
+/start-task docs/work-items/feature-061-advanced-retrieval-s10-pipeline.md
+```
 
 For the full program track:
 

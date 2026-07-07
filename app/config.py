@@ -371,6 +371,15 @@ class Settings(BaseSettings):
         default="B",
         description="Default retrieval mode for POST /api/v1/estimate/rag (A|B|C|D).",
     )
+    rag_coherence_enabled: bool = Field(
+        default=True,
+        description="When false, skip structural coherence checks (noop report).",
+    )
+    rag_coherence_total_tolerance: float = Field(
+        default=0.01,
+        ge=0.0,
+        description="Allowed absolute delta between total_hours and sum of line item hours.",
+    )
     ragas_judge_model: str = Field(
         default="gpt-4o-mini",
         description="Judge model for offline RAGAS generation eval (dev/slow only).",

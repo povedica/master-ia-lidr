@@ -31,9 +31,19 @@ class CitationSummaryView(BaseModel):
     has_dangling: bool
 
 
+class CoherenceSummaryView(BaseModel):
+    coherent_ok: int
+    total_hours_mismatch: int
+    duplicate_component: int
+    insufficient_context_violation: int
+    zero_hours_grounded: int
+    has_violations: bool
+
+
 class RagEstimationResponse(BaseModel):
     result: RagEstimationResult
     citation_summary: CitationSummaryView
+    coherence_summary: CoherenceSummaryView
     request_id: str
     model: str | None = None
     provider: str | None = None

@@ -778,9 +778,9 @@ Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op 
 **Grounded RAG estimation** (`POST /api/v1/estimate/rag`):
 
 - Separate from CAG v2: no semantic cache, ACB, or v2 output guardrails; basic non-empty input validation only.
-- Flow: `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit).
-- Response includes per-line `sources`, `grounded`, and `citation_summary` counts (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`).
-- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+- Flow: `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit) → `check_coherence` (structural rules).
+- Response includes per-line `sources`, `grounded`, `citation_summary` counts (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`), and `coherence_summary` (`coherent_ok`, `total_hours_mismatch`, `duplicate_component`, `insufficient_context_violation`, `zero_hours_grounded`, `has_violations`).
+- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), `RAG_COHERENCE_ENABLED` (default **true**), `RAG_COHERENCE_TOTAL_TOLERANCE` (default **0.01**); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
 
 ```bash
 # When ESTIMATE_API_KEY is set in .env, add: -H 'X-API-Key: your-estimate-key'
@@ -816,9 +816,13 @@ uv run python app/scripts/ragas_generation_eval.py --monitor
 # Combine, override baseline path and tolerance:
 uv run python app/scripts/ragas_generation_eval.py --gate --monitor \
   --baseline evaluation/generation/RAGAS_BASELINE.md --tolerance 0.05
+
+# Also fail when any golden-set estimate has structural coherence violations:
+uv run python app/scripts/ragas_generation_eval.py --gate --coherence-gate
 ```
 
 - `--gate` compares `mean_faithfulness` (and `mean_answer_relevancy` when finite) against `evaluation/generation/RAGAS_BASELINE.md` (or `--baseline`); a metric regresses when `current_mean < baseline_mean - tolerance`.
+- `--coherence-gate` (with `--gate`) fails when `coherence_violation_count > 0` in the eval run (`evaluate_coherence_gate` in `generation_eval.py`).
 - Exit codes: **0** pass (or no `--gate`), **1** gate regression, **2** preflight/baseline-load error (unchanged preflight semantics, extended to a missing/malformed baseline file).
 - `--monitor` never changes the exit code; it only prints a summary line for watch-mode / dashboards.
 - Gate/monitor helpers (`load_baseline`, `evaluate_gate`, `render_gate_summary`, `render_monitor_summary` in `app/embedding_pipeline/generation_eval.py`) are pure functions unit-tested with mocked metrics in `tests/embedding_pipeline/test_generation_gate.py`; they do not import `ragas` at collection time. See `evaluation/generation/RAGAS_BASELINE.md` for baseline provenance and update instructions.

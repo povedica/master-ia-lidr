@@ -11,6 +11,7 @@ from app.database import get_db_session
 from app.main import app
 from app.routers import rag_estimations
 from app.schemas.citation_report import CitationLineReport, CitationLineStatus, CitationReport
+from app.schemas.coherence_report import CoherenceLineReport, CoherenceLineStatus, CoherenceReport
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
 from app.services.rag_estimation_service import RagEstimationOutcome
 from app.services.structured_llm_client import StructuredCompletionError
@@ -47,6 +48,7 @@ def _outcome(
     *,
     status: CitationLineStatus = CitationLineStatus.GROUNDED_OK,
     invalid_chunk_ids: list[int] | None = None,
+    coherence_status: CoherenceLineStatus = CoherenceLineStatus.COHERENT_OK,
 ) -> RagEstimationOutcome:
     report = CitationReport(
         request_id="req_test",
@@ -77,9 +79,31 @@ def _outcome(
         has_dangling=status == CitationLineStatus.DANGLING_CITATION,
         has_integrity_violation=False,
     )
+    coherence_lines = (
+        []
+        if not result.line_items
+        else [
+            CoherenceLineReport(
+                index=index,
+                component=item.component,
+                status=coherence_status,
+            )
+            for index, item in enumerate(result.line_items)
+        ]
+    )
+    coherence_counts = {s: 0 for s in CoherenceLineStatus}
+    if coherence_lines:
+        coherence_counts[coherence_status] = len(coherence_lines)
+    coherence_report = CoherenceReport(
+        request_id="req_test",
+        lines=coherence_lines,
+        counts=coherence_counts,
+        has_violations=coherence_status != CoherenceLineStatus.COHERENT_OK,
+    )
     return RagEstimationOutcome(
         result=result,
         report=report,
+        coherence_report=coherence_report,
         chunk_texts=["OAuth2 login integration scope"],
         model="gpt-4o-mini",
         provider="openai",
@@ -139,6 +163,8 @@ def test_rag_estimate_happy_path(rag_client: TestClient) -> None:
     assert body["result"]["schema_version"] == "rag-1"
     assert body["citation_summary"]["dangling"] == 0
     assert body["citation_summary"]["has_dangling"] is False
+    assert body["coherence_summary"]["has_violations"] is False
+    assert body["coherence_summary"]["coherent_ok"] == 1
     assert body["result"]["line_items"][0]["grounded"] is True
 
 
@@ -176,6 +202,12 @@ def test_rag_estimate_insufficient_context(rag_client: TestClient) -> None:
                 has_dangling=False,
                 has_integrity_violation=False,
             ),
+            coherence_report=CoherenceReport(
+                request_id="req_test",
+                lines=[],
+                counts={status: 0 for status in CoherenceLineStatus},
+                has_violations=False,
+            ),
             chunk_texts=[],
             model=None,
             provider=None,
@@ -189,6 +221,7 @@ def test_rag_estimate_insufficient_context(rag_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["result"]["insufficient_context"] is True
+    assert response.json()["coherence_summary"]["has_violations"] is False
 
 
 def test_rag_estimate_provider_failure_returns_503(rag_client: TestClient) -> None:

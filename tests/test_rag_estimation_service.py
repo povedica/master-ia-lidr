@@ -17,6 +17,7 @@ from app.embedding_pipeline.retrieval_schemas import (
 )
 from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
 from app.schemas.citation_report import CitationLineStatus
+from app.schemas.coherence_report import CoherenceLineStatus
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
 from app.services.llm_chain import LitellmChainProvider
 from app.services.llm_types import UsageInfo
@@ -99,6 +100,8 @@ async def test_insufficient_context_when_retrieval_returns_no_rows() -> None:
     assert outcome.result.insufficient_context is True
     assert outcome.result.line_items == []
     assert outcome.chunk_texts == []
+    assert outcome.coherence_report.has_violations is False
+    assert outcome.coherence_report.lines == []
 
 
 @pytest.mark.asyncio
@@ -157,5 +160,7 @@ async def test_happy_path_generates_and_verifies_citations() -> None:
 
     assert outcome.result.line_items[0].grounded is True
     assert outcome.report.lines[0].status == CitationLineStatus.GROUNDED_OK
+    assert outcome.coherence_report.has_violations is False
+    assert outcome.coherence_report.lines[0].status == CoherenceLineStatus.COHERENT_OK
     assert outcome.chunk_texts == ["OAuth2 login integration scope"]
     assert outcome.provider == "openai"

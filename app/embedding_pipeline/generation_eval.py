@@ -85,6 +85,13 @@ class GateResult:
     comparisons: tuple[GateMetricComparison, ...]
 
 
+@dataclass(frozen=True)
+class CoherenceGateResult:
+    passed: bool
+    violation_count: int
+    reason: str
+
+
 def load_generation_golden_set(path: Path) -> list[GenerationGoldenQuery]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     queries = payload.get("queries")
@@ -415,6 +422,39 @@ def evaluate_gate(
 
 def gate_exit_code(gate_result: GateResult) -> int:
     return 0 if gate_result.passed else 1
+
+
+def evaluate_coherence_gate(violation_count: int) -> CoherenceGateResult:
+    """Fail when any golden-set estimate reports structural coherence violations."""
+
+    if violation_count <= 0:
+        return CoherenceGateResult(
+            passed=True,
+            violation_count=violation_count,
+            reason="no coherence violations recorded",
+        )
+    return CoherenceGateResult(
+        passed=False,
+        violation_count=violation_count,
+        reason=f"{violation_count} estimate(s) with coherence violations",
+    )
+
+
+def coherence_gate_exit_code(coherence_gate_result: CoherenceGateResult) -> int:
+    return 0 if coherence_gate_result.passed else 1
+
+
+def render_coherence_gate_summary(coherence_gate_result: CoherenceGateResult) -> str:
+    header = "PASS" if coherence_gate_result.passed else "REGRESSION"
+    return f"[coherence-gate] {header} — {coherence_gate_result.reason}"
+
+
+def coherence_gate_result_to_json(coherence_gate_result: CoherenceGateResult) -> dict[str, Any]:
+    return {
+        "passed": coherence_gate_result.passed,
+        "violation_count": coherence_gate_result.violation_count,
+        "reason": coherence_gate_result.reason,
+    }
 
 
 def render_gate_summary(gate_result: GateResult) -> str:
