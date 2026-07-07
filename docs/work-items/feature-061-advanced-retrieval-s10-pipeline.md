@@ -184,7 +184,7 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 
 | Step | Commit | Summary |
 | --- | --- | --- |
-| 1 | _pending push_ | `StageConfig` dataclass + mode A–D presets with validation and unit tests |
+| 1 | f72f50b | `StageConfig` dataclass + mode A–D presets with validation and unit tests |
 
 ## Pull Request
 
