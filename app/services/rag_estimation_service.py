@@ -15,8 +15,10 @@ from app.embedding_pipeline.rerank import Reranker
 from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus, CitationReport
+from app.schemas.coherence_report import CoherenceReport
 from app.schemas.rag_estimation_result import RagEstimationResult
 from app.services.citation_verification import verify_citations
+from app.services.rag_coherence import check_coherence
 from app.services.llm_types import LLMProvider, UsageInfo
 from app.services.observability.bootstrap import get_observability
 from app.services.provider_routing import resolve_first_litellm_route
@@ -31,6 +33,7 @@ logger = logging.getLogger(__name__)
 class RagEstimationOutcome:
     result: RagEstimationResult
     report: CitationReport
+    coherence_report: CoherenceReport
     chunk_texts: list[str]
     model: str | None
     provider: str | None
@@ -121,9 +124,16 @@ class RagEstimationService:
 
             report = verify_citations(result, assembled.chunk_ids, request_id=request_id)
             self._log_citation_report(report)
+            coherence_report = check_coherence(
+                result,
+                request_id=request_id,
+                enabled=self._settings.rag_coherence_enabled,
+                total_tolerance=self._settings.rag_coherence_total_tolerance,
+            )
             return RagEstimationOutcome(
                 result=result,
                 report=report,
+                coherence_report=coherence_report,
                 chunk_texts=assembled.chunk_texts,
                 model=route.model,
                 provider=route.provider_name,
@@ -148,9 +158,16 @@ class RagEstimationService:
         )
         report = verify_citations(result, set(), request_id=request_id)
         self._log_citation_report(report)
+        coherence_report = check_coherence(
+            result,
+            request_id=request_id,
+            enabled=self._settings.rag_coherence_enabled,
+            total_tolerance=self._settings.rag_coherence_total_tolerance,
+        )
         return RagEstimationOutcome(
             result=result,
             report=report,
+            coherence_report=coherence_report,
             chunk_texts=[],
             model=None,
             provider=None,
