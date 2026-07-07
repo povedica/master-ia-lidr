@@ -84,12 +84,12 @@ master-ia:runtime:models
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `PUT /api/v1/config/retrieval` with `{"rerank_enabled": false}` changes behavior on next retrieval call (unit test with mock).
-- [ ] **AC-02:** `GET` after `PUT` returns persisted values.
-- [ ] **AC-03:** Without Redis, `GET` returns settings defaults; `PUT` fails gracefully.
-- [ ] **AC-04:** `uv run pytest tests/test_runtime_config*.py` passes without real Redis.
-- [ ] **AC-05:** `.env.example` documents any new prefix variable.
-- [ ] **AC-06:** Feature-056 regression: retrieval/RAG auth tests still pass.
+- [x] **AC-01:** `PUT /api/v1/config/retrieval` with `{"rerank_enabled": false}` changes behavior on next retrieval call (unit test with mock).
+- [x] **AC-02:** `GET` after `PUT` returns persisted values.
+- [x] **AC-03:** Without Redis, `GET` returns settings defaults; `PUT` fails gracefully.
+- [x] **AC-04:** `uv run pytest tests/test_runtime_config*.py` passes without real Redis.
+- [x] **AC-05:** `.env.example` documents any new prefix variable.
+- [x] **AC-06:** Feature-056 regression: retrieval/RAG auth tests still pass.
 
 ## Test Plan
 
@@ -123,10 +123,10 @@ master-ia:runtime:models
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Schemas + `runtime_config.py` pure merge/load/save (TDD).
-- [ ] **Step 2:** Router GET/PUT + TestClient tests.
-- [ ] **Step 3:** Wire retrieval effective config.
-- [ ] **Step 4:** Docs, architecture HTML, `.env.example`.
+- [x] **Step 1:** Schemas + `runtime_config.py` pure merge/load/save (TDD).
+- [x] **Step 2:** Router GET/PUT + TestClient tests.
+- [x] **Step 3:** Wire retrieval effective config.
+- [x] **Step 4:** Docs, architecture HTML, `.env.example`.
 
 ## Estimation
 
@@ -136,15 +136,58 @@ master-ia:runtime:models
 
 ## Implementation progress
 
-- [ ] Step 1: Service + schemas (TDD)
-- [ ] Step 2: HTTP routes
-- [ ] Step 3: Retrieval integration
-- [ ] Step 4: Docs + architecture HTML
+- [x] Step 1: Service + schemas (TDD) — `app/schemas/runtime_config.py`, `app/services/runtime_config.py`, `tests/test_runtime_config.py` (13 tests).
+- [x] Step 2: HTTP routes — `app/routers/runtime_config.py` registered under `/api/v1`, `tests/test_runtime_config_api.py` (8 tests).
+- [x] Step 3: Retrieval integration — `app/routers/retrieval.py` resolves an effective `Settings` copy (`get_effective_settings`) before building the reranker; `tests/test_runtime_config_retrieval_integration.py` (2 tests) proves the override changes behavior without a restart.
+- [x] Step 4: Docs + architecture HTML — README (`Runtime config (Redis overrides)` subsection + endpoint/config tables), `.env.example` (`REDIS_URL`), `docs/arquitectura-estimador-cag.html` (section 14 rows + explanatory alert).
+
+## Verification evidence
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Runtime config tests | `uv run pytest tests/test_runtime_config.py tests/test_runtime_config_api.py tests/test_runtime_config_retrieval_integration.py -q` | 23 passed (2026-07-07 finish-task) |
+| Security regression (feature-056) | `uv run pytest tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` | 10 passed (2026-07-07 finish-task) |
+| Combined targeted suite | `uv run pytest tests/test_runtime_config*.py tests/test_api_security.py tests/embedding_pipeline/test_retrieval_router.py -q` | 33 passed (2026-07-07 finish-task) |
+| Fast suite | `uv run pytest -q` | 690 passed, 11 skipped, 12 deselected; 2 pre-existing failures in `tests/test_config.py` when a local `.env` leaks `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED` into `os.environ` during collection (not present in CI; unrelated to this feature) |
+
+**Not verified**
+
+- Live Redis round-trip against a real Redis instance (tests use mocks/fakes only).
+- Runtime model overrides (`structured_model` / `judge_model`) applied end-to-end on estimate routes (persistence + GET/PUT only in this slice; retrieval `rerank_enabled` is wired).
+
+**Residual risk**
+
+- Config endpoints remain open in dev (no API keys); securing them is a follow-up.
+- RAG estimate path does not yet resolve runtime model overrides at request time (Phase 2).
+- Local `.env` symlink can still cause the two `test_config.py` failures documented above.
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `4f705a5` | `feat(runtime-config): add Redis-backed retrieval/model override service` |
+| `e261617` | `feat(api): add GET/PUT /api/v1/config/models and /config/retrieval` |
+| `3c9b71d` | `feat(retrieval): honor runtime rerank_enabled override at request time` |
+| `1a8e11d` | `docs(feature-057): document runtime config endpoints and update progress` |
+| `fc6f46f` | `docs(feature-057): record WIP PR #50 URL in work items` |
+
+## Handoff from feature-057
+
+**Shipped interfaces**
+
+- `GET/PUT /api/v1/config/retrieval` — effective retrieval config (rerank toggle, model, recall/top-k); open in dev
+- `GET/PUT /api/v1/config/models` — effective model config (`structured_model`, `judge_model`); open in dev
+- `POST /api/v1/retrieval` now resolves an effective `Settings` copy via `get_effective_settings` before building the reranker, honoring the Redis `rerank_enabled` override without a restart
+- Settings: `REDIS_URL` (see `.env.example`); Redis keys `master-ia:runtime:retrieval`, `master-ia:runtime:models`
+
+**Verification evidence**
+
+- See **Verification evidence** above (finish-task 2026-07-07).
 
 ## Pull Request
 
-- **Branch:** `feature/057-runtime-config-redis-endpoints`
-- _(URL after WIP PR opened)_
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/50 (2026-07-07)
+- **Branch:** `feature/057-runtime-config-redis-endpoints` (deleted after merge)
 
 ## How to start
 

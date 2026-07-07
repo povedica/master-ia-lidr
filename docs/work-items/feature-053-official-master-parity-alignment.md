@@ -114,8 +114,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Task hours | `POST /v1/estimate/tasks/hours` | — | ❌ Phase 2 |
 | Corpus index jobs | `POST /embeddings/index/runs`, poll, stats | — | ❌ Phase 3 |
 | Batch ingestion jobs | `POST /api/v1/ingestion/runs` | — | ❌ Phase 4 (optional) |
-| Runtime model config | `GET/PUT /api/v1/config/models` | — | ❌ Phase 1 |
-| Runtime retrieval config | `GET/PUT /api/v1/config/retrieval` | env-only `Settings` | ❌ Phase 1 |
+| Runtime model config | `GET/PUT /api/v1/config/models` | `GET/PUT /api/v1/config/models` (Redis override) | ✅ feature-057 |
+| Runtime retrieval config | `GET/PUT /api/v1/config/retrieval` | `GET/PUT /api/v1/config/retrieval` (Redis override, wired to rerank) | ✅ feature-057 |
 | Retrieval debug | — | `POST /api/v1/retrieval-debug` | 🔵 keep |
 | API key auth | `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY` | none | ❌ Phase 1 |
 | Rate limiting | `slowapi` per key | none | ❌ Phase 1 |
@@ -189,7 +189,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | --- | --- | --- | --- |
 | API keys (retrieval/estimate) | `api/security.py` | — | ❌ Phase 1 |
 | Rate limits | `api/rate_limiting.py` + slowapi | — | ❌ Phase 1 |
-| Runtime config Redis | `foundation/llm/runtime_config.py` | — | ❌ Phase 1 |
+| Runtime config Redis | `foundation/llm/runtime_config.py` | `app/services/runtime_config.py` | ✅ feature-057 |
 | Request ID middleware | `main.py` | per-handler `request_id` | 🟡 unify |
 | Dev/prod config split | `APP_ENV` patterns | `app_env`, `dev_mode` | ✅ |
 
@@ -537,7 +537,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] Phase 0 — feature-052 complete (merged PR #47)
 - [x] Phase 1 Step 2 — feature-056 API hardening (merged PR #48, 2026-07-07)
 - [x] Phase 1 Step 3 — feature-055 RAGAS gate/monitor (merged PR #49, 2026-07-07)
-- [x] **Parallel wave 1 — feature-057** runtime config (WIP PR #50, worktree `../master-ia-worktrees/feature-057-runtime-config-redis-endpoints`)
+- [x] **Parallel wave 1 — feature-057** runtime config (merged PR #50, 2026-07-07)
 
 ### Parallel orchestration (wave 1)
 
@@ -557,7 +557,7 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 
 - **Merged (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
 - **Merged (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
-- **WIP (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
+- **Merged (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
 
 ---

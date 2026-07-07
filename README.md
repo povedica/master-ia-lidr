@@ -278,6 +278,8 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank); optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
 | `POST` | `/api/v1/estimate/rag` | Grounded RAG estimation with citation audit; optional `X-API-Key` when `ESTIMATE_API_KEY` is set |
 | `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
+| `GET`/`PUT` | `/api/v1/config/retrieval` | Runtime retrieval config (Redis override merged over `Settings`); open in dev |
+| `GET`/`PUT` | `/api/v1/config/models` | Runtime model config (`structured_model`, `judge_model`); open in dev |
 
 The `embeddings/ingest`, `search`, `retrieval`, and `estimate/rag` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
 
@@ -462,6 +464,7 @@ Copy `.env.example` for the full list. Key settings:
 | `RETRIEVAL_API_KEY` | *(empty)* | When set, `POST /api/v1/retrieval` requires matching `X-API-Key` |
 | `ESTIMATE_API_KEY` | *(empty)* | When set, `POST /api/v1/estimate/rag` requires matching `X-API-Key` |
 | `RATE_LIMIT_ENABLED` | `false` | When `true`, limits retrieval to 120/min and RAG estimate to 10/min per API-key bucket (IP fallback) |
+| `REDIS_URL` | *(empty)* | Generic Redis DSN for `GET/PUT /api/v1/config/*` runtime overrides; empty falls back to env `Settings` |
 
 Chat completions go through **LiteLLM**. Use short model ids in `OPENAI_MODEL` / `ANTHROPIC_MODEL` (prefixes are added automatically), or set a fully qualified id in `DEFAULT_LLM_MODEL`.
 
@@ -1181,6 +1184,36 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
 ```
 
 Automated coverage: `tests/test_api_security.py`, `tests/test_api_rate_limiting.py`, `tests/test_request_id_middleware.py`.
+
+### Runtime config (Redis overrides)
+
+`GET`/`PUT /api/v1/config/retrieval` and `GET`/`PUT /api/v1/config/models` let operators toggle a few settings without restarting the app. Each `PUT` stores a small JSON blob in Redis (key `master-ia:runtime:retrieval` or `master-ia:runtime:models`); each `GET` merges that override over env `Settings` (Redis wins for the fields it sets, env fills the rest). These routes are **open in dev** (no `X-API-Key`) — see [feature-057](docs/work-items/feature-057-runtime-config-redis-endpoints.md).
+
+| Variable | Default | Behavior |
+|----------|---------|----------|
+| `REDIS_URL` | *(empty)* | When set, config overrides persist in Redis; when empty, `GET` returns env defaults and `PUT` returns `503` |
+
+`POST /api/v1/retrieval` honors the `rerank_enabled` override immediately on the next request (no restart) — modes `C`/`D` degrade to `A`/`B` with a `warnings` entry when disabled, same as the `RETRIEVAL_RERANK_ENABLED` env kill switch.
+
+```bash
+# Effective retrieval config (Redis override merged over Settings)
+curl -sS http://127.0.0.1:8000/api/v1/config/retrieval
+
+# Disable rerank at runtime (no restart needed)
+curl -sS -X PUT http://127.0.0.1:8000/api/v1/config/retrieval \
+  -H 'Content-Type: application/json' \
+  -d '{"rerank_enabled": false}'
+
+# Effective model config
+curl -sS http://127.0.0.1:8000/api/v1/config/models
+
+# Override the structured-output model
+curl -sS -X PUT http://127.0.0.1:8000/api/v1/config/models \
+  -H 'Content-Type: application/json' \
+  -d '{"structured_model": "gpt-4.1-mini"}'
+```
+
+Automated coverage: `tests/test_runtime_config.py`, `tests/test_runtime_config_api.py`, `tests/test_runtime_config_retrieval_integration.py`.
 
 ---
 

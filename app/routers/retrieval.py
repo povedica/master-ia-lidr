@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,8 @@ from app.embedding_pipeline.retrieval_service import (
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.middleware.rate_limiting import conditional_rate_limit
 from app.middleware.security import require_retrieval_key
+from app.routers.runtime_config import get_runtime_redis_client
+from app.services.runtime_config import get_effective_retrieval_config
 
 router = APIRouter(tags=["retrieval"])
 logger = logging.getLogger(__name__)
@@ -44,7 +46,23 @@ def get_lexical_repository(
     )
 
 
-def get_reranker(settings: Annotated[Settings, Depends(get_settings)]) -> Reranker:
+async def get_effective_settings(
+    settings: Annotated[Settings, Depends(get_settings)],
+    redis_client: Annotated[Any, Depends(get_runtime_redis_client)],
+) -> Settings:
+    """Resolve ``Settings`` with runtime Redis overrides applied (feature-057).
+
+    Only ``retrieval_rerank_enabled`` is wired here; other retrieval fields
+    stay on env defaults until a later slice needs the override.
+    """
+
+    effective = await get_effective_retrieval_config(settings, redis_client)
+    if effective.rerank_enabled == settings.retrieval_rerank_enabled:
+        return settings
+    return settings.model_copy(update={"retrieval_rerank_enabled": effective.rerank_enabled})
+
+
+def get_reranker(settings: Annotated[Settings, Depends(get_effective_settings)]) -> Reranker:
     return build_reranker(settings)
 
 
@@ -58,7 +76,7 @@ async def retrieve_chunks(
     request: Request,
     payload: RetrievalRequest,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    settings: Annotated[Settings, Depends(get_settings)],
+    settings: Annotated[Settings, Depends(get_effective_settings)],
     embedder: Annotated[OpenAIEmbedder, Depends(get_embedder)],
     reranker: Annotated[Reranker, Depends(get_reranker)],
     vector_repository: Annotated[SemanticSearchRepository, Depends(get_vector_repository)],
