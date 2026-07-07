@@ -104,21 +104,22 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 ## Verification
 
-| Check | Command |
+| Check | Result |
 | --- | --- |
-| Gate unit tests | `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` |
-| Fast suite | `uv run pytest` |
-| CLI help | `uv run python app/scripts/ragas_generation_eval.py --help` |
+| Gate unit tests | **Verified** — 16 passed (2026-07-07) |
+| Fast suite | **Verified** — 683 passed; 2 pre-existing `test_config` failures from shell `.env` leakage |
+| CLI help | **Verified** — `--gate`, `--monitor`, `--baseline`, `--tolerance` present |
+| Live RAGAS gate with API keys | **Not verified** |
 
-**Not verified at spec time:** live gate against real RAGAS run with API keys.
+**Residual risk:** gate compares finite metrics only; `answer_relevancy` skipped when baseline or current value is non-finite.
 
 ## Documentation Plan
 
-| Artifact | Update |
+| Artifact | Status |
 | --- | --- |
-| `evaluation/generation/RAGAS_BASELINE.md` | New baseline template |
-| `README.md` | Gate/monitor CLI examples |
-| `feature-053` progress | Step 3 checkbox |
+| `evaluation/generation/RAGAS_BASELINE.md` | Done |
+| `README.md` | Done — gate/monitor CLI examples |
+| `feature-053` progress | Updated on merge |
 
 ## Implementation Plan
 
@@ -131,7 +132,7 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 
 - Size: **S**
 - Estimated time: **2 hours**
-- Planned steps: **4**
+- Planned steps: **4** (complete)
 
 ## Implementation progress
 
@@ -140,18 +141,10 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 - [x] Step 3: CLI wiring — `--gate`, `--monitor`, `--baseline`, `--tolerance` flags in `app/scripts/ragas_generation_eval.py`; exit 0/1/2 semantics; optional `gate_result` merged into `metrics.json` only when `--gate` is used. Added 2 CLI arg-parsing unit tests.
 - [x] Step 4: Docs + baseline — `evaluation/generation/RAGAS_BASELINE.md` seeded from run `20260629T185540Z`; `README.md` gate/monitor usage section; `docs/technical/README.md` §25d "Regression gate and monitor (feature-055)" subsection.
 
-**Verified:**
-- `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` → 16 passed.
-- `uv run pytest -q` (fast suite) → 683 passed, 11 skipped, 12 deselected, **2 pre-existing failures** (`tests/test_config.py::test_database_url_defaults_to_empty_string`, `tests/test_config.py::test_retrieval_settings_defaults_are_backward_compatible`) confirmed unrelated to this change — same failures reproduce on the unmodified main worktree due to local `.env` values leaking into `Settings(_env_file=None)` default assertions.
-- `uv run python app/scripts/ragas_generation_eval.py --help` shows all four new flags.
-- `load_baseline()` manually verified against the real committed `RAGAS_BASELINE.md`.
-
-**Not verified (out of scope / requires live infra):** `--gate`/`--monitor` against a real live RAGAS run with `OPENAI_API_KEY` and populated Postgres (excluded from this slice per Scope; remains a manual follow-up).
-
 ## Pull Request
 
-- **Branch:** `feature/055-ragas-eval-gate-and-monitor`
-- **URL:** https://github.com/povedica/master-ia-lidr/pull/49 (WIP draft)
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/49 (2026-07-07)
+- **Branch:** `feature/055-ragas-eval-gate-and-monitor` (deleted after merge)
 
 ## Repository commits (master-ia)
 
@@ -161,6 +154,21 @@ Document means for: `faithfulness`, `answer_relevancy`, `context_precision`, `co
 | `3082d1c` | feat(generation-eval): add RAGAS baseline gate/monitor helpers (GREEN) |
 | `104ca23` | feat(ragas-eval): wire --gate/--monitor/--baseline/--tolerance CLI flags |
 | `3bddd42` | docs(ragas-eval): add baseline template and gate/monitor usage docs |
+| `d28309e` | docs(feature-055): record repository commits for this slice |
+| `ea4373f` | docs(feature-055): record WIP PR URL |
+
+## Handoff from feature-055
+
+**Shipped interfaces**
+
+- `app/embedding_pipeline/generation_eval.py` — `load_baseline()`, `evaluate_gate()`, `gate_exit_code()`, monitor/gate render helpers
+- `app/scripts/ragas_generation_eval.py` — `--gate`, `--monitor`, `--baseline`, `--tolerance` CLI flags
+- `evaluation/generation/RAGAS_BASELINE.md` — committed baseline template (run `20260629T185540Z`)
+
+**Recommended first tests for feature-058**
+
+- `check_coherence()` integration with gate exit codes
+- Regression: gate unit tests remain fast and keyless
 
 ## How to start
 
