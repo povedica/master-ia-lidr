@@ -10,6 +10,7 @@ from app.config import Settings
 from app.embedding_pipeline.advanced_retrieval import advanced_retrieve, resolve_stage_plan
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchResult
 from app.embedding_pipeline.rerank import CrossEncoderReranker, NoOpReranker
+from app.embedding_pipeline.retrieval_service import RetrievalMode
 from app.embedding_pipeline.schemas import SearchResult
 from app.embedding_pipeline.stage_config import (
     mode_a_preset,
@@ -253,3 +254,57 @@ async def test_advanced_retrieve_honors_rerank_disabled_in_settings() -> None:
     assert [row.chunk_id for row in response.results] == [101, 102]
     assert response.results[0].rerank_score is None
     assert any("disabled" in warning.lower() for warning in response.warnings)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("preset", "mode"),
+    [
+        (mode_a_preset, RetrievalMode.A),
+        (mode_b_preset, RetrievalMode.B),
+        (mode_c_preset, RetrievalMode.C),
+        (mode_d_preset, RetrievalMode.D),
+    ],
+)
+async def test_advanced_presets_match_retrieval_service_ordering(
+    preset,
+    mode,
+) -> None:
+    from app.embedding_pipeline.retrieval_service import RetrievalService
+
+    settings = Settings(_env_file=None, retrieval_rerank_enabled=True)
+    service = RetrievalService()
+    session = AsyncMock()
+    embedder = _FakeEmbedder()
+    reranker = NoOpReranker()
+    vector_repo = _FakeVectorRepository()
+    lexical_repo = _FakeLexicalRepository()
+
+    basic = await service.retrieve(
+        "OAuth2 Stripe",
+        mode=mode,
+        recall_k=10,
+        top_k_final=3,
+        session=session,
+        embedder=embedder,
+        reranker=reranker,
+        settings=settings,
+        vector_repository=vector_repo,
+        lexical_repository=lexical_repo,
+    )
+    advanced = await advanced_retrieve(
+        session,
+        "OAuth2 Stripe",
+        preset(),
+        recall_k=10,
+        top_k_final=3,
+        embedder=embedder,
+        reranker=reranker,
+        settings=settings,
+        vector_repository=vector_repo,
+        lexical_repository=lexical_repo,
+    )
+
+    assert [row.chunk_id for row in advanced.results] == [
+        row.chunk_id for row in basic.results
+    ]

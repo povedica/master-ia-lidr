@@ -143,7 +143,7 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 - [x] **Step 1:** `StageConfig` + presets for modes A–D (TDD).
 - [x] **Step 2:** `advanced_retrieve()` core with hybrid + rerank reuse.
 - [x] **Step 3:** Router + query transform stubs.
-- [ ] **Step 4:** HTTP endpoint + schemas.
+- [x] **Step 4:** HTTP endpoint + schemas.
 - [ ] **Step 5:** Docs + eval mapping note.
 
 ## Estimation
