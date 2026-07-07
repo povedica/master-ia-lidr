@@ -142,7 +142,7 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 
 - [x] **Step 1:** `StageConfig` + presets for modes A–D (TDD).
 - [x] **Step 2:** `advanced_retrieve()` core with hybrid + rerank reuse.
-- [ ] **Step 3:** Router + query transform stubs.
+- [x] **Step 3:** Router + query transform stubs.
 - [ ] **Step 4:** HTTP endpoint + schemas.
 - [ ] **Step 5:** Docs + eval mapping note.
 
@@ -176,7 +176,7 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 
 - [x] Step 1: `StageConfig` + presets for modes A–D (TDD)
 - [x] Step 2: `advanced_retrieve()` core with hybrid + rerank reuse
-- [ ] Step 3: Router + query transform stubs
+- [x] Step 3: Router + query transform stubs
 - [ ] Step 4: HTTP endpoint + schemas
 - [ ] Step 5: Docs + eval mapping note
 

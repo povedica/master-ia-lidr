@@ -18,11 +18,13 @@ from app.embedding_pipeline.lexical_search_repository import (
     LexicalSearchResult,
 )
 from app.embedding_pipeline.rerank import RerankCandidate, Reranker
+from app.embedding_pipeline.query_transform import transform_query
 from app.embedding_pipeline.retrieval_debug import (
     build_lexical_branch_entries,
     build_vector_branch_entries,
 )
 from app.embedding_pipeline.retrieval_debug_schemas import BranchResultEntry
+from app.embedding_pipeline.retrieval_router import route_collection
 from app.embedding_pipeline.retrieval_service import (
     RetrievalPlan,
     _content_and_metadata,
@@ -34,10 +36,10 @@ from app.embedding_pipeline.retrieval_service import (
 from app.embedding_pipeline.schemas import SearchResult
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.embedding_pipeline.stage_config import StageConfig
+from app.embedding_pipeline.temporal_decay import apply_temporal_decay
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_COLLECTION = "budgets"
 _NOOP_RERANK_WARNING = (
     "rerank requested but no reranker configured; rerank is a no-op placeholder"
 )
@@ -112,11 +114,21 @@ async def advanced_retrieve(
     settings: Settings,
     vector_repository: SemanticSearchRepository | None = None,
     lexical_repository: LexicalSearchRepository | None = None,
-    collection: str = _DEFAULT_COLLECTION,
+    collection: str | None = None,
 ) -> AdvancedRetrievalResponse:
     """Run StageConfig-driven retrieval over the single ``chunks`` collection."""
 
     total_started = time.perf_counter()
+    search_query = await transform_query(
+        query,
+        config_enabled=config.query_transform,
+        settings_enabled=settings.query_transform_enabled,
+    )
+    collection = collection or route_collection(
+        search_query,
+        config_enabled=config.routing_enabled,
+        settings_enabled=settings.retrieval_routing_enabled,
+    )
     plan = resolve_stage_plan(config)
     warnings: list[str] = []
     effective_plan = plan
@@ -149,7 +161,7 @@ async def advanced_retrieve(
 
     async def run_vector_branch() -> tuple[list[SearchResult], list[BranchResultEntry], int]:
         started = time.perf_counter()
-        query_vector = await embedder.embed_one(query)
+        query_vector = await embedder.embed_one(search_query)
         results = await vector_repo.search_chunks(
             session,
             query_vector=query_vector,
@@ -165,7 +177,7 @@ async def advanced_retrieve(
         started = time.perf_counter()
         results = await lexical_repo.search_chunks(
             session,
-            query=query,
+            query=search_query,
             top_k=recall_k,
         )
         return (
@@ -209,6 +221,12 @@ async def advanced_retrieve(
     elif lexical_entries is not None:
         ordered_entries = lexical_entries[:recall_k]
 
+    ordered_entries = apply_temporal_decay(
+        ordered_entries,
+        config_enabled=config.temporal_decay,
+        settings_enabled=settings.retrieval_temporal_decay_enabled,
+    )
+
     rerank_score_by_chunk: dict[int, float] = {}
     if effective_plan.rerank_enabled and ordered_entries and rerank_active and not reranker.is_noop:
         rerank_started = time.perf_counter()
@@ -223,7 +241,7 @@ async def advanced_retrieve(
                 RerankCandidate(entry=entry, content=content, metadata=metadata),
             )
         reranked_items = _normalize_rerank_scores(
-            await reranker.rerank(query, candidates),
+            await reranker.rerank(search_query, candidates),
         )
         ordered_entries = [
             item.candidate.entry
