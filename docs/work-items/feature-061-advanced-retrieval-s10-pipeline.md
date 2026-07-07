@@ -237,7 +237,7 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 | 2 | f690f9f | `advanced_retrieve()` core composing hybrid RRF, rerank, and `collection` labels |
 | 3 | 631586e | Router, query-transform, and temporal-decay stubs wired into `advanced_retrieve` |
 | 4 | 406dec4 | `POST /api/v1/retrieval/advanced` endpoint, schemas, security, and parity tests |
-| 5 | *(this commit)* | Docs (`.env.example`, README, technical §25d, feature-053) + eval mapping |
+| 5 | 2506b6d | Docs (`.env.example`, README, technical §25d, feature-053) + eval mapping |
 
 ## Pull Request
 
