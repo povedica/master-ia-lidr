@@ -185,6 +185,7 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 | Step | Commit | Summary |
 | --- | --- | --- |
 | 1 | f72f50b | `StageConfig` dataclass + mode A–D presets with validation and unit tests |
+| 2 | f690f9f | `advanced_retrieve()` core composing hybrid RRF, rerank, and `collection` labels |
 
 ## Pull Request
 
