@@ -494,7 +494,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 1:** Complete feature-052 Steps 15–17 (RAGAS fix + UI).
 - [x] **Step 2:** `feature-056` — API keys + slowapi + `X-Request-ID` middleware. _(PR — https://github.com/povedica/master-ia-lidr/pull/48)_
 - [x] **Step 3:** `feature-055` — `--gate` / `--monitor` on generation eval. _(PR — https://github.com/povedica/master-ia-lidr/pull/49)_
-- [ ] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(PR — https://github.com/povedica/master-ia-lidr/pull/50)_
+- [x] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(merged PR #50, 2026-07-07)_
 - [ ] **Step 4:** `feature-059` — query reformulator wired into `RagEstimationService`.
 - [ ] **Step 5:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
 - [ ] **Step 6:** `feature-061` — `advanced_retrieve` + endpoint.
