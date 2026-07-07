@@ -497,9 +497,9 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 3b:** `feature-057` — runtime config Redis endpoints. _(merged PR #50, 2026-07-07)_
 - [x] **Step 4:** `feature-058` — `check_coherence()` + eval gate integration on RAG path. _(PR — https://github.com/povedica/master-ia-lidr/pull/51)_
 - [x] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
-- [ ] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
-- [x] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint.
-- [ ] **Step 8:** `feature-062` — stage routes + task hours.
+- [x] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`. _(PR #54)_
+- [x] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint. _(PR #53)_
+- [ ] **Step 8:** `feature-062` — stage routes + task hours. _(work item authored 2026-07-07)_
 - [ ] **Step 9:** `feature-063` — multi-index migration + ingest.
 - [ ] **Step 10:** Update parity matrix in `docs/technical/README.md` to ✅ per row.
 
@@ -587,7 +587,7 @@ uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-pa
 uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-parity-parallel-wave2.manifest.yaml --only 058
 ```
 
-Child work items **058–061** are written under `docs/work-items/`. **062–065** remain named-only until `/write-feature` before their wave.
+Child work items **058–065** are written under `docs/work-items/`. Wave manifests: `feature-053-parity-parallel-wave2d.yaml` (062), `wave3` (063), `wave4` (064 ∥ 065).
 
 ## Pull Request
 
