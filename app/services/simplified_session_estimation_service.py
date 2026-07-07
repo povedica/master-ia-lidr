@@ -29,6 +29,24 @@ from app.services.sessions import DerivedProjectMetadata, InMemorySessionStore, 
 _COMPACT_TURN_MAX = 240
 
 
+def _maybe_enable_session_compression(session: Session, settings: Settings) -> None:
+    if not settings.conversation_compression_enabled:
+        return
+    if session.conversation_history._compression_enabled:
+        return
+    from app.services.conversation_compression import (
+        AnchorDetector,
+        CompressionPolicy,
+        CumulativeSummarizer,
+    )
+
+    policy = CompressionPolicy(
+        anchor_detector=AnchorDetector(mode=settings.anchor_detector_mode),
+        summarizer=CumulativeSummarizer(),
+    )
+    session.conversation_history.enable_compression(policy)
+
+
 @dataclass(frozen=True)
 class SimplifiedSessionSubmitOutcome:
     """Result of one simplified session estimate submit."""
@@ -79,6 +97,8 @@ class SimplifiedSessionEstimationService:
         session = self._store.get_session(session_id)
         if session is None:
             raise SessionNotFoundError(session_id)
+
+        _maybe_enable_session_compression(session, self._settings)
 
         request = _apply_session_field_defaults(session, request)
 

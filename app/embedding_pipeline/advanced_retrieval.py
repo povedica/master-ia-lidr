@@ -24,6 +24,7 @@ from app.embedding_pipeline.retrieval_debug import (
     build_vector_branch_entries,
 )
 from app.embedding_pipeline.retrieval_debug_schemas import BranchResultEntry
+from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
 from app.embedding_pipeline.retrieval_router import route_collection
 from app.embedding_pipeline.retrieval_service import (
     RetrievalPlan,
@@ -159,6 +160,10 @@ async def advanced_retrieve(
     fusion_ms = 0
     rerank_ms = 0
 
+    search_filters: RetrievalMetadataFilters | None = None
+    if config.routing_enabled and settings.retrieval_routing_enabled:
+        search_filters = RetrievalMetadataFilters(collection=collection)
+
     async def run_vector_branch() -> tuple[list[SearchResult], list[BranchResultEntry], int]:
         started = time.perf_counter()
         query_vector = await embedder.embed_one(search_query)
@@ -166,6 +171,7 @@ async def advanced_retrieve(
             session,
             query_vector=query_vector,
             k=recall_k,
+            filters=search_filters,
         )
         return (
             results,
@@ -179,6 +185,7 @@ async def advanced_retrieve(
             session,
             query=search_query,
             top_k=recall_k,
+            filters=search_filters,
         )
         return (
             results,

@@ -96,11 +96,11 @@ TRANSCRIPT_PII_LANGUAGE=en
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** ADR-002 committed with scope and consequences.
-- [ ] **AC-02:** Mocked unit test: fixture with email → redacted content in chunk.
-- [ ] **AC-03:** Flag off → no import of Presidio in ingest path (lazy import).
-- [ ] **AC-04:** Fast suite passes without `pii` group installed.
-- [ ] **AC-05:** README documents optional install and spacy model.
+- [x] **AC-01:** ADR-002 committed with scope and consequences.
+- [x] **AC-02:** Mocked unit test: fixture with email → redacted content in chunk.
+- [x] **AC-03:** Flag off → no import of Presidio in ingest path (lazy import).
+- [x] **AC-04:** Fast suite passes without `pii` group installed.
+- [x] **AC-05:** README documents optional install and spacy model.
 
 ## Test Plan
 
@@ -137,10 +137,10 @@ TRANSCRIPT_PII_LANGUAGE=en
 
 ## Implementation Plan
 
-- [ ] **Step 1:** ADR-002 draft + review.
-- [ ] **Step 2:** `pii/redactor.py` with injectable analyzer (TDD mocks).
-- [ ] **Step 3:** Hook transcript ingest + settings.
-- [ ] **Step 4:** Docs + optional dependency group.
+- [x] **Step 1:** ADR-002 draft + review.
+- [x] **Step 2:** `pii/redactor.py` with injectable analyzer (TDD mocks).
+- [x] **Step 3:** Hook transcript ingest + settings.
+- [x] **Step 4:** Docs + optional dependency group.
 
 ## Estimation
 

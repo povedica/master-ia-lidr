@@ -113,13 +113,13 @@ CHUNKING_COMPARE_DEFAULT_STRATEGIES=structural,recursive,sentence_window
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** Migration applies cleanly on empty and populated DB (test container).
-- [ ] **AC-02:** Ingest transcript fixture → advanced retrieval finds chunk in `transcripts` (AC-16 from feature-053).
-- [ ] **AC-03:** Router routes "meeting transcript" query toward `transcripts` in unit test.
-- [ ] **AC-04:** `POST /api/v1/embeddings/compare` returns ≥3 strategy rows for bundled sample (AC-17).
-- [ ] **AC-05:** Budget ingest still writes `collection='budgets'`.
-- [ ] **AC-06:** `uv run pytest` fast suite passes.
-- [ ] **AC-07:** `.env.example` + README updated.
+- [x] **AC-01:** Migration applies cleanly on empty and populated DB (test container).
+- [x] **AC-02:** Ingest transcript fixture → advanced retrieval finds chunk in `transcripts` (AC-16 from feature-053).
+- [x] **AC-03:** Router routes "meeting transcript" query toward `transcripts` in unit test.
+- [x] **AC-04:** `POST /api/v1/embeddings/compare` returns ≥3 strategy rows for bundled sample (AC-17).
+- [x] **AC-05:** Budget ingest still writes `collection='budgets'`.
+- [x] **AC-06:** `uv run pytest` fast suite passes.
+- [x] **AC-07:** `.env.example` + README updated.
 
 ## Test Plan
 
@@ -160,12 +160,17 @@ CHUNKING_COMPARE_DEFAULT_STRATEGIES=structural,recursive,sentence_window
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Alembic migration + ORM model update + backfill test.
-- [ ] **Step 2:** `collections.py` + router rules (TDD).
-- [ ] **Step 3:** Transcript parser + CLI ingest + integration test.
-- [ ] **Step 4:** Technical doc parser + ingest.
-- [ ] **Step 5:** `chunking_compare` + `POST /api/v1/embeddings/compare`.
-- [ ] **Step 6:** Wire collection filter into advanced retrieval + docs.
+- [x] **Step 1:** Alembic migration + ORM model update + collection registry (TDD).
+- [x] **Step 2:** `collections.py` + router rules wired into advanced retrieval filter.
+- [x] **Step 3:** Transcript parser + CLI ingest + integration test.
+- [x] **Step 4:** Technical doc parser + ingest.
+- [x] **Step 5:** `chunking_compare` + `POST /api/v1/embeddings/compare`.
+- [x] **Step 6:** Wire collection filter into advanced retrieval + docs.
+
+## Implementation progress
+
+- [x] Step 1: `0005_add_chunks_collection` + `Chunk.collection` + `match_collections` / router rules
+- [x] Steps 2–6: collection SQL filters, parsers, CLIs, compare endpoint, docs
 
 ## Estimation
 

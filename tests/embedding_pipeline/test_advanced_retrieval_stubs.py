@@ -10,9 +10,20 @@ from app.embedding_pipeline.retrieval_router import route_collection
 from app.embedding_pipeline.temporal_decay import apply_temporal_decay
 
 
-def test_route_collection_returns_budgets_stub() -> None:
+def test_route_collection_returns_budgets_by_default() -> None:
     assert route_collection("OAuth backend", config_enabled=False, settings_enabled=False) == "budgets"
     assert route_collection("OAuth backend", config_enabled=True, settings_enabled=True) == "budgets"
+
+
+def test_route_collection_routes_transcript_vocabulary() -> None:
+    assert (
+        route_collection(
+            "meeting transcript kick-off",
+            config_enabled=True,
+            settings_enabled=True,
+        )
+        == "transcripts"
+    )
 
 
 @pytest.mark.asyncio

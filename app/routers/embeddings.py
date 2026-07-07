@@ -18,6 +18,12 @@ from app.embedding_pipeline.errors import DuplicateDocumentError
 from app.embedding_pipeline.persistent_ingest import run_persistent_ingest
 from app.embedding_pipeline.repository import EmbeddingIngestRepository
 from app.embedding_pipeline.schemas import PersistentIngestRequest, PersistentIngestResponse
+from app.schemas.embeddings_compare import (
+    EmbeddingsCompareRequest,
+    EmbeddingsCompareResponse,
+    StrategyQueryPreviewView,
+    StrategyStatsView,
+)
 
 router = APIRouter(tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -88,3 +94,60 @@ async def ingest_embeddings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to ingest budget document.",
         ) from exc
+
+
+@router.post("/embeddings/compare", response_model=EmbeddingsCompareResponse)
+async def compare_embeddings(
+    payload: EmbeddingsCompareRequest,
+    embedder: Annotated[OpenAIEmbedder, Depends(get_embedder)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> EmbeddingsCompareResponse:
+    """Compare chunking strategies on in-memory budgets (no persistence)."""
+
+    from app.embedding_pipeline.chunking_compare import (
+        SUPPORTED_STRATEGIES,
+        compute_strategy_stats,
+        preview_strategy_queries,
+    )
+
+    strategy_names = payload.strategies
+    if strategy_names is None:
+        strategy_names = [
+            item.strip()
+            for item in settings.chunking_compare_default_strategies.split(",")
+            if item.strip()
+        ]
+    unknown = [name for name in strategy_names if name not in SUPPORTED_STRATEGIES]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown strategy: {unknown[0]}",
+        )
+
+    stats = [
+        StrategyStatsView(**compute_strategy_stats(name, payload.budgets).__dict__)
+        for name in strategy_names
+    ]
+    query_previews: list[StrategyQueryPreviewView] = []
+    if payload.queries:
+        for name in strategy_names:
+            previews = await preview_strategy_queries(
+                name,
+                payload.budgets,
+                payload.queries,
+                embedder=embedder,
+                top_k=payload.top_k,
+            )
+            query_previews.extend(
+                StrategyQueryPreviewView(
+                    strategy=preview.strategy,
+                    query=preview.query,
+                    top_chunks=preview.top_chunks,
+                )
+                for preview in previews
+            )
+
+    return EmbeddingsCompareResponse(
+        stats_per_strategy=stats,
+        queries_per_strategy=query_previews,
+    )

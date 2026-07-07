@@ -25,6 +25,7 @@ EST_KEY = "estimate-secret"
 RETRIEVAL_PATH = "/api/v1/retrieval"
 ADVANCED_RETRIEVAL_PATH = "/api/v1/retrieval/advanced"
 RAG_PATH = "/api/v1/estimate/rag"
+RAG_STAGE_ASSEMBLE_PATH = "/api/v1/estimate/rag/stages/assemble"
 
 
 def _settings_with_keys() -> Settings:
@@ -105,6 +106,39 @@ def test_rag_estimate_requires_key_when_configured(client: TestClient) -> None:
 
 def test_rag_estimate_accepts_estimate_key(client: TestClient) -> None:
     response = client.post(RAG_PATH, json=_RAG_BODY, headers={"X-API-Key": EST_KEY})
+    assert response.status_code == 200
+
+
+def test_rag_stage_requires_estimate_key_when_configured(client: TestClient) -> None:
+    response = client.post(
+        RAG_STAGE_ASSEMBLE_PATH,
+        json={
+            "chunks": [
+                {
+                    "chunk_id": 1,
+                    "document_id": 1,
+                    "content": "Sample chunk for assemble stage security check.",
+                }
+            ]
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_rag_stage_accepts_estimate_key(client: TestClient) -> None:
+    response = client.post(
+        RAG_STAGE_ASSEMBLE_PATH,
+        json={
+            "chunks": [
+                {
+                    "chunk_id": 1,
+                    "document_id": 1,
+                    "content": "Sample chunk for assemble stage security check.",
+                }
+            ]
+        },
+        headers={"X-API-Key": EST_KEY},
+    )
     assert response.status_code == 200
 
 

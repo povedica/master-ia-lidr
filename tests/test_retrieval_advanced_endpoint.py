@@ -27,8 +27,8 @@ class _FakeEmbedder:
 
 
 class _FakeVectorRepository:
-    async def search_chunks(self, session, *, query_vector, k):
-        del session, query_vector, k
+    async def search_chunks(self, session, *, query_vector, k, filters=None):
+        del session, query_vector, k, filters
         return [
             SearchResult(
                 chunk_id=156,
@@ -42,8 +42,8 @@ class _FakeVectorRepository:
 
 
 class _FakeLexicalRepository:
-    async def search_chunks(self, session, *, query, top_k):
-        del session, query, top_k
+    async def search_chunks(self, session, *, query, top_k, filters=None):
+        del session, query, top_k, filters
         return [
             LexicalSearchResult(
                 chunk_id=156,

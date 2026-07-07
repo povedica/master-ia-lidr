@@ -47,6 +47,9 @@ def build_metadata_filters(
     if filters.chunk_types:
         predicates.append(ChunkModel.chunk_type.in_(filters.chunk_types))
 
+    if filters.collection is not None:
+        predicates.append(ChunkModel.collection == filters.collection)
+
     return predicates
 
 

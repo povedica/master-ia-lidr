@@ -1,8 +1,8 @@
-"""Collection routing for advanced retrieval (feature-061 stub until feature-063)."""
+"""Collection routing for advanced retrieval (feature-061 / feature-063)."""
 
 from __future__ import annotations
 
-_DEFAULT_COLLECTION = "budgets"
+from app.embedding_pipeline.collections import Collection, default_collection, match_collections
 
 
 def route_collection(
@@ -11,12 +11,12 @@ def route_collection(
     config_enabled: bool,
     settings_enabled: bool,
 ) -> str:
-    """Return the target collection for ``query``.
+    """Return the primary target collection for ``query``."""
 
-    Stub: always ``budgets`` until multi-index routing lands in feature-063.
-    """
+    if not (config_enabled and settings_enabled):
+        return default_collection().value
 
-    del query
-    if config_enabled and settings_enabled:
-        return _DEFAULT_COLLECTION
-    return _DEFAULT_COLLECTION
+    matches = match_collections(query)
+    if not matches:
+        return default_collection().value
+    return matches[0].value

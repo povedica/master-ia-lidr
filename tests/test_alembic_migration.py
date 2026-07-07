@@ -63,3 +63,11 @@ def test_spanish_lexical_migration_regenerates_content_tsv_and_round_trips() -> 
     assert "DROP COLUMN IF EXISTS content_tsv" in source
     downgrade_section = source.split("def downgrade", maxsplit=1)[1]
     assert "to_tsvector('english', content)" in " ".join(downgrade_section.split())
+
+
+def test_collection_migration_adds_discriminator_column() -> None:
+    source = _migration_source("0005_add_chunks_collection.py")
+    assert 'down_revision: str | None = "0004"' in source or 'down_revision = "0004"' in source
+    assert '"collection"' in source or "'collection'" in source
+    assert "server_default" in source and "budgets" in source
+    assert "ix_chunks_collection_chunk_type" in source

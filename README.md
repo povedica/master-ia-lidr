@@ -658,7 +658,9 @@ The pipeline includes:
 - **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
 - **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**.
 - **Production retrieval** (`app/routers/retrieval.py`) — `POST /api/v1/retrieval` runs modes **A** vector-only, **B** hybrid RRF, **C** vector + cross-encoder rerank, **D** hybrid + rerank; defaults preserve mode **A** (vector-only baseline).
-- **Advanced retrieval** (`app/routers/retrieval_advanced.py`) — `POST /api/v1/retrieval/advanced` runs the S10 `StageConfig` pipeline (`advanced_retrieve`) with presets **A–D** or an explicit config payload; reuses hybrid RRF and rerank primitives; labels every row with `collection` (stub `budgets` until multi-index).
+- **Advanced retrieval** (`app/routers/retrieval_advanced.py`) — `POST /api/v1/retrieval/advanced` runs the S10 `StageConfig` pipeline (`advanced_retrieve`) with presets **A–D** or an explicit config payload; reuses hybrid RRF and rerank primitives; labels every row with `collection` when `RETRIEVAL_ROUTING_ENABLED=true` (multi-index via `chunks.collection`).
+- **Chunking compare** (`app/routers/embeddings.py`) — `POST /api/v1/embeddings/compare` compares chunking strategies on sample budgets (stats + optional query preview; no persistence).
+- **Multi-index ingest** — `app/scripts/ingest_transcript.py` and `app/scripts/ingest_technical_doc.py` persist transcript and technical-doc segments into `chunks.collection` (`transcripts`, `technical_docs`).
 - **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector and lexical branch ranks, normalized scores, matched terms, explanations, timings, metadata, and chunk context without changing `/search`.
 - **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
@@ -678,7 +680,10 @@ Optional env (defaults work without extra config):
 | `RETRIEVAL_RRF_K` | `60` | RRF constant for hybrid modes |
 | `RETRIEVAL_RERANK_ENABLED` | `false` | Global rerank kill switch |
 | `RETRIEVAL_RERANK_MODEL` | *(empty)* | Cross-encoder model id; empty ⇒ no-op rerank |
-| `RETRIEVAL_ROUTING_ENABLED` | `false` | When `true`, advanced retrieval may route queries to collections (stub: `budgets` only) |
+| `RETRIEVAL_ROUTING_ENABLED` | `false` | When `true`, advanced retrieval routes queries to `budgets`, `transcripts`, or `technical_docs` collections |
+| `CHUNKING_COMPARE_DEFAULT_STRATEGIES` | `structural,recursive,sentence_window` | Default strategies for `POST /api/v1/embeddings/compare` |
+| `CONVERSATION_COMPRESSION_ENABLED` | `false` | Anchor + cumulative summarization on long session histories |
+| `TRANSCRIPT_PII_ENABLED` | `false` | Redact PII on transcript ingest CLI (optional `uv sync --group pii`) |
 | `QUERY_TRANSFORM_ENABLED` | `false` | When `true`, advanced retrieval may rewrite queries before search (stub passthrough) |
 | `RETRIEVAL_TEMPORAL_DECAY_ENABLED` | `false` | When `true`, advanced retrieval may apply recency weighting (no-op until metadata exists) |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | Base URL for `query_examples.py`; Compose sets `http://app:8000` for the `app` service |
