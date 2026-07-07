@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 from time import perf_counter
 from typing import Annotated
-from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.database import get_db_session
+from app.deps import get_request_id
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchRepository
 from app.embedding_pipeline.rerank import Reranker, build_reranker
@@ -27,6 +27,8 @@ from app.schemas.rag_estimation_response import (
 from app.services.llm_chain import build_provider_chain
 from app.services.rag_estimation_service import RagEstimationOutcome, RagEstimationService
 from app.services.structured_llm_client import StructuredCompletionError
+from app.middleware.rate_limiting import conditional_rate_limit
+from app.middleware.security import require_estimate_key
 
 router = APIRouter(tags=["rag-estimation"])
 logger = logging.getLogger(__name__)
@@ -87,9 +89,15 @@ def _usage_view(outcome: RagEstimationOutcome) -> UsageView | None:
     )
 
 
-@router.post("/estimate/rag", response_model=RagEstimationResponse)
+@router.post(
+    "/estimate/rag",
+    response_model=RagEstimationResponse,
+    dependencies=[Depends(require_estimate_key)],
+)
+@conditional_rate_limit("10/minute")
 async def estimate_rag(
-    request: RagEstimateRequest,
+    request: Request,
+    payload: RagEstimateRequest,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     embedder: Annotated[OpenAIEmbedder, Depends(get_embedder)],
@@ -100,8 +108,8 @@ async def estimate_rag(
 ) -> RagEstimationResponse:
     """Generate a grounded estimation with per-line citations from retrieved chunks."""
 
-    request_id = f"rag_{uuid4().hex[:12]}"
-    mode_raw = request.mode or settings.rag_estimation_retrieval_mode
+    request_id = get_request_id(request)
+    mode_raw = payload.mode or settings.rag_estimation_retrieval_mode
     try:
         mode = parse_retrieval_mode(mode_raw)
     except ValueError as exc:
@@ -110,13 +118,13 @@ async def estimate_rag(
             detail=str(exc),
         ) from exc
 
-    recall_k = request.recall_k or settings.retrieval_recall_k
-    top_k_final = request.top_k_final or settings.retrieval_top_k_final
+    recall_k = payload.recall_k or settings.retrieval_recall_k
+    top_k_final = payload.top_k_final or settings.retrieval_top_k_final
     started = perf_counter()
 
     try:
         outcome = await service.estimate(
-            request.question,
+            payload.question,
             request_id=request_id,
             session=session,
             embedder=embedder,
