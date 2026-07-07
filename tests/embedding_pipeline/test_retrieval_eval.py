@@ -198,4 +198,4 @@ def test_validate_evaluation_preflight_fails_on_stale_alembic_revision() -> None
         golden_queries=[],
     )
     assert result.ok is False
-    assert any("0004" in error for error in result.errors)
+    assert any("0005" in error for error in result.errors)

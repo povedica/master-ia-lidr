@@ -68,6 +68,7 @@ class RetrievalMetadataFilters(BaseModel):
     tags: list[str] | None = None
     year: RetrievalYearFilter | None = None
     chunk_types: list[str] | None = None
+    collection: str | None = None
 
     @field_validator(
         "document_type",

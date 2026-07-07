@@ -33,22 +33,47 @@ class ConversationHistory:
         self.max_turns = max_turns
         self._system: ChatMessage | None = None
         self._turns: list[ChatMessage] = []
+        self.anchors: list[ChatMessage] = []
+        self.summary: str | None = None
+        self._compression_enabled = False
+        self._compression_policy: object | None = None
+
+    @property
+    def turns(self) -> list[ChatMessage]:
+        return self._turns
+
+    def enable_compression(self, policy: object) -> None:
+        self._compression_enabled = True
+        self._compression_policy = policy
 
     def set_system_prompt(self, content: str) -> None:
         self._system = ChatMessage(role="system", content=content)
 
     def add_user_message(self, content: str) -> None:
         self._turns.append(ChatMessage(role="user", content=content))
-        self._enforce_window()
+        if not self._compression_enabled:
+            self._enforce_window()
 
     def add_assistant_message(self, content: str) -> None:
         self._turns.append(ChatMessage(role="assistant", content=content))
-        self._enforce_window()
+        if self._compression_enabled and self._compression_policy is not None:
+            self._compression_policy.apply(self)
+        else:
+            self._enforce_window()
 
     def to_messages_list(self) -> list[dict[str, str]]:
         messages: list[dict[str, str]] = []
         if self._system is not None:
             messages.append({"role": self._system.role, "content": self._system.content})
+        if self.summary:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"[Session summary]\n{self.summary}",
+                }
+            )
+        for message in self.anchors:
+            messages.append({"role": message.role, "content": message.content})
         for message in self._turns:
             messages.append({"role": message.role, "content": message.content})
         return messages

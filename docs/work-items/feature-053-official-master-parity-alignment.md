@@ -105,13 +105,13 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Session estimate multipart | `POST /sessions/{id}/estimate` | `POST /api/v1/sessions/{id}/estimate` | ✅ |
 | Session ACB | `POST /sessions/{id}/estimate-acb` | via `acb_enabled` on session estimate | 🟡 expose dedicated route optional |
 | Budget ingest | `POST /embeddings/ingest` | `POST /api/v1/embeddings/ingest` | ✅ |
-| Chunking compare | `POST /embeddings/compare` | — | ❌ Phase 3 |
+| Chunking compare | `POST /embeddings/compare` | `POST /api/v1/embeddings/compare` | ✅ feature-063 |
 | Semantic search (legacy) | `POST /search` (no auth) | `POST /api/v1/search` | ✅ |
-| Retrieval (measurable) | `POST /v1/retrieval/search` | `POST /api/v1/retrieval` (modes A–D) | 🟡 extend with S10 |
-| Advanced retrieval | `POST /v1/retrieval/advanced-search` | — | ❌ Phase 2 |
-| RAG end-to-end | `POST /v1/estimate/from-transcript` | `POST /api/v1/estimate/rag` (question-only) | 🟡 Phase 1–2 |
-| RAG stage wizard | `POST /v1/estimate/stages/{reformulate,retrieve,assemble,structure,generate,verify}` | — | ❌ Phase 2 |
-| Task hours | `POST /v1/estimate/tasks/hours` | — | ❌ Phase 2 |
+| Retrieval (measurable) | `POST /v1/retrieval/search` | `POST /api/v1/retrieval` (modes A–D) | ✅ |
+| Advanced retrieval | `POST /v1/retrieval/advanced-search` | `POST /api/v1/retrieval/advanced` | ✅ feature-061 |
+| RAG end-to-end | `POST /v1/estimate/from-transcript` | `POST /api/v1/estimate/rag` + stage routes | 🟡 structure-only optional |
+| RAG stage wizard | `POST /v1/estimate/stages/{reformulate,retrieve,assemble,structure,generate,verify}` | `POST /api/v1/estimate/rag/stages/*` | ✅ feature-062 |
+| Task hours | `POST /v1/estimate/tasks/hours` | `POST /api/v1/estimate/rag/tasks/hours` | ✅ feature-062 |
 | Corpus index jobs | `POST /embeddings/index/runs`, poll, stats | — | ❌ Phase 3 |
 | Batch ingestion jobs | `POST /api/v1/ingestion/runs` | — | ❌ Phase 4 (optional) |
 | Runtime model config | `GET/PUT /api/v1/config/models` | `GET/PUT /api/v1/config/models` (Redis override) | ✅ feature-057 |
@@ -119,7 +119,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Retrieval debug | — | `POST /api/v1/retrieval-debug` | 🔵 keep |
 | API key auth | `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY` | none | ❌ Phase 1 |
 | Rate limiting | `slowapi` per key | none | ❌ Phase 1 |
-| Idempotency | 24h on `from-transcript` | none | ❌ Phase 2 |
+| Idempotency | 24h on `from-transcript` | `Idempotency-Key` on RAG estimate | ✅ feature-062 |
 | Request ID | `X-Request-ID` middleware | partial via logging `request_id` in RAG | 🟡 Phase 1 |
 
 ### B. RAG generation pipeline (S09–S11)
@@ -128,9 +128,9 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | --- | --- | --- | --- |
 | Query reformulation | `generation/rag/query_reformulator.py` | `app/services/rag_query_reformulator.py` | ✅ `EstimationQuery` from transcript/question |
 | Search text composition | `compose_search_text()` | `app/schemas/estimation_query.py` | ✅ wired before retrieval |
-| Retrieval (basic) | `retrieval/pipeline.py` | `embedding_pipeline/retrieval_service.py` | 🟡 single `chunks` table vs multi-index |
-| Retrieval (advanced) | `retrieval/advanced_pipeline.py` | `embedding_pipeline/advanced_retrieval.py` | 🟡 StageConfig + endpoint; routing/transform/decay stubs |
-| Multi-index collections | `retrieval/collections.py` | single `chunks` + `metadata_filters` | ❌ budgets / transcripts / technical_docs |
+| Retrieval (basic) | `retrieval/pipeline.py` | `embedding_pipeline/retrieval_service.py` | ✅ multi-index via `collection` |
+| Retrieval (advanced) | `retrieval/advanced_pipeline.py` | `embedding_pipeline/advanced_retrieval.py` | ✅ StageConfig + routing |
+| Multi-index collections | `retrieval/collections.py` | `chunks.collection` + `collections.py` | ✅ feature-063 |
 | Reranking | `retrieval/reranker.py` | `embedding_pipeline/rerank.py` (`NoOpReranker` default) | 🟡 enable + wire in prod path |
 | Context assembly | `context_assembler.py` | `services/rag_context_assembler.py` | ✅ includes `truncate_to_token_budget` |
 | Token budget truncate | `truncate_to_token_budget()` | `rag_context_assembler.py` | ✅ chunk-boundary truncation |
@@ -141,8 +141,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Coherence check | `validation.py:check_coherence()` | `rag_coherence.py` | ✅ feature-058 |
 | Hallucination gate | `quality/hallucination.py` | — | ❌ anchor + judge + `gate_estimate()` |
 | Synthesis S11 | `quality/synthesis.py` | — | ❌ contradiction ranges |
-| Task-level hours | `task_hours.py` | — | ❌ per-task vector retrieval |
-| Idempotency store | `idempotency.py` + Redis | — | ❌ |
+| Task-level hours | `task_hours.py` | `rag_task_hours.py` + stage endpoint | ✅ feature-062 |
+| Idempotency store | `idempotency.py` + Redis | `rag_idempotency.py` (memory/Redis) | ✅ feature-062 |
 | End-to-end orchestrator | `estimate_from_transcript()` | `RagEstimationService.estimate()` | 🟡 missing S10/S11 stages |
 
 ### C. Data model and persistence
@@ -150,8 +150,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Entity | Official | `master-ia` | Gap |
 | --- | --- | --- | --- |
 | Budget chunks | `budget_chunks` table | `chunks` + `documents` | 🟡 different schema, same role |
-| Transcript chunks | `transcript_chunks` | — | ❌ migration + ingest |
-| Technical doc chunks | `technical_doc_chunks` | — | ❌ |
+| Transcript chunks | `transcript_chunks` | `chunks.collection=transcripts` | ✅ feature-063 |
+| Technical doc chunks | `technical_doc_chunks` | `chunks.collection=technical_docs` | ✅ feature-063 |
 | HNSW index | migration `0005` | `0002_add_chunks_embedding_hnsw_index` | 🟡 verify params vs official |
 | FTS / tsvector | migration `0003` | `0003`, `0004` Spanish config | ✅ comparable |
 | Jobs / index runs | `jobs` repository | — | ❌ Phase 3 |
@@ -162,12 +162,12 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Capability | Official | `master-ia` | Gap |
 | --- | --- | --- | --- |
 | Budget JSON parser | `ingestion/parsers/budget_json.py` | `embedding_pipeline/parsers/budget_json.py` | ✅ |
-| Transcript parser | `transcript_txt.py` | — | ❌ |
+| Transcript parser | `transcript_txt.py` | `parsers/transcript_txt.py` | ✅ feature-063 |
 | Catalog-driven batch | `ingestion/orchestrator.py` | ADR-001 deferred | ❌ optional Phase 4 |
-| PII Presidio | `ingestion/pii/*` | — | ❌ optional Phase 4 |
+| PII Presidio | `ingestion/pii/*` | `embedding_pipeline/pii/` (opt-in) | 🟡 feature-065 |
 | Structural chunker | `chunking/structural.py` | `embedding_pipeline/chunker.py` | ✅ |
 | 7 chunking strategies | `chunking/strategies/*` | structural only | ❌ Phase 3 (subset) |
-| Chunking compare API | `POST /embeddings/compare` | CLI `compare.py` only | 🟡 |
+| Chunking compare API | `POST /embeddings/compare` | `POST /api/v1/embeddings/compare` | ✅ feature-063 |
 | Corpus build scripts | `build_multi_index_corpus.py`, etc. | `ingest_from_dir.py`, fixtures | 🟡 |
 
 ### E. Conversation / CAG (S05)
@@ -177,9 +177,9 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Session store | `SessionStore` | `InMemorySessionStore` | ✅ same trade-off |
 | Metadata extraction | `metadata_extractor.py` | `metadata_extractor.py` | ✅ |
 | Sliding window | `ConversationHistory` | `ConversationHistory` max_turns | ✅ |
-| Anchor detection | `compression/anchors.py` | — | ❌ Phase 3 |
-| Cumulative summarizer | `compression/summarizer.py` | — | ❌ Phase 3 |
-| Compression policy | `compression/policy.py` | — | ❌ Phase 3 |
+| Anchor detection | `compression/anchors.py` | `conversation_compression/anchors.py` | ✅ feature-064 |
+| Cumulative summarizer | `compression/summarizer.py` | `conversation_compression/summarizer.py` | ✅ feature-064 |
+| Compression policy | `compression/policy.py` | `conversation_compression/policy.py` | ✅ feature-064 |
 | Tier resolver | `tier_resolver.py` | — | ❌ low priority |
 | Boss/Critic | `agentic/boss.py`, `critic.py` | `guardrails/acb/` | ✅ equivalent |
 
@@ -499,9 +499,9 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
 - [x] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`. _(PR #54)_
 - [x] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint. _(PR #53)_
-- [ ] **Step 8:** `feature-062` — stage routes + task hours. _(work item authored 2026-07-07)_
-- [ ] **Step 9:** `feature-063` — multi-index migration + ingest.
-- [ ] **Step 10:** Update parity matrix in `docs/technical/README.md` to ✅ per row.
+- [x] **Step 8:** `feature-062` — stage routes + task hours. _(PR #55)_
+- [x] **Step 9:** `feature-063` — multi-index migration + ingest + compare. _(PR #56)_
+- [x] **Step 10:** Parity matrix updated (rows for 062–065); residual gaps: corpus jobs, augmentation, synthesis, eval gates.
 
 ---
 

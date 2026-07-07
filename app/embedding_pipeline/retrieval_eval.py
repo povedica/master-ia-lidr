@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embedding_pipeline.retrieval_service import RetrievalMode
 
-REQUIRED_ALEMBIC_REVISION = "0004"
+REQUIRED_ALEMBIC_REVISION = "0005"
 
 
 class _RerankerPreflight(Protocol):

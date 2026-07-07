@@ -104,12 +104,12 @@ COMPRESSION_MAX_SUMMARY_TOKENS=512
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** Heuristic anchor positive/negative cases pass (ported fixtures).
-- [ ] **AC-02:** Policy preserves anchor turn after 15 synthetic turns (AC-19 from feature-053).
-- [ ] **AC-03:** Compression disabled → byte-identical message list vs current `ConversationHistory` for fixture.
-- [ ] **AC-04:** Summarizer mocked in fast suite; live marked `@pytest.mark.slow`.
-- [ ] **AC-05:** `uv run pytest` fast suite passes.
-- [ ] **AC-06:** `.env.example` documented.
+- [x] **AC-01:** Heuristic anchor positive/negative cases pass (ported fixtures).
+- [x] **AC-02:** Policy preserves anchor turn after 15 synthetic turns (AC-19 from feature-053).
+- [x] **AC-03:** Compression disabled → byte-identical message list vs current `ConversationHistory` for fixture.
+- [x] **AC-04:** Summarizer mocked in fast suite; live marked `@pytest.mark.slow`.
+- [x] **AC-05:** `uv run pytest` fast suite passes.
+- [x] **AC-06:** `.env.example` documented.
 
 ## Test Plan
 
@@ -147,11 +147,11 @@ COMPRESSION_MAX_SUMMARY_TOKENS=512
 
 ## Implementation Plan
 
-- [ ] **Step 1:** `AnchorDetector` heuristic port (TDD).
-- [ ] **Step 2:** `CumulativeSummarizer` + mocks.
-- [ ] **Step 3:** `CompressionPolicy` orchestration.
-- [ ] **Step 4:** Wire into `ConversationHistory` / sessions router.
-- [ ] **Step 5:** Integration test + docs.
+- [x] **Step 1:** `AnchorDetector` heuristic port (TDD).
+- [x] **Step 2:** `CumulativeSummarizer` + mocks.
+- [x] **Step 3:** `CompressionPolicy` orchestration.
+- [x] **Step 4:** Wire into `ConversationHistory` / sessions router.
+- [x] **Step 5:** Integration test + docs.
 
 ## Estimation
 

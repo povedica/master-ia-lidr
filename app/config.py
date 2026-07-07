@@ -430,6 +430,39 @@ class Settings(BaseSettings):
         le=2.0,
         description="Max cosine distance for a historical task neighbour match.",
     )
+    chunking_compare_default_strategies: str = Field(
+        default="structural,recursive,sentence_window",
+        description="Comma-separated default strategies for POST /api/v1/embeddings/compare.",
+    )
+    conversation_compression_enabled: bool = Field(
+        default=False,
+        description="When true, apply anchor + cumulative summarization on session history.",
+    )
+    anchor_detector_mode: str = Field(
+        default="heuristic",
+        description="Anchor detection mode: heuristic or llm (llm not wired in fast tests).",
+    )
+    compression_model: str = Field(
+        default="",
+        description="Optional LiteLLM model for conversation summarization.",
+    )
+    compression_max_summary_tokens: int = Field(
+        default=512,
+        ge=64,
+        description="Soft cap for cumulative session summary length.",
+    )
+    transcript_pii_enabled: bool = Field(
+        default=False,
+        description="When true, redact PII in transcript ingest CLI (feature-065).",
+    )
+    transcript_pii_entities: str = Field(
+        default="EMAIL_ADDRESS,PHONE_NUMBER",
+        description="Comma-separated Presidio entity types for transcript redaction.",
+    )
+    transcript_pii_language: str = Field(
+        default="en",
+        description="Language code for transcript PII analyzer.",
+    )
     ragas_judge_model: str = Field(
         default="gpt-4o-mini",
         description="Judge model for offline RAGAS generation eval (dev/slow only).",

@@ -49,12 +49,15 @@ class EmbeddingIngestRepository:
         *,
         document_id: int,
         embedded_chunks: list[EmbeddedChunk],
+        collection: str = "budgets",
+        chunk_type: str = CHUNK_TYPE_BUDGET_COMPONENT,
     ) -> int:
         for embedded in embedded_chunks:
             session.add(
                 ChunkModel(
                     document_id=document_id,
-                    chunk_type=CHUNK_TYPE_BUDGET_COMPONENT,
+                    collection=collection,
+                    chunk_type=chunk_type,
                     content=embedded.text,
                     embedding=embedded.embedding,
                     metadata_=embedded.metadata,
