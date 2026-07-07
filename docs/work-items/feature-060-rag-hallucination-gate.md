@@ -180,7 +180,7 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 
 ## Pull Request
 
-- Draft PR: _(pending initial commit)_
+- Draft PR: https://github.com/povedica/master-ia-lidr/pull/54
 - Branch: `feature/060-rag-hallucination-gate`
 - Worktree: `../master-ia-worktrees/feature-060-rag-hallucination-gate`
 - Parallel manifest: `docs/technical/feature-053-parity-parallel-wave2b.manifest.yaml`
