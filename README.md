@@ -778,15 +778,16 @@ Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op 
 **Grounded RAG estimation** (`POST /api/v1/estimate/rag`):
 
 - Separate from CAG v2: no semantic cache, ACB, or v2 output guardrails; basic non-empty input validation only.
-- Flow: `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit) → `check_coherence` (structural rules).
+- Flow: `reformulate_query` → `compose_search_text` → `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → `truncate_to_token_budget` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit) → `check_coherence` (structural rules).
+- Optional request field `transcript` triggers LLM reformulation; when omitted and `REFORMULATION_ENABLED=false`, retrieval uses the question as-is.
 - Response includes per-line `sources`, `grounded`, `citation_summary` counts (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`), and `coherence_summary` (`coherent_ok`, `total_hours_mismatch`, `duplicate_component`, `insufficient_context_violation`, `zero_hours_grounded`, `has_violations`).
-- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), `RAG_COHERENCE_ENABLED` (default **true**), `RAG_COHERENCE_TOTAL_TOLERANCE` (default **0.01**); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), `RAG_COHERENCE_ENABLED` (default **true**), `RAG_COHERENCE_TOTAL_TOLERANCE` (default **0.01**), `REFORMULATION_ENABLED` (default **false**), `REFORMULATION_MODEL` (optional LiteLLM id), `RAG_CONTEXT_MAX_TOKENS` (default **8000**); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
 
 ```bash
 # When ESTIMATE_API_KEY is set in .env, add: -H 'X-API-Key: your-estimate-key'
 curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
   -H 'Content-Type: application/json' \
-  -d '{"question":"Plataforma e-commerce con Stripe y OAuth2"}'
+  -d '{"question":"Plataforma e-commerce con Stripe y OAuth2","transcript":"Cliente pide login OAuth y pagos Stripe."}'
 ```
 
 In **`web/`**, fill the transcript (and optional one-line summary), then use **Run RAG estimate** in the estimate result panel and open the **RAG citations** tab to compare the UI table with the JSON payload.
