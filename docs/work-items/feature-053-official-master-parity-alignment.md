@@ -536,7 +536,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 - [x] Phase 0 — feature-052 complete (merged PR #47)
 - [x] Phase 1 Step 2 — feature-056 API hardening (merged PR #48, 2026-07-07)
-- [x] **Parallel wave 1 — feature-055** RAGAS gate (WIP PR #49, worktree `../master-ia-worktrees/feature-055-ragas-eval-gate-and-monitor`)
+- [x] Phase 1 Step 3 — feature-055 RAGAS gate/monitor (merged PR #49, 2026-07-07)
 - [x] **Parallel wave 1 — feature-057** runtime config (WIP PR #50, worktree `../master-ia-worktrees/feature-057-runtime-config-redis-endpoints`)
 
 ### Parallel orchestration (wave 1)
@@ -556,7 +556,7 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 ## Pull Request
 
 - **Merged (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
-- **WIP (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
+- **Merged (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
 - **WIP (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
 

@@ -1375,6 +1375,21 @@ Artifacts: `evaluation/generation/results/<timestamp>/{metrics.json,comparison.m
 
 Work item: [feature-052](../work-items/feature-052-rag-line-citations-ragas-eval.md).
 
+### Regression gate and monitor (feature-055)
+
+`app/scripts/ragas_generation_eval.py` adds CI-friendly flags on top of the same harness:
+
+| Flag | Behavior |
+| --- | --- |
+| `--gate` | Load `evaluation/generation/RAGAS_BASELINE.md` (or `--baseline <path>`) and compare current `mean_faithfulness` (and `mean_answer_relevancy` when finite) against `baseline_mean - tolerance`. |
+| `--monitor` | Print a one-line `[monitor] faithfulness=... answer_relevancy=...` summary; never changes the exit code. |
+| `--baseline <path>` | Override the default baseline file path. |
+| `--tolerance <float>` | Override the tolerance documented in the baseline file's front matter. |
+
+Exit codes: **0** pass (or no `--gate`), **1** gate regression, **2** preflight or baseline load/parse error. Gate/monitor logic lives in `app/embedding_pipeline/generation_eval.py` (`load_baseline`, `evaluate_gate`, `gate_exit_code`, `render_gate_summary`, `render_monitor_summary`) as pure functions that do not import `ragas`, so `tests/embedding_pipeline/test_generation_gate.py` covers baseline parsing and pass/fail/tolerance-override semantics with mocked `GenerationMetrics` — no live RAGAS or API keys required. `evaluation/generation/results/` runs are never committed; only the baseline file is version-controlled.
+
+Work item: [feature-055](../work-items/feature-055-ragas-eval-gate-and-monitor.md).
+
 ## 26. Worktree task orchestrator
 
 `scripts/worktree_tasks.py` prepares isolated Git worktrees for feature work items. It does not replace `/start-task`; it prepares a clean directory, canonical branch, local instructions, and status metadata so an agent or developer can run `/start-task` inside that worktree.
