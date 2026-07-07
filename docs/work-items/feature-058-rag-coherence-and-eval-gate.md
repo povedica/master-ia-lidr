@@ -140,47 +140,46 @@ When disabled, return a no-op report with `has_violations=false` (documented).
 
 ## Verification
 
-| Check | Command |
-| --- | --- |
-| Coherence unit tests | `uv run pytest tests/test_rag_coherence.py -q` |
-| RAG service + endpoint | `uv run pytest tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q` |
-| Gate regression | `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` |
-| Fast suite | `uv run pytest` |
+| Check | Command | Result |
+| --- | --- | --- |
+| Coherence unit tests | `uv run pytest tests/test_rag_coherence.py -q` | **6 passed** |
+| RAG service + endpoint | `uv run pytest tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q` | **8 passed** |
+| Gate regression | `uv run pytest tests/embedding_pipeline/test_generation_gate.py -q` | **19 passed** |
+| Security/rate-limit regression | `uv run pytest tests/test_api_security.py tests/test_api_rate_limiting.py -q` | **passed** |
+| Feature scope combined | `uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py tests/embedding_pipeline/test_generation_gate.py tests/test_api_security.py tests/test_api_rate_limiting.py -q` | **41 passed** |
+| Full fast suite | `uv run pytest` | **717 passed**, 2 failed (`test_config.py` — local `.env` leaks into `Settings(_env_file=None)`; pre-existing, not introduced by this feature) |
+| Live RAGAS + coherence gate | `uv run python app/scripts/ragas_generation_eval.py --gate --coherence-gate` | **Not verified** (requires DB + API keys) |
 
-## Documentation Plan
+## Handoff from feature-058
 
-| Artifact | Update |
-| --- | --- |
-| `.env.example` | Coherence toggles if added |
-| `README.md` | RAG response `coherence_summary` field |
-| `docs/arquitectura-estimador-cag.html` | Coherence stage in RAG diagram |
-| `feature-053` progress | Phase 1 coherence row → ✅ when merged |
+**Shipped interfaces**
 
-## Implementation Plan
+- `app/services/rag_coherence.py` — `check_coherence(estimate, *, request_id, enabled=True, total_tolerance=0.01) -> CoherenceReport`
+- `app/schemas/coherence_report.py` — `CoherenceReport`, `CoherenceLineReport`, `CoherenceLineStatus`
+- `RagEstimationOutcome.coherence_report` — populated after `verify_citations()` on happy and insufficient-context paths
+- `POST /api/v1/estimate/rag` — additive `coherence_summary` view (does not break existing fields)
+- Settings: `RAG_COHERENCE_ENABLED` (default `true`), `RAG_COHERENCE_TOTAL_TOLERANCE` (default `0.01`)
+- Eval: `--coherence-gate` with `--gate` records `coherence_violation_count` in `metrics.json` and may exit `1` via `evaluate_coherence_gate()`
 
-- [ ] **Step 1:** `CoherenceReport` schema + `check_coherence()` pure function (TDD).
-- [ ] **Step 2:** Wire into `RagEstimationService` + extend `RagEstimationOutcome`.
-- [ ] **Step 3:** HTTP response + router mapping.
-- [ ] **Step 4:** Optional eval harness hook + gate test.
-- [ ] **Step 5:** Docs, architecture HTML, `.env.example`.
+**Pipeline order (current)**
 
-## Estimation
+```text
+retrieve → assemble → generate → verify_citations → check_coherence → (response)
+```
 
-- Size: **M**
-- Estimated time: **3–4 hours**
-- Planned steps: **5**
+**Recommended first tests for next implementer (`feature-059`)**
 
-## Implementation progress
+```bash
+uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q
+```
 
-- [x] Step 1: `CoherenceReport` schema + `check_coherence()` pure function (TDD)
-- [x] Step 2: Wire into `RagEstimationService` + extend `RagEstimationOutcome`
-- [x] Step 3: HTTP response + router mapping
-- [x] Step 4: Optional eval harness hook + gate test
-- [x] Step 5: Docs, architecture HTML, `.env.example`
+**Not verified:** live golden-set eval with `--coherence-gate`; full `uv run pytest` green in CI without env isolation for `test_config.py`.
+
+**Residual risk:** `RagEstimationResult` validator recomputes `total_hours` from line items on parse — total-hours mismatch is mainly a guard against LLM JSON that bypasses validation; coherence still catches duplicates, insufficient-context shape, and zero-hour grounded lines.
 
 ## Pull Request
 
-- Draft WIP: https://github.com/povedica/master-ia-lidr/pull/51
+- **Merged:** https://github.com/povedica/master-ia-lidr/pull/51
 
 ## Repository commits (master-ia)
 
@@ -192,6 +191,7 @@ When disabled, return a no-op report with `has_violations=false` (documented).
 | `0098ce9` | feat(rag-api): expose coherence_summary on POST /api/v1/estimate/rag |
 | `3258e8d` | feat(ragas-eval): add optional coherence gate for golden-set runs |
 | `ce7d123` | docs(feature-058): document coherence settings, API field, and eval gate |
+| `b6d5090` | docs(feature-058): mark acceptance criteria complete with commit SHAs |
 
 ## How to start
 
