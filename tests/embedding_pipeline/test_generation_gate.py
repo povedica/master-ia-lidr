@@ -11,9 +11,12 @@ from app.embedding_pipeline.generation_eval import (
     BaselineParseError,
     GenerationBaseline,
     QueryGenerationMetrics,
+    coherence_gate_exit_code,
+    evaluate_coherence_gate,
     evaluate_gate,
     gate_exit_code,
     load_baseline,
+    render_coherence_gate_summary,
     render_gate_summary,
     render_monitor_summary,
     summarize_generation_metrics,
@@ -156,6 +159,27 @@ class TestEvaluateGate:
         assert result.tolerance == pytest.approx(0.25)
 
 
+class TestEvaluateCoherenceGate:
+    def test_coherence_gate_passes_with_zero_violations(self) -> None:
+        result = evaluate_coherence_gate(0)
+
+        assert result.passed is True
+        assert coherence_gate_exit_code(result) == 0
+
+    def test_coherence_gate_fails_when_violations_recorded(self) -> None:
+        result = evaluate_coherence_gate(2)
+
+        assert result.passed is False
+        assert coherence_gate_exit_code(result) == 1
+        assert "2 estimate(s)" in result.reason
+
+    def test_render_coherence_gate_summary_reports_regression(self) -> None:
+        summary = render_coherence_gate_summary(evaluate_coherence_gate(1))
+
+        assert "REGRESSION" in summary
+        assert "coherence-gate" in summary
+
+
 class TestCliFlags:
     def test_parse_args_recognizes_gate_monitor_flags(self) -> None:
         from app.scripts.ragas_generation_eval import _parse_args
@@ -164,6 +188,7 @@ class TestCliFlags:
         sys.argv = [
             "ragas_generation_eval.py",
             "--gate",
+            "--coherence-gate",
             "--monitor",
             "--baseline",
             "custom_baseline.md",
@@ -176,6 +201,7 @@ class TestCliFlags:
             sys.argv = argv
 
         assert args.gate is True
+        assert args.coherence_gate is True
         assert args.monitor is True
         assert args.baseline == Path("custom_baseline.md")
         assert args.tolerance == pytest.approx(0.1)
@@ -191,6 +217,7 @@ class TestCliFlags:
             sys.argv = argv
 
         assert args.gate is False
+        assert args.coherence_gate is False
         assert args.monitor is False
         assert args.baseline == Path("evaluation/generation/RAGAS_BASELINE.md")
         assert args.tolerance is None

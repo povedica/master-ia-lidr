@@ -18,6 +18,9 @@ from app.embedding_pipeline.generation_eval import (
     BaselineParseError,
     RagasSample,
     build_ragas_records,
+    coherence_gate_exit_code,
+    coherence_gate_result_to_json,
+    evaluate_coherence_gate,
     evaluate_gate,
     extract_per_query_metrics,
     format_ragas_answer,
@@ -26,6 +29,7 @@ from app.embedding_pipeline.generation_eval import (
     load_baseline,
     load_generation_golden_set,
     metrics_to_json,
+    render_coherence_gate_summary,
     render_gate_summary,
     render_generation_comparison_markdown,
     render_monitor_summary,
@@ -60,6 +64,14 @@ def _parse_args() -> argparse.Namespace:
         help=(
             "Compare aggregate metrics against the committed baseline and exit "
             "1 on regression (see --baseline / --tolerance)."
+        ),
+    )
+    parser.add_argument(
+        "--coherence-gate",
+        action="store_true",
+        help=(
+            "When used with --gate, also fail if any golden-set estimate reports "
+            "structural coherence violations."
         ),
     )
     parser.add_argument(
@@ -112,6 +124,7 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
             return 2
 
     samples: list[RagasSample] = []
+    coherence_violation_count = 0
     reset_session_factory()
     session_factory = get_session_factory(settings)
     async with session_factory() as session:
@@ -126,6 +139,8 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
                 recall_k=settings.retrieval_recall_k,
                 top_k_final=settings.retrieval_top_k_final,
             )
+            if outcome.coherence_report.has_violations:
+                coherence_violation_count += 1
             samples.append(
                 RagasSample(
                     query_id=golden.id,
@@ -154,6 +169,7 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
 
     exit_code = 0
     metrics_json = metrics_to_json(metrics)
+    metrics_json["coherence_violation_count"] = coherence_violation_count
     if args.gate:
         try:
             baseline = load_baseline(args.baseline)
@@ -164,6 +180,14 @@ async def _run_evaluation(args: argparse.Namespace) -> int:
         print(render_gate_summary(gate_result))
         metrics_json["gate_result"] = gate_result_to_json(gate_result)
         exit_code = gate_exit_code(gate_result)
+        if args.coherence_gate:
+            coherence_gate_result = evaluate_coherence_gate(coherence_violation_count)
+            print(render_coherence_gate_summary(coherence_gate_result))
+            metrics_json["coherence_gate_result"] = coherence_gate_result_to_json(
+                coherence_gate_result
+            )
+            if coherence_gate_exit_code(coherence_gate_result) != 0:
+                exit_code = 1
 
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     output_dir = args.output_dir or Path("evaluation/generation/results") / timestamp
