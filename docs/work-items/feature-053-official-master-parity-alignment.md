@@ -514,6 +514,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 6. **Keep fork advantages:** Langfuse traces, retrieval-debug, v2 structured API, and work-item discipline are not gaps to close.
 7. **RAGAS dependency isolation:** official uses separate venv for scoring; document the same if `langchain-community` conflicts resurface.
 8. **Baseline run `20260629T185540Z`** proves retrieval precision is strong (0.863) but recall (0.140) and answer relevancy (broken) need work before claiming S11 parity.
+9. **Parallel wave 1 (2026-07-06):** `worktree_tasks.py` + manifest `docs/technical/feature-053-parity-parallel.manifest.yaml` prepared two worktrees; child slices shipped as separate WIP PRs (#49, #50). Review merge order: #48 → #49/#50 → next wave.
 
 ---
 
@@ -534,7 +535,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 ## Implementation progress (program track)
 
 - [x] Phase 0 — feature-052 complete (merged PR #47)
-- [x] Phase 1 Step 2 — feature-056 API hardening (ready for `/finish-task` on PR #48)
+- [x] Phase 1 Step 2 — feature-056 API hardening (merged PR #48, 2026-07-07)
 - [x] **Parallel wave 1 — feature-055** RAGAS gate (WIP PR #49, worktree `../master-ia-worktrees/feature-055-ragas-eval-gate-and-monitor`)
 - [x] **Parallel wave 1 — feature-057** runtime config (WIP PR #50, worktree `../master-ia-worktrees/feature-057-runtime-config-redis-endpoints`)
 
@@ -554,7 +555,7 @@ Worktrees root: `../master-ia-worktrees/`. SDK auto-runner not implemented — u
 
 ## Pull Request
 
-- **WIP (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
+- **Merged (feature-056 slice):** https://github.com/povedica/master-ia-lidr/pull/48
 - **WIP (feature-055 slice):** https://github.com/povedica/master-ia-lidr/pull/49
 - **WIP (feature-057 slice):** https://github.com/povedica/master-ia-lidr/pull/50
 - One PR per child feature (`feature-056` … `feature-065`), not one monolithic PR.
