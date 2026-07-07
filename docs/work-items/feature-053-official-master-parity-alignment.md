@@ -117,8 +117,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Runtime model config | `GET/PUT /api/v1/config/models` | `GET/PUT /api/v1/config/models` (Redis override) | ✅ feature-057 |
 | Runtime retrieval config | `GET/PUT /api/v1/config/retrieval` | `GET/PUT /api/v1/config/retrieval` (Redis override, wired to rerank) | ✅ feature-057 |
 | Retrieval debug | — | `POST /api/v1/retrieval-debug` | 🔵 keep |
-| API key auth | `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY` | none | ❌ Phase 1 |
-| Rate limiting | `slowapi` per key | none | ❌ Phase 1 |
+| API key auth | `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY` | `middleware/security.py` | ✅ feature-056 |
+| Rate limiting | `slowapi` per key | `middleware/rate_limiting.py` | ✅ feature-056 |
 | Idempotency | 24h on `from-transcript` | `Idempotency-Key` on RAG estimate | ✅ feature-062 |
 | Request ID | `X-Request-ID` middleware | partial via logging `request_id` in RAG | 🟡 Phase 1 |
 
@@ -139,7 +139,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Structure-only pass | `generate_structure()` | — | ❌ |
 | Referential citations | `validation.py:verify_citations()` | `citation_verification.py` | 🟡 align status enum names |
 | Coherence check | `validation.py:check_coherence()` | `rag_coherence.py` | ✅ feature-058 |
-| Hallucination gate | `quality/hallucination.py` | — | ❌ anchor + judge + `gate_estimate()` |
+| Hallucination gate | `quality/hallucination.py` | `rag_hallucination_gate.py` | ✅ feature-060 |
 | Synthesis S11 | `quality/synthesis.py` | — | ❌ contradiction ranges |
 | Task-level hours | `task_hours.py` | `rag_task_hours.py` + stage endpoint | ✅ feature-062 |
 | Idempotency store | `idempotency.py` + Redis | `rag_idempotency.py` (memory/Redis) | ✅ feature-062 |
@@ -187,8 +187,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 
 | Capability | Official | `master-ia` | Gap |
 | --- | --- | --- | --- |
-| API keys (retrieval/estimate) | `api/security.py` | — | ❌ Phase 1 |
-| Rate limits | `api/rate_limiting.py` + slowapi | — | ❌ Phase 1 |
+| API keys (retrieval/estimate) | `api/security.py` | `middleware/security.py` | ✅ feature-056 |
+| Rate limits | `api/rate_limiting.py` + slowapi | `middleware/rate_limiting.py` | ✅ feature-056 |
 | Runtime config Redis | `foundation/llm/runtime_config.py` | `app/services/runtime_config.py` | ✅ feature-057 |
 | Request ID middleware | `main.py` | per-handler `request_id` | 🟡 unify |
 | Dev/prod config split | `APP_ENV` patterns | `app_env`, `dev_mode` | ✅ |
@@ -201,8 +201,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Generation golden set | `evals/golden_generation_s11.json` | `evaluation/generation/golden_set.json` | ✅ |
 | Retrieval eval script | `eval_retrieval_s10.py` + `StageConfig` | `retrieval_eval.py` modes A–D | 🟡 map StageConfig ↔ modes |
 | RAGAS baseline doc | `evals/RAGAS_BASELINE_S11.md` | local run only | 🟡 commit baseline template |
-| Generation gate | `eval_generation_s11.py --gate` exit ≠ 0 | no gate / no exit code | ❌ Phase 1 |
-| Monitor mode | `--monitor` faithfulness + relevancy | — | ❌ Phase 1 |
+| Generation gate | `eval_generation_s11.py --gate` exit ≠ 0 | `generation_eval.py --gate` | ✅ feature-055 |
+| Monitor mode | `--monitor` faithfulness + relevancy | `generation_eval.py --monitor` | ✅ feature-055 |
 | Named configs | `--config full` toggles S11 features | — | ❌ Phase 2 |
 | Compare configs | `--compare` scoreboard | — | ❌ Phase 2 |
 | Isolated RAGAS scorer | `score_ragas_s11.py` | single venv `ragas==0.4.3` | 🟡 document venv split |
@@ -587,7 +587,12 @@ uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-pa
 uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-parity-parallel-wave2.manifest.yaml --only 058
 ```
 
-Child work items **058–065** are written under `docs/work-items/`. Wave manifests: `feature-053-parity-parallel-wave2d.yaml` (062), `wave3` (063), `wave4` (064 ∥ 065).
+- [x] **Parallel wave 2d — feature-062** RAG stage endpoints + task hours (PR #55)
+- [x] **Parallel wave 3 — feature-063** multi-index + chunking compare (PR #56)
+- [x] **Parallel wave 4 — feature-064** conversation compression (PR #57)
+- [x] **Parallel wave 4 — feature-065** transcript PII optional (PR #58)
+
+**Residual parity gaps (deferred / optional):** `augment_chunks` (FR-10), synthesis (FR-22), corpus index jobs (FR-18), full 7 chunking strategies, Rails wizard UI.
 
 ## Pull Request
 
