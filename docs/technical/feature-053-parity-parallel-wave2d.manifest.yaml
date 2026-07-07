@@ -1,0 +1,14 @@
+# Parallel worktree manifest for feature-053 parity track (wave 2d).
+# Base: main with feature-060 + feature-061 merged.
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 1
+  env_strategy: symlink
+  model: auto
+tasks:
+  - work_item: docs/work-items/feature-062-rag-stage-endpoints-and-task-hours.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: rag-pipeline

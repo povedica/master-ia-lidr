@@ -69,11 +69,43 @@ def test_parse_manifest_data_applies_defaults_and_orders_dependencies(tmp_path: 
     assert [task.feature_id for task in plan.execution_order] == ["042", "043"]
     lexical = plan.tasks_by_id["043"]
     assert lexical.mode == "prepare"
+    assert lexical.model == "auto"
     assert lexical.needs_live_db is True
     assert lexical.branch == "feature/043-lexical-fulltext-search-branch"
     assert lexical.worktree_path == tmp_path.parent / "master-ia-worktrees" / (
         "feature-043-lexical-fulltext-search-branch"
     )
+
+
+def test_parse_manifest_data_applies_task_model_override(tmp_path: Path) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    data = {
+        "defaults": {"model": "auto"},
+        "tasks": [
+            {
+                "work_item": "docs/work-items/feature-042-retrieval-debug-api-foundation.md",
+                "model": "composer-2.5",
+            },
+        ],
+    }
+
+    plan = parse_manifest_data(data, repo_root=tmp_path)
+
+    assert plan.default_model == "auto"
+    assert plan.tasks_by_id["042"].model == "composer-2.5"
+
+
+def test_parse_manifest_data_rejects_empty_model(tmp_path: Path) -> None:
+    write_work_item(tmp_path, "feature-042-retrieval-debug-api-foundation.md")
+    data = {
+        "defaults": {"model": "  "},
+        "tasks": [
+            {"work_item": "docs/work-items/feature-042-retrieval-debug-api-foundation.md"},
+        ],
+    }
+
+    with pytest.raises(ManifestError, match="defaults.model"):
+        parse_manifest_data(data, repo_root=tmp_path)
 
 
 def test_parse_manifest_data_rejects_missing_dependencies(tmp_path: Path) -> None:
@@ -209,6 +241,9 @@ tasks:
     assert "/start-task docs/work-items/feature-042-retrieval-debug-api-foundation.md" in (
         worktree_path / "INSTRUCTIONS.md"
     ).read_text(encoding="utf-8")
+    instructions = (worktree_path / "INSTRUCTIONS.md").read_text(encoding="utf-8")
+    assert "Cursor model (manifest): `auto`" in instructions
+    assert "select **Auto**" in instructions
     assert (worktree_path / ".env").is_symlink()
     assert "secret-test-value" not in output
 
@@ -294,6 +329,7 @@ def test_run_dry_run_reports_sdk_prompt_without_launching_agent(
 defaults:
   worktrees_root: worktrees
   max_parallel: 2
+  model: auto
 tasks:
   - work_item: docs/work-items/feature-042-retrieval-debug-api-foundation.md
     mode: sdk
@@ -306,5 +342,6 @@ tasks:
     output = capsys.readouterr().out
     assert exit_code == 0
     assert "max_parallel=2" in output
+    assert "model=auto" in output
     assert "/start-task docs/work-items/feature-042-retrieval-debug-api-foundation.md" in output
     assert "SDK runner is not implemented" in output

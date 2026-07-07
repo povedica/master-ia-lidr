@@ -807,7 +807,7 @@ Requires populated Postgres (Alembic `0004`), `OPENAI_API_KEY`, and a non-no-op 
 - Flow: `reformulate_query` → `compose_search_text` → `RetrievalService.retrieve` → `ChunkContentRepository` re-fetch by `chunk_id` → `truncate_to_token_budget` → Jinja prompts (`estimation/rag/v1`) → `complete_structured` with `RagEstimationResult` → `verify_citations` (chunk membership audit) → `check_coherence` (structural rules) → `gate_estimate` (optional numeric + LLM judge).
 - Optional request field `transcript` triggers LLM reformulation; when omitted and `REFORMULATION_ENABLED=false`, retrieval uses the question as-is.
 - Response includes per-line `sources`, `grounded`, `citation_summary` counts (`grounded_ok`, `dangling`, `insufficient`, `integrity_violations`), `coherence_summary` (`coherent_ok`, `total_hours_mismatch`, `duplicate_component`, `insufficient_context_violation`, `zero_hours_grounded`, `has_violations`), and `hallucination_summary` (`grounded`, `degraded`, `insufficient`, `has_degraded`).
-- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), `RAG_COHERENCE_ENABLED` (default **true**), `RAG_COHERENCE_TOTAL_TOLERANCE` (default **0.01**), `HALLUCINATION_GATE_ENABLED` (default **false**), `HALLUCINATION_JUDGE_MODEL` (optional LiteLLM id), `REFORMULATION_ENABLED` (default **false**), `REFORMULATION_MODEL` (optional LiteLLM id), `RAG_CONTEXT_MAX_TOKENS` (default **8000**); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+- Env: `RAG_ESTIMATION_RETRIEVAL_MODE` (default **B**), `RAG_COHERENCE_ENABLED` (default **true**), `RAG_COHERENCE_TOTAL_TOLERANCE` (default **0.01**), `HALLUCINATION_GATE_ENABLED` (default **false**), `HALLUCINATION_JUDGE_MODEL` (optional LiteLLM id), `REFORMULATION_ENABLED` (default **false**), `REFORMULATION_MODEL` (optional LiteLLM id), `RAG_CONTEXT_MAX_TOKENS` (default **8000**), `RAG_IDEMPOTENCY_TTL_SECONDS` (default **86400**); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
 
 ```bash
 # When ESTIMATE_API_KEY is set in .env, add: -H 'X-API-Key: your-estimate-key'
@@ -817,6 +817,13 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/rag \
 ```
 
 In **`web/`**, fill the transcript (and optional one-line summary), then use **Run RAG estimate** in the estimate result panel and open the **RAG citations** tab to compare the UI table with the JSON payload.
+
+**RAG stage wizard API** (feature-062, stateless teaching endpoints under `/api/v1/estimate/rag/stages/*`):
+
+- `reformulate` → `retrieve` (basic mode A–D or advanced `StageConfig`) → `assemble` → `generate` → `verify` (citation + coherence + hallucination reports).
+- `structure` — modules/tasks without hours (Session 10 decomposition).
+- `POST /api/v1/estimate/rag/tasks/hours` — per-task hours from `historical_task` chunks (`TASK_HOURS_TOP_K`, `TASK_HOURS_DISTANCE_THRESHOLD`).
+- `Idempotency-Key` header on `POST /api/v1/estimate/rag` caches the full response for `RAG_IDEMPOTENCY_TTL_SECONDS` (Redis when `REDIS_URL` set, else in-process).
 
 **RAGAS generation baseline** (offline, slow, dev dependency):
 

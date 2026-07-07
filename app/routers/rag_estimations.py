@@ -6,7 +6,7 @@ import logging
 from time import perf_counter
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
@@ -30,6 +30,7 @@ from app.schemas.rag_estimation_response import (
 )
 from app.services.llm_chain import build_provider_chain
 from app.services.rag_estimation_service import RagEstimationOutcome, RagEstimationService
+from app.services.rag_idempotency import get_idempotency_store
 from app.services.structured_llm_client import StructuredCompletionError
 from app.middleware.rate_limiting import conditional_rate_limit
 from app.middleware.security import require_estimate_key
@@ -133,10 +134,21 @@ async def estimate_rag(
     vector_repository: Annotated[SemanticSearchRepository, Depends(get_vector_repository)],
     lexical_repository: Annotated[LexicalSearchRepository, Depends(get_lexical_repository)],
     service: Annotated[RagEstimationService, Depends(get_rag_estimation_service)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RagEstimationResponse:
     """Generate a grounded estimation with per-line citations from retrieved chunks."""
 
     request_id = get_request_id(request)
+    store = get_idempotency_store(settings)
+    normalized_key = idempotency_key.strip() if idempotency_key else None
+    if normalized_key:
+        cached = store.get(normalized_key)
+        if cached is not None:
+            logger.info(
+                "rag_idempotency_hit",
+                extra={"request_id": request_id, "idempotency_key": normalized_key},
+            )
+            return cached.model_copy(update={"request_id": request_id})
     mode_raw = payload.mode or settings.rag_estimation_retrieval_mode
     try:
         mode = parse_retrieval_mode(mode_raw)
@@ -184,7 +196,7 @@ async def estimate_rag(
         ) from exc
 
     latency_ms = int((perf_counter() - started) * 1000)
-    return RagEstimationResponse(
+    response = RagEstimationResponse(
         result=outcome.result,
         citation_summary=_citation_summary(outcome),
         coherence_summary=_coherence_summary(outcome),
@@ -195,3 +207,6 @@ async def estimate_rag(
         latency_ms=latency_ms,
         usage=_usage_view(outcome),
     )
+    if normalized_key:
+        store.set(normalized_key, response)
+    return response

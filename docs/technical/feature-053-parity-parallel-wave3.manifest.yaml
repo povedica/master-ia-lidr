@@ -1,0 +1,14 @@
+# Parallel worktree manifest for feature-053 parity track (wave 3).
+# Base: main with feature-062 merged.
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 1
+  env_strategy: symlink
+  model: auto
+tasks:
+  - work_item: docs/work-items/feature-063-multi-index-corpus-and-chunking-compare.md
+    depends_on: []
+    needs_live_db: true
+    mode: prepare
+    mutex_group: rag-corpus

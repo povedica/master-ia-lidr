@@ -44,6 +44,9 @@ def build_metadata_filters(
     if filters.document_type is not None:
         predicates.append(DocumentModel.document_type == filters.document_type)
 
+    if filters.chunk_types:
+        predicates.append(ChunkModel.chunk_type.in_(filters.chunk_types))
+
     return predicates
 
 

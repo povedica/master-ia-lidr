@@ -308,3 +308,27 @@ def test_rag_estimate_rejects_empty_transcript(rag_client: TestClient) -> None:
         json={"question": "OAuth e-commerce platform", "transcript": "   "},
     )
     assert response.status_code == 422
+
+
+def test_rag_estimate_idempotency_key_returns_cached_response(rag_client: TestClient) -> None:
+    from app.services.rag_idempotency import reset_idempotency_store
+
+    reset_idempotency_store()
+    calls = {"count": 0}
+    result = _grounded_result()
+
+    class _CountingFakeService:
+        async def estimate(self, *args, **kwargs):
+            calls["count"] += 1
+            return _outcome(result)
+
+    app.dependency_overrides[rag_estimations.get_rag_estimation_service] = lambda: _CountingFakeService()  # type: ignore[return-value]
+
+    headers = {"Idempotency-Key": "idem-062-test"}
+    first = rag_client.post(RAG_PATH, json={"question": "OAuth e-commerce platform"}, headers=headers)
+    second = rag_client.post(RAG_PATH, json={"question": "OAuth e-commerce platform"}, headers=headers)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["result"]["total_hours"] == second.json()["result"]["total_hours"]
+    assert calls["count"] == 1

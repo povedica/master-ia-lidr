@@ -17,6 +17,8 @@ from app.routers import (
     estimations,
     estimations_v2,
     rag_estimations,
+    rag_stages,
+    rag_task_hours,
     retrieval,
     retrieval_advanced,
     retrieval_debug,
@@ -91,6 +93,8 @@ app.include_router(retrieval_debug.router, prefix="/api/v1")
 app.include_router(retrieval.router, prefix="/api/v1")
 app.include_router(retrieval_advanced.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
+app.include_router(rag_stages.router, prefix="/api/v1")
+app.include_router(rag_task_hours.router, prefix="/api/v1")
 app.include_router(runtime_config.router, prefix="/api/v1")
 
 

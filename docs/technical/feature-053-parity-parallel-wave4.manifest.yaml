@@ -1,0 +1,19 @@
+# Parallel worktree manifest for feature-053 parity track (wave 4).
+# Optional parallel: session memory vs PII ingest (065 needs 063).
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 2
+  env_strategy: symlink
+  model: auto
+tasks:
+  - work_item: docs/work-items/feature-064-conversation-compression-s05.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: session-memory
+  - work_item: docs/work-items/feature-065-transcript-pii-ingest-optional.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: pii-ingest
