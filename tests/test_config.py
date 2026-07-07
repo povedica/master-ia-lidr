@@ -221,6 +221,12 @@ def test_retrieval_settings_defaults_are_backward_compatible() -> None:
     assert settings.retrieval_temporal_decay_enabled is False
 
 
+def test_hallucination_gate_settings_default_off() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.hallucination_gate_enabled is False
+    assert settings.hallucination_judge_model == ""
+
+
 def test_retrieval_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RETRIEVAL_DEFAULT_MODE", "D")
     monkeypatch.setenv("RETRIEVAL_LEXICAL_TEXT_SEARCH_CONFIG", "english")

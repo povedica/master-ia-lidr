@@ -1611,7 +1611,7 @@
                       <button type="button" class="arch-node" data-id="router-rag" data-layer="router"
                         data-title="POST /api/v1/estimate/rag"
                         data-file="app/routers/rag_estimations.py"
-                        data-desc="Estimación RAG grounded: reformulate_query → compose_search_text → retrieve → assemble → truncate_to_token_budget → prompts rag/v1 → RagEstimationResult → verify_citations → check_coherence. Fuera de LLMPipeline (sin caché/ACB/guardrails v2).">
+                        data-desc="Estimación RAG grounded: reformulate_query → compose_search_text → retrieve → assemble → truncate_to_token_budget → prompts rag/v1 → RagEstimationResult → verify_citations → check_coherence → gate_estimate (opcional, HALLUCINATION_GATE_ENABLED). Fuera de LLMPipeline (sin caché/ACB/guardrails v2).">
                         <span class="arch-node-title">v1 /estimate/rag</span>
                         <span class="arch-node-sub">citas por línea</span>
                       </button>

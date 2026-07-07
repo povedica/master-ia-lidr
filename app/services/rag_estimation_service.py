@@ -17,9 +17,11 @@ from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus, CitationReport
 from app.schemas.coherence_report import CoherenceReport
 from app.schemas.estimation_query import compose_search_text
+from app.schemas.hallucination_report import HallucinationReport
 from app.schemas.rag_estimation_result import RagEstimationResult
 from app.services.citation_verification import verify_citations
 from app.services.rag_coherence import check_coherence
+from app.services.rag_hallucination_gate import gate_estimate
 from app.services.llm_types import LLMProvider, UsageInfo
 from app.services.observability.bootstrap import get_observability
 from app.services.provider_routing import resolve_first_litellm_route
@@ -41,6 +43,7 @@ class RagEstimationOutcome:
     result: RagEstimationResult
     report: CitationReport
     coherence_report: CoherenceReport
+    hallucination_report: HallucinationReport
     chunk_texts: list[str]
     model: str | None
     provider: str | None
@@ -102,7 +105,7 @@ class RagEstimationService:
             )
 
             if not retrieval.results:
-                return self._insufficient_context_outcome(request_id)
+                return await self._insufficient_context_outcome(request_id)
 
             contents = await self._content_repository.get_contents_by_ids(
                 session,
@@ -115,7 +118,7 @@ class RagEstimationService:
                 encoding=resolve_rag_context_encoding(self._settings),
             )
             if not assembled.chunk_ids:
-                return self._insufficient_context_outcome(request_id)
+                return await self._insufficient_context_outcome(request_id)
 
             route = resolve_first_litellm_route(self._providers)
             if route is None:
@@ -150,10 +153,20 @@ class RagEstimationService:
                 enabled=self._settings.rag_coherence_enabled,
                 total_tolerance=self._settings.rag_coherence_total_tolerance,
             )
+            hallucination_report = await gate_estimate(
+                result,
+                chunk_texts=assembled.chunk_texts,
+                request_id=request_id,
+                settings=self._settings,
+                providers=self._providers,
+                enabled=self._settings.hallucination_gate_enabled,
+                judge_model=self._settings.hallucination_judge_model,
+            )
             return RagEstimationOutcome(
                 result=result,
                 report=report,
                 coherence_report=coherence_report,
+                hallucination_report=hallucination_report,
                 chunk_texts=assembled.chunk_texts,
                 model=route.model,
                 provider=route.provider_name,
@@ -162,7 +175,7 @@ class RagEstimationService:
                 prompt_version=rendered.prompt_version,
             )
 
-    def _insufficient_context_outcome(self, request_id: str) -> RagEstimationOutcome:
+    async def _insufficient_context_outcome(self, request_id: str) -> RagEstimationOutcome:
         logger.info(
             "rag_insufficient_context",
             extra={"request_id": request_id},
@@ -184,10 +197,20 @@ class RagEstimationService:
             enabled=self._settings.rag_coherence_enabled,
             total_tolerance=self._settings.rag_coherence_total_tolerance,
         )
+        hallucination_report = await gate_estimate(
+            result,
+            chunk_texts=[],
+            request_id=request_id,
+            settings=self._settings,
+            providers=self._providers,
+            enabled=self._settings.hallucination_gate_enabled,
+            judge_model=self._settings.hallucination_judge_model,
+        )
         return RagEstimationOutcome(
             result=result,
             report=report,
             coherence_report=coherence_report,
+            hallucination_report=hallucination_report,
             chunk_texts=[],
             model=None,
             provider=None,

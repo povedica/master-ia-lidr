@@ -392,6 +392,14 @@ class Settings(BaseSettings):
         ge=0.0,
         description="Allowed absolute delta between total_hours and sum of line item hours.",
     )
+    hallucination_gate_enabled: bool = Field(
+        default=False,
+        description="When true, run post-coherence hallucination gate (extra LLM judge call).",
+    )
+    hallucination_judge_model: str = Field(
+        default="",
+        description="Optional LiteLLM model id for hallucination judge; empty uses first provider route.",
+    )
     reformulation_enabled: bool = Field(
         default=False,
         description="When true, run LLM query reformulation even without a transcript.",
