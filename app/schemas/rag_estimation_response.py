@@ -54,10 +54,18 @@ class CoherenceSummaryView(BaseModel):
     has_violations: bool
 
 
+class HallucinationSummaryView(BaseModel):
+    grounded: int
+    degraded: int
+    insufficient: int
+    has_degraded: bool
+
+
 class RagEstimationResponse(BaseModel):
     result: RagEstimationResult
     citation_summary: CitationSummaryView
     coherence_summary: CoherenceSummaryView
+    hallucination_summary: HallucinationSummaryView
     request_id: str
     model: str | None = None
     provider: str | None = None

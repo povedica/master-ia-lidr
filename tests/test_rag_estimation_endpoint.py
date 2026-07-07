@@ -12,6 +12,7 @@ from app.main import app
 from app.routers import rag_estimations
 from app.schemas.citation_report import CitationLineReport, CitationLineStatus, CitationReport
 from app.schemas.coherence_report import CoherenceLineReport, CoherenceLineStatus, CoherenceReport
+from app.schemas.hallucination_report import HallucinationLineGrade, HallucinationReport
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
 from app.services.rag_estimation_service import RagEstimationOutcome
 from app.services.structured_llm_client import StructuredCompletionError
@@ -100,10 +101,17 @@ def _outcome(
         counts=coherence_counts,
         has_violations=coherence_status != CoherenceLineStatus.COHERENT_OK,
     )
+    hallucination_report = HallucinationReport(
+        request_id="req_test",
+        lines=[],
+        counts={grade: 0 for grade in HallucinationLineGrade},
+        has_degraded=False,
+    )
     return RagEstimationOutcome(
         result=result,
         report=report,
         coherence_report=coherence_report,
+        hallucination_report=hallucination_report,
         chunk_texts=["OAuth2 login integration scope"],
         model="gpt-4o-mini",
         provider="openai",
@@ -165,6 +173,8 @@ def test_rag_estimate_happy_path(rag_client: TestClient) -> None:
     assert body["citation_summary"]["has_dangling"] is False
     assert body["coherence_summary"]["has_violations"] is False
     assert body["coherence_summary"]["coherent_ok"] == 1
+    assert body["hallucination_summary"]["has_degraded"] is False
+    assert body["hallucination_summary"]["grounded"] == 0
     assert body["result"]["line_items"][0]["grounded"] is True
 
 
@@ -208,6 +218,12 @@ def test_rag_estimate_insufficient_context(rag_client: TestClient) -> None:
                 counts={status: 0 for status in CoherenceLineStatus},
                 has_violations=False,
             ),
+            hallucination_report=HallucinationReport(
+                request_id="req_test",
+                lines=[],
+                counts={grade: 0 for grade in HallucinationLineGrade},
+                has_degraded=False,
+            ),
             chunk_texts=[],
             model=None,
             provider=None,
@@ -222,6 +238,52 @@ def test_rag_estimate_insufficient_context(rag_client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["result"]["insufficient_context"] is True
     assert response.json()["coherence_summary"]["has_violations"] is False
+
+
+def test_rag_estimate_reports_hallucination_summary_when_degraded(rag_client: TestClient) -> None:
+    from app.schemas.hallucination_report import HallucinationLineReport
+
+    result = _grounded_result()
+    degraded_report = HallucinationReport(
+        request_id="req_test",
+        lines=[
+            HallucinationLineReport(
+                index=0,
+                component="authentication",
+                grade=HallucinationLineGrade.DEGRADED,
+                anchor_max=8.0,
+            )
+        ],
+        counts={
+            HallucinationLineGrade.GROUNDED: 0,
+            HallucinationLineGrade.DEGRADED: 1,
+            HallucinationLineGrade.INSUFFICIENT: 0,
+        },
+        has_degraded=True,
+    )
+    outcome = _outcome(result)
+    outcome = RagEstimationOutcome(
+        result=outcome.result,
+        report=outcome.report,
+        coherence_report=outcome.coherence_report,
+        hallucination_report=degraded_report,
+        chunk_texts=outcome.chunk_texts,
+        model=outcome.model,
+        provider=outcome.provider,
+        usage=outcome.usage,
+        finish_reason=outcome.finish_reason,
+        prompt_version=outcome.prompt_version,
+    )
+    app.dependency_overrides[rag_estimations.get_rag_estimation_service] = lambda: _FakeRagService(  # type: ignore[return-value]
+        outcome
+    )
+
+    response = rag_client.post(RAG_PATH, json={"question": "OAuth e-commerce platform"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hallucination_summary"]["has_degraded"] is True
+    assert body["hallucination_summary"]["degraded"] == 1
 
 
 def test_rag_estimate_provider_failure_returns_503(rag_client: TestClient) -> None:

@@ -20,9 +20,11 @@ from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus
 from app.schemas.coherence_report import CoherenceLineStatus
 from app.schemas.estimations import UsageView
+from app.schemas.hallucination_report import HallucinationLineGrade
 from app.schemas.rag_estimation_response import (
     CitationSummaryView,
     CoherenceSummaryView,
+    HallucinationSummaryView,
     RagEstimateRequest,
     RagEstimationResponse,
 )
@@ -92,6 +94,16 @@ def _coherence_summary(outcome: RagEstimationOutcome) -> CoherenceSummaryView:
         ),
         zero_hours_grounded=counts.get(CoherenceLineStatus.ZERO_HOURS_GROUNDED, 0),
         has_violations=outcome.coherence_report.has_violations,
+    )
+
+
+def _hallucination_summary(outcome: RagEstimationOutcome) -> HallucinationSummaryView:
+    counts = outcome.hallucination_report.counts
+    return HallucinationSummaryView(
+        grounded=counts.get(HallucinationLineGrade.GROUNDED, 0),
+        degraded=counts.get(HallucinationLineGrade.DEGRADED, 0),
+        insufficient=counts.get(HallucinationLineGrade.INSUFFICIENT, 0),
+        has_degraded=outcome.hallucination_report.has_degraded,
     )
 
 
@@ -176,6 +188,7 @@ async def estimate_rag(
         result=outcome.result,
         citation_summary=_citation_summary(outcome),
         coherence_summary=_coherence_summary(outcome),
+        hallucination_summary=_hallucination_summary(outcome),
         request_id=request_id,
         model=outcome.model,
         provider=outcome.provider,
