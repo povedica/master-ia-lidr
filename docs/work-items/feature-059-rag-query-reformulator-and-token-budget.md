@@ -159,12 +159,12 @@ RAG_CONTEXT_MAX_TOKENS=8000
 
 | Commit | Summary |
 | --- | --- |
-| _(pending push)_ | docs(feature-059): start task tracking |
-| _(pending push)_ | feat(rag): add EstimationQuery schema and compose_search_text |
-| _(pending push)_ | feat(rag): add token-budget truncation at chunk boundaries |
-| _(pending push)_ | feat(rag): add query reformulator with settings-driven LLM path |
-| _(pending push)_ | feat(rag): wire reformulator and token budget into estimation service |
-| _(pending push)_ | docs(feature-059): env, README, parity table, architecture HTML |
+| `08b8b57` | docs(feature-059): start task tracking for reformulator and token budget |
+| `3167c05` | feat(rag): add EstimationQuery schema and compose_search_text |
+| `c7751c7` | feat(rag): add token-budget truncation at chunk boundaries |
+| `08c2412` | feat(rag): add query reformulator with settings-driven LLM path |
+| `c455c1d` | feat(rag): wire reformulator and token budget into estimation service |
+| `69fe087` | docs(feature-059): document reformulator settings and RAG pipeline updates |
 
 ## Verification
 
