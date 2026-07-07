@@ -220,9 +220,8 @@ uv run pytest tests/test_rag_hallucination_gate.py tests/test_rag_estimation_ser
 
 ## Pull Request
 
-- Draft PR: https://github.com/povedica/master-ia-lidr/pull/54
-- Branch: `feature/060-rag-hallucination-gate`
-- Worktree: `../master-ia-worktrees/feature-060-rag-hallucination-gate`
+- Merged: https://github.com/povedica/master-ia-lidr/pull/54 (merged 2026-07-07)
+- Branch: `feature/060-rag-hallucination-gate` (deleted after merge)
 - Parallel manifest: `docs/technical/feature-053-parity-parallel-wave2b.manifest.yaml`
 
 ## How to start
