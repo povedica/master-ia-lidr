@@ -182,7 +182,7 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 
 | SHA | Summary |
 | --- | --- |
-| `589d635` | test+feat for step 1 — schemas, numeric_anchor(), gate_line() |
+| `d97f8d2` | test+feat for step 1 — schemas, numeric_anchor(), gate_line() |
 
 ## Pull Request
 
