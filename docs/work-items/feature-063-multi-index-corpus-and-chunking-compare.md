@@ -175,7 +175,8 @@ CHUNKING_COMPARE_DEFAULT_STRATEGIES=structural,recursive,sentence_window
 
 ## Pull Request
 
-- Pending `/start-task` after `feature-062` merges.
+- Draft: https://github.com/povedica/master-ia-lidr/pull/56
+- Branch: `feature/063-multi-index-corpus-and-chunking-compare`
 
 ## How to start
 

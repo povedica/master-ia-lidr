@@ -161,7 +161,8 @@ COMPRESSION_MAX_SUMMARY_TOKENS=512
 
 ## Pull Request
 
-- Pending `/start-task` (can parallelize with 063 in separate worktree).
+- Draft: https://github.com/povedica/master-ia-lidr/pull/57
+- Branch: `feature/064-conversation-compression-s05`
 
 ## How to start
 

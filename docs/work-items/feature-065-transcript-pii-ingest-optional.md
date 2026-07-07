@@ -150,7 +150,8 @@ TRANSCRIPT_PII_LANGUAGE=en
 
 ## Pull Request
 
-- Pending `/start-task` after `feature-063` transcript ingest path exists.
+- Draft: https://github.com/povedica/master-ia-lidr/pull/58
+- Branch: `feature/065-transcript-pii-ingest-optional`
 
 ## How to start
 
