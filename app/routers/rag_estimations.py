@@ -18,9 +18,11 @@ from app.embedding_pipeline.rerank import Reranker, build_reranker
 from app.embedding_pipeline.retrieval_service import RetrievalService, parse_retrieval_mode
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus
+from app.schemas.coherence_report import CoherenceLineStatus
 from app.schemas.estimations import UsageView
 from app.schemas.rag_estimation_response import (
     CitationSummaryView,
+    CoherenceSummaryView,
     RagEstimateRequest,
     RagEstimationResponse,
 )
@@ -76,6 +78,20 @@ def _citation_summary(outcome: RagEstimationOutcome) -> CitationSummaryView:
         insufficient=counts.get(CitationLineStatus.INSUFFICIENT_DATA, 0),
         integrity_violations=counts.get(CitationLineStatus.INTEGRITY_VIOLATION, 0),
         has_dangling=outcome.report.has_dangling,
+    )
+
+
+def _coherence_summary(outcome: RagEstimationOutcome) -> CoherenceSummaryView:
+    counts = outcome.coherence_report.counts
+    return CoherenceSummaryView(
+        coherent_ok=counts.get(CoherenceLineStatus.COHERENT_OK, 0),
+        total_hours_mismatch=counts.get(CoherenceLineStatus.TOTAL_HOURS_MISMATCH, 0),
+        duplicate_component=counts.get(CoherenceLineStatus.DUPLICATE_COMPONENT, 0),
+        insufficient_context_violation=counts.get(
+            CoherenceLineStatus.INSUFFICIENT_CONTEXT_VIOLATION, 0
+        ),
+        zero_hours_grounded=counts.get(CoherenceLineStatus.ZERO_HOURS_GROUNDED, 0),
+        has_violations=outcome.coherence_report.has_violations,
     )
 
 
@@ -158,6 +174,7 @@ async def estimate_rag(
     return RagEstimationResponse(
         result=outcome.result,
         citation_summary=_citation_summary(outcome),
+        coherence_summary=_coherence_summary(outcome),
         request_id=request_id,
         model=outcome.model,
         provider=outcome.provider,
