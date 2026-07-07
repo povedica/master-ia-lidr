@@ -172,11 +172,18 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [ ] Step 1: Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD)
+- [ ] Step 2: `judge_estimate()` with mocked `complete_structured`
+- [ ] Step 3: `gate_estimate()` aggregation
+- [ ] Step 4: Wire `RagEstimationService` + HTTP response + settings
+- [ ] Step 5: Docs + `docs/arquitectura-estimador-cag.html`
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+- Draft PR: _(pending initial commit)_
+- Branch: `feature/060-rag-hallucination-gate`
+- Worktree: `../master-ia-worktrees/feature-060-rag-hallucination-gate`
+- Parallel manifest: `docs/technical/feature-053-parity-parallel-wave2b.manifest.yaml`
 
 ## How to start
 
