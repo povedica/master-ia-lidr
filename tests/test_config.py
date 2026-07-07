@@ -216,6 +216,9 @@ def test_retrieval_settings_defaults_are_backward_compatible() -> None:
     assert settings.retrieval_rrf_k == 60
     assert settings.retrieval_rerank_enabled is False
     assert settings.retrieval_rerank_model == ""
+    assert settings.retrieval_routing_enabled is False
+    assert settings.query_transform_enabled is False
+    assert settings.retrieval_temporal_decay_enabled is False
 
 
 def test_retrieval_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:

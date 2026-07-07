@@ -276,6 +276,7 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/embeddings/ingest` | Persist a budget document and its chunk embeddings (Postgres + pgvector) |
 | `POST` | `/api/v1/search` | Semantic search over persisted chunks (pgvector cosine distance) |
 | `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank); optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
+| `POST` | `/api/v1/retrieval/advanced` | StageConfig-driven advanced retrieval (S10 parity); presets A–D or explicit config; optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
 | `POST` | `/api/v1/estimate/rag` | Grounded RAG estimation with citation audit; optional `X-API-Key` when `ESTIMATE_API_KEY` is set |
 | `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
 | `GET`/`PUT` | `/api/v1/config/retrieval` | Runtime retrieval config (Redis override merged over `Settings`); open in dev |
@@ -657,6 +658,7 @@ The pipeline includes:
 - **Persistence** — Postgres 16 + pgvector, async SQLAlchemy (`app/database.py`), `documents` / `chunks` tables, Alembic migrations. Ingest runs in a single transaction via `run_persistent_ingest()` (`persistent_ingest.py`).
 - **Search** (`app/routers/search.py`) — `POST /api/v1/search` embeds the query and ranks chunks by pgvector **cosine distance**.
 - **Production retrieval** (`app/routers/retrieval.py`) — `POST /api/v1/retrieval` runs modes **A** vector-only, **B** hybrid RRF, **C** vector + cross-encoder rerank, **D** hybrid + rerank; defaults preserve mode **A** (vector-only baseline).
+- **Advanced retrieval** (`app/routers/retrieval_advanced.py`) — `POST /api/v1/retrieval/advanced` runs the S10 `StageConfig` pipeline (`advanced_retrieve`) with presets **A–D** or an explicit config payload; reuses hybrid RRF and rerank primitives; labels every row with `collection` (stub `budgets` until multi-index).
 - **Retrieval debug** (`app/routers/retrieval_debug.py`) — internal `POST /api/v1/retrieval-debug` and `GET /api/v1/retrieval-debug/chunks/{id}` expose vector and lexical branch ranks, normalized scores, matched terms, explanations, timings, metadata, and chunk context without changing `/search`.
 - **Tooling** — upstream loader/parser, markdown chunk template, offline CLIs, `query_examples.py` demo script ([`output_examples.txt`](output_examples.txt)).
 
@@ -676,6 +678,9 @@ Optional env (defaults work without extra config):
 | `RETRIEVAL_RRF_K` | `60` | RRF constant for hybrid modes |
 | `RETRIEVAL_RERANK_ENABLED` | `false` | Global rerank kill switch |
 | `RETRIEVAL_RERANK_MODEL` | *(empty)* | Cross-encoder model id; empty ⇒ no-op rerank |
+| `RETRIEVAL_ROUTING_ENABLED` | `false` | When `true`, advanced retrieval may route queries to collections (stub: `budgets` only) |
+| `QUERY_TRANSFORM_ENABLED` | `false` | When `true`, advanced retrieval may rewrite queries before search (stub passthrough) |
+| `RETRIEVAL_TEMPORAL_DECAY_ENABLED` | `false` | When `true`, advanced retrieval may apply recency weighting (no-op until metadata exists) |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | Base URL for `query_examples.py`; Compose sets `http://app:8000` for the `app` service |
 
 Uses `OPENAI_API_KEY` and `OPENAI_TIMEOUT_SECONDS` (same as chat). Methods are async (`embed_one`, `embed_many`); the compare CLI wraps them with `asyncio.run`.
@@ -760,6 +765,27 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/search \
 | Response `warnings` | list | No-op rerank, branch failures, kill-switch notices |
 
 Modes: **A** vector-only (baseline); **B** vector + lexical RRF; **C** vector + cross-encoder rerank; **D** hybrid + rerank. Lexical FTS uses migration `0004` (`content_tsv` generated with `spanish`).
+
+**Advanced retrieval API** (`POST /api/v1/retrieval/advanced`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Request `query` | `str` | Non-empty composed search text (same contract as production retrieval) |
+| Request `preset` | `A\|B\|C\|D` | Optional shorthand for `StageConfig` presets (mutually exclusive with `config`) |
+| Request `config` | `object` | Optional explicit `StageConfig` (`search_mode`, `rerank`, `fusion`, …) |
+| Request `recall_k` / `top_k_final` | `int` | Optional overrides (default from settings) |
+| Response `config` / `effective_config` | `object` | Requested vs applied stage config (rerank may degrade) |
+| Response `results[]` | list | Ranked rows with `collection` label (`budgets` stub) and branch scores |
+| Response `warnings` | list | No-op rerank, branch failures, kill-switch notices |
+
+```bash
+# When RETRIEVAL_API_KEY is set in .env, add: -H 'X-API-Key: your-retrieval-key'
+curl -sS -X POST http://127.0.0.1:8000/api/v1/retrieval/advanced \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"OAuth backend integration","preset":"B"}'
+```
+
+Preset mapping for eval parity with modes A–D: **A** vector / no rerank; **B** hybrid RRF; **C** vector + rerank; **D** hybrid + rerank. Runtime `PUT /api/v1/config/retrieval` `rerank_enabled` override applies to the advanced path the same way as `POST /api/v1/retrieval`.
 
 **Evaluation harness** (modes A–D over the golden set):
 

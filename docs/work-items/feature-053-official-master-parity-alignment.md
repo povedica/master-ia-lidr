@@ -129,7 +129,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Query reformulation | `generation/rag/query_reformulator.py` | `app/services/rag_query_reformulator.py` | ✅ `EstimationQuery` from transcript/question |
 | Search text composition | `compose_search_text()` | `app/schemas/estimation_query.py` | ✅ wired before retrieval |
 | Retrieval (basic) | `retrieval/pipeline.py` | `embedding_pipeline/retrieval_service.py` | 🟡 single `chunks` table vs multi-index |
-| Retrieval (advanced) | `retrieval/advanced_pipeline.py` | — | ❌ routing, query transform, temporal decay |
+| Retrieval (advanced) | `retrieval/advanced_pipeline.py` | `embedding_pipeline/advanced_retrieval.py` | 🟡 StageConfig + endpoint; routing/transform/decay stubs |
 | Multi-index collections | `retrieval/collections.py` | single `chunks` + `metadata_filters` | ❌ budgets / transcripts / technical_docs |
 | Reranking | `retrieval/reranker.py` | `embedding_pipeline/rerank.py` (`NoOpReranker` default) | 🟡 enable + wire in prod path |
 | Context assembly | `context_assembler.py` | `services/rag_context_assembler.py` | ✅ includes `truncate_to_token_budget` |
@@ -498,7 +498,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 4:** `feature-058` — `check_coherence()` + eval gate integration on RAG path. _(PR — https://github.com/povedica/master-ia-lidr/pull/51)_
 - [x] **Step 5:** `feature-059` — query reformulator + token budget wired into `RagEstimationService`.
 - [ ] **Step 6:** `feature-060` — hallucination gate behind `HALLUCINATION_GATE_ENABLED`.
-- [ ] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint.
+- [x] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint.
 - [ ] **Step 8:** `feature-062` — stage routes + task hours.
 - [ ] **Step 9:** `feature-063` — multi-index migration + ingest.
 - [ ] **Step 10:** Update parity matrix in `docs/technical/README.md` to ✅ per row.

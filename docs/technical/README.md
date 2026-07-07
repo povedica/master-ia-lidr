@@ -1252,6 +1252,26 @@ Evaluation (`app/scripts/retrieval_eval.py`) runs all four modes over `evaluatio
 
 Work item: [feature-050](../work-items/feature-050-measurable-hybrid-rerank-retrieval-modes.md).
 
+## 25d. Advanced retrieval S10 pipeline (feature-061)
+
+`POST /api/v1/retrieval/advanced` exposes the official Session 10 **StageConfig** contract over the existing single `chunks` table:
+
+| `StageConfig` field | Preset A | Preset B | Preset C | Preset D |
+| --- | --- | --- | --- | --- |
+| `search_mode` | `vector` | `hybrid` | `vector` | `hybrid` |
+| `rerank` | `false` | `false` | `true` | `true` |
+| `fusion` | `rrf` | `rrf` | `rrf` | `rrf` |
+
+`advanced_retrieve()` composes `reciprocal_rank_fusion`, `CrossEncoderReranker` / `NoOpReranker`, and optional stubs:
+
+- `retrieval_router.route_collection` — always `budgets` until feature-063 multi-index.
+- `query_transform.transform_query` — passthrough stub behind `QUERY_TRANSFORM_ENABLED`.
+- `temporal_decay.apply_temporal_decay` — no-op stub behind `RETRIEVAL_TEMPORAL_DECAY_ENABLED`.
+
+Offline parity tests assert presets A–D produce the same chunk ordering as `RetrievalService` on shared fixtures. The advanced path is **not** wired into `RagEstimationService` by default.
+
+Work item: [feature-061](../work-items/feature-061-advanced-retrieval-s10-pipeline.md).
+
 ## 25c. Retrieval evaluation evidence (feature-051)
 
 Feature-050 ships the harness; feature-051 closes the exercise with **committed empirical evidence** and interpretation guidance.

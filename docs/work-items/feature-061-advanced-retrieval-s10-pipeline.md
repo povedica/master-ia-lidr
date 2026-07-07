@@ -101,12 +101,12 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `advanced_retrieve()` unit tests with mocked repositories pass.
-- [ ] **AC-02:** Mode A–D presets produce same chunk ordering as `RetrievalService` for fixture (integration test).
-- [ ] **AC-03:** `POST /api/v1/retrieval/advanced` returns chunks with `collection` field.
-- [ ] **AC-04:** API key enforcement when configured.
-- [ ] **AC-05:** `uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_retrieval_advanced_endpoint.py -q` passes.
-- [ ] **AC-06:** `.env.example` documents S10 flags.
+- [x] **AC-01:** `advanced_retrieve()` unit tests with mocked repositories pass.
+- [x] **AC-02:** Mode A–D presets produce same chunk ordering as `RetrievalService` for fixture (integration test).
+- [x] **AC-03:** `POST /api/v1/retrieval/advanced` returns chunks with `collection` field.
+- [x] **AC-04:** API key enforcement when configured.
+- [x] **AC-05:** `uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_retrieval_advanced_endpoint.py -q` passes.
+- [x] **AC-06:** `.env.example` documents S10 flags.
 
 ## Test Plan
 
@@ -123,20 +123,33 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 
 ## Verification
 
-| Check | Command |
-| --- | --- |
-| Advanced retrieval | `uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py -q` |
-| Endpoint | `uv run pytest tests/test_retrieval_advanced_endpoint.py -q` |
-| Security regression | `uv run pytest tests/test_api_security.py -q` |
-| Fast suite | `uv run pytest` |
+| Check | Command | Result |
+| --- | --- | --- |
+| Advanced retrieval | `uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/embedding_pipeline/test_advanced_retrieval_stubs.py tests/embedding_pipeline/test_stage_config.py -q` | **18 passed** |
+| Endpoint | `uv run pytest tests/test_retrieval_advanced_endpoint.py -q` | **5 passed** |
+| Security regression | `uv run pytest tests/test_api_security.py -q` | **10 passed** |
+| Feature bundle | `uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_retrieval_advanced_endpoint.py -q` | **16 passed** |
+| Fast suite | `uv run pytest` | **759 passed**, 2 failed (`test_config` defaults — local worktree `.env` bleeds `DATABASE_URL` / `RETRIEVAL_RERANK_ENABLED`; not feature regression) |
+
+## Eval mapping (modes A–D ↔ StageConfig presets)
+
+| Production mode | `preset` | `search_mode` | `rerank` | `fusion` |
+| --- | --- | --- | --- | --- |
+| A | `"A"` | `vector` | `false` | `rrf` |
+| B | `"B"` | `hybrid` | `false` | `rrf` |
+| C | `"C"` | `vector` | `true` | `rrf` |
+| D | `"D"` | `hybrid` | `true` | `rrf` |
+
+Offline parity: `test_advanced_presets_match_retrieval_service_ordering` in `tests/embedding_pipeline/test_advanced_retrieval.py`.
 
 ## Documentation Plan
 
 | Artifact | Update |
 | --- | --- |
-| `.env.example` | S10 retrieval flags |
-| `README.md` | Advanced retrieval endpoint |
-| `feature-053` | Phase 2 advanced retrieval row |
+| `.env.example` | S10 retrieval flags | ✅ |
+| `README.md` | Advanced retrieval endpoint | ✅ |
+| `feature-053` | Phase 2 advanced retrieval row | ✅ |
+| `docs/technical/README.md` | §25d advanced retrieval | ✅ |
 
 ## Implementation Plan
 
@@ -144,7 +157,7 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 - [x] **Step 2:** `advanced_retrieve()` core with hybrid + rerank reuse.
 - [x] **Step 3:** Router + query transform stubs.
 - [x] **Step 4:** HTTP endpoint + schemas.
-- [ ] **Step 5:** Docs + eval mapping note.
+- [x] **Step 5:** Docs + eval mapping note.
 
 ## Estimation
 
@@ -177,8 +190,44 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 - [x] Step 1: `StageConfig` + presets for modes A–D (TDD)
 - [x] Step 2: `advanced_retrieve()` core with hybrid + rerank reuse
 - [x] Step 3: Router + query transform stubs
-- [ ] Step 4: HTTP endpoint + schemas
-- [ ] Step 5: Docs + eval mapping note
+- [x] Step 4: HTTP endpoint + schemas
+- [x] Step 5: Docs + eval mapping note
+
+## Handoff from feature-061
+
+**Shipped interfaces**
+
+- `POST /api/v1/retrieval/advanced` — `AdvancedRetrievalRequest` (`preset` or `config`, optional `recall_k` / `top_k_final`).
+- `advanced_retrieve(session, query, config, …)` — core orchestrator in `app/embedding_pipeline/advanced_retrieval.py`.
+- `StageConfig` + presets `mode_a_preset()` … `mode_d_preset()` in `app/embedding_pipeline/stage_config.py`.
+- Stubs: `retrieval_router.route_collection`, `query_transform.transform_query`, `temporal_decay.apply_temporal_decay`.
+- Settings: `RETRIEVAL_ROUTING_ENABLED`, `QUERY_TRANSFORM_ENABLED`, `RETRIEVAL_TEMPORAL_DECAY_ENABLED`.
+
+**Contracts**
+
+- Input query: same composed search text contract as `RetrievalService.retrieve()`.
+- Output rows: include `collection` (stub `"budgets"`); fusion/rerank scores mirror production retrieval.
+- Auth: `require_retrieval_key` (shared with `POST /api/v1/retrieval`).
+- Runtime rerank: `get_effective_settings` + Redis override from feature-057.
+
+**Verified**
+
+- 18 unit tests across `test_stage_config`, `test_advanced_retrieval`, `test_advanced_retrieval_stubs`.
+- 5 endpoint tests + 2 security tests for advanced path.
+- Preset A–D ordering parity vs `RetrievalService` on shared fixtures.
+
+**Not verified / residual risk**
+
+- `fusion="round_robin"` raises `ValueError` (RRF only in this slice).
+- Multi-index routing (`feature-063`) and live query transform/decay not implemented.
+- Advanced path not wired into `RagEstimationService` (parallel path only).
+- Full `uv run pytest`: 2 `test_config` defaults fail when worktree `.env` pollutes process env.
+
+**Recommended first tests for feature-062 / feature-063**
+
+```bash
+uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_retrieval_advanced_endpoint.py -q
+```
 
 ## Repository commits (master-ia)
 
@@ -186,6 +235,9 @@ uv run pytest tests/embedding_pipeline/test_advanced_retrieval.py tests/test_ret
 | --- | --- | --- |
 | 1 | f72f50b | `StageConfig` dataclass + mode A–D presets with validation and unit tests |
 | 2 | f690f9f | `advanced_retrieve()` core composing hybrid RRF, rerank, and `collection` labels |
+| 3 | 631586e | Router, query-transform, and temporal-decay stubs wired into `advanced_retrieve` |
+| 4 | 406dec4 | `POST /api/v1/retrieval/advanced` endpoint, schemas, security, and parity tests |
+| 5 | *(this commit)* | Docs (`.env.example`, README, technical §25d, feature-053) + eval mapping |
 
 ## Pull Request
 

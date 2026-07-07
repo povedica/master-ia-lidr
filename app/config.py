@@ -416,7 +416,7 @@ class Settings(BaseSettings):
     # --- API hardening (feature-056): optional keys + rate limits ---
     retrieval_api_key: str = Field(
         default="",
-        description="When set, POST /api/v1/retrieval requires X-API-Key header.",
+        description="When set, POST /api/v1/retrieval and /api/v1/retrieval/advanced require X-API-Key.",
     )
     estimate_api_key: str = Field(
         default="",
