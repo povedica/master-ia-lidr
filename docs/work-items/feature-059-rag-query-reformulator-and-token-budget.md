@@ -166,6 +166,7 @@ RAG_CONTEXT_MAX_TOKENS=8000
 | `c455c1d` | feat(rag): wire reformulator and token budget into estimation service |
 | `69fe087` | docs(feature-059): document reformulator settings and RAG pipeline updates |
 | `0cccf4b` | docs(feature-059): record commit SHAs in implementation report |
+| `113582d` | docs(feature-059): record task closure and PR merge status |
 
 ## Task closure (finish-task)
 
