@@ -153,6 +153,16 @@ COMPRESSION_MAX_SUMMARY_TOKENS=512
 - [ ] **Step 4:** Wire into `ConversationHistory` / sessions router.
 - [ ] **Step 5:** Integration test + docs.
 
+## Estimation
+
+- Size: **M**
+- Estimated time: **4–6 hours**
+- Planned steps: **5**
+
+## Pull Request
+
+- Pending `/start-task` (can parallelize with 063 in separate worktree).
+
 ## How to start
 
 ```text

@@ -167,6 +167,16 @@ CHUNKING_COMPARE_DEFAULT_STRATEGIES=structural,recursive,sentence_window
 - [ ] **Step 5:** `chunking_compare` + `POST /api/v1/embeddings/compare`.
 - [ ] **Step 6:** Wire collection filter into advanced retrieval + docs.
 
+## Estimation
+
+- Size: **L**
+- Estimated time: **8–10 hours**
+- Planned steps: **6**
+
+## Pull Request
+
+- Pending `/start-task` after `feature-062` merges.
+
 ## How to start
 
 ```text

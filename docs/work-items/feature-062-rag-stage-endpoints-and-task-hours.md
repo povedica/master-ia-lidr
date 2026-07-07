@@ -199,6 +199,26 @@ uv run pytest tests/test_rag_estimation_service.py tests/test_rag_hallucination_
 - [ ] **Step 5:** `rag_idempotency` + wire into `rag_estimations`.
 - [ ] **Step 6:** Docs + architecture HTML + feature-053 progress.
 
+## Estimation
+
+- Size: **L**
+- Estimated time: **6–8 hours**
+- Planned steps: **6**
+
+## Implementation progress
+
+- [x] Step 1: Stage/structure schemas + task-hours consensus (TDD)
+- [x] Step 2: `rag_stages` router — reformulate, assemble, structure
+- [x] Step 3: `rag_stages` — retrieve, generate, verify
+- [x] Step 4: `rag_task_hours` service + `tasks/hours` endpoint
+- [x] Step 5: `rag_idempotency` + `Idempotency-Key` on full RAG estimate
+- [ ] Step 6: Docs + architecture HTML + feature-053 closure
+
+## Pull Request
+
+- Draft: https://github.com/povedica/master-ia-lidr/pull/55
+- Branch: `feature/062-rag-stage-endpoints-and-task-hours`
+
 ## How to start
 
 ```text

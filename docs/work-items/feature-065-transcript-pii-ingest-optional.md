@@ -142,6 +142,16 @@ TRANSCRIPT_PII_LANGUAGE=en
 - [ ] **Step 3:** Hook transcript ingest + settings.
 - [ ] **Step 4:** Docs + optional dependency group.
 
+## Estimation
+
+- Size: **M**
+- Estimated time: **4–5 hours**
+- Planned steps: **4**
+
+## Pull Request
+
+- Pending `/start-task` after `feature-063` transcript ingest path exists.
+
 ## How to start
 
 ```text

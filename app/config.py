@@ -413,6 +413,23 @@ class Settings(BaseSettings):
         ge=1,
         description="Maximum assembled RAG context tokens before prompt rendering.",
     )
+    rag_idempotency_ttl_seconds: int = Field(
+        default=86400,
+        ge=60,
+        description="TTL for Idempotency-Key cached RAG estimate responses.",
+    )
+    task_hours_top_k: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Nearest historical task neighbours per task for task-hours endpoint.",
+    )
+    task_hours_distance_threshold: float = Field(
+        default=0.45,
+        ge=0.0,
+        le=2.0,
+        description="Max cosine distance for a historical task neighbour match.",
+    )
     ragas_judge_model: str = Field(
         default="gpt-4o-mini",
         description="Judge model for offline RAGAS generation eval (dev/slow only).",
