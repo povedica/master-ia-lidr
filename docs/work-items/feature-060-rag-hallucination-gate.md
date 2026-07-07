@@ -132,7 +132,7 @@ HALLUCINATION_JUDGE_MODEL=
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD).
+- [x] **Step 1:** Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD).
 - [ ] **Step 2:** `judge_estimate()` with mocked `complete_structured`.
 - [ ] **Step 3:** `gate_estimate()` aggregation.
 - [ ] **Step 4:** Wire service + HTTP response + settings.
@@ -172,11 +172,17 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 
 ## Implementation progress
 
-- [ ] Step 1: Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD)
+- [x] Step 1: Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD)
 - [ ] Step 2: `judge_estimate()` with mocked `complete_structured`
 - [ ] Step 3: `gate_estimate()` aggregation
 - [ ] Step 4: Wire `RagEstimationService` + HTTP response + settings
 - [ ] Step 5: Docs + `docs/arquitectura-estimador-cag.html`
+
+## Repository commits (master-ia)
+
+| SHA | Summary |
+| --- | --- |
+| `589d635` | test+feat for step 1 — schemas, numeric_anchor(), gate_line() |
 
 ## Pull Request
 
