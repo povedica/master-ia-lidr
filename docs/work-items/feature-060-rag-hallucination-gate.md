@@ -95,12 +95,12 @@ HALLUCINATION_JUDGE_MODEL=
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** Gate disabled → no judge LLM call (mock assertion in service test).
-- [ ] **AC-02:** Inflated-hours canned fixture → `degraded` line grade.
-- [ ] **AC-03:** Response JSON includes `hallucination_summary` when gate enabled.
-- [ ] **AC-04:** `uv run pytest tests/test_rag_hallucination_gate.py -q` passes without API keys.
-- [ ] **AC-05:** Coherence + citation regression tests pass.
-- [ ] **AC-06:** `.env.example` documents hallucination settings.
+- [x] **AC-01:** Gate disabled → no judge LLM call (mock assertion in service test).
+- [x] **AC-02:** Inflated-hours canned fixture → `degraded` line grade.
+- [x] **AC-03:** Response JSON includes `hallucination_summary` when gate enabled.
+- [x] **AC-04:** `uv run pytest tests/test_rag_hallucination_gate.py -q` passes without API keys.
+- [x] **AC-05:** Coherence + citation regression tests pass.
+- [x] **AC-06:** `.env.example` documents hallucination settings.
 
 ## Test Plan
 
@@ -126,17 +126,17 @@ HALLUCINATION_JUDGE_MODEL=
 
 | Artifact | Update |
 | --- | --- |
-| `.env.example` | Hallucination gate vars |
-| `README.md` | Hallucination report fields |
-| `docs/arquitectura-estimador-cag.html` | Gate stage after coherence |
+| `.env.example` | Hallucination gate vars ✅ |
+| `README.md` | Hallucination report fields ✅ |
+| `docs/arquitectura-estimador-cag.html` | Gate stage after coherence ✅ |
 
 ## Implementation Plan
 
 - [x] **Step 1:** Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD).
 - [x] **Step 2:** `judge_estimate()` with mocked `complete_structured`.
-- [ ] **Step 3:** `gate_estimate()` aggregation.
-- [ ] **Step 4:** Wire service + HTTP response + settings.
-- [ ] **Step 5:** Docs + architecture HTML.
+- [x] **Step 3:** `gate_estimate()` aggregation.
+- [x] **Step 4:** Wire service + HTTP response + settings.
+- [x] **Step 5:** Docs + architecture HTML.
 
 ## Estimation
 
@@ -174,9 +174,39 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 
 - [x] Step 1: Schemas + `numeric_anchor()` + `gate_line()` pure logic (TDD)
 - [x] Step 2: `judge_estimate()` with mocked `complete_structured`
-- [ ] Step 3: `gate_estimate()` aggregation
-- [ ] Step 4: Wire `RagEstimationService` + HTTP response + settings
-- [ ] Step 5: Docs + `docs/arquitectura-estimador-cag.html`
+- [x] Step 3: `gate_estimate()` aggregation
+- [x] Step 4: Wire `RagEstimationService` + HTTP response + settings
+- [x] Step 5: Docs + `docs/arquitectura-estimador-cag.html`
+
+## Verification (closure)
+
+| Check | Result |
+| --- | --- |
+| Hallucination gate unit tests | ✅ `uv run pytest tests/test_rag_hallucination_gate.py -q` — 13 passed |
+| RAG regression (coherence + service + endpoint) | ✅ 33 passed in targeted run |
+| Fast suite | ✅ 746 passed; 2 unrelated `test_config.py` failures from worktree `.env` pollution (`DATABASE_URL`, `RETRIEVAL_RERANK_ENABLED`) |
+| `.env.example` / README / architecture HTML | ✅ updated |
+
+**Not verified:** live LLM judge (`@pytest.mark.slow`); Redis runtime toggle for hallucination gate (deferred to feature-062 / runtime config extension).
+
+**Residual risk:** judge prompt quality vs official S11 parity not benchmarked on golden set; numeric `gate_line` may flag lines when anchors are sparse.
+
+## Handoff from feature-060
+
+Shipped interfaces for downstream slices (`feature-062` stage endpoints):
+
+- **Module:** `app/services/rag_hallucination_gate.py` — `numeric_anchor()`, `judge_estimate()`, `gate_line()`, `gate_estimate()`.
+- **Schemas:** `app/schemas/hallucination_report.py` — `HallucinationLineGrade`, `HallucinationReport`, judge batch models.
+- **Service contract:** `RagEstimationOutcome.hallucination_report` populated after `check_coherence()` on happy and insufficient-context paths.
+- **HTTP:** `POST /api/v1/estimate/rag` response adds `hallucination_summary` (`grounded`, `degraded`, `insufficient`, `has_degraded`).
+- **Settings:** `HALLUCINATION_GATE_ENABLED` (default `false`), `HALLUCINATION_JUDGE_MODEL` (optional LiteLLM id).
+- **Pipeline order:** `… → verify_citations → check_coherence → gate_estimate → response`.
+
+**Recommended first tests for feature-062:**
+
+```bash
+uv run pytest tests/test_rag_hallucination_gate.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q
+```
 
 ## Repository commits (master-ia)
 
@@ -184,6 +214,8 @@ uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py t
 | --- | --- |
 | `d97f8d2` | test+feat for step 1 — schemas, numeric_anchor(), gate_line() |
 | `8dda2c9` | feat: judge_estimate() with batched structured LLM judge |
+| `34a7b86` | feat: gate_estimate() aggregation |
+| `2c52b9a` | feat: wire hallucination gate into service and HTTP response |
 
 ## Pull Request
 
