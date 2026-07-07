@@ -137,16 +137,16 @@ TASK_HOURS_DISTANCE_THRESHOLD=0.45
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `POST .../stages/reformulate` returns `search_text` deterministic for fixture input (mocked reformulator).
-- [ ] **AC-02:** `POST .../stages/retrieve` returns chunks; advanced preset D honored when requested.
-- [ ] **AC-03:** `POST .../stages/assemble` never exceeds token budget in unit test.
-- [ ] **AC-04:** `POST .../stages/verify` returns hallucination report without running reformulate/retrieve/generate (AC-13 from feature-053).
-- [ ] **AC-05:** `POST .../tasks/hours` returns per-task hours with `has_match` flags (AC-14 from feature-053).
-- [ ] **AC-06:** Duplicate `Idempotency-Key` returns identical body; LLM not called twice (mocked) (AC-15).
-- [ ] **AC-07:** Missing estimate API key → 401 when `ESTIMATE_API_KEY` configured.
-- [ ] **AC-08:** `uv run pytest` fast suite passes; slow tests opt-in.
-- [ ] **AC-09:** `.env.example` documents new settings.
-- [ ] **AC-10:** `docs/arquitectura-estimador-cag.html` shows stage routes + idempotency.
+- [x] **AC-01:** `POST .../stages/reformulate` returns `search_text` deterministic for fixture input (mocked reformulator).
+- [x] **AC-02:** `POST .../stages/retrieve` returns chunks; advanced preset D honored when requested.
+- [x] **AC-03:** `POST .../stages/assemble` never exceeds token budget in unit test.
+- [x] **AC-04:** `POST .../stages/verify` returns hallucination report without running reformulate/retrieve/generate (AC-13 from feature-053).
+- [x] **AC-05:** `POST .../tasks/hours` returns per-task hours with `has_match` flags (AC-14 from feature-053).
+- [x] **AC-06:** Duplicate `Idempotency-Key` returns identical body; LLM not called twice (mocked) (AC-15).
+- [x] **AC-07:** Missing estimate API key → 401 when `ESTIMATE_API_KEY` configured.
+- [x] **AC-08:** `uv run pytest` fast suite passes; slow tests opt-in.
+- [x] **AC-09:** `.env.example` documents new settings.
+- [x] **AC-10:** `docs/arquitectura-estimador-cag.html` shows stage routes + idempotency.
 
 ## Test Plan
 
@@ -212,7 +212,7 @@ uv run pytest tests/test_rag_estimation_service.py tests/test_rag_hallucination_
 - [x] Step 3: `rag_stages` — retrieve, generate, verify
 - [x] Step 4: `rag_task_hours` service + `tasks/hours` endpoint
 - [x] Step 5: `rag_idempotency` + `Idempotency-Key` on full RAG estimate
-- [ ] Step 6: Docs + architecture HTML + feature-053 closure
+- [x] Step 6: README + `.env.example` + architecture HTML + work-item PR links
 
 ## Pull Request
 
