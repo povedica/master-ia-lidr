@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import tiktoken
 
+from app.config import Settings
 from app.embedding_pipeline.chunk_content_repository import ChunkContent
 from app.embedding_pipeline.retrieval_schemas import RetrievalResultRow
 
@@ -19,6 +20,8 @@ _CHUNK_BLOCK_PATTERN = re.compile(
     re.DOTALL,
 )
 _CHUNK_ID_PATTERN = re.compile(r"^chunk_id:\s*(\d+)\s*$", re.MULTILINE)
+_TIKTOKEN_FALLBACK_ENCODING = "cl100k_base"
+_DEFAULT_CONTEXT_MODEL = "gpt-4o-mini"
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,23 @@ def assemble_rag_context(
         chunk_ids=chunk_ids,
         chunk_texts=chunk_texts,
     )
+
+
+def resolve_rag_context_encoding(settings: Settings) -> tiktoken.Encoding:
+    """Resolve tiktoken encoder for RAG context budgeting."""
+
+    model = settings.openai_model.strip() or _DEFAULT_CONTEXT_MODEL
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        logger.warning(
+            "rag_context_tiktoken_model_fallback",
+            extra={
+                "requested_model": model,
+                "fallback_encoding": _TIKTOKEN_FALLBACK_ENCODING,
+            },
+        )
+        return tiktoken.get_encoding(_TIKTOKEN_FALLBACK_ENCODING)
 
 
 def _split_chunk_blocks(text: str) -> list[str]:

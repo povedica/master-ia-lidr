@@ -141,6 +141,7 @@ async def estimate_rag(
     try:
         outcome = await service.estimate(
             payload.question,
+            transcript=payload.transcript,
             request_id=request_id,
             session=session,
             embedder=embedder,

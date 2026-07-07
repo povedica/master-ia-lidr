@@ -18,6 +18,7 @@ from app.embedding_pipeline.retrieval_schemas import (
 from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
 from app.schemas.citation_report import CitationLineStatus
 from app.schemas.coherence_report import CoherenceLineStatus
+from app.schemas.estimation_query import EstimationQuery
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
 from app.services.llm_chain import LitellmChainProvider
 from app.services.llm_types import UsageInfo
@@ -164,3 +165,103 @@ async def test_happy_path_generates_and_verifies_citations() -> None:
     assert outcome.coherence_report.lines[0].status == CoherenceLineStatus.COHERENT_OK
     assert outcome.chunk_texts == ["OAuth2 login integration scope"]
     assert outcome.provider == "openai"
+
+
+@pytest.mark.asyncio
+async def test_retrieval_uses_composed_search_text_from_reformulator() -> None:
+    retrieval = AsyncMock(spec=RetrievalService)
+    retrieval.retrieve = AsyncMock(return_value=_retrieval_response())
+    service = _service(retrieval=retrieval)
+    reformulated = EstimationQuery(
+        question="OAuth platform",
+        search_facets=["OAuth2", "SSO"],
+        component_hints=["authentication"],
+        sector_filters=[],
+    )
+
+    with patch(
+        "app.services.rag_estimation_service.reformulate_query",
+        new=AsyncMock(return_value=reformulated),
+    ):
+        await service.estimate(
+            "OAuth platform",
+            transcript="Need SSO for CRM",
+            request_id="req_search_text",
+            session=AsyncMock(),
+            embedder=AsyncMock(),
+            reranker=AsyncMock(),
+            mode=RetrievalMode.B,
+            recall_k=50,
+            top_k_final=5,
+        )
+
+    retrieval.retrieve.assert_awaited_once()
+    search_text = retrieval.retrieve.await_args.args[0]
+    assert search_text == (
+        "OAuth platform | facets: OAuth2, SSO | components: authentication"
+    )
+
+
+@pytest.mark.asyncio
+async def test_truncates_assembled_context_before_generation() -> None:
+    retrieval = AsyncMock(spec=RetrievalService)
+    retrieval.retrieve = AsyncMock(return_value=_retrieval_response(42, 43))
+    content_repository = AsyncMock(spec=ChunkContentRepository)
+    content_repository.get_contents_by_ids = AsyncMock(
+        return_value={
+            42: ChunkContent(
+                chunk_id=42,
+                document_id=7,
+                budget_id="BUD-2024-014",
+                content="OAuth2 scope",
+                metadata={"budget_id": "BUD-2024-014"},
+            ),
+            43: ChunkContent(
+                chunk_id=43,
+                document_id=8,
+                budget_id="BUD-2024-032",
+                content="Stripe checkout integration " * 80,
+                metadata={"budget_id": "BUD-2024-032"},
+            ),
+        }
+    )
+    llm_result = RagEstimationResult(
+        summary="Grounded estimate with truncated retrieval context for prompt rendering.",
+        line_items=[],
+        total_hours=0.0,
+        insufficient_context=True,
+    )
+    settings = Settings(_env_file=None, rag_context_max_tokens=120)
+    service = RagEstimationService(
+        settings=settings,
+        retrieval_service=retrieval,
+        content_repository=content_repository,
+        providers=[
+            LitellmChainProvider(
+                name="openai",
+                litellm_model="gpt-4o-mini",
+                api_key="test-key",
+                timeout_seconds=30.0,
+            )
+        ],
+    )
+
+    with patch(
+        "app.services.rag_estimation_service.complete_structured",
+        new=AsyncMock(return_value=(llm_result, None, "stop")),
+    ) as mock_complete:
+        outcome = await service.estimate(
+            "OAuth platform",
+            request_id="req_truncate",
+            session=AsyncMock(),
+            embedder=AsyncMock(),
+            reranker=AsyncMock(),
+            mode=RetrievalMode.B,
+            recall_k=50,
+            top_k_final=5,
+        )
+
+    user_prompt = mock_complete.await_args.kwargs["user_prompt"]
+    assert "chunk_id: 43" not in user_prompt
+    assert len(outcome.chunk_texts) == 1
+

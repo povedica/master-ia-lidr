@@ -16,14 +16,21 @@ from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalSer
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus, CitationReport
 from app.schemas.coherence_report import CoherenceReport
+from app.schemas.estimation_query import compose_search_text
 from app.schemas.rag_estimation_result import RagEstimationResult
 from app.services.citation_verification import verify_citations
 from app.services.rag_coherence import check_coherence
 from app.services.llm_types import LLMProvider, UsageInfo
 from app.services.observability.bootstrap import get_observability
 from app.services.provider_routing import resolve_first_litellm_route
-from app.services.rag_context_assembler import AssembledContext, assemble_rag_context
+from app.services.rag_context_assembler import (
+    AssembledContext,
+    assemble_rag_context,
+    resolve_rag_context_encoding,
+    truncate_assembled_context,
+)
 from app.services.rag_estimation_prompt_rendering import render_rag_estimation_prompt
+from app.services.rag_query_reformulator import reformulate_query
 from app.services.structured_llm_client import StructuredCompletionError, complete_structured
 
 logger = logging.getLogger(__name__)
@@ -61,6 +68,7 @@ class RagEstimationService:
         self,
         question: str,
         *,
+        transcript: str | None = None,
         request_id: str,
         session: AsyncSession,
         embedder: OpenAIEmbedder,
@@ -73,8 +81,15 @@ class RagEstimationService:
     ) -> RagEstimationOutcome:
         observability = get_observability()
         with observability.start_span("rag_estimation.pipeline"):
-            retrieval = await self._retrieval_service.retrieve(
+            estimation_query = await reformulate_query(
                 question,
+                transcript=transcript,
+                settings=self._settings,
+                providers=self._providers,
+            )
+            search_text = compose_search_text(estimation_query)
+            retrieval = await self._retrieval_service.retrieve(
+                search_text,
                 mode=mode,
                 recall_k=recall_k,
                 top_k_final=top_k_final,
@@ -94,6 +109,11 @@ class RagEstimationService:
                 [row.chunk_id for row in retrieval.results],
             )
             assembled = assemble_rag_context(retrieval.results, contents)
+            assembled = truncate_assembled_context(
+                assembled,
+                max_tokens=self._settings.rag_context_max_tokens,
+                encoding=resolve_rag_context_encoding(self._settings),
+            )
             if not assembled.chunk_ids:
                 return self._insufficient_context_outcome(request_id)
 
