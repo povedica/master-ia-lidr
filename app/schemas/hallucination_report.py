@@ -22,6 +22,23 @@ class HallucinationLineReport(BaseModel):
     anchor_max: float | None = None
 
 
+class HallucinationJudgeLineResult(BaseModel):
+    """One line verdict returned by the batched hallucination judge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int = Field(..., ge=0)
+    grade: HallucinationLineGrade
+
+
+class HallucinationJudgeBatchResult(BaseModel):
+    """Structured LLM output for batched line-vs-anchor judging."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lines: list[HallucinationJudgeLineResult] = Field(default_factory=list)
+
+
 class HallucinationReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
