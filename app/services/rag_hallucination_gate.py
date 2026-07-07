@@ -14,6 +14,8 @@ from app.schemas.hallucination_report import (
     HallucinationJudgeBatchResult,
     HallucinationJudgeLineResult,
     HallucinationLineGrade,
+    HallucinationLineReport,
+    HallucinationReport,
 )
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult
 from app.services.llm_types import LLMProvider
@@ -175,3 +177,112 @@ async def judge_estimate(
         return _insufficient_for_all(line_count)
 
     return _align_judge_results(batch.lines, line_count=line_count)
+
+
+_GRADE_SEVERITY: dict[HallucinationLineGrade, int] = {
+    HallucinationLineGrade.GROUNDED: 0,
+    HallucinationLineGrade.INSUFFICIENT: 1,
+    HallucinationLineGrade.DEGRADED: 2,
+}
+
+
+def _merge_grades(*grades: HallucinationLineGrade) -> HallucinationLineGrade:
+    return max(grades, key=lambda grade: _GRADE_SEVERITY[grade])
+
+
+def _noop_report(request_id: str) -> HallucinationReport:
+    return HallucinationReport(
+        request_id=request_id,
+        lines=[],
+        counts={grade: 0 for grade in HallucinationLineGrade},
+        has_degraded=False,
+    )
+
+
+def _count_grades(lines: Sequence[HallucinationLineReport]) -> dict[HallucinationLineGrade, int]:
+    counts = {grade: 0 for grade in HallucinationLineGrade}
+    for line in lines:
+        counts[line.grade] += 1
+    return counts
+
+
+def _log_report(report: HallucinationReport) -> None:
+    logger.info(
+        "hallucination_gate_completed",
+        extra={
+            "request_id": report.request_id,
+            "grounded": report.counts.get(HallucinationLineGrade.GROUNDED, 0),
+            "degraded": report.counts.get(HallucinationLineGrade.DEGRADED, 0),
+            "insufficient": report.counts.get(HallucinationLineGrade.INSUFFICIENT, 0),
+            "has_degraded": report.has_degraded,
+        },
+    )
+    for line in report.lines:
+        if line.grade == HallucinationLineGrade.GROUNDED:
+            continue
+        logger.warning(
+            "hallucination_line_flagged",
+            extra={
+                "request_id": report.request_id,
+                "component": line.component,
+                "grade": line.grade.value,
+                "index": line.index,
+            },
+        )
+
+
+async def gate_estimate(
+    estimate: RagEstimationResult,
+    *,
+    chunk_texts: Sequence[str],
+    request_id: str,
+    settings: Settings,
+    providers: list[LLMProvider],
+    enabled: bool = True,
+    tolerance: float = _DEFAULT_TOLERANCE,
+    judge_model: str = "",
+) -> HallucinationReport:
+    """Aggregate per-line hallucination grades from judge + numeric anchors."""
+
+    if not enabled:
+        return _noop_report(request_id)
+
+    anchors = numeric_anchor(chunk_texts)
+    anchor_max = max(anchors) if anchors else None
+    judge_lines: list[HallucinationJudgeLineResult] = []
+    if estimate.line_items:
+        judge_lines = await judge_estimate(
+            estimate,
+            chunk_texts=chunk_texts,
+            settings=settings,
+            providers=providers,
+            judge_model=judge_model,
+        )
+    judge_by_index = {line.index: line.grade for line in judge_lines}
+
+    report_lines: list[HallucinationLineReport] = []
+    for index, item in enumerate(estimate.line_items):
+        numeric_grade = gate_line(
+            line_hours=item.hours,
+            anchor_hours=anchors,
+            tolerance=tolerance,
+        )
+        judge_grade = judge_by_index.get(index, HallucinationLineGrade.INSUFFICIENT)
+        report_lines.append(
+            HallucinationLineReport(
+                index=index,
+                component=item.component,
+                grade=_merge_grades(numeric_grade, judge_grade),
+                anchor_max=anchor_max,
+            )
+        )
+
+    counts = _count_grades(report_lines)
+    report = HallucinationReport(
+        request_id=request_id,
+        lines=report_lines,
+        counts=counts,
+        has_degraded=counts.get(HallucinationLineGrade.DEGRADED, 0) > 0,
+    )
+    _log_report(report)
+    return report

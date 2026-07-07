@@ -11,10 +11,11 @@ from app.schemas.hallucination_report import (
     HallucinationJudgeBatchResult,
     HallucinationJudgeLineResult,
     HallucinationLineGrade,
+    HallucinationReport,
 )
 from app.schemas.rag_estimation_result import RagEstimationLineItem, RagEstimationResult, SourceReference
 from app.services.llm_chain import LitellmChainProvider
-from app.services.rag_hallucination_gate import gate_line, judge_estimate, numeric_anchor
+from app.services.rag_hallucination_gate import gate_estimate, gate_line, judge_estimate, numeric_anchor
 from app.services.structured_llm_client import StructuredCompletionError
 
 _INFLATED_HOURS_CHUNK = (
@@ -207,3 +208,82 @@ async def test_judge_estimate_marks_insufficient_when_no_provider() -> None:
     assert results == [
         HallucinationJudgeLineResult(index=0, grade=HallucinationLineGrade.INSUFFICIENT)
     ]
+
+
+@pytest.mark.asyncio
+async def test_gate_estimate_disabled_returns_noop_without_llm() -> None:
+    settings = Settings(_env_file=None)
+    estimate = _estimate(_grounded_line(hours=80.0))
+
+    with patch(
+        "app.services.rag_hallucination_gate.judge_estimate",
+        new=AsyncMock(),
+    ) as mock_judge:
+        report = await gate_estimate(
+            estimate,
+            chunk_texts=[_INFLATED_HOURS_CHUNK],
+            request_id="req_disabled",
+            settings=settings,
+            providers=_providers(),
+            enabled=False,
+        )
+
+    mock_judge.assert_not_awaited()
+    assert report == HallucinationReport(
+        request_id="req_disabled",
+        lines=[],
+        counts={grade: 0 for grade in HallucinationLineGrade},
+        has_degraded=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_gate_estimate_merges_numeric_degraded_over_judge_grounded() -> None:
+    settings = Settings(_env_file=None)
+    estimate = _estimate(_grounded_line(hours=80.0))
+
+    with patch(
+        "app.services.rag_hallucination_gate.judge_estimate",
+        new=AsyncMock(
+            return_value=[HallucinationJudgeLineResult(index=0, grade=HallucinationLineGrade.GROUNDED)]
+        ),
+    ):
+        report = await gate_estimate(
+            estimate,
+            chunk_texts=[_INFLATED_HOURS_CHUNK],
+            request_id="req_merge",
+            settings=settings,
+            providers=_providers(),
+            enabled=True,
+        )
+
+    assert report.lines[0].grade == HallucinationLineGrade.DEGRADED
+    assert report.lines[0].anchor_max == 8.0
+    assert report.has_degraded is True
+    assert report.counts[HallucinationLineGrade.DEGRADED] == 1
+
+
+@pytest.mark.asyncio
+async def test_gate_estimate_inflated_hours_fixture_marks_line_degraded() -> None:
+    """AC-11: canned chunk with 8h anchor vs 80h line → degraded."""
+
+    settings = Settings(_env_file=None)
+    estimate = _estimate(_grounded_line(hours=80.0))
+
+    with patch(
+        "app.services.rag_hallucination_gate.judge_estimate",
+        new=AsyncMock(
+            return_value=[HallucinationJudgeLineResult(index=0, grade=HallucinationLineGrade.GROUNDED)]
+        ),
+    ):
+        report = await gate_estimate(
+            estimate,
+            chunk_texts=[_INFLATED_HOURS_CHUNK],
+            request_id="req_inflated",
+            settings=settings,
+            providers=_providers(),
+            enabled=True,
+        )
+
+    assert report.lines[0].grade == HallucinationLineGrade.DEGRADED
+    assert report.has_degraded is True
