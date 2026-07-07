@@ -186,7 +186,12 @@ When disabled, return a no-op report with `has_violations=false` (documented).
 
 | SHA | Summary |
 | --- | --- |
-| _(see branch `feature/058-rag-coherence-and-eval-gate`)_ | Coherence check, service wiring, API, eval gate, docs |
+| `8f41f17` | docs(feature-058): add implementation progress and commit log scaffold |
+| `9ca65c1` | feat(rag-coherence): add CoherenceReport schema and check_coherence() |
+| `c9bdf3e` | feat(rag-estimation): run check_coherence after citation verification |
+| `0098ce9` | feat(rag-api): expose coherence_summary on POST /api/v1/estimate/rag |
+| `3258e8d` | feat(ragas-eval): add optional coherence gate for golden-set runs |
+| `ce7d123` | docs(feature-058): document coherence settings, API field, and eval gate |
 
 ## How to start
 
