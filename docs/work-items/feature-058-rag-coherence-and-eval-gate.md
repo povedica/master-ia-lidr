@@ -116,14 +116,14 @@ When disabled, return a no-op report with `has_violations=false` (documented).
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `check_coherence()` returns `has_violations=true` for a unit-test fixture with mismatched total hours.
-- [ ] **AC-02:** `RagEstimationService` outcome includes coherence report on happy path and insufficient-context path.
-- [ ] **AC-03:** `POST /api/v1/estimate/rag` JSON includes `coherence_summary` without breaking existing fields.
-- [ ] **AC-04:** `uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q` passes without API keys.
-- [ ] **AC-05:** Feature-055 gate unit tests still pass (`tests/embedding_pipeline/test_generation_gate.py`).
-- [ ] **AC-06:** Feature-056 security/rate-limit regression tests still pass for RAG route.
-- [ ] **AC-07:** `.env.example` documents coherence settings if added.
-- [ ] **AC-08:** `docs/arquitectura-estimador-cag.html` shows coherence step after citation verification.
+- [x] **AC-01:** `check_coherence()` returns `has_violations=true` for a unit-test fixture with mismatched total hours.
+- [x] **AC-02:** `RagEstimationService` outcome includes coherence report on happy path and insufficient-context path.
+- [x] **AC-03:** `POST /api/v1/estimate/rag` JSON includes `coherence_summary` without breaking existing fields.
+- [x] **AC-04:** `uv run pytest tests/test_rag_coherence.py tests/test_rag_estimation_service.py tests/test_rag_estimation_endpoint.py -q` passes without API keys.
+- [x] **AC-05:** Feature-055 gate unit tests still pass (`tests/embedding_pipeline/test_generation_gate.py`).
+- [x] **AC-06:** Feature-056 security/rate-limit regression tests still pass for RAG route.
+- [x] **AC-07:** `.env.example` documents coherence settings if added.
+- [x] **AC-08:** `docs/arquitectura-estimador-cag.html` shows coherence step after citation verification.
 
 ## Test Plan
 
@@ -172,20 +172,21 @@ When disabled, return a no-op report with `has_violations=false` (documented).
 
 ## Implementation progress
 
-- [ ] Step 1: `CoherenceReport` schema + `check_coherence()` pure function (TDD)
-- [ ] Step 2: Wire into `RagEstimationService` + extend `RagEstimationOutcome`
-- [ ] Step 3: HTTP response + router mapping
-- [ ] Step 4: Optional eval harness hook + gate test
-- [ ] Step 5: Docs, architecture HTML, `.env.example`
+- [x] Step 1: `CoherenceReport` schema + `check_coherence()` pure function (TDD)
+- [x] Step 2: Wire into `RagEstimationService` + extend `RagEstimationOutcome`
+- [x] Step 3: HTTP response + router mapping
+- [x] Step 4: Optional eval harness hook + gate test
+- [x] Step 5: Docs, architecture HTML, `.env.example`
 
 ## Pull Request
 
-- Draft WIP: _(URL recorded after `gh pr create`)_
+- Draft WIP: https://github.com/povedica/master-ia-lidr/pull/51
 
 ## Repository commits (master-ia)
 
 | SHA | Summary |
 | --- | --- |
+| _(see branch `feature/058-rag-coherence-and-eval-gate`)_ | Coherence check, service wiring, API, eval gate, docs |
 
 ## How to start
 
