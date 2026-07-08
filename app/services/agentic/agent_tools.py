@@ -1,20 +1,183 @@
-"""Deterministic agent tools for Session 12 (calculate + validate).
-
-Flat Responses tool schemas and dispatch are added in a follow-up step.
-"""
+"""The agent's tools: flat Responses schemas + Python implementations."""
 
 from __future__ import annotations
 
 import logging
 import statistics
+from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.services.agentic.agent_schemas import CalculateEstimateArgs, ValidateEstimateArgs
+from app.services.agentic.agent_schemas import (
+    CalculateEstimateArgs,
+    SearchBudgetsArgs,
+    ValidateEstimateArgs,
+)
 
 logger = logging.getLogger(__name__)
 
-# Contingency buffer applied to every component's central estimate.
 CONTINGENCY_FACTOR = 0.15
+CONTENT_PREVIEW_CHARS = 160
+
+SEARCH_BUDGETS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "name": "search_budgets",
+    "description": (
+        "Search historical project budgets for work analogous to ONE component or "
+        "requirement, and return the matching items with their recorded effort in "
+        "engineer-hours. Call this once per component you need to cost (e.g. once "
+        "for the payments backend, once for the mobile app). Use a focused, "
+        "component-specific query — not the whole project. Returns a list of "
+        "historical items, each with an id, a text preview, its sector and its "
+        "recorded engineer-hours; use those hours as the reference_amounts for "
+        "calculate_estimate."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": (
+                    "Natural-language description of the single component to find "
+                    "budgets for, e.g. 'OAuth2 authentication backend with JWT and "
+                    "multi-tenant token isolation'."
+                ),
+            },
+            "filters": {
+                "type": ["object", "null"],
+                "description": "Optional structural filters. Pass null to search across everything.",
+                "properties": {
+                    "sectors": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                        "description": "Restrict to these client sectors, e.g. ['logistics'].",
+                    },
+                    "component_type": {
+                        "type": ["string", "null"],
+                        "description": "Free-text hint about the kind of component, e.g. 'mobile app'.",
+                    },
+                },
+                "required": ["sectors", "component_type"],
+                "additionalProperties": False,
+            },
+        },
+        "required": ["query", "filters"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+CALCULATE_ESTIMATE_TOOL: dict[str, Any] = {
+    "type": "function",
+    "name": "calculate_estimate",
+    "description": (
+        "Deterministically compute an effort estimate in engineer-hours from a set "
+        "of components and their historical reference amounts. For each component it "
+        "takes the median of the reference_amounts and adds a fixed contingency "
+        "buffer; it then sums the components into a total. Call this once you have "
+        "gathered reference amounts (from search_budgets) for every component. This "
+        "does NOT call a model — it is pure arithmetic, so its output is reproducible."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "components": {
+                "type": "array",
+                "description": "The components to cost.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Component name."},
+                        "reference_amounts": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": (
+                                "Historical engineer-hours for analogous work, taken "
+                                "from search_budgets results. May be empty if nothing "
+                                "was found (the component is then flagged)."
+                            ),
+                        },
+                    },
+                    "required": ["name", "reference_amounts"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["components"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+VALIDATE_ESTIMATE_TOOL: dict[str, Any] = {
+    "type": "function",
+    "name": "validate_estimate",
+    "description": (
+        "Run sanity-check guardrails over a finished estimate before returning it. "
+        "It flags components with no historical reference, components whose hours are "
+        "far outside the range of their references, a total that does not match the "
+        "sum of the components, and non-positive or implausibly large totals. Call "
+        "this as the LAST step, once you have a full estimate, and address any issues "
+        "it reports before giving your final answer. Returns {ok, issues}."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "components": {
+                "type": "array",
+                "description": "The estimate's components, with their final hours and references.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "estimated_hours": {"type": "number"},
+                        "reference_amounts": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                        },
+                    },
+                    "required": ["name", "estimated_hours", "reference_amounts"],
+                    "additionalProperties": False,
+                },
+            },
+            "total_hours": {
+                "type": "number",
+                "description": "The estimate's grand total in engineer-hours.",
+            },
+        },
+        "required": ["components", "total_hours"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+TOOL_SCHEMAS: list[dict[str, Any]] = [
+    SEARCH_BUDGETS_TOOL,
+    CALCULATE_ESTIMATE_TOOL,
+    VALIDATE_ESTIMATE_TOOL,
+]
+
+RetrievalBackend = Callable[[SearchBudgetsArgs], Awaitable[list[dict[str, Any]]]]
+
+
+async def search_budgets(
+    raw_args: dict[str, Any],
+    *,
+    backend: RetrievalBackend,
+) -> dict[str, Any]:
+    """Retrieve historical budget items for one component."""
+    args = SearchBudgetsArgs.model_validate(raw_args)
+    items = await backend(args)
+    hours = [item["estimated_hours"] for item in items if item.get("estimated_hours") is not None]
+    summary = (
+        f"{len(items)} historical items for {args.query!r}; hours={hours}"
+        if items
+        else f"no historical items for {args.query!r}"
+    )
+    logger.info(
+        "agent_tool_search_budgets",
+        extra={"query": args.query, "results": len(items)},
+    )
+    return {"items": items, "count": len(items), "summary": summary}
 
 
 def calculate_estimate(raw_args: dict[str, Any]) -> dict[str, Any]:
@@ -92,3 +255,19 @@ def validate_estimate(raw_args: dict[str, Any]) -> dict[str, Any]:
         "issues": issues,
         "summary": "estimate passed all guardrails" if ok else f"{len(issues)} issue(s) found",
     }
+
+
+async def dispatch_tool(
+    name: str,
+    raw_args: dict[str, Any],
+    *,
+    backend: RetrievalBackend,
+) -> dict[str, Any]:
+    """Route a tool call to its implementation."""
+    if name == "search_budgets":
+        return await search_budgets(raw_args, backend=backend)
+    if name == "calculate_estimate":
+        return calculate_estimate(raw_args)
+    if name == "validate_estimate":
+        return validate_estimate(raw_args)
+    raise ValueError(f"Unknown tool: {name!r}")

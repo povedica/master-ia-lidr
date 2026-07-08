@@ -5,7 +5,15 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.services.agentic.agent_tools import CONTINGENCY_FACTOR, calculate_estimate, validate_estimate
+from app.services.agentic.agent_schemas import SearchBudgetsArgs
+from app.services.agentic.agent_tools import (
+    CONTINGENCY_FACTOR,
+    TOOL_SCHEMAS,
+    calculate_estimate,
+    dispatch_tool,
+    search_budgets,
+    validate_estimate,
+)
 
 
 def test_calculate_estimate_median_plus_contingency() -> None:
@@ -86,3 +94,56 @@ def test_validate_estimate_flags_nonpositive_total() -> None:
     result = validate_estimate({"components": [], "total_hours": 0.0})
     assert result["ok"] is False
     assert any("non-positive" in issue for issue in result["issues"])
+
+
+def test_tool_schemas_are_flat_and_strict() -> None:
+    names = {schema["name"] for schema in TOOL_SCHEMAS}
+    assert names == {"search_budgets", "calculate_estimate", "validate_estimate"}
+    for schema in TOOL_SCHEMAS:
+        assert schema["type"] == "function"
+        assert schema["strict"] is True
+        assert "function" not in schema
+        params = schema["parameters"]
+        assert params["additionalProperties"] is False
+
+
+@pytest.mark.asyncio
+async def test_search_budgets_uses_injected_backend() -> None:
+    async def fake_backend(args: SearchBudgetsArgs) -> list[dict]:
+        assert args.query == "auth backend"
+        return [{"id": 1, "estimated_hours": 420.0, "content_preview": "x", "distance": 0.1}]
+
+    result = await search_budgets({"query": "auth backend", "filters": None}, backend=fake_backend)
+    assert result["count"] == 1
+    assert "420.0" in result["summary"]
+
+
+@pytest.mark.asyncio
+async def test_search_budgets_rejects_empty_query() -> None:
+    async def fake_backend(args: SearchBudgetsArgs) -> list[dict]:
+        return []
+
+    with pytest.raises(ValidationError):
+        await search_budgets({"query": "", "filters": None}, backend=fake_backend)
+
+
+@pytest.mark.asyncio
+async def test_dispatch_unknown_tool_raises() -> None:
+    async def fake_backend(args: SearchBudgetsArgs) -> list[dict]:
+        return []
+
+    with pytest.raises(ValueError, match="Unknown tool"):
+        await dispatch_tool("nonexistent", {}, backend=fake_backend)
+
+
+@pytest.mark.asyncio
+async def test_dispatch_routes_calculate_estimate() -> None:
+    async def fake_backend(args: SearchBudgetsArgs) -> list[dict]:
+        return []
+
+    result = await dispatch_tool(
+        "calculate_estimate",
+        {"components": [{"name": "A", "reference_amounts": [100.0]}]},
+        backend=fake_backend,
+    )
+    assert result["total_hours"] == pytest.approx(115.0)
