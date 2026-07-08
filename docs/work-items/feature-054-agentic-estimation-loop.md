@@ -495,4 +495,4 @@ With real retrieval or stub, the agent must:
 | `3fdd042` | `feat(agentic): add agent settings and env documentation` |
 | `7db8a28` | `feat(agentic): add POST /api/v1/estimate/agent endpoint` |
 | `5c5b9f6` | `feat(agentic): add Session 12 CLI runner and documentation` |
-| _(pending)_ | `docs(feature-054): add technical reference and sync all docs` |
+| `9f2887b` | `docs(feature-054): add technical reference and sync all docs` |
