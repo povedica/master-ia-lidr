@@ -330,23 +330,23 @@ With real retrieval or stub, the agent must:
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `TOOL_SCHEMAS` defines `search_budgets` and `calculate_estimate` as flat Responses functions with `strict: true`, English names/descriptions, and `additionalProperties: false` at every object level.
-- [ ] **AC-02:** `calculate_estimate` is pure Python (no LLM); identical inputs produce identical outputs (unit-tested).
-- [ ] **AC-03:** `search_budgets` default backend wraps `RetrievalService.retrieve()` without reimplementing fusion/rerank (integration test with fakes or stub mode).
-- [ ] **AC-04:** `--stub` flag routes `search_budgets` through `exercises/session-12/reference_retrieval.py` with no database required.
-- [ ] **AC-05:** `run_estimation_agent` chains `responses.create` with `previous_response_id` and submits `function_call_output` per `call_id` (unit-tested with mocked client returning multi-turn function calls).
-- [ ] **AC-06:** Loop enforces `max_iterations`; on cap, `stopped_reason="max_iterations"` and no unhandled exception.
-- [ ] **AC-07:** Each tool step records `reasoning_summary`, `tool`, `tool_args`, `observation`; `AgentTrace.render()` matches `STEP N` format from the exercise.
-- [ ] **AC-08:** Malformed tool arguments return error observations; loop continues (unit-tested).
-- [ ] **AC-09:** Terminal `responses.parse` produces validated `AgentEstimate` on successful runs (mocked in unit tests).
+- [x] **AC-01:** `TOOL_SCHEMAS` defines `search_budgets` and `calculate_estimate` as flat Responses functions with `strict: true`, English names/descriptions, and `additionalProperties: false` at every object level.
+- [x] **AC-02:** `calculate_estimate` is pure Python (no LLM); identical inputs produce identical outputs (unit-tested).
+- [x] **AC-03:** `search_budgets` default backend wraps `RetrievalService.retrieve()` without reimplementing fusion/rerank (integration test with fakes or stub mode).
+- [x] **AC-04:** `--stub` flag routes `search_budgets` through `exercises/session-12/reference_retrieval.py` with no database required.
+- [x] **AC-05:** `run_estimation_agent` chains `responses.create` with `previous_response_id` and submits `function_call_output` per `call_id` (unit-tested with mocked client returning multi-turn function calls).
+- [x] **AC-06:** Loop enforces `max_iterations`; on cap, `stopped_reason="max_iterations"` and no unhandled exception.
+- [x] **AC-07:** Each tool step records `reasoning_summary`, `tool`, `tool_args`, `observation`; `AgentTrace.render()` matches `STEP N` format from the exercise.
+- [x] **AC-08:** Malformed tool arguments return error observations; loop continues (unit-tested).
+- [x] **AC-09:** Terminal `responses.parse` produces validated `AgentEstimate` on successful runs (mocked in unit tests).
 - [ ] **AC-10:** On `sample_transcript_complex.txt` with `gpt-5` / `medium` effort (manual slow run): >1 component, >1 `search_budgets` call, ≥1 `calculate_estimate` call, finite termination, coherent estimate.
-- [ ] **AC-11:** `app/scripts/run_agent_s12.py` prints trace to stdout and supports `--out` for deliverable file.
-- [ ] **AC-12:** Default `uv run pytest` passes with mocked OpenAI client (no API keys); agent integration tests marked `@pytest.mark.slow`.
-- [ ] **AC-13:** `.env.example` documents `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`.
-- [ ] **AC-14:** README documents debug vs deliverable commands and cost discipline (`gpt-5-mini` + simple transcript first).
-- [ ] **AC-15:** Existing `/api/v1/estimate/rag` and CAG endpoints unchanged (regression: existing RAG tests green).
-- [ ] **AC-16 (optional):** `validate_estimate` tool implemented and invoked in system prompt as final guardrail step.
-- [ ] **AC-17 (optional):** `POST /api/v1/estimate/agent` returns estimate + trace JSON.
+- [x] **AC-11:** `app/scripts/run_agent_s12.py` prints trace to stdout and supports `--out` for deliverable file.
+- [x] **AC-12:** Default `uv run pytest` passes with mocked OpenAI client (no API keys); agent integration tests marked `@pytest.mark.slow`.
+- [x] **AC-13:** `.env.example` documents `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`.
+- [x] **AC-14:** README documents debug vs deliverable commands and cost discipline (`gpt-5-mini` + simple transcript first).
+- [x] **AC-15:** Existing `/api/v1/estimate/rag` and CAG endpoints unchanged (regression: existing RAG tests green).
+- [x] **AC-16 (optional):** `validate_estimate` tool implemented and invoked in system prompt as final guardrail step.
+- [x] **AC-17 (optional):** `POST /api/v1/estimate/agent` returns estimate + trace JSON.
 
 ## Test Plan
 
@@ -487,3 +487,8 @@ With real retrieval or stub, the agent must:
 | `2862dbd` | `chore(session-12): add exercise assets from official session_12` |
 | `536ff58` | `feat(agentic): add agent schemas and trace models` |
 | `9c87aec` | `feat(agentic): add calculate_estimate and validate_estimate tools` |
+| `120d358` | `feat(agentic): add Responses tool schemas, dispatch, and retrieval adapter` |
+| `1abbf51` | `feat(agentic): implement manual estimation agent loop` |
+| `3fdd042` | `feat(agentic): add agent settings and env documentation` |
+| `7db8a28` | `feat(agentic): add POST /api/v1/estimate/agent endpoint` |
+| `5c5b9f6` | `feat(agentic): add Session 12 CLI runner and documentation` |
