@@ -444,7 +444,7 @@ With real retrieval or stub, the agent must:
 
 - [x] Step 1: Exercise assets in `exercises/session-12/`
 - [x] Step 2: `agent_schemas.py` + schema tests
-- [ ] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
+- [x] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
 - [ ] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
 - [ ] Step 5: `retrieval_adapter.py` + stub injection
 - [ ] Step 6: `agent_loop.py` with mocked Responses client tests
@@ -462,3 +462,4 @@ With real retrieval or stub, the agent must:
 | --- | --- |
 | `2862dbd` | `chore(session-12): add exercise assets from official session_12` |
 | `536ff58` | `feat(agentic): add agent schemas and trace models` |
+| _(pending)_ | `feat(agentic): add calculate_estimate and validate_estimate tools` |
