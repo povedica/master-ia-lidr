@@ -16,6 +16,7 @@ from app.embedding_pipeline.chunk_content_repository import ChunkContent, ChunkC
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchRepository
 from app.embedding_pipeline.rerank import Reranker, build_reranker
+from app.embedding_pipeline.rag_augmentation import augment_stage_chunks
 from app.embedding_pipeline.retrieval_schemas import RetrievalResultRow
 from app.embedding_pipeline.retrieval_service import RetrievalService, parse_retrieval_mode
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
@@ -279,20 +280,23 @@ async def stage_assemble(
 ) -> AssembleStageResponse:
     request_id = get_request_id(request)
     del request_id
-    assembled = _assembled_from_stage_chunks(payload.chunks)
+    chunks = list(payload.chunks)
+    if settings.augmentation_enabled:
+        chunks = augment_stage_chunks(chunks)
+    assembled = _assembled_from_stage_chunks(chunks)
     max_tokens = payload.max_context_tokens or settings.rag_context_max_tokens
     truncated = truncate_assembled_context(
         assembled,
         max_tokens=max_tokens,
         encoding=resolve_rag_context_encoding(settings),
     )
-    kept = _stage_chunks_from_assembled(truncated, payload.chunks)
+    kept = _stage_chunks_from_assembled(truncated, chunks)
     encoding = resolve_rag_context_encoding(settings)
     token_count = len(encoding.encode(truncated.prompt_block))
     return AssembleStageResponse(
         context_block=truncated.prompt_block,
         kept_chunks=kept,
-        dropped_count=len(payload.chunks) - len(kept),
+        dropped_count=len(chunks) - len(kept),
         token_count=token_count,
     )
 

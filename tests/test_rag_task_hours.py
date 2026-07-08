@@ -35,3 +35,25 @@ def test_consensus_hours_single_neighbor() -> None:
 def test_consensus_hours_requires_neighbors() -> None:
     with pytest.raises(ValueError, match="non-empty"):
         consensus_hours([])
+
+
+def test_synthesis_integration_flags_contradiction() -> None:
+    import asyncio
+    import statistics
+
+    from app.embedding_pipeline.rag_synthesis import synthesize_range
+    from app.schemas.rag_task_hours import TaskNeighborView
+
+    hours = [40, 90]
+    neighbors = [
+        TaskNeighborView(chunk_id=i, estimated_hours=h, distance=0.2)
+        for i, h in enumerate(hours)
+    ]
+    mean = statistics.fmean(hours)
+    dispersion = statistics.pstdev(hours) / mean
+    hour_range = asyncio.run(
+        synthesize_range(neighbors, dispersion, threshold=0.35, use_llm=False)
+    )
+    assert hour_range is not None
+    assert hour_range.low == 40
+    assert hour_range.high == 90

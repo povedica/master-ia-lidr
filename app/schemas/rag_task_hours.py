@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.hour_range import HourRange
+
 
 class TaskHoursTaskInput(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -41,6 +43,7 @@ class TaskHoursEstimateView(BaseModel):
     estimated_hours: int | None = None
     reliability: float | None = None
     dispersion: float | None = None
+    hour_range: HourRange | None = None
     has_match: bool
     neighbors: list[TaskNeighborView] = Field(default_factory=list)
 

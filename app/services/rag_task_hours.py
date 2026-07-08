@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.retrieval_debug_schemas import RetrievalMetadataFilters
+from app.embedding_pipeline.rag_synthesis import synthesize_range
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.rag_task_hours import (
     TaskHoursEstimateView,
@@ -148,22 +149,32 @@ async def estimate_one_task(
     hours, reliability, dispersion = consensus_hours(
         [(n.estimated_hours, n.distance) for n in neighbors]
     )
+    neighbor_views = [
+        TaskNeighborView(
+            chunk_id=n.chunk_id,
+            budget_id=n.budget_id,
+            estimated_hours=n.estimated_hours,
+            distance=n.distance,
+        )
+        for n in neighbors
+    ]
+    hour_range = None
+    if settings.synthesis_enabled:
+        hour_range = await synthesize_range(
+            neighbor_views,
+            dispersion,
+            threshold=settings.synthesis_contradiction_threshold,
+            use_llm=False,
+        )
     return TaskHoursEstimateView(
         module=module,
         task=name,
         estimated_hours=hours,
         reliability=reliability,
         dispersion=dispersion,
+        hour_range=hour_range,
         has_match=True,
-        neighbors=[
-            TaskNeighborView(
-                chunk_id=n.chunk_id,
-                budget_id=n.budget_id,
-                estimated_hours=n.estimated_hours,
-                distance=n.distance,
-            )
-            for n in neighbors
-        ],
+        neighbors=neighbor_views,
     )
 
 

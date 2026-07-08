@@ -408,6 +408,19 @@ class Settings(BaseSettings):
         default="",
         description="Optional LiteLLM model id for query reformulation; empty uses first provider route.",
     )
+    augmentation_enabled: bool = Field(
+        default=False,
+        description="When true, compress and edge-load reorder retrieved chunks before assembly.",
+    )
+    synthesis_enabled: bool = Field(
+        default=False,
+        description="When true, emit hour ranges on contradictory task-hours neighbours.",
+    )
+    synthesis_contradiction_threshold: float = Field(
+        default=0.35,
+        ge=0.0,
+        description="Relative hour dispersion above which synthesis emits an hour range.",
+    )
     rag_context_max_tokens: int = Field(
         default=8000,
         ge=1,

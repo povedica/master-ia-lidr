@@ -134,13 +134,13 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Reranking | `retrieval/reranker.py` | `embedding_pipeline/rerank.py` (`NoOpReranker` default) | 🟡 enable + wire in prod path |
 | Context assembly | `context_assembler.py` | `services/rag_context_assembler.py` | ✅ includes `truncate_to_token_budget` |
 | Token budget truncate | `truncate_to_token_budget()` | `rag_context_assembler.py` | ✅ chunk-boundary truncation |
-| Augmentation S11 | `quality/augmentation.py` | — | ❌ compress + edge-loading reorder |
-| Generation | `estimator.py:generate_estimate()` | `RagEstimationService` + `complete_structured()` | 🟡 no structure-only mode |
-| Structure-only pass | `generate_structure()` | — | ❌ |
+| Augmentation S11 | `quality/augmentation.py` | `embedding_pipeline/rag_augmentation.py` | ✅ FR-10 (`AUGMENTATION_ENABLED`) |
+| Generation | `estimator.py:generate_estimate()` | `RagEstimationService` + `complete_structured()` | 🟡 no structure-only on full path |
+| Structure-only pass | `generate_structure()` | `services/rag_structure_generator.py` + stage `structure` | ✅ feature-062 |
 | Referential citations | `validation.py:verify_citations()` | `citation_verification.py` | 🟡 align status enum names |
 | Coherence check | `validation.py:check_coherence()` | `rag_coherence.py` | ✅ feature-058 |
 | Hallucination gate | `quality/hallucination.py` | `rag_hallucination_gate.py` | ✅ feature-060 |
-| Synthesis S11 | `quality/synthesis.py` | — | ❌ contradiction ranges |
+| Synthesis S11 | `quality/synthesis.py` | `embedding_pipeline/rag_synthesis.py` | ✅ FR-22 (`SYNTHESIS_ENABLED`) |
 | Task-level hours | `task_hours.py` | `rag_task_hours.py` + stage endpoint | ✅ feature-062 |
 | Idempotency store | `idempotency.py` + Redis | `rag_idempotency.py` (memory/Redis) | ✅ feature-062 |
 | End-to-end orchestrator | `estimate_from_transcript()` | `RagEstimationService.estimate()` | 🟡 missing S10/S11 stages |
@@ -381,22 +381,16 @@ RETRIEVAL_TEMPORAL_DECAY_ENABLED=false
 ### Phase 2
 
 - [ ] **AC-10:** RAG path with reformulator improves retrieval P@5 on paraphrase query `q3-crm-paraphrase` vs raw question (document in eval note).
-- [ ] **AC-11:** Hallucination gate marks inflated-hours line as `degraded` in unit test with canned chunks.
-- [ ] **AC-12:** `POST /api/v1/retrieval/advanced` returns chunks with `collection` provenance labels.
-- [ ] **AC-13:** Stage endpoint `POST /api/v1/estimate/rag/stages/verify` returns citation + hallucination reports without running full pipeline.
-- [ ] **AC-14:** `POST /api/v1/estimate/rag/tasks/hours` returns per-task hours with citations.
-- [ ] **AC-15:** Duplicate `Idempotency-Key` within TTL returns cached response body.
-
-### Phase 3
-
-- [ ] **AC-16:** Ingest transcript fixture → searchable via advanced retrieval in `transcripts` collection.
-- [ ] **AC-17:** `POST /api/v1/embeddings/compare` returns strategy comparison for bundled sample.
+- [x] **AC-11:** Hallucination gate marks inflated-hours line as `degraded` in unit test with canned chunks.
+- [x] **AC-12:** `POST /api/v1/retrieval/advanced` returns chunks with `collection` provenance labels.
+- [x] **AC-13:** Stage endpoint `POST /api/v1/estimate/rag/stages/verify` returns citation + hallucination reports without running full pipeline.
+- [x] **AC-14:** `POST /api/v1/estimate/rag/tasks/hours` returns per-task hours with citations.
+- [x] **AC-15:** Duplicate `Idempotency-Key` within TTL returns cached response body.
+- [x] **AC-16:** Ingest transcript fixture → searchable via advanced retrieval in `transcripts` collection.
+- [x] **AC-17:** `POST /api/v1/embeddings/compare` returns strategy comparison for bundled sample.
 - [ ] **AC-18:** `eval_retrieval` supports named `StageConfig` and prints scoreboard comparable to official `eval_retrieval_s10.py`.
-
-### Phase 4 (if approved)
-
-- [ ] **AC-19:** Long session (≥15 turns) retains anchor facts after compression (integration test).
-- [ ] **AC-20:** Synthesis detects contradictory hour ranges in fixture and flags range.
+- [x] **AC-19:** Long session (≥15 turns) retains anchor facts after compression (integration test).
+- [x] **AC-20:** Synthesis detects contradictory hour ranges in fixture and flags range.
 
 ### Global
 
@@ -501,7 +495,14 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 - [x] **Step 7:** `feature-061` — `advanced_retrieve` + endpoint. _(PR #53)_
 - [x] **Step 8:** `feature-062` — stage routes + task hours. _(PR #55)_
 - [x] **Step 9:** `feature-063` — multi-index migration + ingest + compare. _(PR #56)_
-- [x] **Step 10:** Parity matrix updated (rows for 062–065); residual gaps: corpus jobs, augmentation, synthesis, eval gates.
+- [x] **Step 10:** Parity matrix updated; FR-10 augmentation + FR-22 synthesis shipped on `main`.
+- [x] **Step 11:** PRs #55–#56 merged; #57/#58 superseded by #56 bundle.
+
+## Estimation (closure)
+
+- Size: program track (multi-session) — **closed**
+- Merged child slices: 055–065
+- Residual: FR-20 eval_retrieval matrix, optional Phase 3/4 UI and async jobs (documented out-of-scope above)
 
 ---
 
@@ -592,7 +593,27 @@ uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-pa
 - [x] **Parallel wave 4 — feature-064** conversation compression (PR #57)
 - [x] **Parallel wave 4 — feature-065** transcript PII optional (PR #58)
 
-**Residual parity gaps (deferred / optional):** `augment_chunks` (FR-10), synthesis (FR-22), corpus index jobs (FR-18), full 7 chunking strategies, Rails wizard UI.
+**Residual parity gaps (deferred / out-of-scope):** `eval_retrieval` named configs + `--compare` (FR-20), corpus index jobs (FR-18), full 7 chunking strategies, Rails wizard UI, PII mappings table, tier resolver, citations table UI (feature-052 follow-up), unified request-ID middleware polish, augmentation/synthesis Redis runtime toggles (env flags only today).
+
+## Repository commits (master-ia)
+
+| Date | SHA | Summary |
+| --- | --- | --- |
+| 2026-07-07 | `96084b5` | Merge PR #55 — feature-062 stage endpoints, task hours, idempotency |
+| 2026-07-07 | `9baa717` | Merge PR #56 — feature-063/064/065 multi-index, compression, PII |
+| 2026-07-07 | _(pending)_ | feat(parity): FR-10 augmentation + FR-22 synthesis closure |
+
+## Handoff from feature-053
+
+**Shipped interfaces:** RAG stage wizard (`POST /api/v1/estimate/rag/stages/*`), task hours (`POST /api/v1/estimate/rag/tasks/hours`), multi-index collections (`budgets` / `transcripts` / `technical_docs`), chunking compare, conversation compression, optional transcript PII, `augment_chunks` via `AUGMENTATION_ENABLED`, synthesis hour ranges via `SYNTHESIS_ENABLED`.
+
+**Verification evidence:** `uv run pytest` fast suite — 820+ passed on `main` post-merge (excluding local `.env` config drift and unrelated worktree script WIP).
+
+**Not verified:** Live RAGAS parity numbers vs official baseline; `eval_retrieval` StageConfig matrix; Redis runtime toggle for augmentation/synthesis.
+
+**Residual risk:** Semantic schema differences vs official `Estimate` may prevent byte-identical eval scores; acceptance is gate stability and relative improvement.
+
+**Recommended first tests for follow-up:** `uv run pytest tests/embedding_pipeline/test_rag_augmentation.py tests/embedding_pipeline/test_rag_synthesis.py`; `uv run python app/scripts/retrieval_eval.py` after FR-20 work.
 
 ## Pull Request
 

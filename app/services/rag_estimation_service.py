@@ -12,6 +12,7 @@ from app.embedding_pipeline.chunk_content_repository import ChunkContentReposito
 from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.embedding_pipeline.lexical_search_repository import LexicalSearchRepository
 from app.embedding_pipeline.rerank import Reranker
+from app.embedding_pipeline.rag_augmentation import augment_retrieval_chunks
 from app.embedding_pipeline.retrieval_service import RetrievalMode, RetrievalService
 from app.embedding_pipeline.search_repository import SemanticSearchRepository
 from app.schemas.citation_report import CitationLineStatus, CitationReport
@@ -111,7 +112,10 @@ class RagEstimationService:
                 session,
                 [row.chunk_id for row in retrieval.results],
             )
-            assembled = assemble_rag_context(retrieval.results, contents)
+            rows = list(retrieval.results)
+            if self._settings.augmentation_enabled:
+                rows, contents = augment_retrieval_chunks(rows, contents)
+            assembled = assemble_rag_context(rows, contents)
             assembled = truncate_assembled_context(
                 assembled,
                 max_tokens=self._settings.rag_context_max_tokens,
