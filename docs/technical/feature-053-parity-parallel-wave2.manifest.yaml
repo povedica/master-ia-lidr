@@ -1,0 +1,20 @@
+# Parallel worktree manifest for feature-053 parity track (wave 2a).
+# Base: main with Phase 1 slices 055, 056, 057 merged.
+# Includes parity-critical 058; optional Session 12 agent 054 in parallel.
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 2
+  env_strategy: symlink
+  model: auto
+tasks:
+  - work_item: docs/work-items/feature-058-rag-coherence-and-eval-gate.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: rag-pipeline
+  - work_item: docs/work-items/feature-054-agentic-estimation-loop.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: agentic

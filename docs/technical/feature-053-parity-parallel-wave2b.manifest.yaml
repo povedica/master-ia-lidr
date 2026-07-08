@@ -1,0 +1,19 @@
+# Parallel worktree manifest for feature-053 parity track (wave 2b).
+# Base: main with feature-059 merged (reformulator + token budget).
+defaults:
+  worktrees_root: ../master-ia-worktrees
+  base_branch: main
+  max_parallel: 2
+  env_strategy: symlink
+  model: auto
+tasks:
+  - work_item: docs/work-items/feature-060-rag-hallucination-gate.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: rag-quality
+  - work_item: docs/work-items/feature-061-advanced-retrieval-s10-pipeline.md
+    depends_on: []
+    needs_live_db: false
+    mode: prepare
+    mutex_group: rag-pipeline
