@@ -13,6 +13,7 @@ from app.middleware.llm_call_audit_middleware import llm_call_audit_middleware
 from app.middleware.rate_limiting import limiter, rate_limit_exceeded_handler
 from app.middleware.request_id import install_request_id_logging, request_id_middleware
 from app.routers import (
+    agent_estimations,
     embeddings,
     estimations,
     estimations_v2,
@@ -93,6 +94,7 @@ app.include_router(retrieval_debug.router, prefix="/api/v1")
 app.include_router(retrieval.router, prefix="/api/v1")
 app.include_router(retrieval_advanced.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
+app.include_router(agent_estimations.router, prefix="/api/v1")
 app.include_router(rag_stages.router, prefix="/api/v1")
 app.include_router(rag_task_hours.router, prefix="/api/v1")
 app.include_router(runtime_config.router, prefix="/api/v1")
@@ -116,6 +118,7 @@ def read_root() -> dict[str, str]:
         "retrieval": "POST /api/v1/retrieval",
         "retrieval_advanced": "POST /api/v1/retrieval/advanced",
         "estimate_rag": "POST /api/v1/estimate/rag",
+        "estimate_agent": "POST /api/v1/estimate/agent",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
         "config_retrieval": "GET/PUT /api/v1/config/retrieval",
         "config_models": "GET/PUT /api/v1/config/models",
