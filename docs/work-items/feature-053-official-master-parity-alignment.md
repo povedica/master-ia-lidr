@@ -601,7 +601,7 @@ uv run python scripts/worktree_tasks.py prepare -f docs/technical/feature-053-pa
 | --- | --- | --- |
 | 2026-07-07 | `96084b5` | Merge PR #55 — feature-062 stage endpoints, task hours, idempotency |
 | 2026-07-07 | `9baa717` | Merge PR #56 — feature-063/064/065 multi-index, compression, PII |
-| 2026-07-07 | _(pending)_ | feat(parity): FR-10 augmentation + FR-22 synthesis closure |
+| 2026-07-07 | `de2a7b5` | feat(parity): FR-10 augmentation + FR-22 synthesis closure |
 
 ## Handoff from feature-053
 
