@@ -401,7 +401,7 @@ With real retrieval or stub, the agent must:
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton).
+- [ ] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton). ✅
 - [ ] **Step 2:** Add `app/services/agentic/agent_schemas.py` — tool arg models, trace, `AgentEstimate`, `AgentRunResult`.
 - [ ] **Step 3:** Implement `calculate_estimate` (+ optional `validate_estimate`) in `agent_tools.py` with unit tests.
 - [ ] **Step 4:** Implement flat `TOOL_SCHEMAS` for Responses API (`strict: true`).
@@ -442,7 +442,7 @@ With real retrieval or stub, the agent must:
 
 ## Implementation progress
 
-- [ ] Step 1: Exercise assets in `exercises/session-12/`
+- [x] Step 1: Exercise assets in `exercises/session-12/`
 - [ ] Step 2: `agent_schemas.py` + schema tests
 - [ ] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
 - [ ] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
@@ -455,3 +455,9 @@ With real retrieval or stub, the agent must:
 ## Pull Request
 
 - Draft: https://github.com/povedica/master-ia-lidr/pull/59 (label: `wip`)
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| _(pending)_ | `chore(session-12): add exercise assets from official session_12` |
