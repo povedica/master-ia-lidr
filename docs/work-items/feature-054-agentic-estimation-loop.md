@@ -443,7 +443,7 @@ With real retrieval or stub, the agent must:
 ## Implementation progress
 
 - [x] Step 1: Exercise assets in `exercises/session-12/`
-- [ ] Step 2: `agent_schemas.py` + schema tests
+- [x] Step 2: `agent_schemas.py` + schema tests
 - [ ] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
 - [ ] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
 - [ ] Step 5: `retrieval_adapter.py` + stub injection
