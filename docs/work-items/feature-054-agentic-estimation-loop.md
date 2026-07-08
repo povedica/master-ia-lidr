@@ -427,6 +427,10 @@ With real retrieval or stub, the agent must:
 
 ## Estimation
 
+- **Size:** L
+- **Estimated time:** 2.5–3 days focused work (excluding live API cost for tuning runs)
+- **Planned steps:** 8
+
 | Slice | Effort |
 | --- | --- |
 | Schemas + deterministic tools | ~0.5 day |
@@ -436,12 +440,18 @@ With real retrieval or stub, the agent must:
 | Optional HTTP + validate tool | ~0.5 day |
 | Docs + session note | ~0.25 day |
 
-**Total:** ~2.5–3 days focused work (excluding live API cost for tuning runs).
-
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [ ] Step 1: Exercise assets in `exercises/session-12/`
+- [ ] Step 2: `agent_schemas.py` + schema tests
+- [ ] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
+- [ ] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
+- [ ] Step 5: `retrieval_adapter.py` + stub injection
+- [ ] Step 6: `agent_loop.py` with mocked Responses client tests
+- [ ] Step 7: Agent settings + `.env.example`
+- [ ] Step 8: CLI `run_agent_s12.py` + README / session note
+- [ ] Step 9 (optional): `POST /api/v1/estimate/agent` + `validate_estimate`
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+- Draft: _(pending first feature-branch commit)_
