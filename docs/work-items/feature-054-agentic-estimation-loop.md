@@ -378,8 +378,9 @@ With real retrieval or stub, the agent must:
 
 ### Automated
 
-- `uv run pytest tests/test_agent_*.py tests/services/agentic/` (exact paths TBD at implementation)
-- `uv run pytest` — no regressions in RAG/CAG tests
+- **Verified:** `uv run pytest tests/test_agent_*.py tests/test_retrieval_adapter.py tests/exercises/test_session_12_assets.py` — 28 passed
+- **Verified:** `uv run pytest tests/test_rag_estimation_endpoint.py tests/test_rag_estimation_service.py` — 15 passed (no RAG regression)
+- **Not verified:** full `uv run pytest` suite (7 pre-existing failures in `test_config` / `test_worktree_tasks` unrelated to feature-054)
 
 ### Manual
 
@@ -392,12 +393,35 @@ With real retrieval or stub, the agent must:
 - Production load / rate limits on Responses API
 - Parity with official `origin/session_12` trace wording byte-for-byte
 
+## Handoff from feature-054
+
+**Shipped interfaces**
+
+- `POST /api/v1/estimate/agent` — `{ transcript, model?, reasoning_effort?, max_iterations? }` → `{ result, trace, request_id, iterations, stopped_reason, model }`
+- `app/scripts/run_agent_s12.py` — CLI with `--stub`, `--model`, `--effort`, `--out`, `--max-iterations`
+- `run_estimation_agent(transcript, client, model, reasoning_effort, max_iterations, retrieval_backend)` in `app/services/agentic/agent_loop.py`
+- `build_retrieval_backend(...)` and `load_stub_retrieval_backend()` in `retrieval_adapter.py`
+- Settings: `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`
+
+**Residual risks**
+
+- Live API tuning of tool descriptions not done in-repo (manual step with real key)
+- CLI real-retrieval path needs `DATABASE_URL` + populated corpus
+- Agent path bypasses rate-limit keys (`ESTIMATE_API_KEY`) — intentional for local dev; harden in feature-056 if needed
+
+**Recommended first checks for next implementer**
+
+1. `uv run pytest tests/test_agent_loop.py -q`
+2. `uv run python app/scripts/run_agent_s12.py exercises/session-12/sample_transcript_simple.txt --model gpt-5-mini --stub` (with `OPENAI_API_KEY`)
+3. Compare trace format with `exercises/session-12/README.md` acceptance criteria
+
 ## Documentation Plan
 
 - `README.md`: new "Agentic estimation (Session 12)" section with CLI examples and env vars
 - `learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md` (or Second Brain equivalent): loop anatomy, tool design lessons, cost notes
 - Cross-link from `feature-053` parity matrix (Session 12 agent row) when implemented
 - `.env.example`: agent settings placeholders
+- `docs/arquitectura-estimador-cag.html`: router node for `POST /api/v1/estimate/agent` ✅
 
 ## Implementation Plan
 
@@ -445,12 +469,12 @@ With real retrieval or stub, the agent must:
 - [x] Step 1: Exercise assets in `exercises/session-12/`
 - [x] Step 2: `agent_schemas.py` + schema tests
 - [x] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
-- [ ] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
-- [ ] Step 5: `retrieval_adapter.py` + stub injection
-- [ ] Step 6: `agent_loop.py` with mocked Responses client tests
-- [ ] Step 7: Agent settings + `.env.example`
-- [ ] Step 8: CLI `run_agent_s12.py` + README / session note
-- [ ] Step 9 (optional): `POST /api/v1/estimate/agent` + `validate_estimate`
+- [x] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
+- [x] Step 5: `retrieval_adapter.py` + stub injection
+- [x] Step 6: `agent_loop.py` with mocked Responses client tests
+- [x] Step 7: Agent settings + `.env.example`
+- [x] Step 8: CLI `run_agent_s12.py` + README / session note
+- [x] Step 9 (optional): `POST /api/v1/estimate/agent` + `validate_estimate`
 
 ## Pull Request
 

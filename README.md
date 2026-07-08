@@ -830,6 +830,31 @@ In **`web/`**, fill the transcript (and optional one-line summary), then use **R
 - `POST /api/v1/estimate/rag/tasks/hours` — per-task hours from `historical_task` chunks (`TASK_HOURS_TOP_K`, `TASK_HOURS_DISTANCE_THRESHOLD`).
 - `Idempotency-Key` header on `POST /api/v1/estimate/rag` caches the full response for `RAG_IDEMPOTENCY_TTL_SECONDS` (Redis when `REDIS_URL` set, else in-process).
 
+**Agentic estimation (Session 12)** (`POST /api/v1/estimate/agent`):
+
+- Separate from the fixed RAG pipeline: a **manual** reason → act → observe loop on the OpenAI **Responses API** (`responses.create` / `responses.parse`), not LiteLLM/Instructor.
+- Tools: `search_budgets` (wraps `RetrievalService.retrieve` + chunk content), `calculate_estimate` (deterministic median + contingency), `validate_estimate` (optional guardrails).
+- Env: `AGENT_MODEL` (default `gpt-5-mini`), `AGENT_REASONING_EFFORT` (`minimal|low|medium|high`), `AGENT_MAX_ITERATIONS` (default `10`), `AGENT_RETRIEVAL_MODE` (empty → `RAG_ESTIMATION_RETRIEVAL_MODE`).
+- **Cost discipline:** debug with `gpt-5-mini` + `--stub` on the simple transcript; deliverable run uses `gpt-5` + `medium` on `sample_transcript_complex.txt`.
+
+```bash
+# Offline loop debugging (no database)
+uv run python app/scripts/run_agent_s12.py \
+  exercises/session-12/sample_transcript_simple.txt --model gpt-5-mini --stub
+
+# Deliverable trace file (requires OPENAI_API_KEY; live API cost)
+uv run python app/scripts/run_agent_s12.py \
+  exercises/session-12/sample_transcript_complex.txt --model gpt-5 --effort medium \
+  --out /tmp/agent_trace_complex.txt
+
+# HTTP API (requires OPENAI_API_KEY and DATABASE_URL for real retrieval)
+curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/agent \
+  -H 'Content-Type: application/json' \
+  -d '{"transcript":"..."}'
+```
+
+Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md](learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md).
+
 **RAGAS generation baseline** (offline, slow, dev dependency):
 
 ```bash
