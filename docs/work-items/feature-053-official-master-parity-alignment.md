@@ -110,6 +110,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Retrieval (measurable) | `POST /v1/retrieval/search` | `POST /api/v1/retrieval` (modes A–D) | ✅ |
 | Advanced retrieval | `POST /v1/retrieval/advanced-search` | `POST /api/v1/retrieval/advanced` | ✅ feature-061 |
 | RAG end-to-end | `POST /v1/estimate/from-transcript` | `POST /api/v1/estimate/rag` + stage routes | 🟡 structure-only optional |
+| Agentic estimation (S12) | `scripts/run_agent_s12.py` + agent loop | `POST /api/v1/estimate/agent` + CLI `run_agent_s12.py` | ✅ feature-054 |
 | RAG stage wizard | `POST /v1/estimate/stages/{reformulate,retrieve,assemble,structure,generate,verify}` | `POST /api/v1/estimate/rag/stages/*` | ✅ feature-062 |
 | Task hours | `POST /v1/estimate/tasks/hours` | `POST /api/v1/estimate/rag/tasks/hours` | ✅ feature-062 |
 | Corpus index jobs | `POST /embeddings/index/runs`, poll, stats | — | ❌ Phase 3 |
@@ -209,6 +210,8 @@ Legend: ✅ done · 🟡 partial · ❌ missing · 🔵 fork-only (keep)
 | Citation demo script | `demo_verify_citations_s11.py` | tests only | 🟡 optional CLI |
 | Stress test | `evals/stress/run.py` | `evals/stress/run.py` | ✅ |
 | Session golden YAML | `evals/run.py` actor/acb | `tests/evals/` | ✅ richer in master-ia |
+| Agentic loop (S12) | `generation/agentic/agent_loop.py` | `app/services/agentic/agent_loop.py` | ✅ feature-054 (separate track) |
+| Agent CLI deliverable | `scripts/run_agent_s12.py` | `app/scripts/run_agent_s12.py` | ✅ feature-054 |
 
 ### H. Frontend / UX
 
@@ -469,7 +472,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 | ID | Slug | Phase | Depends on |
 | --- | --- | --- | --- |
-| feature-054 | `agentic-estimation-loop` | Session 12 | — _(out of parity track; see `feature-054-agentic-estimation-loop.md`)_ |
+| feature-054 | `agentic-estimation-loop` | Session 12 | — | ✅ shipped (PR #59); out of parity critical path |
 | feature-055 | `ragas-eval-gate-and-monitor` | 0 | feature-052 |
 | feature-055b | `web-rag-citations-table` | 0 | feature-052 _(shipped in feature-052)_ |
 | feature-056 | `api-security-rate-limit-request-id` | 1 | — |
@@ -545,7 +548,7 @@ This roadmap should be executed as **multiple child work items**, not one `/star
 
 ### Session 12 track (outside parity wave)
 
-`feature-054-agentic-estimation-loop.md` is a **separate Session 12 exercise** (agentic loop + CLI deliverable). It is **not** on the parity critical path and does **not** block `feature-058`. The draft work item exists locally (untracked until committed); it may run **in parallel** with `feature-058` in a second worktree when desired (`mutex_group: agentic` vs `rag-pipeline`).
+`feature-054-agentic-estimation-loop.md` is a **separate Session 12 exercise** (agentic loop + CLI deliverable). It is **not** on the parity critical path and does **not** block `feature-058`. **Status (2026-07-08):** implemented on `feature/054-agentic-estimation-loop` — see [docs/technical/agentic-estimation-loop.md](../technical/agentic-estimation-loop.md).
 
 ### Parallel orchestration (wave 1)
 

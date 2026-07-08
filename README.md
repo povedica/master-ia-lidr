@@ -278,11 +278,12 @@ Interactive schema: `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/retrieval` | Production retrieval modes A/B/C/D (vector, hybrid RRF, rerank); optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
 | `POST` | `/api/v1/retrieval/advanced` | StageConfig-driven advanced retrieval (S10 parity); presets A–D or explicit config; optional `X-API-Key` when `RETRIEVAL_API_KEY` is set |
 | `POST` | `/api/v1/estimate/rag` | Grounded RAG estimation with citation audit; optional `X-API-Key` when `ESTIMATE_API_KEY` is set |
+| `POST` | `/api/v1/estimate/agent` | Session 12 agentic loop (transcript → estimate + trace); requires `OPENAI_API_KEY`; uses `DATABASE_URL` for real retrieval |
 | `POST` | `/api/v1/retrieval-debug` | Internal vector/lexical/hybrid retrieval debug with optional metadata filters |
 | `GET`/`PUT` | `/api/v1/config/retrieval` | Runtime retrieval config (Redis override merged over `Settings`); open in dev |
 | `GET`/`PUT` | `/api/v1/config/models` | Runtime model config (`structured_model`, `judge_model`); open in dev |
 
-The `embeddings/ingest`, `search`, `retrieval`, and `estimate/rag` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) and require `DATABASE_URL`.
+The `embeddings/ingest`, `search`, `retrieval`, `estimate/rag`, and `estimate/agent` endpoints belong to the isolated [embedding pipeline](#semantic-search-with-pgvector) / agent retrieval path and require `DATABASE_URL` (except agent CLI with `--stub`).
 
 Every HTTP response includes an **`X-Request-ID`** header (client-supplied values are echoed). See [API hardening](#api-hardening-retrieval--rag).
 
@@ -463,7 +464,11 @@ Copy `.env.example` for the full list. Key settings:
 | `ACB_*` | see `.env.example` | Actor-Critic-Boss session orchestration (default: off) |
 | `OTEL_*` / `LANGFUSE_*` | see `.env.example` | Observability export (defaults: off) |
 | `RETRIEVAL_API_KEY` | *(empty)* | When set, `POST /api/v1/retrieval` requires matching `X-API-Key` |
-| `ESTIMATE_API_KEY` | *(empty)* | When set, `POST /api/v1/estimate/rag` requires matching `X-API-Key` |
+| `ESTIMATE_API_KEY` | *(empty)* | When set, `POST /api/v1/estimate/rag` requires matching `X-API-Key` (not applied to `/estimate/agent`) |
+| `AGENT_MODEL` | `gpt-5-mini` | Default model for Session 12 agentic loop |
+| `AGENT_REASONING_EFFORT` | `medium` | Responses API reasoning effort for agent (`minimal` \| `low` \| `medium` \| `high`) |
+| `AGENT_MAX_ITERATIONS` | `10` | Hard cap on agent Responses API round-trips |
+| `AGENT_RETRIEVAL_MODE` | *(empty)* | Retrieval mode for agent `search_budgets`; empty uses `RAG_ESTIMATION_RETRIEVAL_MODE` |
 | `RATE_LIMIT_ENABLED` | `false` | When `true`, limits retrieval to 120/min and RAG estimate to 10/min per API-key bucket (IP fallback) |
 | `REDIS_URL` | *(empty)* | Generic Redis DSN for `GET/PUT /api/v1/config/*` runtime overrides; empty falls back to env `Settings` |
 
@@ -480,22 +485,25 @@ master-ia/
 │   ├── config.py               # pydantic-settings (typed env configuration)
 │   ├── cors.py                 # CORS configuration
 │   ├── database.py             # Async SQLAlchemy engine/session (Postgres + pgvector)
-│   ├── routers/                # HTTP boundaries (v1, v2, sessions, embeddings, search)
+│   ├── routers/                # HTTP boundaries (v1, v2, sessions, embeddings, search, agent)
 │   ├── middleware/             # HTTP middleware (request ID, rate limits, LLM-call audit)
-│   ├── services/               # CAG, LLM chain, sessions, semantic cache, observability
+│   ├── services/               # CAG, LLM chain, sessions, semantic cache, agentic, observability
+│   │   └── agentic/            # Session 12: agent loop, tools, retrieval adapter (feature-054)
 │   ├── guardrails/             # Input/output policy pipeline (+ ACB policy)
 │   ├── schemas/                # Pydantic request/response models
 │   ├── models/                 # SQLAlchemy ORM models (documents, chunks)
 │   ├── context/                # Few-shot example pools
 │   ├── embedding_pipeline/     # Budget chunking, embeddings, semantic search (isolated)
 │   ├── prompts/                # Jinja2 bundles: estimation/ (v1, v2) and acb/
-│   └── scripts/                # In-package CLIs (compare, ingest_from_dir, preflight, …)
+│   └── scripts/                # In-package CLIs (compare, ingest_from_dir, run_agent_s12, …)
+├── exercises/                  # Session exercise kits (session-12 agent transcripts + stub)
 ├── web/                        # React + Vite + TypeScript UI
 ├── tests/                      # pytest suite (mocked providers); includes tests/evals/
 ├── evals/                      # CAG stress harness (evals/stress/)
 ├── alembic/                    # Database migrations (alembic.ini at repo root)
 ├── docs/
 │   ├── technical/README.md     # Extended architecture, flows, troubleshooting
+│   ├── technical/agentic-estimation-loop.md  # Session 12 agent reference (feature-054)
 │   ├── evals/                  # Session eval pyramid documentation
 │   └── work-items/             # Implementation specs and ADRs
 ├── api-collection/             # OpenCollection/Bruno manual requests
@@ -853,7 +861,7 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/agent \
   -d '{"transcript":"..."}'
 ```
 
-Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md](learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md).
+Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md](learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md) and the full technical reference [docs/technical/agentic-estimation-loop.md](docs/technical/agentic-estimation-loop.md).
 
 **RAGAS generation baseline** (offline, slow, dev dependency):
 

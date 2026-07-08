@@ -417,27 +417,30 @@ With real retrieval or stub, the agent must:
 
 ## Documentation Plan
 
-- `README.md`: new "Agentic estimation (Session 12)" section with CLI examples and env vars
-- `learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md` (or Second Brain equivalent): loop anatomy, tool design lessons, cost notes
-- Cross-link from `feature-053` parity matrix (Session 12 agent row) when implemented
-- `.env.example`: agent settings placeholders
-- `docs/arquitectura-estimador-cag.html`: router node for `POST /api/v1/estimate/agent` ✅
+- [x] `README.md`: new "Agentic estimation (Session 12)" section with CLI examples and env vars
+- [x] `learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md`: loop anatomy, tool design lessons, cost notes
+- [x] Cross-link from `feature-053` parity matrix (Session 12 agent row)
+- [x] `.env.example`: agent settings placeholders
+- [x] `docs/arquitectura-estimador-cag.html`: router node for `POST /api/v1/estimate/agent`
+- [x] `docs/technical/agentic-estimation-loop.md`: canonical technical reference
+- [x] `docs/technical/README.md` §25e: summary in technical baseline
+- [x] `api-collection/Estimador CAG/estimations/Agent Estimate.yml`: manual API collection entry
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton). ✅
-- [ ] **Step 2:** Add `app/services/agentic/agent_schemas.py` — tool arg models, trace, `AgentEstimate`, `AgentRunResult`.
-- [ ] **Step 3:** Implement `calculate_estimate` (+ optional `validate_estimate`) in `agent_tools.py` with unit tests.
-- [ ] **Step 4:** Implement flat `TOOL_SCHEMAS` for Responses API (`strict: true`).
-- [ ] **Step 5:** Implement `retrieval_adapter.py` wrapping `RetrievalService` + chunk content fetch; wire stub injection.
-- [ ] **Step 6:** Implement `dispatch_tool` and `search_budgets` observation `summary`.
-- [ ] **Step 7:** Implement `agent_loop.py` — `run_estimation_agent` with mocked tests for multi-turn flow.
-- [ ] **Step 8:** Add settings + `.env.example` entries.
-- [ ] **Step 9:** Add `app/scripts/run_agent_s12.py` CLI.
+- [x] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton).
+- [x] **Step 2:** Add `app/services/agentic/agent_schemas.py` — tool arg models, trace, `AgentEstimate`, `AgentRunResult`.
+- [x] **Step 3:** Implement `calculate_estimate` (+ optional `validate_estimate`) in `agent_tools.py` with unit tests.
+- [x] **Step 4:** Implement flat `TOOL_SCHEMAS` for Responses API (`strict: true`).
+- [x] **Step 5:** Implement `retrieval_adapter.py` wrapping `RetrievalService` + chunk content fetch; wire stub injection.
+- [x] **Step 6:** Implement `dispatch_tool` and `search_budgets` observation `summary`.
+- [x] **Step 7:** Implement `agent_loop.py` — `run_estimation_agent` with mocked tests for multi-turn flow.
+- [x] **Step 8:** Add settings + `.env.example` entries.
+- [x] **Step 9:** Add `app/scripts/run_agent_s12.py` CLI.
 - [ ] **Step 10:** Manual debug run (mini + simple + stub); fix tool descriptions if model mis-invokes tools.
 - [ ] **Step 11:** Manual deliverable run (gpt-5 + complex transcript); capture trace for submission.
-- [ ] **Step 12 (optional):** `POST /api/v1/estimate/agent` router + integration test.
-- [ ] **Step 13:** README + session note; run full `uv run pytest`.
+- [x] **Step 12 (optional):** `POST /api/v1/estimate/agent` router + integration test.
+- [x] **Step 13:** README + session note; agent test suite + RAG regression green.
 
 ## Learnings
 
@@ -492,3 +495,4 @@ With real retrieval or stub, the agent must:
 | `3fdd042` | `feat(agentic): add agent settings and env documentation` |
 | `7db8a28` | `feat(agentic): add POST /api/v1/estimate/agent endpoint` |
 | `5c5b9f6` | `feat(agentic): add Session 12 CLI runner and documentation` |
+| _(pending)_ | `docs(feature-054): add technical reference and sync all docs` |

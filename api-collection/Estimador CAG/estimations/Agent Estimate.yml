@@ -1,0 +1,32 @@
+info:
+  name: Agent Estimate
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/estimate/agent"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "transcript": "Reunión de descubrimiento — necesitamos un backend OAuth2 multi-tenant y una app móvil para repartidores.",
+        "model": "gpt-5-mini",
+        "reasoning_effort": "minimal",
+        "max_iterations": 10
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |
+  Session 12 agentic estimation loop (feature-054).
+  Requires OPENAI_API_KEY and DATABASE_URL with ingested corpus for real retrieval.
+  For offline loop debugging, use CLI: app/scripts/run_agent_s12.py --stub

@@ -115,3 +115,5 @@ uv run python app/scripts/run_agent_s12.py \
 ```
 
 Source: official `ai-engineering` branch `session_12` (`estimator/exercises/session-12/`).
+
+**Technical reference (master-ia):** [docs/technical/agentic-estimation-loop.md](../../docs/technical/agentic-estimation-loop.md)

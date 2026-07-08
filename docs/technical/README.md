@@ -33,6 +33,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [23. Semantic search endpoint (feature-038)](#23-semantic-search-endpoint-feature-038)
 - [24. HNSW vector index (feature-040)](#24-hnsw-vector-index-feature-040)
 - [25. Indexed lexical search (feature-048)](#25-indexed-lexical-search-feature-048)
+- [25e. Agentic estimation loop (feature-054 / Session 12)](./agentic-estimation-loop.md) — hand-written Responses API agent (standalone reference)
 - [26. Worktree task orchestrator](#26-worktree-task-orchestrator)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
@@ -436,6 +437,14 @@ Session 07 pipeline routes (isolated from estimator CAG and Redis semantic cache
 
 **Retrieval debug:** internal `POST /api/v1/retrieval-debug` returns an explainable branch container. `branches.vector[]` includes rank, chunk/document ids, raw `distance`, and normalized `score = max(0, min(1, 1 - distance))`. `branches.lexical[]` uses Postgres full-text search over `chunks.content`, with branch-local normalized `ts_rank_cd` scores and deterministic `matched_terms`. Optional `filters` scope vector and lexical candidates before ranking/limiting, so hybrid fuses only the selected subset. `branches.hybrid[]` fuses vector and lexical rankings. `rerank.enabled=true` runs the configured reranker after fusion/branch ordering; the default `NoOpReranker` preserves order, fills `branches.rerank[]`, sets `rerank_rank`, leaves `rerank_score=null`, and warns that rerank is a no-op placeholder. `final_results[]` adds metadata, excerpt, `source_strategies`, and explanation signals. `GET /api/v1/retrieval-debug/chunks/{chunk_id}` returns full content, neighboring chunks, parent document metadata, embedding model, and optional query distance/similarity.
 
+### Agentic estimation (`POST /api/v1/estimate/agent`)
+
+Session 12 **manual agent loop** (feature-054). Inbound: **`AgentEstimateRequest`** — `transcript` (required), optional `model`, `reasoning_effort`, `max_iterations`. Outbound: **`AgentEstimateResponse`** — `result` (`AgentEstimate` or null), `trace` (`AgentTrace` with ordered steps), `request_id`, `iterations`, `stopped_reason`, `model`.
+
+Orchestration: `agent_estimations.py` → `run_estimation_agent()` → OpenAI **Responses API** (`responses.create` / `responses.parse`), **not** `complete_structured`. Tools: `search_budgets` (wraps `RetrievalService` or stub), `calculate_estimate`, `validate_estimate`.
+
+**503** when `OPENAI_API_KEY` is unset. **Not** covered by `ESTIMATE_API_KEY` or RAG rate limits (feature-056 scope). Full reference: [agentic-estimation-loop.md](./agentic-estimation-loop.md).
+
 ### Semantic cache (v2, optional)
 
 The guarded pipeline in `app/guardrails/llm_pipeline.py` can run a **semantic cache** after input guardrails: deterministic **bucket** hash (prompt, schema, guardrail, and structured request fields) plus **embedding** similarity over free-text surfaces (`app/services/semantic_cache/`). **Serving** hits requires `SEMANTIC_CACHE_ENABLED=true` and a configured store; with `SEMANTIC_CACHE_LOG_ONLY=true` (default), embeddings and lookup run for telemetry but the LLM is **never** skipped. When both `SEMANTIC_CACHE_ENABLED` and `SEMANTIC_CACHE_LOG_ONLY` are `false`, no embedding or store I/O runs. For local experiments without Redis, `SEMANTIC_CACHE_USE_MEMORY_STORE=true` enables an in-process store (single worker only). When `SEMANTIC_CACHE_REDIS_URL` is set and `SEMANTIC_CACHE_USE_MEMORY_STORE=false`, the app uses `RedisSemanticCacheRepository` with Redis Stack / RediSearch vector KNN over entries in the same deterministic bucket.
@@ -668,6 +677,7 @@ Current pieces:
 - `Health.yml`: health request.
 - `Read Root.yml`: root index request.
 - `estimations/Create Estimate.yml`: `POST /api/v1/estimate`.
+- `estimations/Agent Estimate.yml`: `POST /api/v1/estimate/agent` (Session 12 agentic loop).
 - `estimations/*.yml`: sample request bodies (size/category naming may vary by fixture set).
 
 The collection helps validate contracts without relying only on `curl`.
@@ -693,6 +703,8 @@ bash scripts/sync-estimador-cag-docs.sh
 ```
 
 The script uses `rsync --delete`, so `docs/` is a true mirror. Files removed in the vault disappear from the git copy.
+
+**In-repo technical references (not synced from Second Brain):** [agentic-estimation-loop.md](./agentic-estimation-loop.md) (feature-054), [cag-stress-testing.md](./cag-stress-testing.md), [actor-critic-boss-orchestration.md](./actor-critic-boss-orchestration.md).
 
 ## 18. Security and secrets
 
@@ -1409,6 +1421,30 @@ Work item: [feature-052](../work-items/feature-052-rag-line-citations-ragas-eval
 Exit codes: **0** pass (or no `--gate`), **1** gate regression, **2** preflight or baseline load/parse error. Gate/monitor logic lives in `app/embedding_pipeline/generation_eval.py` (`load_baseline`, `evaluate_gate`, `gate_exit_code`, `render_gate_summary`, `render_monitor_summary`) as pure functions that do not import `ragas`, so `tests/embedding_pipeline/test_generation_gate.py` covers baseline parsing and pass/fail/tolerance-override semantics with mocked `GenerationMetrics` — no live RAGAS or API keys required. `evaluation/generation/results/` runs are never committed; only the baseline file is version-controlled.
 
 Work item: [feature-055](../work-items/feature-055-ragas-eval-gate-and-monitor.md).
+
+## 25e. Agentic estimation loop (feature-054 / Session 12)
+
+Additive **manual agent** over the OpenAI **Responses API** (not LiteLLM/Instructor). The model decomposes a meeting transcript, calls `search_budgets` per component, then `calculate_estimate` and optional `validate_estimate`, returning a light `AgentEstimate` plus an auditable `AgentTrace`.
+
+| Piece | Location | Role |
+| --- | --- | --- |
+| HTTP | `POST /api/v1/estimate/agent` (`app/routers/agent_estimations.py`) | Transcript in → estimate + trace JSON |
+| Loop | `app/services/agentic/agent_loop.py` | `run_estimation_agent()` — `previous_response_id` chaining |
+| Tools | `app/services/agentic/agent_tools.py` | Flat `strict: true` schemas + deterministic cost/validate |
+| Retrieval wrap | `app/services/agentic/retrieval_adapter.py` | `RetrievalService` → historical items; stub loader for CLI `--stub` |
+| CLI | `app/scripts/run_agent_s12.py` | Session 12 deliverable generator (`--stub`, `--out`) |
+| Exercise kit | `exercises/session-12/` | Transcripts, stub retrieval, cost skeleton |
+| Schemas | `app/schemas/agent_estimation_response.py` | HTTP request/response |
+
+**Explicitly not inherited:** semantic cache, ACB, v2 guardrails, `ESTIMATE_API_KEY` / rate limits on the agent route (documented follow-up).
+
+**Settings:** `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE` (empty → `RAG_ESTIMATION_RETRIEVAL_MODE`); reuses `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL`.
+
+**Tests (default CI, mocked OpenAI):** `tests/test_agent_*.py`, `tests/test_retrieval_adapter.py`, `tests/exercises/test_session_12_assets.py`.
+
+Full reference: **[agentic-estimation-loop.md](./agentic-estimation-loop.md)**.
+
+Work item: [feature-054](../work-items/feature-054-agentic-estimation-loop.md).
 
 ## 26. Worktree task orchestrator
 
