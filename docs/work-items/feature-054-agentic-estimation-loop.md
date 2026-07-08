@@ -454,4 +454,4 @@ With real retrieval or stub, the agent must:
 
 ## Pull Request
 
-- Draft: _(pending first feature-branch commit)_
+- Draft: https://github.com/povedica/master-ia-lidr/pull/59 (label: `wip`)
