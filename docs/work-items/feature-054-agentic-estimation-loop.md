@@ -460,4 +460,4 @@ With real retrieval or stub, the agent must:
 
 | Commit | Summary |
 | --- | --- |
-| _(pending)_ | `chore(session-12): add exercise assets from official session_12` |
+| `2862dbd` | `chore(session-12): add exercise assets from official session_12` |
