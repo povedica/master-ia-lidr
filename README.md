@@ -488,15 +488,16 @@ master-ia/
 │   ├── routers/                # HTTP boundaries (v1, v2, sessions, embeddings, search, agent)
 │   ├── middleware/             # HTTP middleware (request ID, rate limits, LLM-call audit)
 │   ├── services/               # CAG, LLM chain, sessions, semantic cache, agentic, observability
-│   │   └── agentic/            # Session 12: agent loop, tools, retrieval adapter (feature-054)
+│   │   ├── agentic/            # Session 12: agent loop, tools, retrieval adapter (feature-054)
+│   │   └── estimation_graph/   # Session 13: LangGraph multi-agent estimation (feature-066)
 │   ├── guardrails/             # Input/output policy pipeline (+ ACB policy)
 │   ├── schemas/                # Pydantic request/response models
 │   ├── models/                 # SQLAlchemy ORM models (documents, chunks)
 │   ├── context/                # Few-shot example pools
 │   ├── embedding_pipeline/     # Budget chunking, embeddings, semantic search (isolated)
 │   ├── prompts/                # Jinja2 bundles: estimation/ (v1, v2) and acb/
-│   └── scripts/                # In-package CLIs (compare, ingest_from_dir, run_agent_s12, …)
-├── exercises/                  # Session exercise kits (session-12 agent transcripts + stub)
+│   └── scripts/                # In-package CLIs (compare, ingest_from_dir, run_agent_s12, run_graph_s13, …)
+├── exercises/                  # Session exercise kits (session-12, session-13, …)
 ├── web/                        # React + Vite + TypeScript UI
 ├── tests/                      # pytest suite (mocked providers); includes tests/evals/
 ├── evals/                      # CAG stress harness (evals/stress/)
@@ -504,6 +505,7 @@ master-ia/
 ├── docs/
 │   ├── technical/README.md     # Extended architecture, flows, troubleshooting
 │   ├── technical/agentic-estimation-loop.md  # Session 12 agent reference (feature-054)
+│   ├── technical/estimation-graph-s13.md     # Session 13 LangGraph graph (feature-066)
 │   ├── evals/                  # Session eval pyramid documentation
 │   └── work-items/             # Implementation specs and ADRs
 ├── api-collection/             # OpenCollection/Bruno manual requests
@@ -863,6 +865,23 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/agent \
 ```
 
 Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md](learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md) and the full technical reference [docs/technical/agentic-estimation-loop.md](docs/technical/agentic-estimation-loop.md).
+
+**Multi-agent estimation graph (Session 13)** (feature-066, LangGraph):
+
+- Explicit graph under `app/services/estimation_graph/`: classifier → structure → human gate → per-task hours fan-out → recovery → analysis → human gate → optional proposal.
+- CLI auto-approves both gates. `--memory` uses `MemorySaver` (no Postgres); `--stub` uses canned per-task hours (no DB fan-out). LLM agents still need `OPENAI_API_KEY`.
+- HTTP `/api/v1/estimate/graph*` is Step 6. Postgres checkpointer + lifespan (`app.state.graph`) is Step 5 (may land in parallel on this branch).
+
+```bash
+# Partial-offline smoke (no Postgres checkpoints; stub hours)
+uv run python app/scripts/run_graph_s13.py --memory --stub
+
+# Write a local report (do not commit generated run files)
+uv run python app/scripts/run_graph_s13.py --memory --stub \
+  --out /tmp/example_run_complex.txt
+```
+
+Exercise assets: `exercises/session-13/`. See [learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md](learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md) and [docs/technical/estimation-graph-s13.md](docs/technical/estimation-graph-s13.md).
 
 **RAGAS generation baseline** (offline, slow, dev dependency):
 
