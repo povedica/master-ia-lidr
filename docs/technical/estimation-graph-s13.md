@@ -10,9 +10,9 @@ Living technical reference for the **LangGraph multi-agent estimation graph** in
 **Official reference:** `ai-engineering` branch `session_13_live`
 (`estimator/app/domain/graph/*`)
 
-**Status:** Steps 5–8 landed on the feature branch (checkpointer + lifespan, blocking
-HTTP verbs, CLI/exercises, and optional stream/progress/proposal + activity feed).
-Step 10 (React wizard) remains optional.
+**Status:** feature-066 **closed** (Steps 1–9). Checkpointer + lifespan, blocking
+HTTP verbs, CLI/exercises, stream/progress/proposal + activity feed, and docs are
+in tree. Step 10 (React wizard / AC-13) remains an optional follow-up.
 
 ---
 

@@ -361,10 +361,11 @@ Client transcript
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `uv add` lands `langgraph`, `langgraph-checkpoint-postgres`, and
+- [x] **AC-01:** `uv add` lands `langgraph`, `langgraph-checkpoint-postgres`, and
       `psycopg` (binary) without breaking the fast pytest suite import path.
-- [ ] **AC-02:** `run_structure_agent` + `run_task_hours_recovery_agent` exist with
-      unit tests (mocked Responses); no real API key in default suite.
+- [x] **AC-02:** `run_structure_agent` + `run_task_hours_recovery_agent` exist with
+      unit tests (mocked Responses); no real API key in default suite
+      (`tests/services/agentic/test_structure_and_recovery_agents.py`).
 - [x] **AC-03:** `build_graph(MemorySaver())` runs end-to-end in tests: pauses at
       gate 1, resumes, pauses at gate 2, completes with `status` set.
 - [x] **AC-04:** Fan-out produces one `task_hours` row per approved task; resume
@@ -378,21 +379,24 @@ Client transcript
 - [x] **AC-08:** CLI `--memory --stub` completes with auto-approved gates — helpers
       covered by `tests/estimation_graph/test_cli_helpers.py` (MemorySaver + fakes);
       live LLM smoke remains manual / optional `@pytest.mark.slow`.
-- [x] **AC-09 (partial):** `open_checkpointer` runs idempotent `setup()` over a
-      pooled `AsyncPostgresSaver` (coexists with pgvector tables). README note
-      deferred to Step 9 docs.
-- [x] **AC-10 (partial):** Graph init failure leaves `app.state.graph = None` and
-      `/health` stays 200 (lifespan unit tests). Full agent/RAG/CAG suite re-check
-      remains a finish-task gate.
-- [x] **AC-11:** Settings already in `.env.example` (Step 1); README + technical
-      note `docs/technical/estimation-graph-s13.md` drafted (Step 9); refine after
-      Steps 5–6.
+- [x] **AC-09:** `open_checkpointer` runs idempotent `setup()` over a pooled
+      `AsyncPostgresSaver` (coexists with pgvector tables). Documented in README
+      Session 13 section + `docs/technical/estimation-graph-s13.md`.
+- [x] **AC-10:** Graph init failure leaves `app.state.graph = None` and `/health`
+      stays 200 (`tests/estimation_graph/test_graph_lifespan.py`). Feature-scoped
+      fast suite green at closure; full-repo suite has **pre-existing** unrelated
+      failures on `main` (worktree manifest tests + two config defaults polluted by
+      local env) — not introduced by this feature.
+- [x] **AC-11:** `GRAPH_*` in `.env.example`; README Session 13 section; technical
+      note `docs/technical/estimation-graph-s13.md`; session note under
+      `learnings/docs/sesiones/`.
 - [x] **AC-12 (optional stream slice):** `POST /graph/stream` returns 202;
       `GET /progress` eventually shows `paused` or `completed` with activity lines
       (`tests/routers/test_estimate_graph.py` + `tests/estimation_graph/test_activity.py`).
       Also: `resume-stream` (202/409) and on-demand `POST …/proposal`.
-- [ ] **AC-13 (optional UI):** React screen can drive start → gate 1 → resume →
-      gate 2 → complete (may be `front-feature-NNN` child).
+- [ ] **AC-13 (optional UI — deferred):** React screen can drive start → gate 1 →
+      resume → gate 2 → complete. **Out of scope for this closure**; track as a
+      child via `/write-front-feature` (Step 10 follow-up).
 
 ---
 
@@ -429,10 +433,19 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
 
 ## Verification
 
-- **Automated:** fast pytest graph + agentic + router tests; full default suite
-- **Manual:** CLI `--memory --stub`; optional full Postgres run
-- **Not verified yet:** Live Logfire export aesthetics; React wizard UX; byte-identical
-  estimates vs official (schema/model drift expected)
+**Closure evidence (2026-07-19 / finish-task):**
+
+| Check | Result |
+| --- | --- |
+| `uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py tests/services/agentic tests/exercises/test_session_13_assets.py -q` | **66 passed** |
+| Full `uv run pytest -q` | 916 passed, 7 failed (same 7 fail on `main` — unrelated) |
+| Secrets / `evaluation/generation/results/` | Not committed (left untracked) |
+| Branch naming | `feature/066-langgraph-multi-agent-estimation-s13` matches work item |
+
+- **Manual (optional residual):** live CLI with Postgres checkpointer + real retrieval;
+  React wizard (AC-13 / Step 10)
+- **Not verified:** Live Logfire export aesthetics; byte-identical estimates vs
+  official `session_13_live` (schema/model drift expected)
 
 ---
 
@@ -470,8 +483,9 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
 - [x] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
 - [x] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
 - [x] **Step 9:** Docs draft (`docs/technical/estimation-graph-s13.md`, README
-      pointers, session note) — refine after Steps 5–6 finalize HTTP/lifespan.
-- [ ] **Step 10 (optional child):** React graph wizard (`/write-front-feature`).
+      pointers, session note) — refined at finish-task for HTTP/stream/lifespan.
+- [ ] **Step 10 (optional child — deferred):** React graph wizard
+      (`/write-front-feature`). Not required to close feature-066.
 
 Suggested commit cadence: one step ≈ one commit (≤ ~100–200 meaningful lines where
 practical; deps commit separate).
@@ -494,6 +508,12 @@ practical; deps commit separate).
    consensus math.
 7. **feature-053 residuals are not S13.** Keep FR-20 / corpus jobs / chunker lab UI
    as separate follow-ups.
+8. **Close the API/CLI slice without the React wizard.** AC-13 / Step 10 is a
+   deliberate child; shipping the graph HTTP+CLI contract unblocks pedagogy and
+   keeps the PR reviewable.
+9. **Graph init must stay optional infrastructure.** Finish-task reconfirmed:
+   lifespan tests leave `app.state.graph = None` while `/health` stays 200; do not
+   couple Postgres checkpointer availability to the whole API.
 
 ---
 
@@ -531,13 +551,50 @@ split stream/UI if the core PR grows past reviewability.
 - [x] Step 8: stream/progress/proposal + activity log (2026-07-19) —
       `activity.py`, router stream/resume-stream/progress/proposal, AC-12 green
 - [x] Step 9: docs draft + session note (2026-07-19) — HTTP/stream contract synced
-- [ ] Step 10: optional React wizard (child)
+- [ ] Step 10: optional React wizard (deferred follow-up; not blocking closure)
 
 ---
 
 ## Pull Request
 
-- Draft: https://github.com/povedica/master-ia-lidr/pull/60 (label: `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/60
+
+---
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `dcc91df` | `docs(feature-066): add Session 13 LangGraph multi-agent estimation work item` |
+| `2be48ea` | `feat(estimation-graph): add LangGraph deps, settings, and DSN helper` |
+| `257970c` | `feat(agentic): add Session 13 structure and hours-recovery agents` |
+| `2d5f8ec` | `feat(estimation-graph): add EstimationState and routing helpers` |
+| `1e7eb0e` | `feat(estimation-graph): wire multi-agent graph with MemorySaver e2e` |
+| `8084752` | `feat(estimation-graph): add Session 13 CLI and exercise kit` |
+| `3659fbd` | `feat(estimation-graph): add Postgres checkpointer and resilient lifespan` |
+| `bcb28a0` | `docs(estimation-graph): draft Session 13 technical and exercise docs` |
+| `bcee47e` | `feat(estimation-graph): expose start/resume/state HTTP API` |
+| `13c2189` | `feat(estimation-graph): add stream, progress, proposal, and activity feed` |
+
+(Finish-task docs/closure commit appended below when landed.)
+
+---
+
+## Follow-ups (explicit)
+
+1. **Step 10 / AC-13:** React graph wizard (`/write-front-feature`) consuming
+   `/api/v1/estimate/graph*` + progress poll.
+2. **Live smoke:** CLI without `--memory` against docker Postgres + ingested task
+   corpus; optional `@pytest.mark.slow` checkpointer test.
+3. **Pre-existing suite debt (not this feature):** `tests/scripts/test_worktree_tasks.py`
+   model fields; `tests/test_config.py` defaults vs local env pollution.
+
+---
+
+## Status
+
+**Completed** (2026-07-19) — Steps 1–9 delivered; AC-01–AC-12 accepted; AC-13 /
+Step 10 deferred as optional UI child. PR #60 is the merge vehicle.
 
 ---
 

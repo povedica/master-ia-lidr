@@ -7,20 +7,22 @@ explícito y tipado**, no una caja negra: handovers con `Command`, puertas con
 `interrupt()`, fan-out con `Send`, y un reducer keyed para no duplicar horas al
 reanudar.
 
-## Qué quedó en `master-ia` (hasta Step 7)
+## Qué quedó en `master-ia` (feature-066 cerrado, Steps 1–9)
 
 | Pieza | Ubicación |
 | --- | --- |
 | Estado + reducer keyed | `app/services/estimation_graph/state.py` |
 | Compilación del grafo | `app/services/estimation_graph/build.py` |
+| Checkpointer Postgres | `app/services/estimation_graph/checkpointer.py` + lifespan → `app.state.graph` |
 | Agentes / puertas | `app/services/estimation_graph/agents/*` |
+| Activity feed (stream) | `app/services/estimation_graph/activity.py` |
 | Agentes S12 en dos fases | `run_structure_agent`, `run_task_hours_recovery_agent` |
+| HTTP | `POST/GET /api/v1/estimate/graph*` (start, resume, state, stream, progress, proposal) |
 | CLI entregable | `app/scripts/run_graph_s13.py` |
 | Ejercicio | `exercises/session-13/` |
-| Tests MemorySaver | `tests/estimation_graph/` |
+| Tests MemorySaver + router | `tests/estimation_graph/`, `tests/routers/test_estimate_graph.py` |
 
-Pendiente de otros steps: checkpointer Postgres + lifespan (`app.state.graph`),
-router HTTP `/api/v1/estimate/graph*`, stream/progress, wizard React.
+**Deferred (follow-up):** React wizard (AC-13 / Step 10) via `/write-front-feature`.
 
 ## Topología en vivo
 
@@ -34,7 +36,7 @@ classifier → structure → 🧑 gate 1 → Send×N hours → recover → analy
 2. **Logging stdlib** — sin `structlog`.
 3. **LLM estructurado** — `complete_graph_structured` (Instructor/LiteLLM), no `LLMWrapper`.
 4. **Structure / recovery** — Responses API directa (misma excepción que feature-054).
-5. **Superficie aditiva** — agent / RAG / CAG intactos.
+5. **Superficie aditiva** — agent / RAG / CAG intactos; grafo caído → 503 solo en rutas graph.
 
 ## Comandos
 
@@ -45,14 +47,17 @@ uv run python app/scripts/run_graph_s13.py --memory --stub
 # Informe local (no commitear)
 uv run python app/scripts/run_graph_s13.py --memory --stub \
   --out /tmp/example_run_complex.txt
-```
 
-Tras Step 5, el path completo usa el checkpointer de Postgres (sin `--memory`).
+# Path completo (checkpointer Postgres + retrieval real; stack up + corpus)
+uv run python app/scripts/run_graph_s13.py \
+  --out /tmp/example_run_complex.txt
+```
 
 ## Tests (sin API key en CI)
 
 ```bash
-uv run pytest tests/estimation_graph tests/exercises/test_session_13_assets.py -q
+uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py \
+  tests/services/agentic tests/exercises/test_session_13_assets.py -q
 ```
 
 ## Documentación técnica
