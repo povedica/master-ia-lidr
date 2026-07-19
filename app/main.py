@@ -15,6 +15,7 @@ from app.middleware.request_id import install_request_id_logging, request_id_mid
 from app.routers import (
     agent_estimations,
     embeddings,
+    estimate_graph,
     estimations,
     estimations_v2,
     rag_estimations,
@@ -125,6 +126,7 @@ app.include_router(retrieval.router, prefix="/api/v1")
 app.include_router(retrieval_advanced.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
 app.include_router(agent_estimations.router, prefix="/api/v1")
+app.include_router(estimate_graph.router, prefix="/api/v1")
 app.include_router(rag_stages.router, prefix="/api/v1")
 app.include_router(rag_task_hours.router, prefix="/api/v1")
 app.include_router(runtime_config.router, prefix="/api/v1")
@@ -149,6 +151,9 @@ def read_root() -> dict[str, str]:
         "retrieval_advanced": "POST /api/v1/retrieval/advanced",
         "estimate_rag": "POST /api/v1/estimate/rag",
         "estimate_agent": "POST /api/v1/estimate/agent",
+        "estimate_graph": "POST /api/v1/estimate/graph",
+        "estimate_graph_resume": "POST /api/v1/estimate/graph/{id}/resume",
+        "estimate_graph_state": "GET /api/v1/estimate/graph/{id}/state",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
         "config_retrieval": "GET/PUT /api/v1/config/retrieval",
         "config_models": "GET/PUT /api/v1/config/models",

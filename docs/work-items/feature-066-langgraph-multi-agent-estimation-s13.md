@@ -369,9 +369,10 @@ Client transcript
 - [x] **AC-04:** Fan-out produces one `task_hours` row per approved task; resume
       re-entry does **not** duplicate rows (`merge_task_hours`).
 - [x] **AC-05:** Flagged task path invokes recovery agent (asserted via fake).
-- [ ] **AC-06:** `POST /api/v1/estimate/graph` without key returns 401 when
-      `ESTIMATE_API_KEY` is set; with key returns `GraphRunState`.
-- [ ] **AC-07:** Resume without pending gate returns **409**; unknown id state
+- [x] **AC-06:** `POST /api/v1/estimate/graph` without key returns 401 when
+      `ESTIMATE_API_KEY` is set; with key returns `GraphRunState`
+      (`tests/routers/test_estimate_graph.py`).
+- [x] **AC-07:** Resume without pending gate returns **409**; unknown id state
       returns **404**; graph not built returns **503**.
 - [x] **AC-08:** CLI `--memory --stub` completes with auto-approved gates — helpers
       covered by `tests/estimation_graph/test_cli_helpers.py` (MemorySaver + fakes);
@@ -461,7 +462,7 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
       *Verification:* app starts when Postgres down / checkpointer fails with
       `graph=None`; `/health` OK. `estimate_one` self-wires to `estimate_one_task`
       (recovery retrieval DI still stub until Step 6/7).
-- [ ] **Step 6:** HTTP router (start / resume / state) + auth/rate-limit + tests.
+- [x] **Step 6:** HTTP router (start / resume / state) + auth/rate-limit + tests.
 - [x] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
 - [ ] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
 - [x] **Step 9:** Docs draft (`docs/technical/estimation-graph-s13.md`, README
@@ -517,7 +518,10 @@ split stream/UI if the core PR grows past reviewability.
 - [x] Step 4: agents + `build_graph(MemorySaver)` e2e (2026-07-19)
 - [x] Step 5: `open_checkpointer` (AsyncPostgresSaver + pool) + resilient lifespan
       → `app.state.graph`; `estimate_one` → `estimate_one_task` self-wire (2026-07-19)
-- [ ] Step 6: HTTP router
+- [x] Step 6: HTTP router (2026-07-19) — `app/routers/estimate_graph.py`,
+      `app/schemas/graph_estimation.py`, `tests/routers/test_estimate_graph.py`;
+      registered in `app/main.py`; AC-06/AC-07 green (start/resume/state only;
+      stream/progress/proposal deferred to Step 8)
 - [x] Step 7: CLI + exercises (2026-07-19) — `app/scripts/run_graph_s13.py`,
       `exercises/session-13/`, CLI helper tests
 - [ ] Step 8: optional stream/progress/proposal
