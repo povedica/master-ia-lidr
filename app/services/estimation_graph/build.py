@@ -1,97 +1,90 @@
-"""Wire and compile the multi-agent estimation graph (feature-066 / Session 13).
+"""Wire and compile the supervisor/worker estimation graph (feature-067).
 
 Topology:
 
-    START → classifier_agent
-    classifier_agent      ──Command(goto)──▶  structure_agent      (HANDOVER 1)
-    structure_agent       ──edge──▶           human_gate_structure (interrupt #1)
-    human_gate_structure  ──Send fan-out──▶   estimate_task_hours × N
-    estimate_task_hours   ──edge──▶           recover_and_handover (join)
-    recover_and_handover  ──Command(goto)──▶  analysis_agent       (HANDOVER 2)
-    analysis_agent        ──edge──▶           human_gate_analysis  (interrupt #2)
-    human_gate_analysis   ──conditional──▶    proposal_agent | END
+    START → supervisor
+      ├─Command→ requirements_extractor ─edge→ supervisor
+      ├─Command→ budget_searcher        ─edge→ supervisor
+      ├─Command→ estimate_generator     ─edge→ supervisor
+      ├─Command→ coherence_validator    ─edge→ supervisor
+      ├─Command→ human_review [interrupt] ─edge→ supervisor
+      └─Command→ END
 """
 
 from __future__ import annotations
 
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from app.config import get_settings
-from app.services.estimation_graph.agents import (
-    analysis_agent,
-    classifier_agent,
-    estimate_task_hours,
-    human_gate_analysis,
-    human_gate_structure,
-    proposal_agent,
-    recover_and_handover,
-    structure_agent,
+from langgraph.graph import END, START, StateGraph
+
+from app.services.estimation_graph.agents.budget_searcher import build_budget_searcher
+from app.services.estimation_graph.agents.coherence_validator import (
+    build_coherence_validator,
+)
+from app.services.estimation_graph.agents.estimate_generator import (
+    build_estimate_generator,
+)
+from app.services.estimation_graph.agents.human_review import human_review
+from app.services.estimation_graph.agents.requirements_extractor import (
+    build_requirements_extractor,
 )
 from app.services.estimation_graph.state import EstimationState
+from app.services.estimation_graph.supervisor import supervisor as supervisor_node
+
+Worker = Callable[[EstimationState], Awaitable[dict[str, Any]]]
 
 
-def fan_out_hours(state: EstimationState):
-    """Conditional edge after gate 1: one ``Send`` per approved task."""
-    modules = state.get("approved_modules") or []
-    sends = [
-        Send(
-            "estimate_task_hours",
-            {
-                "module": module["name"],
-                "task": task["name"],
-                "description": task.get("description"),
-            },
-        )
-        for module in modules
-        for task in (module.get("tasks") or [])
-        if task.get("name")
-    ]
-    return sends or "recover_and_handover"
-
-
-def route_after_gate2(state: EstimationState) -> str:
-    """Conditional edge after gate 2: draft a proposal, or end."""
-    settings = get_settings()
-    decision = state.get("gate2_decision") or {}
-    if settings.graph_proposal_enabled and decision.get("want_proposal"):
-        return "proposal"
-    return "end"
-
-
-def build_graph(checkpointer=None):
-    """Build and compile the multi-agent estimation graph.
+def build_graph(
+    checkpointer=None,
+    *,
+    complete_fn=None,
+    search_budgets_fn=None,
+    calculate_estimate_fn=None,
+    validate_estimate_fn=None,
+    retrieval_backend=None,
+    confidence_threshold: float | None = None,
+):
+    """Build and compile the supervisor/worker estimation graph.
 
     ``checkpointer`` persists state per ``thread_id`` (``AsyncPostgresSaver`` in
-    the app, ``MemorySaver`` in tests). Required for interrupt/resume at human gates.
+    the app, ``MemorySaver`` in tests). Optional callables inject fakes for the
+    default network-free suite.
     """
+    requirements_extractor = build_requirements_extractor(complete_fn=complete_fn)
+    budget_searcher = build_budget_searcher(
+        search_budgets_fn,
+        backend=retrieval_backend,
+    )
+    estimate_generator = build_estimate_generator(
+        calculate_estimate_fn=calculate_estimate_fn,
+    )
+    coherence_validator = build_coherence_validator(
+        validate_estimate_fn=validate_estimate_fn,
+        confidence_threshold=confidence_threshold,
+    )
+
+    def _supervisor(state: EstimationState):
+        return supervisor_node(state, confidence_threshold=confidence_threshold)
+
     builder = StateGraph(EstimationState)
+    builder.add_node("supervisor", _supervisor)
+    builder.add_node("requirements_extractor", requirements_extractor)
+    builder.add_node("budget_searcher", budget_searcher)
+    builder.add_node("estimate_generator", estimate_generator)
+    builder.add_node("coherence_validator", coherence_validator)
+    builder.add_node("human_review", human_review)
 
-    builder.add_node("classifier_agent", classifier_agent)
-    builder.add_node("structure_agent", structure_agent)
-    builder.add_node("human_gate_structure", human_gate_structure)
-    builder.add_node("estimate_task_hours", estimate_task_hours)
-    builder.add_node("recover_and_handover", recover_and_handover)
-    builder.add_node("analysis_agent", analysis_agent)
-    builder.add_node("human_gate_analysis", human_gate_analysis)
-    builder.add_node("proposal_agent", proposal_agent)
+    builder.add_edge(START, "supervisor")
+    for node in (
+        "requirements_extractor",
+        "budget_searcher",
+        "estimate_generator",
+        "coherence_validator",
+        "human_review",
+    ):
+        builder.add_edge(node, "supervisor")
 
-    builder.add_edge(START, "classifier_agent")
-    # classifier_agent → structure_agent is a Command(goto) handover (no static edge).
-    builder.add_edge("structure_agent", "human_gate_structure")
-    builder.add_conditional_edges(
-        "human_gate_structure",
-        fan_out_hours,
-        ["estimate_task_hours", "recover_and_handover"],
-    )
-    builder.add_edge("estimate_task_hours", "recover_and_handover")
-    # recover_and_handover → analysis_agent is a Command(goto) handover (no static edge).
-    builder.add_edge("analysis_agent", "human_gate_analysis")
-    builder.add_conditional_edges(
-        "human_gate_analysis",
-        route_after_gate2,
-        {"proposal": "proposal_agent", "end": END},
-    )
-    builder.add_edge("proposal_agent", END)
-
+    # Terminal transitions use Command(goto=END) from the supervisor.
+    _ = END
     return builder.compile(checkpointer=checkpointer)

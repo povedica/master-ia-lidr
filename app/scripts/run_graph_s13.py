@@ -1,36 +1,24 @@
 #!/usr/bin/env python3
-"""Session 13 — run the multi-agent estimation graph end to end.
+"""Session 14 — run the supervisor/worker estimation graph end to end.
 
-Drives the compiled LangGraph ``StateGraph`` (``app.services.estimation_graph``)
-through the full agent pipeline, AUTO-APPROVING the two human gates so a whole
-run completes without a person in the loop:
-
-    classifier_agent → structure_agent → [HUMAN GATE 1] → estimate_task_hours × N
-      → recover_and_handover → analysis_agent → [HUMAN GATE 2] → proposal_agent
-
-Each ``interrupt()`` pauses the graph; this script resumes it with a canned
-``Command(resume=...)`` (accept the structure at gate 1; validate + ask for a
-proposal at gate 2). In production the HTTP resume endpoints (feature-066 Step 6)
-supply those decisions from the UI.
+Drives the compiled LangGraph ``StateGraph`` through the supervisor/workers
+pipeline. When conditional HITL pauses at ``estimation_review``, this script
+auto-resumes with a canned approve decision (override via ``GATE_DECISIONS``).
 
 Persistence:
 
-* Default: Postgres checkpointer via ``open_checkpointer()`` (feature-066 Step 5).
+* Default: Postgres checkpointer via ``open_checkpointer()``.
 * ``--memory``: in-process ``MemorySaver`` (no database for checkpoints).
 
-``--stub`` swaps the real per-task hours retrieval (``estimate_one``) for a canned
-offline estimate so the fan-out needs no database. The real path needs the
-historical-task corpus ingested and a working ``estimate_one`` binding.
+``--stub`` injects offline worker dependencies (no live retrieval / LLM).
 
 Run variants::
 
-    # Partial-offline smoke: no DB, canned per-task hours (still needs OPENAI_API_KEY
-    # for the classifier / structure / analysis / proposal agents)
     uv run python app/scripts/run_graph_s13.py --memory --stub
 
-    # Full path (Postgres checkpointer + real task-hours retrieval) — needs Step 5
     uv run python app/scripts/run_graph_s13.py \\
-        --out exercises/session-13/example_run_complex.txt
+        --transcript exercises/session-14/sample_transcript_edge_case.txt \\
+        --out /tmp/supervisor_hitl_edge_case_trace.txt
 """
 
 from __future__ import annotations
@@ -39,134 +27,212 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 from langgraph.types import Command
 
-from app.schemas.rag_task_hours import TaskHoursEstimateView
 from app.services.estimation_graph.build import build_graph
+from app.services.estimation_graph.schemas import (
+    ExtractedRequirement,
+    ExtractedRequirements,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TRANSCRIPT = (
+    REPO_ROOT / "exercises" / "session-14" / "sample_transcript_edge_case.txt"
+)
+LEGACY_TRANSCRIPT = (
     REPO_ROOT / "exercises" / "session-13" / "sample_transcript_complex.txt"
 )
 
-# Canned resume decisions the runner feeds at each gate (auto-approval).
+# Canned resume decisions the runner feeds at each interrupt (auto-approval).
 GATE_DECISIONS = {
-    "structure_review": {"approved": True},
-    "final_review": {"validated": True, "want_proposal": True},
+    "estimation_review": {
+        "action": "approve",
+        "comment": "CLI auto-approve for offline / smoke runs.",
+    },
 }
 
 
-def install_stub_hours() -> None:
-    """Monkeypatch per-task hours retrieval with a canned offline estimate.
+async def _stub_complete(**kwargs: Any) -> ExtractedRequirements:
+    del kwargs
+    return ExtractedRequirements(
+        requirements=[
+            ExtractedRequirement(
+                id="req-1",
+                text="Quantum logistics teleportation dashboard",
+                category="r&d",
+            ),
+            ExtractedRequirement(
+                id="req-2",
+                text="Legacy ERP holographic bridge",
+                category="integration",
+            ),
+        ]
+    )
 
-    Keeps the fan-out DB-free: every task gets a deterministic grounded estimate, so
-    no task is flagged and the recovery loop never runs.
-    """
-    from app.services.estimation_graph.agents import hours as hours_mod
 
-    async def _stub_estimate_one(
-        module: str,
-        name: str,
-        description: str | None,
-        *,
-        top_k: int,
-        distance_threshold: float,
-        **kwargs: object,
-    ) -> TaskHoursEstimateView:
-        del description, top_k, distance_threshold, kwargs
-        hours = 8 + (abs(hash((module, name))) % 10) * 8  # 8..80h
-        return TaskHoursEstimateView(
-            module=module,
-            task=name,
-            estimated_hours=hours,
-            reliability=0.82,
-            has_match=True,
-            dispersion=0.1,
-            neighbors=[],
+async def _stub_search(raw_args: dict[str, Any], *, backend: Any = None) -> dict[str, Any]:
+    del raw_args, backend
+    return {"items": [], "count": 0, "summary": "no historical items"}
+
+
+def _stub_calculate(raw_args: dict[str, Any]) -> dict[str, Any]:
+    components = []
+    for component in raw_args.get("components") or []:
+        refs = component.get("reference_amounts") or []
+        hours = round(float(refs[0]) * 1.15, 1) if refs else 0.0
+        components.append(
+            {
+                "name": component["name"],
+                "reference_count": len(refs),
+                "estimated_hours": hours,
+                "unbudgeted": not refs,
+            }
         )
+    total = round(sum(row["estimated_hours"] for row in components), 1)
+    return {
+        "components": components,
+        "total_hours": total,
+        "contingency_factor": 0.15,
+        "summary": f"total={total}h",
+    }
 
-    hours_mod.estimate_one = _stub_estimate_one  # type: ignore[assignment]
+
+def _stub_validate(raw_args: dict[str, Any]) -> dict[str, Any]:
+    issues = [
+        f"{component['name']!r} has no historical reference (unbudgeted)."
+        for component in raw_args.get("components") or []
+        if not component.get("reference_amounts")
+    ]
+    return {
+        "ok": not issues,
+        "issues": issues,
+        "summary": "ok" if not issues else f"{len(issues)} issue(s) found",
+    }
+
+
+def install_stub_workers() -> dict[str, Any]:
+    """Return injectable offline worker dependencies for ``build_graph``."""
+    return {
+        "complete_fn": _stub_complete,
+        "search_budgets_fn": _stub_search,
+        "calculate_estimate_fn": _stub_calculate,
+        "validate_estimate_fn": _stub_validate,
+        "confidence_threshold": 0.70,
+    }
+
+
+# Backward-compatible alias used by older tests/docs.
+def install_stub_hours() -> None:
+    """Deprecated S13 hook; Session 14 stubs are installed via ``install_stub_workers``."""
+    return None
 
 
 def render_run(state: dict) -> str:
     """Render a completed graph state as a human-readable run report."""
     lines = [
         "=" * 78,
-        "SESSION 13 — MULTI-AGENT ESTIMATION GRAPH RUN",
+        "SESSION 14 — SUPERVISOR/WORKER ESTIMATION GRAPH RUN",
         "=" * 78,
         f"estimation_id : {state.get('estimation_id')}",
-        f"complexity    : {state.get('complexity')}",
         f"status        : {state.get('status')}",
+        f"confidence    : {state.get('confidence')}",
+        f"last_route    : {state.get('last_route')}",
+        f"route_reason  : {state.get('route_reason')}",
         "",
-        "STRUCTURE (structure_agent → gate 1)",
+        "REQUIREMENTS",
     ]
-    for module in (state.get("structure") or {}).get("modules") or []:
-        lines.append(f"  ▸ {module.get('name')}")
-        for task in module.get("tasks") or []:
-            lines.append(f"      - {task.get('name')}")
+    for requirement in state.get("requirements") or []:
+        if isinstance(requirement, dict):
+            lines.append(
+                f"  ▸ {requirement.get('id')}: {requirement.get('text')} "
+                f"[{requirement.get('category')}]"
+            )
+        else:
+            lines.append(f"  ▸ {requirement}")
 
-    lines += ["", "ESTIMATE (hours agent → analysis → gate 2)"]
+    lines += ["", "BUDGET MATCHES"]
+    for match in state.get("budget_matches") or []:
+        marker = "NO MATCH" if match.get("no_match") else match.get("reference_budget_id")
+        lines.append(
+            f"  ▸ {match.get('requirement_id')}: {marker} "
+            f"({match.get('amount')}h, d={match.get('distance')})"
+        )
+
     estimate = state.get("estimate") or {}
-    for module in estimate.get("modules") or []:
-        lines.append(f"  ▸ {module.get('name')}")
-        for task in module.get("tasks") or []:
-            hours = task.get("estimated_hours")
-            hours_text = f"{hours}h" if hours is not None else "NO MATCH"
-            flag = "" if task.get("has_match") else "  ⚠ flagged"
-            lines.append(f"      - {task.get('name')}: {hours_text}{flag}")
-    lines.append(
-        f"  TOTAL: {estimate.get('total_engineer_days')}d "
-        f"({estimate.get('total_engineer_hours')}h, confidence {estimate.get('confidence')})"
-    )
+    lines += ["", "ESTIMATE"]
+    for component in estimate.get("components") or []:
+        flag = " ⚠ unbudgeted" if component.get("unbudgeted") else ""
+        lines.append(
+            f"  ▸ {component.get('name')}: {component.get('estimated_hours')}h{flag}"
+        )
+    lines.append(f"  TOTAL: {estimate.get('total_hours')}h")
 
-    report = state.get("analysis_report") or {}
-    lines += ["", "RELIABILITY REPORT (analysis_agent)"]
-    lines.append(f"  overall_confidence : {report.get('overall_confidence')}")
-    lines.append(f"  grounded_task_ratio: {report.get('grounded_task_ratio')}")
-    for weak in report.get("weak_points") or []:
-        lines.append(f"  - [{weak.get('severity')}] {weak.get('area')}: {weak.get('issue')}")
-    if report.get("summary"):
-        lines.append(f"  summary: {report.get('summary')}")
+    validation = state.get("validation") or {}
+    lines += ["", "VALIDATION"]
+    lines.append(f"  ok            : {validation.get('ok')}")
+    lines.append(f"  no_precedent  : {validation.get('no_precedent')}")
+    lines.append(f"  out_of_range  : {validation.get('out_of_historical_range')}")
+    for reason in validation.get("review_reasons") or []:
+        lines.append(f"  - reason: {reason}")
 
-    proposal = state.get("proposal")
-    if proposal:
-        lines += ["", "COMMERCIAL PROPOSAL (proposal_agent — bonus)", str(proposal)]
+    resolution = state.get("human_resolution")
+    if resolution:
+        lines += ["", "HUMAN RESOLUTION", f"  {resolution}"]
+
+    decisions = state.get("supervisor_decisions") or []
+    if decisions:
+        lines += ["", "SUPERVISOR DECISIONS"]
+        for decision in decisions:
+            lines.append(f"  → {decision.get('goto')} ({decision.get('reason')})")
 
     errors = state.get("errors") or []
     if errors:
         lines += ["", "ERRORS / ISSUES"]
-        lines += [f"  - {e}" for e in errors]
+        lines += [f"  - {error}" for error in errors]
     return "\n".join(lines)
 
 
 async def run_to_completion(graph, transcript: str, estimation_id: str) -> dict:
-    """Start the run and auto-approve every human gate until it completes."""
+    """Start the run and auto-resolve every human interrupt until it completes."""
     config = {"configurable": {"thread_id": estimation_id}}
     await graph.ainvoke(
-        {"transcript": transcript, "estimation_id": estimation_id},
+        {
+            "transcript": transcript,
+            "estimation_id": estimation_id,
+            "status": "running",
+        },
         config,
     )
 
     while True:
         snapshot = await graph.aget_state(config)
         if not snapshot.next:
-            return snapshot.values  # completed
+            return snapshot.values
         interrupts = snapshot.interrupts or ()
         if not interrupts:
             await graph.ainvoke(None, config)
             continue
         gate = (interrupts[0].value or {}).get("gate", "")
-        decision = GATE_DECISIONS.get(gate, {"approved": True, "validated": True})
+        decision = GATE_DECISIONS.get(
+            gate,
+            {"action": "approve", "comment": "CLI default approve"},
+        )
         print(f"  ⏸ human gate '{gate}' → auto-resume {decision}")
         await graph.ainvoke(Command(resume=decision), config)
 
 
 def _resolve_open_checkpointer():
-    """Return ``open_checkpointer`` when Step 5 has wired it; else ``None``."""
     from app.services.estimation_graph import checkpointer as checkpointer_mod
 
     return getattr(checkpointer_mod, "open_checkpointer", None)
+
+
+def _default_transcript_path() -> Path:
+    if DEFAULT_TRANSCRIPT.is_file():
+        return DEFAULT_TRANSCRIPT
+    return LEGACY_TRANSCRIPT
 
 
 async def _main_async(args: argparse.Namespace) -> int:
@@ -175,32 +241,32 @@ async def _main_async(args: argparse.Namespace) -> int:
         print(f"ERROR: transcript not found: {transcript_path}", file=sys.stderr)
         return 1
     transcript = transcript_path.read_text(encoding="utf-8")
-    estimation_id = args.estimation_id or f"s13-{transcript_path.stem}"
+    estimation_id = args.estimation_id or f"s14-{transcript_path.stem}"
 
+    build_kwargs: dict[str, Any] = {}
     if args.stub:
-        install_stub_hours()
+        build_kwargs.update(install_stub_workers())
 
     print(f"transcript    : {transcript_path}")
     print(f"checkpointer  : {'MemorySaver' if args.memory else 'AsyncPostgresSaver (pool)'}")
-    print(f"per-task hours: {'stub (offline)' if args.stub else 'real estimate_one()'}")
+    print(f"workers       : {'stub (offline)' if args.stub else 'live dependencies'}")
     print(f"estimation_id : {estimation_id}\n")
 
     if args.memory:
         from langgraph.checkpoint.memory import MemorySaver
 
-        graph = build_graph(MemorySaver())
+        graph = build_graph(MemorySaver(), **build_kwargs)
         state = await run_to_completion(graph, transcript, estimation_id)
     else:
         open_checkpointer = _resolve_open_checkpointer()
         if open_checkpointer is None:
             print(
-                "ERROR: Postgres checkpointer is not wired yet "
-                "(feature-066 Step 5: open_checkpointer). Use --memory for offline runs.",
+                "ERROR: Postgres checkpointer is not wired. Use --memory for offline runs.",
                 file=sys.stderr,
             )
             return 1
         async with open_checkpointer() as checkpointer:
-            graph = build_graph(checkpointer)
+            graph = build_graph(checkpointer, **build_kwargs)
             state = await run_to_completion(graph, transcript, estimation_id)
 
     rendered = render_run(state)
@@ -215,12 +281,12 @@ async def _main_async(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the Session 13 multi-agent estimation graph."
+        description="Run the Session 14 supervisor/worker estimation graph."
     )
     parser.add_argument(
         "--transcript",
-        default=str(DEFAULT_TRANSCRIPT),
-        help="Path to a meeting transcript .txt (default: session-13 complex RUTA).",
+        default=str(_default_transcript_path()),
+        help="Path to a meeting transcript .txt.",
     )
     parser.add_argument(
         "--estimation-id",
@@ -234,7 +300,7 @@ def main() -> int:
     parser.add_argument(
         "--stub",
         action="store_true",
-        help="Use canned offline per-task hours (no database for the fan-out).",
+        help="Inject offline worker fakes (no live LLM/retrieval).",
     )
     parser.add_argument("--out", help="Write the rendered run to this file.")
     args = parser.parse_args()

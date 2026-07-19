@@ -1,63 +1,29 @@
-"""Routing helpers for the estimation graph (feature-066 Step 3)."""
+"""Compiled supervisor/worker topology (feature-067)."""
 
 from __future__ import annotations
 
-import pytest
-from langgraph.types import Send
+from langgraph.checkpoint.memory import MemorySaver
 
-from app.config import get_settings
-from app.services.estimation_graph.build import fan_out_hours, route_after_gate2
+from app.services.estimation_graph.build import build_graph
 
 
-@pytest.fixture(autouse=True)
-def _clear_settings_cache() -> None:
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+def test_build_graph_compiles_supervisor_worker_topology() -> None:
+    graph = build_graph(MemorySaver())
+    nodes = set(graph.get_graph().nodes)
+    assert "supervisor" in nodes
+    assert "requirements_extractor" in nodes
+    assert "budget_searcher" in nodes
+    assert "estimate_generator" in nodes
+    assert "coherence_validator" in nodes
+    assert "human_review" in nodes
+    assert "classifier_agent" not in nodes
+    assert "human_gate_structure" not in nodes
+    assert "create_supervisor" not in repr(graph).lower()
 
 
-def test_fan_out_hours_emits_one_send_per_task() -> None:
-    state = {
-        "approved_modules": [
-            {
-                "name": "Auth",
-                "tasks": [
-                    {"name": "OAuth", "description": "tokens"},
-                    {"name": "RBAC"},
-                ],
-            },
-            {"name": "Reporting", "tasks": [{"name": "Dashboards"}]},
-        ]
-    }
-    sends = fan_out_hours(state)
-    assert isinstance(sends, list)
-    assert len(sends) == 3
-    assert all(isinstance(item, Send) for item in sends)
-    assert {item.node for item in sends} == {"estimate_task_hours"}
-    payloads = {(item.arg["module"], item.arg["task"]) for item in sends}
-    assert payloads == {
-        ("Auth", "OAuth"),
-        ("Auth", "RBAC"),
-        ("Reporting", "Dashboards"),
-    }
+def test_build_graph_accepts_injected_worker_dependencies() -> None:
+    async def complete(**kwargs):
+        raise AssertionError("should not run in this compile-only test")
 
-
-def test_fan_out_hours_with_no_tasks_routes_to_join() -> None:
-    assert fan_out_hours({"approved_modules": []}) == "recover_and_handover"
-    assert fan_out_hours({}) == "recover_and_handover"
-
-
-def test_route_after_gate2_honours_want_proposal(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GRAPH_PROPOSAL_ENABLED", "true")
-    get_settings.cache_clear()
-    assert route_after_gate2({"gate2_decision": {"want_proposal": True}}) == "proposal"
-    assert route_after_gate2({"gate2_decision": {"want_proposal": False}}) == "end"
-    assert route_after_gate2({}) == "end"
-
-
-def test_route_after_gate2_skips_proposal_when_disabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("GRAPH_PROPOSAL_ENABLED", "false")
-    get_settings.cache_clear()
-    assert route_after_gate2({"gate2_decision": {"want_proposal": True}}) == "end"
+    graph = build_graph(MemorySaver(), complete_fn=complete)
+    assert graph is not None
