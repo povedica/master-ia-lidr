@@ -557,7 +557,7 @@ split stream/UI if the core PR grows past reviewability.
 
 ## Pull Request
 
-- https://github.com/povedica/master-ia-lidr/pull/60
+- https://github.com/povedica/master-ia-lidr/pull/60 (**merged** 2026-07-19)
 
 ---
 
@@ -576,6 +576,8 @@ split stream/UI if the core PR grows past reviewability.
 | `bcee47e` | `feat(estimation-graph): expose start/resume/state HTTP API` |
 | `13c2189` | `feat(estimation-graph): add stream, progress, proposal, and activity feed` |
 | `550808a` | `docs(feature-066): close Session 13 graph slice and record verification` |
+| `b6dc0f4` | `docs(feature-066): record closure commit hash` |
+| `3304f51` | `Merge pull request #60` (into `main`) |
 
 ---
 
@@ -593,7 +595,8 @@ split stream/UI if the core PR grows past reviewability.
 ## Status
 
 **Completed** (2026-07-19) — Steps 1–9 delivered; AC-01–AC-12 accepted; AC-13 /
-Step 10 deferred as optional UI child. PR #60 is the merge vehicle.
+Step 10 deferred as optional UI child. PR #60 merged into `main`
+(`3304f51`).
 
 ---
 
