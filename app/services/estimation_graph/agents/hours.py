@@ -27,14 +27,37 @@ async def estimate_one(
     top_k: int,
     distance_threshold: float,
 ) -> TaskHoursEstimateView:
-    """Per-task hours lookup seam.
+    """Per-task hours via ``estimate_one_task`` (self-wires session/embedder/repo).
 
-    Production CLI/HTTP will bind a real ``estimate_one_task`` backend. Tests and
-    ``--stub`` runners monkeypatch this function.
+    Mirrors the official Session 13 seam: production calls the real RAG task-hours
+    path; tests and ``--stub`` runners monkeypatch this function. Recovery still
+    uses ``load_stub_retrieval_backend()`` until Step 6/7 binds production retrieval.
     """
-    raise RuntimeError(
-        "estimate_one is not bound; wire graph task-hours deps or monkeypatch in tests"
-    )
+    from app.database import get_session_factory, session_scope
+    from app.embedding_pipeline.embedder import OpenAIEmbedder
+    from app.embedding_pipeline.search_repository import SemanticSearchRepository
+    from app.services.rag_task_hours import estimate_one_task
+
+    settings = get_settings()
+    if not settings.database_url.strip():
+        raise RuntimeError(
+            "estimate_one requires DATABASE_URL (or monkeypatch in tests / --stub)"
+        )
+    factory = get_session_factory(settings)
+    embedder = OpenAIEmbedder(settings)
+    repository = SemanticSearchRepository()
+    async with session_scope(factory) as session:
+        return await estimate_one_task(
+            session,
+            module=module,
+            name=name,
+            description=description,
+            embedder=embedder,
+            settings=settings,
+            repository=repository,
+            top_k=top_k,
+            distance_threshold=distance_threshold,
+        )
 
 
 async def estimate_task_hours(state: dict) -> dict:

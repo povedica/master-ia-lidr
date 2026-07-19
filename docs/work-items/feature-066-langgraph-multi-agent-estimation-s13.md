@@ -373,14 +373,18 @@ Client transcript
       `ESTIMATE_API_KEY` is set; with key returns `GraphRunState`.
 - [ ] **AC-07:** Resume without pending gate returns **409**; unknown id state
       returns **404**; graph not built returns **503**.
-- [ ] **AC-08:** CLI `--memory --stub` completes with auto-approved gates (manual /
-      `@pytest.mark.slow` optional).
-- [ ] **AC-09:** Checkpointer tables coexist with pgvector (`checkpoints*` created
-      via `setup()`); documented in README.
-- [ ] **AC-10:** Existing agent/RAG/CAG tests still pass; graph init failure does
-      not break `/health`.
-- [ ] **AC-11:** Settings documented in `.env.example` + README; technical note
-      under `docs/technical/`.
+- [x] **AC-08:** CLI `--memory --stub` completes with auto-approved gates — helpers
+      covered by `tests/estimation_graph/test_cli_helpers.py` (MemorySaver + fakes);
+      live LLM smoke remains manual / optional `@pytest.mark.slow`.
+- [x] **AC-09 (partial):** `open_checkpointer` runs idempotent `setup()` over a
+      pooled `AsyncPostgresSaver` (coexists with pgvector tables). README note
+      deferred to Step 9 docs.
+- [x] **AC-10 (partial):** Graph init failure leaves `app.state.graph = None` and
+      `/health` stays 200 (lifespan unit tests). Full agent/RAG/CAG suite re-check
+      remains a finish-task gate.
+- [x] **AC-11:** Settings already in `.env.example` (Step 1); README + technical
+      note `docs/technical/estimation-graph-s13.md` drafted (Step 9); refine after
+      Steps 5–6.
 - [ ] **AC-12 (optional stream slice):** `POST /graph/stream` returns 202;
       `GET /progress` eventually shows `paused` or `completed` with activity lines.
 - [ ] **AC-13 (optional UI):** React screen can drive start → gate 1 → resume →
@@ -397,6 +401,8 @@ Client transcript
 - `tests/estimation_graph/test_build_routing.py` — `fan_out_hours`, `route_after_gate2`
 - `tests/estimation_graph/test_graph.py` — full MemorySaver e2e with fakes
 - `tests/estimation_graph/test_checkpointer_conninfo.py` — DSN stripping
+- `tests/estimation_graph/test_open_checkpointer.py` — pooled saver open/setup/close
+- `tests/estimation_graph/test_graph_lifespan.py` — resilient `app.state.graph` wiring
 - `tests/routers/test_estimate_graph.py` — auth, 409/404/503, response shape
 
 ### Integration tests
@@ -451,12 +457,15 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
       *TDD:* reducer + routing unit tests.
 - [x] **Step 4:** Port agents + gates; `build_graph` compiles with MemorySaver.  
       *TDD:* `test_graph.py` e2e RED → GREEN (fakes).
-- [ ] **Step 5:** Checkpointer + lifespan wiring (`app.state.graph`).  
-      *Verification:* app starts when Postgres down with `graph=None`; `/health` OK.
+- [x] **Step 5:** Checkpointer + lifespan wiring (`app.state.graph`).  
+      *Verification:* app starts when Postgres down / checkpointer fails with
+      `graph=None`; `/health` OK. `estimate_one` self-wires to `estimate_one_task`
+      (recovery retrieval DI still stub until Step 6/7).
 - [ ] **Step 6:** HTTP router (start / resume / state) + auth/rate-limit + tests.
-- [ ] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
+- [x] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
 - [ ] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
-- [ ] **Step 9:** Docs (`docs/technical/…`, README) + Second Brain note.
+- [x] **Step 9:** Docs draft (`docs/technical/estimation-graph-s13.md`, README
+      pointers, session note) — refine after Steps 5–6 finalize HTTP/lifespan.
 - [ ] **Step 10 (optional child):** React graph wizard (`/write-front-feature`).
 
 Suggested commit cadence: one step ≈ one commit (≤ ~100–200 meaningful lines where
@@ -506,11 +515,14 @@ split stream/UI if the core PR grows past reviewability.
 - [x] Step 2: two-phase agentic APIs (`run_structure_agent`, `run_task_hours_recovery_agent`, `derive_task_hours`) + mocked tests (2026-07-19)
 - [x] Step 3: `EstimationState` + `merge_task_hours` + `fan_out_hours` / `route_after_gate2` (2026-07-19)
 - [x] Step 4: agents + `build_graph(MemorySaver)` e2e (2026-07-19)
-- [ ] Step 5: checkpointer + lifespan
+- [x] Step 5: `open_checkpointer` (AsyncPostgresSaver + pool) + resilient lifespan
+      → `app.state.graph`; `estimate_one` → `estimate_one_task` self-wire (2026-07-19)
 - [ ] Step 6: HTTP router
-- [ ] Step 7: CLI + exercises
+- [x] Step 7: CLI + exercises (2026-07-19) — `app/scripts/run_graph_s13.py`,
+      `exercises/session-13/`, CLI helper tests
 - [ ] Step 8: optional stream/progress/proposal
-- [ ] Step 9: docs + Second Brain
+- [x] Step 9: docs draft + session note (2026-07-19) — finalize HTTP/lifespan
+      details after Steps 5–6
 - [ ] Step 10: optional React wizard (child)
 
 ---

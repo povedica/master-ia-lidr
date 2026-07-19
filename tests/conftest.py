@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 import pytest
 
@@ -71,3 +72,22 @@ def observability_noop_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.services.ai_model_service.get_observability", init)
     yield
     reset_observability_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def stub_estimation_graph_checkpointer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid real Postgres pool opens during TestClient lifespan (feature-066).
+
+    Lifespan catches the failure and leaves ``app.state.graph = None``. Tests that
+    exercise graph wiring override this fixture by re-patching ``open_checkpointer``.
+    """
+
+    @asynccontextmanager
+    async def _stub_open_checkpointer(*_args, **_kwargs):
+        raise RuntimeError("Postgres checkpointer disabled in default test suite")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(
+        "app.services.estimation_graph.checkpointer.open_checkpointer",
+        _stub_open_checkpointer,
+    )
