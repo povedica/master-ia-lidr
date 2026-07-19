@@ -80,6 +80,25 @@ class ValidateEstimateArgs(BaseModel):
     total_hours: float
 
 
+class DeriveTaskHoursNeighbor(BaseModel):
+    """One historical analog from ``search_budgets`` for distance-weighted consensus."""
+
+    estimated_hours: int = Field(ge=0)
+    distance: float = Field(ge=0.0)
+    source_id: int | None = None
+    budget_id: str | None = None
+
+
+class DeriveTaskHoursArgs(BaseModel):
+    """Validated arguments for the ``derive_task_hours`` tool."""
+
+    module: str = Field(min_length=1)
+    task: str = Field(min_length=1)
+    neighbors: list[DeriveTaskHoursNeighbor] = Field(
+        description="Historical analogs (from search_budgets) whose hours anchor this task."
+    )
+
+
 class AgentStep(BaseModel):
     """One reason→act→observe step of the loop."""
 
@@ -146,3 +165,60 @@ class AgentRunResult(BaseModel):
     trace: AgentTrace
     iterations: int = Field(ge=0, description="Number of Responses API round-trips.")
     stopped_reason: Literal["completed", "max_iterations", "no_final_estimate"] = "completed"
+
+
+# --------------------------------------------------------------------------- #
+# Phase 1 — structure proposal (Session 13 / feature-066)                     #
+# --------------------------------------------------------------------------- #
+class AgentTaskNode(BaseModel):
+    """One task inside a module (structure only, no hours)."""
+
+    name: str = Field(min_length=1)
+    description: str | None = Field(default=None, description="One-line scope of the task.")
+
+
+class AgentModuleNode(BaseModel):
+    """One functional module decomposed into tasks."""
+
+    name: str = Field(min_length=1)
+    description: str | None = Field(default=None, description="What this module covers.")
+    tasks: list[AgentTaskNode] = Field(default_factory=list)
+
+
+class AgentStructure(BaseModel):
+    """Phase-1 output: module→task tree without hours."""
+
+    modules: list[AgentModuleNode] = Field(default_factory=list)
+    confidence: Confidence
+    reasoning: str = Field(description="How the decomposition was reasoned.")
+
+
+# --------------------------------------------------------------------------- #
+# Phase 2 — hours recovery (Session 13 / feature-066)                         #
+# --------------------------------------------------------------------------- #
+class AgentTaskRef(BaseModel):
+    """One approved task the deterministic pass could not ground."""
+
+    module: str
+    task: str
+    description: str | None = None
+    reason: str = Field(description="Why the deterministic pass flagged this task.")
+
+
+class AgentTaskDerivation(BaseModel):
+    """Hours the recovery agent derived for one flagged task."""
+
+    module: str
+    task: str
+    estimated_hours: int | None = Field(default=None, ge=0)
+    reliability: float | None = Field(default=None, ge=0.0, le=1.0)
+    has_match: bool = False
+
+
+class AgentTaskHoursRun(BaseModel):
+    """Everything the phase-2 recovery loop produced."""
+
+    derivations: list[AgentTaskDerivation] = Field(default_factory=list)
+    trace: AgentTrace
+    iterations: int = Field(ge=0, description="Number of Responses API round-trips.")
+    stopped_reason: Literal["completed", "max_iterations"] = "completed"

@@ -457,6 +457,42 @@ class Settings(BaseSettings):
             "Empty uses RAG_ESTIMATION_RETRIEVAL_MODE."
         ),
     )
+    # --- Session 13 estimation graph (feature-066) ---
+    graph_extraction_model: str = Field(
+        default="gpt-4o-mini",
+        description="Model for optional sequential teaching nodes (extraction).",
+    )
+    graph_generation_model: str = Field(
+        default="gpt-4o",
+        description="Default generation model for graph agents when not overridden.",
+    )
+    graph_classifier_model: str = Field(
+        default="gpt-4o-mini",
+        description="Structured LLM model for the graph classifier agent.",
+    )
+    graph_analysis_model: str = Field(
+        default="gpt-4o",
+        description="Structured LLM model for the graph analysis agent.",
+    )
+    graph_proposal_model: str = Field(
+        default="gpt-4o",
+        description="Structured LLM model for the commercial proposal agent.",
+    )
+    graph_proposal_enabled: bool = Field(
+        default=True,
+        description="When true, proposal agent / on-demand proposal route are available.",
+    )
+    graph_personas_enabled: bool = Field(
+        default=True,
+        description="When true, prepend didactic persona prefixes to graph agent prompts.",
+    )
+    graph_structure_effort_by_complexity: str = Field(
+        default='{"low":"low","medium":"medium","high":"high"}',
+        description=(
+            "JSON map complexity → Responses reasoning effort for structure agent "
+            '(e.g. {"low":"low","medium":"medium","high":"high"}).'
+        ),
+    )
     task_hours_distance_threshold: float = Field(
         default=0.45,
         ge=0.0,

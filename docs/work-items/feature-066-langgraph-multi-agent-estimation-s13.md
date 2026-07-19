@@ -1,0 +1,607 @@
+# Feature: LangGraph Multi-Agent Estimation (Session 13)
+
+## Objective
+
+Bring `master-ia` to **Session 13 live parity** with the official Master IA repo
+(`/Users/pablo.poveda/CodeProjects/ai-engineering`, branch `session_13_live`):
+
+1. Evolve the Session 12 agentic package from the current **single autonomous loop**
+   into the official **two-phase** shape (`run_structure_agent` +
+   `run_task_hours_recovery_agent`) that Session 13 reuses.
+2. Port the **multi-agent LangGraph estimation graph** with explicit handovers,
+   `Send` fan-out, keyed reducers, two human `interrupt()` gates, and Postgres
+   checkpointer.
+3. Expose the graph over HTTP (`start` / `resume` / `state`, plus optional stream
+   progress) and a CLI deliverable (`run_graph_s13.py`), adapted to `master-ia`
+   layout and conventions.
+
+**Pedagogical goal:** show that a multi-step estimation flow with human review is an
+explicit, typed graph — not a black-box framework — while keeping the external
+contract “transcript in → structured estimate (+ status) out”.
+
+### Comparison snapshot (2026-07-19)
+
+| Repo | Branch | Role |
+| --- | --- | --- |
+| `master-ia` | current student fork | Has S05–S11 parity (feature-053 child slices), S12 single-loop agent (`feature-054`) |
+| `ai-engineering` | `session_13_live` | Official master; S13 multi-agent graph + evolved S12 two-phase agents |
+
+**Layout difference (non-goal to replicate verbatim):** official code lives under
+`estimator/app/{domain/graph,generation/agentic,api/routers}`; `master-ia` keeps
+`app/{services,routers}` (+ new `app/services/estimation_graph/` or
+`app/domain/graph/` — choose one at implementation; this spec uses
+`app/services/estimation_graph/`).
+
+---
+
+## Context
+
+### What `master-ia` already has (do not rebuild)
+
+| Area | Status | Relevance to S13 |
+| --- | --- | --- |
+| RAG stages / task hours | `POST /api/v1/estimate/rag/stages/*`, `rag_task_hours.estimate_one_task` | Fan-out hours node wraps this |
+| Agentic S12 (simple loop) | `app/services/agentic/agent_loop.py` → `run_estimation_agent` | **Outdated shape** vs official; must evolve |
+| Agent HTTP | `POST /api/v1/estimate/agent` | Keep additive; graph is a new surface |
+| Observability | Logfire + Langfuse adapters | Prefer Logfire spans per node (already in stack); no `structlog` |
+| Postgres + pgvector | `DATABASE_URL` (`postgresql+asyncpg://…`) | Checkpointer reuses same DB with plain libpq DSN |
+| API hardening | `ESTIMATE_API_KEY`, rate limit, `X-Request-ID` | Reuse on graph routes |
+| Parity roadmap S05–S11 | `feature-053` (closed) | S13 is the **next session track**, not a reopen of 053 |
+
+### Official Session 13 materials (source of truth)
+
+| Artifact | Official path | Purpose |
+| --- | --- | --- |
+| Graph package | `estimator/app/domain/graph/` | State, build, checkpointer, agents, gates, activity |
+| Pre-exercise nodes | `domain/graph/nodes.py` | Sequential 5-node “before”; keep for teaching, not wired in live build |
+| Live agents | `domain/graph/agents/*` | classifier, structure, gates, hours, analysis, proposal |
+| HTTP contract | `api/routers/estimate_graph.py` | start / resume / state + stream / progress / proposal |
+| Schemas | `domain/schemas/graph_estimation.py` | Public API models |
+| CLI | `scripts/run_graph_s13.py` | Auto-approve gates; `--memory` / `--stub` |
+| Exercise assets | `exercises/session-13/*` | Sample transcripts + README |
+| Tests | `tests/domain/graph/` | MemorySaver + faked LLM/retrieval |
+| Deps | `langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg_pool` | Required |
+
+### Live graph topology (must match behavior)
+
+```text
+START → classifier_agent
+        ──Command(goto)──▶ structure_agent
+        ──edge──▶ human_gate_structure (interrupt #1)
+        ──Send fan-out──▶ estimate_task_hours × N
+        ──edge──▶ recover_and_handover (join + optional recovery agent)
+        ──Command(goto)──▶ analysis_agent
+        ──edge──▶ human_gate_analysis (interrupt #2)
+        ──conditional──▶ proposal_agent | END
+```
+
+### Deliberate fork decisions (do not “fix” without ADR)
+
+1. **No `structlog`** — use stdlib `logging` + `extra={}` with stable keys
+   (`graph_ready`, `graph_estimate_failed`, `agent_classifier_done`, …).
+2. **Structured LLM path** — classifier / analysis / proposal use
+   `complete_structured` (Instructor + LiteLLM), not official `LLMWrapper`.
+3. **Responses API exception preserved** — `run_structure_agent` and
+   `run_task_hours_recovery_agent` keep raw `AsyncOpenAI().responses.*` (same
+   exception as `feature-054`).
+4. **Prefix** — expose under `/api/v1/estimate/graph*` (not bare `/v1/...`).
+5. **UI** — React `web/` for optional wizard / activity panel; do **not** port Rails
+   `estimator-web`.
+6. **Package home** — prefer `app/services/estimation_graph/` (services layer) over
+   inventing a full `app/domain/` tree; if a thin `app/domain/graph/` is clearer for
+   teaching, document the choice in the implementation note — one package only.
+7. **Keep fork advantages** — Langfuse, retrieval-debug, `/api/v2/estimate`,
+   semantic cache, `LLMPipeline` guardrails remain untouched.
+8. **Do not replace** `POST /api/v1/estimate/agent` or `RagEstimationService`.
+
+### Parent / sibling work
+
+| Work item | Relationship |
+| --- | --- |
+| `feature-053-official-master-parity-alignment.md` | Closed S05–S11 program; residual FR-20 / corpus jobs stay deferred |
+| `feature-054-agentic-estimation-loop.md` | S12 baseline; this feature **extends** agentic APIs for S13 |
+| Residual 053 gaps (named StageConfig eval, corpus index jobs, 7 chunkers, Rails UI) | **Out of scope** here |
+
+---
+
+## Scope
+
+### Includes
+
+**Phase A — S12 agent evolution (prerequisite for S13 nodes)**
+
+- Port / adapt official two-phase agent APIs into `app/services/agentic/`:
+  - `run_structure_agent(brief, …) → (AgentStructure, AgentTrace)`
+  - `run_task_hours_recovery_agent(flagged_tasks, …) → AgentTaskHoursRun`
+  - Tool schemas needed by recovery (`search_budgets` reformulation +
+    `derive_task_hours` / consensus injection), matching official semantics
+- Keep existing `run_estimation_agent` **or** deprecate behind a thin wrapper that
+  documents the pedagogical shift (prefer keep for CLI/HTTP backward compat until
+  a follow-up removes it)
+- Unit tests with mocked Responses client (fast suite)
+
+**Phase B — LangGraph multi-agent core**
+
+- Dependencies: `langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`
+  (+ pool usage as in official `AsyncConnectionPool`)
+- Package `app/services/estimation_graph/` (or chosen equivalent):
+  - `state.py` — `EstimationState`, `merge_task_hours` keyed reducer
+  - `build.py` — `build_graph`, `fan_out_hours`, `route_after_gate2`
+  - `checkpointer.py` — `saver_conninfo` + `open_checkpointer` (strip `+asyncpg`)
+  - `observability.py` — Logfire span helper (no-op without token)
+  - `personas.py` — optional persona prefixes behind flag
+  - `schemas.py` — internal LLM models (`ComplexityClassification`,
+    `ReliabilityReport`, `CommercialProposal`, …)
+  - `activity.py` — didactic activity feed for stream mode
+  - `agents/*` — classifier, structure, gates, hours, analysis, proposal
+  - Optional keep of sequential `nodes.py` for teaching contrast (not wired)
+- Wire graph into FastAPI `lifespan` → `app.state.graph`; failure → `graph=None`
+  (503 on graph routes only)
+
+**Phase C — HTTP + CLI + exercises**
+
+- Router `app/routers/estimate_graph.py` under `/api/v1/estimate`:
+  - `POST /graph` — start until first gate
+  - `POST /graph/{estimation_id}/resume` — human decision; 409 if not paused
+  - `GET /graph/{estimation_id}/state` — snapshot
+  - Optional (same PR or baby-step follow-up): `POST /graph/stream`,
+    `POST /graph/{id}/resume-stream`, `GET /graph/{id}/progress`,
+    `POST /graph/{id}/proposal`
+- Public schemas in `app/schemas/graph_estimation.py`
+- CLI `app/scripts/run_graph_s13.py` (`--memory`, `--stub`, `--out`)
+- Exercise assets `exercises/session-13/` (transcripts + README adapted to
+  `master-ia` commands)
+- Settings + `.env.example` + README + technical doc + Second Brain session note
+
+**Phase D (optional, can be a child front feature)**
+
+- React wizard: start → review structure → resume → review estimate → optional
+  proposal; poll progress when stream endpoints exist
+
+### Excludes
+
+- Porting Rails `estimator-web` graph wizard
+- Replacing `/api/v1/estimate/rag` or CAG v1/v2 paths
+- Reopening feature-053 residual items (FR-20 StageConfig scoreboard, corpus index
+  async jobs, full 7 chunking strategies, tier resolver)
+- Migrating the whole codebase to LangGraph
+- Adding `structlog`
+- Committing generated run artifacts under `exercises/session-13/*_run*.txt` or
+  `evaluation/**/results/`
+- IVFFlat / halfvec / S08 antipattern scripts
+
+---
+
+## Functional Requirements
+
+### FR-01 — Dependencies and settings
+
+Add (names may be snake_case in `Settings`):
+
+```text
+# Session 13 — estimation graph
+GRAPH_EXTRACTION_MODEL=gpt-4o-mini          # legacy sequential nodes if kept
+GRAPH_GENERATION_MODEL=gpt-4o
+GRAPH_CLASSIFIER_MODEL=gpt-4o-mini
+GRAPH_ANALYSIS_MODEL=gpt-4o
+GRAPH_PROPOSAL_MODEL=gpt-4o
+GRAPH_PROPOSAL_ENABLED=true
+GRAPH_PERSONAS_ENABLED=true
+# JSON or documented mapping: low/medium/high → reasoning effort
+GRAPH_STRUCTURE_EFFORT_BY_COMPLEXITY={"low":"low","medium":"medium","high":"high"}
+```
+
+Reuse existing agent settings (`AGENT_MODEL`, `AGENT_REASONING_EFFORT`, …) for
+structure / recovery Responses calls.
+
+### FR-02 — Checkpointer
+
+- Production/default: `AsyncPostgresSaver` over project Postgres with connection
+  pool (survive long human pauses).
+- `DATABASE_URL` driver stripping: `postgresql+asyncpg://` → `postgresql://`.
+- `await checkpointer.setup()` on startup (idempotent).
+- CLI `--memory` uses `MemorySaver` (no DB).
+
+### FR-03 — Classifier agent
+
+- Input: `transcript`
+- Output via `Command(goto="structure_agent", update={complexity, reformulated_transcript})`
+- Structured model via `complete_structured`
+
+### FR-04 — Structure agent
+
+- Calls `run_structure_agent` on reformulated brief
+- Maps `complexity` → reasoning effort via settings map
+- Writes `structure` (modules → tasks, no hours)
+
+### FR-05 — Human gate 1 (`structure_review`)
+
+- `interrupt()` with payload for UI review
+- Resume decision: `{approved: bool, modules?: [...]}`
+- Approved modules drive `Send` fan-out
+
+### FR-06 — Per-task hours fan-out
+
+- One `estimate_task_hours` branch per approved task
+- Reuse `estimate_one_task` (adapt signature / DI to graph node)
+- Accumulator uses **keyed** `merge_task_hours` (idempotent on resume)
+
+### FR-07 — Recover and handover
+
+- Flag doubtful tasks (no match / contradictory range / low reliability)
+- Run `run_task_hours_recovery_agent` when flagged
+- `Command(goto="analysis_agent", update={estimate, …})`
+
+### FR-08 — Analysis + human gate 2 (`final_review`)
+
+- Analysis produces `ReliabilityReport` (structured LLM)
+- Gate 2 resume: `{validated, estimate_overrides?, want_proposal}`
+- Sets `status` (`validated` | `needs_review`)
+
+### FR-09 — Proposal agent (bonus)
+
+- Only when `GRAPH_PROPOSAL_ENABLED` and `want_proposal`
+- Also support on-demand `POST …/proposal` over completed run (official parity)
+
+### FR-10 — HTTP contract
+
+| Verb | Path | Behavior |
+| --- | --- | --- |
+| POST | `/api/v1/estimate/graph` | Start → pause at gate 1 or complete |
+| POST | `/api/v1/estimate/graph/{id}/resume` | Resume; 409 if nothing pending |
+| GET | `/api/v1/estimate/graph/{id}/state` | Snapshot; 404 unknown |
+| POST | `/api/v1/estimate/graph/stream` | 202 + background `astream` (optional slice) |
+| POST | `/api/v1/estimate/graph/{id}/resume-stream` | 202 resume in background; 409 if idle |
+| GET | `/api/v1/estimate/graph/{id}/progress` | `running` \| `paused` \| `completed` + activity |
+| POST | `/api/v1/estimate/graph/{id}/proposal` | Draft commercial proposal |
+
+Auth: `ESTIMATE_API_KEY` (same as RAG estimate). Rate limits aligned with estimate
+routes (≈10/min write, higher for progress poll). Graph unavailable → **503**.
+Node/LLM failures → **502** (safe message, no secrets).
+
+### FR-11 — CLI deliverable
+
+```bash
+# Partial offline: MemorySaver + stub hours (still needs OPENAI_API_KEY for LLM agents)
+uv run python app/scripts/run_graph_s13.py --memory --stub
+
+# Full path (Postgres checkpointer + real task-hours retrieval)
+uv run python app/scripts/run_graph_s13.py \
+  --out exercises/session-13/example_run_complex.txt
+```
+
+Auto-approves both gates with canned `Command(resume=…)` decisions.
+
+### FR-12 — Tests (network-free)
+
+- Fast suite: MemorySaver + faked `complete_structured` + faked
+  `run_structure_agent` / `estimate_one_task` / recovery
+- Assert: pause at both gates, resume works, fan-out row count, keyed reducer no
+  duplicates, recovery path when flagged, proposal route when requested
+- No real API keys / no Postgres required for default `uv run pytest`
+
+### FR-13 — Additive safety
+
+- Existing `/api/v1/estimate/agent`, RAG, CAG, sessions unchanged
+- Graph init failure must not take down other routers
+
+---
+
+## Technical Approach
+
+### File mapping (official → `master-ia`)
+
+| Official (`estimator/app/...`) | Proposed `master-ia` location |
+| --- | --- |
+| `domain/graph/state.py` | `app/services/estimation_graph/state.py` |
+| `domain/graph/build.py` | `app/services/estimation_graph/build.py` |
+| `domain/graph/checkpointer.py` | `app/services/estimation_graph/checkpointer.py` |
+| `domain/graph/observability.py` | `app/services/estimation_graph/observability.py` |
+| `domain/graph/personas.py` | `app/services/estimation_graph/personas.py` |
+| `domain/graph/schemas.py` | `app/services/estimation_graph/schemas.py` |
+| `domain/graph/activity.py` | `app/services/estimation_graph/activity.py` |
+| `domain/graph/agents/*` | `app/services/estimation_graph/agents/*` |
+| `domain/graph/nodes.py` | `app/services/estimation_graph/nodes.py` (optional teaching) |
+| `domain/schemas/graph_estimation.py` | `app/schemas/graph_estimation.py` |
+| `api/routers/estimate_graph.py` | `app/routers/estimate_graph.py` |
+| `generation/agentic/agent_loop.py` (two-phase) | extend `app/services/agentic/agent_loop.py` |
+| `generation/agentic/agent_schemas.py` / tools | extend `app/services/agentic/*` |
+| `generation/rag/task_hours.estimate_one` | wrap `app/services/rag_task_hours.estimate_one_task` |
+| `scripts/run_graph_s13.py` | `app/scripts/run_graph_s13.py` |
+| `exercises/session-13/` | `exercises/session-13/` |
+| `tests/domain/graph/` | `tests/estimation_graph/` |
+
+### Dependency injection pattern
+
+Official nodes call `from app.dependencies import get_llm_wrapper` inside the node.
+In `master-ia`, prefer:
+
+- Thin getters in `app/deps.py` (or graph-local `dependencies.py`) for
+  `complete_structured` settings, AsyncOpenAI client, embedder, DB session factory
+- Graph nodes remain `state → partial update | Command` with monkeypatch-friendly
+  **module-level** imports for tests (mirror official test style)
+
+### Lifespan sketch
+
+```python
+# app/main.py lifespan (additive)
+app.state.graph = None
+try:
+    async with open_checkpointer() as checkpointer:  # or AsyncExitStack
+        app.state.graph = build_graph(checkpointer)
+        yield
+except Exception:
+    # log graph_init_failed; leave graph=None; still serve other routes
+    yield
+```
+
+Exact `AsyncExitStack` pattern should follow official `main.py` so the pool closes
+cleanly.
+
+### Data flow
+
+```text
+Client transcript
+  → POST /api/v1/estimate/graph (thread_id = estimation_id)
+  → classifier → structure → interrupt(structure_review)
+  → Client UI / CLI resume
+  → Send×N estimate_task_hours → recover_and_handover
+  → analysis → interrupt(final_review)
+  → Client resume → optional proposal → GraphRunState(completed)
+```
+
+### Layering
+
+- Routers orchestrate only; graph package owns orchestration
+- Graph may call `rag_task_hours` and `agentic` (same “conductor” role as official
+  `domain/`)
+- Do **not** import routers from graph services
+
+---
+
+## Acceptance Criteria
+
+- [x] **AC-01:** `uv add` lands `langgraph`, `langgraph-checkpoint-postgres`, and
+      `psycopg` (binary) without breaking the fast pytest suite import path.
+- [x] **AC-02:** `run_structure_agent` + `run_task_hours_recovery_agent` exist with
+      unit tests (mocked Responses); no real API key in default suite
+      (`tests/services/agentic/test_structure_and_recovery_agents.py`).
+- [x] **AC-03:** `build_graph(MemorySaver())` runs end-to-end in tests: pauses at
+      gate 1, resumes, pauses at gate 2, completes with `status` set.
+- [x] **AC-04:** Fan-out produces one `task_hours` row per approved task; resume
+      re-entry does **not** duplicate rows (`merge_task_hours`).
+- [x] **AC-05:** Flagged task path invokes recovery agent (asserted via fake).
+- [x] **AC-06:** `POST /api/v1/estimate/graph` without key returns 401 when
+      `ESTIMATE_API_KEY` is set; with key returns `GraphRunState`
+      (`tests/routers/test_estimate_graph.py`).
+- [x] **AC-07:** Resume without pending gate returns **409**; unknown id state
+      returns **404**; graph not built returns **503**.
+- [x] **AC-08:** CLI `--memory --stub` completes with auto-approved gates — helpers
+      covered by `tests/estimation_graph/test_cli_helpers.py` (MemorySaver + fakes);
+      live LLM smoke remains manual / optional `@pytest.mark.slow`.
+- [x] **AC-09:** `open_checkpointer` runs idempotent `setup()` over a pooled
+      `AsyncPostgresSaver` (coexists with pgvector tables). Documented in README
+      Session 13 section + `docs/technical/estimation-graph-s13.md`.
+- [x] **AC-10:** Graph init failure leaves `app.state.graph = None` and `/health`
+      stays 200 (`tests/estimation_graph/test_graph_lifespan.py`). Feature-scoped
+      fast suite green at closure; full-repo suite has **pre-existing** unrelated
+      failures on `main` (worktree manifest tests + two config defaults polluted by
+      local env) — not introduced by this feature.
+- [x] **AC-11:** `GRAPH_*` in `.env.example`; README Session 13 section; technical
+      note `docs/technical/estimation-graph-s13.md`; session note under
+      `learnings/docs/sesiones/`.
+- [x] **AC-12 (optional stream slice):** `POST /graph/stream` returns 202;
+      `GET /progress` eventually shows `paused` or `completed` with activity lines
+      (`tests/routers/test_estimate_graph.py` + `tests/estimation_graph/test_activity.py`).
+      Also: `resume-stream` (202/409) and on-demand `POST …/proposal`.
+- [ ] **AC-13 (optional UI — deferred):** React screen can drive start → gate 1 →
+      resume → gate 2 → complete. **Out of scope for this closure**; track as a
+      child via `/write-front-feature` (Step 10 follow-up).
+
+---
+
+## Test Plan
+
+### Unit tests
+
+- `tests/services/agentic/test_structure_and_recovery_agents.py` — two-phase APIs
+- `tests/estimation_graph/test_state.py` — `merge_task_hours` idempotency
+- `tests/estimation_graph/test_build_routing.py` — `fan_out_hours`, `route_after_gate2`
+- `tests/estimation_graph/test_graph.py` — full MemorySaver e2e with fakes
+- `tests/estimation_graph/test_checkpointer_conninfo.py` — DSN stripping
+- `tests/estimation_graph/test_open_checkpointer.py` — pooled saver open/setup/close
+- `tests/estimation_graph/test_graph_lifespan.py` — resilient `app.state.graph` wiring
+- `tests/routers/test_estimate_graph.py` — auth, 409/404/503, stream/progress/proposal
+- `tests/estimation_graph/test_activity.py` — `describe_node` + in-process activity log
+
+### Integration tests
+
+- Optional `@pytest.mark.slow`: real Postgres checkpointer setup against docker
+  compose (not required for default suite)
+
+### Manual checks
+
+```bash
+uv run pytest tests/estimation_graph tests/services/agentic -q
+uv run pytest -q   # full fast suite still green
+uv run python app/scripts/run_graph_s13.py --memory --stub
+# With stack up + task corpus ingested:
+uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_run_complex.txt
+```
+
+---
+
+## Verification
+
+**Closure evidence (2026-07-19 / finish-task):**
+
+| Check | Result |
+| --- | --- |
+| `uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py tests/services/agentic tests/exercises/test_session_13_assets.py -q` | **66 passed** |
+| Full `uv run pytest -q` | 916 passed, 7 failed (same 7 fail on `main` — unrelated) |
+| Secrets / `evaluation/generation/results/` | Not committed (left untracked) |
+| Branch naming | `feature/066-langgraph-multi-agent-estimation-s13` matches work item |
+
+- **Manual (optional residual):** live CLI with Postgres checkpointer + real retrieval;
+  React wizard (AC-13 / Step 10)
+- **Not verified:** Live Logfire export aesthetics; byte-identical estimates vs
+  official `session_13_live` (schema/model drift expected)
+
+---
+
+## Documentation Plan
+
+| Artifact | Update |
+| --- | --- |
+| `.env.example` | Graph settings |
+| `README.md` | Session 13 section: endpoints, CLI, checkpointer note |
+| `docs/technical/estimation-graph-s13.md` | Architecture, topology, fork decisions |
+| `exercises/session-13/README.md` | Student-facing runbook (English technical voice) |
+| `learnings/second-brain-master-ia/...` | Session 13 learning note (Spanish OK for reflection) |
+| `feature-053` handoff | Cross-link: S13 track starts at feature-066 (optional one-line) |
+
+---
+
+## Implementation Plan
+
+- [x] **Step 1:** Add deps (`langgraph`, checkpoint-postgres, `psycopg`) + settings
+      stubs + `.env.example` entries.  
+      *TDD:* `tests/estimation_graph/test_checkpointer_conninfo.py` RED → GREEN for DSN helper.
+- [x] **Step 2:** Evolve `app/services/agentic/` with `run_structure_agent` +
+      `run_task_hours_recovery_agent` + schemas/tools.  
+      *TDD:* mocked Responses tests RED → GREEN.
+- [x] **Step 3:** Port `state.py` + `merge_task_hours` + routing helpers in `build.py`
+      (graph not fully wired yet).  
+      *TDD:* reducer + routing unit tests.
+- [x] **Step 4:** Port agents + gates; `build_graph` compiles with MemorySaver.  
+      *TDD:* `test_graph.py` e2e RED → GREEN (fakes).
+- [x] **Step 5:** Checkpointer + lifespan wiring (`app.state.graph`).  
+      *Verification:* app starts when Postgres down / checkpointer fails with
+      `graph=None`; `/health` OK. `estimate_one` self-wires to `estimate_one_task`
+      (recovery retrieval DI still stub until Step 6/7).
+- [x] **Step 6:** HTTP router (start / resume / state) + auth/rate-limit + tests.
+- [x] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
+- [x] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
+- [x] **Step 9:** Docs draft (`docs/technical/estimation-graph-s13.md`, README
+      pointers, session note) — refined at finish-task for HTTP/stream/lifespan.
+- [ ] **Step 10 (optional child — deferred):** React graph wizard
+      (`/write-front-feature`). Not required to close feature-066.
+
+Suggested commit cadence: one step ≈ one commit (≤ ~100–200 meaningful lines where
+practical; deps commit separate).
+
+---
+
+## Learnings
+
+1. **Official S12 on `session_13_live` is not the same as `feature-054`.** The live
+   repo split the agent into structure + recovery phases; porting only LangGraph
+   without that evolution will fail at `structure_agent` / `recover_and_handover`.
+2. **Keyed reducers matter.** Plain `operator.add` on `task_hours` duplicates rows
+   on resume — official teaches this with `merge_task_hours`.
+3. **Checkpointer ≠ SQLAlchemy engine.** `AsyncPostgresSaver` needs psycopg3 + plain
+   DSN + pool for long human pauses.
+4. **Graph init must be optional infrastructure.** A down Postgres should 503 graph
+   routes, not crash the whole API.
+5. **Do not port `structlog` or Rails.** Capability parity, not stack clone.
+6. **`estimate_one_task` already exists** in `master-ia` — wrap it; do not reimplement
+   consensus math.
+7. **feature-053 residuals are not S13.** Keep FR-20 / corpus jobs / chunker lab UI
+   as separate follow-ups.
+8. **Close the API/CLI slice without the React wizard.** AC-13 / Step 10 is a
+   deliberate child; shipping the graph HTTP+CLI contract unblocks pedagogy and
+   keeps the PR reviewable.
+9. **Graph init must stay optional infrastructure.** Finish-task reconfirmed:
+   lifespan tests leave `app.state.graph = None` while `/health` stays 200; do not
+   couple Postgres checkpointer availability to the whole API.
+
+---
+
+## Estimation
+
+| Slice | Relative effort | Risk |
+| --- | --- | --- |
+| Step 1 deps/settings | S | Low |
+| Step 2 S12 two-phase evolution | M | Medium (Responses tools) |
+| Steps 3–4 graph core | L | Medium (LangGraph APIs) |
+| Steps 5–6 HTTP + lifespan | M | Medium (async pool) |
+| Step 7 CLI/exercises | S | Low |
+| Step 8 stream/progress | M | Low–medium |
+| Step 10 React wizard | M | Low (UX) |
+
+**Total:** large multi-commit feature; prefer `/start-task` on this document and
+split stream/UI if the core PR grows past reviewability.
+
+---
+
+## Implementation progress
+
+- [x] Step 1: deps (`langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg-pool`) + `GRAPH_*` settings + `.env.example` + `saver_conninfo` (2026-07-19)
+- [x] Step 2: two-phase agentic APIs (`run_structure_agent`, `run_task_hours_recovery_agent`, `derive_task_hours`) + mocked tests (2026-07-19)
+- [x] Step 3: `EstimationState` + `merge_task_hours` + `fan_out_hours` / `route_after_gate2` (2026-07-19)
+- [x] Step 4: agents + `build_graph(MemorySaver)` e2e (2026-07-19)
+- [x] Step 5: `open_checkpointer` (AsyncPostgresSaver + pool) + resilient lifespan
+      → `app.state.graph`; `estimate_one` → `estimate_one_task` self-wire (2026-07-19)
+- [x] Step 6: HTTP router (2026-07-19) — `app/routers/estimate_graph.py`,
+      `app/schemas/graph_estimation.py`, `tests/routers/test_estimate_graph.py`;
+      registered in `app/main.py`; AC-06/AC-07 green (start/resume/state only;
+      stream/progress/proposal deferred to Step 8)
+- [x] Step 7: CLI + exercises (2026-07-19) — `app/scripts/run_graph_s13.py`,
+      `exercises/session-13/`, CLI helper tests
+- [x] Step 8: stream/progress/proposal + activity log (2026-07-19) —
+      `activity.py`, router stream/resume-stream/progress/proposal, AC-12 green
+- [x] Step 9: docs draft + session note (2026-07-19) — HTTP/stream contract synced
+- [ ] Step 10: optional React wizard (deferred follow-up; not blocking closure)
+
+---
+
+## Pull Request
+
+- https://github.com/povedica/master-ia-lidr/pull/60
+
+---
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `dcc91df` | `docs(feature-066): add Session 13 LangGraph multi-agent estimation work item` |
+| `2be48ea` | `feat(estimation-graph): add LangGraph deps, settings, and DSN helper` |
+| `257970c` | `feat(agentic): add Session 13 structure and hours-recovery agents` |
+| `2d5f8ec` | `feat(estimation-graph): add EstimationState and routing helpers` |
+| `1e7eb0e` | `feat(estimation-graph): wire multi-agent graph with MemorySaver e2e` |
+| `8084752` | `feat(estimation-graph): add Session 13 CLI and exercise kit` |
+| `3659fbd` | `feat(estimation-graph): add Postgres checkpointer and resilient lifespan` |
+| `bcb28a0` | `docs(estimation-graph): draft Session 13 technical and exercise docs` |
+| `bcee47e` | `feat(estimation-graph): expose start/resume/state HTTP API` |
+| `13c2189` | `feat(estimation-graph): add stream, progress, proposal, and activity feed` |
+| `550808a` | `docs(feature-066): close Session 13 graph slice and record verification` |
+
+---
+
+## Follow-ups (explicit)
+
+1. **Step 10 / AC-13:** React graph wizard (`/write-front-feature`) consuming
+   `/api/v1/estimate/graph*` + progress poll.
+2. **Live smoke:** CLI without `--memory` against docker Postgres + ingested task
+   corpus; optional `@pytest.mark.slow` checkpointer test.
+3. **Pre-existing suite debt (not this feature):** `tests/scripts/test_worktree_tasks.py`
+   model fields; `tests/test_config.py` defaults vs local env pollution.
+
+---
+
+## Status
+
+**Completed** (2026-07-19) — Steps 1–9 delivered; AC-01–AC-12 accepted; AC-13 /
+Step 10 deferred as optional UI child. PR #60 is the merge vehicle.
+
+---
+
+## How to start
+
+```text
+/start-task docs/work-items/feature-066-langgraph-multi-agent-estimation-s13.md
+```
+
+If you only want the React wizard after the API lands, run `/write-front-feature`
+for a child front work item that consumes `/api/v1/estimate/graph*`.

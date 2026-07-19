@@ -2,7 +2,7 @@
 
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded
@@ -15,6 +15,7 @@ from app.middleware.request_id import install_request_id_logging, request_id_mid
 from app.routers import (
     agent_estimations,
     embeddings,
+    estimate_graph,
     estimations,
     estimations_v2,
     rag_estimations,
@@ -36,28 +37,29 @@ logging.basicConfig(
     format="%(levelname)s %(name)s %(message)s",
 )
 install_request_id_logging()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Log safe startup context (no secrets)."""
+    """Log safe startup context (no secrets) and optionally wire the estimation graph."""
 
     settings = get_settings()
     providers = build_provider_chain(settings)
     provider_names = [provider.name for provider in providers]
-    logging.getLogger(__name__).info(
+    logger.info(
         "chain_built",
         extra={
             "providers": provider_names,
             "static_fallback_enabled": settings.static_fallback_enabled,
         },
     )
-    logging.getLogger(__name__).info(
+    logger.info(
         "app_startup",
         extra={"app_env": settings.app_env, "providers": provider_names},
     )
     observability = init_observability(settings)
-    logging.getLogger(__name__).info(
+    logger.info(
         "observability_initialized",
         extra={
             "event": "observability_initialized",
@@ -65,7 +67,36 @@ async def lifespan(app: FastAPI):
             "adapter": type(observability).__name__,
         },
     )
+
+    # Session 13: Postgres checkpointer + compiled graph. Held open for the app
+    # lifetime via AsyncExitStack. Failure (e.g. Postgres down) leaves
+    # app.state.graph = None so graph routes can 503 without taking down /health
+    # or unrelated routers.
+    app.state.graph = None
+    app.state._graph_stack = AsyncExitStack()
+    if not settings.database_url.strip():
+        logger.info(
+            "graph_init_skipped",
+            extra={"reason": "database_url_empty"},
+        )
+    else:
+        try:
+            from app.services.estimation_graph.build import build_graph
+            from app.services.estimation_graph.checkpointer import open_checkpointer
+
+            checkpointer = await app.state._graph_stack.enter_async_context(
+                open_checkpointer(settings)
+            )
+            app.state.graph = build_graph(checkpointer)
+            logger.info("graph_ready")
+        except Exception as exc:  # noqa: BLE001 — graph is optional infrastructure
+            logger.error(
+                "graph_init_failed",
+                extra={"error": str(exc)[:400]},
+            )
+
     yield
+    await app.state._graph_stack.aclose()
     shutdown_observability()
 
 
@@ -95,6 +126,7 @@ app.include_router(retrieval.router, prefix="/api/v1")
 app.include_router(retrieval_advanced.router, prefix="/api/v1")
 app.include_router(rag_estimations.router, prefix="/api/v1")
 app.include_router(agent_estimations.router, prefix="/api/v1")
+app.include_router(estimate_graph.router, prefix="/api/v1")
 app.include_router(rag_stages.router, prefix="/api/v1")
 app.include_router(rag_task_hours.router, prefix="/api/v1")
 app.include_router(runtime_config.router, prefix="/api/v1")
@@ -119,6 +151,13 @@ def read_root() -> dict[str, str]:
         "retrieval_advanced": "POST /api/v1/retrieval/advanced",
         "estimate_rag": "POST /api/v1/estimate/rag",
         "estimate_agent": "POST /api/v1/estimate/agent",
+        "estimate_graph": "POST /api/v1/estimate/graph",
+        "estimate_graph_resume": "POST /api/v1/estimate/graph/{id}/resume",
+        "estimate_graph_state": "GET /api/v1/estimate/graph/{id}/state",
+        "estimate_graph_stream": "POST /api/v1/estimate/graph/stream",
+        "estimate_graph_resume_stream": "POST /api/v1/estimate/graph/{id}/resume-stream",
+        "estimate_graph_progress": "GET /api/v1/estimate/graph/{id}/progress",
+        "estimate_graph_proposal": "POST /api/v1/estimate/graph/{id}/proposal",
         "retrieval_debug": "POST /api/v1/retrieval-debug",
         "config_retrieval": "GET/PUT /api/v1/config/retrieval",
         "config_models": "GET/PUT /api/v1/config/models",

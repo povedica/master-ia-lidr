@@ -34,6 +34,7 @@ The goal is documentation that supports development, debugging, and growth witho
 - [24. HNSW vector index (feature-040)](#24-hnsw-vector-index-feature-040)
 - [25. Indexed lexical search (feature-048)](#25-indexed-lexical-search-feature-048)
 - [25e. Agentic estimation loop (feature-054 / Session 12)](./agentic-estimation-loop.md) — hand-written Responses API agent (standalone reference)
+- [25f. Multi-agent estimation graph (feature-066 / Session 13)](./estimation-graph-s13.md) — LangGraph graph, CLI, human gates (standalone reference; HTTP/lifespan may still be landing)
 - [26. Worktree task orchestrator](#26-worktree-task-orchestrator)
 - [CAG stress testing](./cag-stress-testing.md) — feature-029 instrumentation, runner, metrics (standalone reference)
 
@@ -704,7 +705,7 @@ bash scripts/sync-estimador-cag-docs.sh
 
 The script uses `rsync --delete`, so `docs/` is a true mirror. Files removed in the vault disappear from the git copy.
 
-**In-repo technical references (not synced from Second Brain):** [agentic-estimation-loop.md](./agentic-estimation-loop.md) (feature-054), [cag-stress-testing.md](./cag-stress-testing.md), [actor-critic-boss-orchestration.md](./actor-critic-boss-orchestration.md).
+**In-repo technical references (not synced from Second Brain):** [agentic-estimation-loop.md](./agentic-estimation-loop.md) (feature-054), [estimation-graph-s13.md](./estimation-graph-s13.md) (feature-066), [cag-stress-testing.md](./cag-stress-testing.md), [actor-critic-boss-orchestration.md](./actor-critic-boss-orchestration.md).
 
 ## 18. Security and secrets
 
@@ -1445,6 +1446,27 @@ Additive **manual agent** over the OpenAI **Responses API** (not LiteLLM/Instruc
 Full reference: **[agentic-estimation-loop.md](./agentic-estimation-loop.md)**.
 
 Work item: [feature-054](../work-items/feature-054-agentic-estimation-loop.md).
+
+## 25f. Multi-agent estimation graph (feature-066 / Session 13)
+
+Additive **LangGraph** multi-agent estimation flow with two human `interrupt()` gates,
+`Send` fan-out per task, keyed `merge_task_hours`, and optional proposal agent. Package
+home: `app/services/estimation_graph/` (not a new `app/domain/` tree).
+
+| Piece | Location | Role |
+| --- | --- | --- |
+| Graph | `app/services/estimation_graph/` | State, build, agents, gates |
+| CLI | `app/scripts/run_graph_s13.py` | Auto-approve gates; `--memory` / `--stub` |
+| Exercise kit | `exercises/session-13/` | Transcripts + student runbook |
+| HTTP / lifespan | Steps 5–6 | Postgres checkpointer + `/api/v1/estimate/graph*` (may still be landing) |
+
+**Settings:** `GRAPH_*` in `.env.example` (classifier/analysis/proposal models, personas, proposal toggle, structure effort map). Structure/recovery reuse `AGENT_*`.
+
+**Tests (default CI):** `tests/estimation_graph/`, `tests/exercises/test_session_13_assets.py` — MemorySaver + fakes; no API keys / no Postgres.
+
+Full reference: **[estimation-graph-s13.md](./estimation-graph-s13.md)**.
+
+Work item: [feature-066](../work-items/feature-066-langgraph-multi-agent-estimation-s13.md).
 
 ## 26. Worktree task orchestrator
 
