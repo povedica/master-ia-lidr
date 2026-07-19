@@ -364,11 +364,11 @@ Client transcript
       `psycopg` (binary) without breaking the fast pytest suite import path.
 - [ ] **AC-02:** `run_structure_agent` + `run_task_hours_recovery_agent` exist with
       unit tests (mocked Responses); no real API key in default suite.
-- [ ] **AC-03:** `build_graph(MemorySaver())` runs end-to-end in tests: pauses at
+- [x] **AC-03:** `build_graph(MemorySaver())` runs end-to-end in tests: pauses at
       gate 1, resumes, pauses at gate 2, completes with `status` set.
-- [ ] **AC-04:** Fan-out produces one `task_hours` row per approved task; resume
+- [x] **AC-04:** Fan-out produces one `task_hours` row per approved task; resume
       re-entry does **not** duplicate rows (`merge_task_hours`).
-- [ ] **AC-05:** Flagged task path invokes recovery agent (asserted via fake).
+- [x] **AC-05:** Flagged task path invokes recovery agent (asserted via fake).
 - [ ] **AC-06:** `POST /api/v1/estimate/graph` without key returns 401 when
       `ESTIMATE_API_KEY` is set; with key returns `GraphRunState`.
 - [ ] **AC-07:** Resume without pending gate returns **409**; unknown id state
@@ -449,7 +449,7 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
 - [x] **Step 3:** Port `state.py` + `merge_task_hours` + routing helpers in `build.py`
       (graph not fully wired yet).  
       *TDD:* reducer + routing unit tests.
-- [ ] **Step 4:** Port agents + gates; `build_graph` compiles with MemorySaver.  
+- [x] **Step 4:** Port agents + gates; `build_graph` compiles with MemorySaver.  
       *TDD:* `test_graph.py` e2e RED → GREEN (fakes).
 - [ ] **Step 5:** Checkpointer + lifespan wiring (`app.state.graph`).  
       *Verification:* app starts when Postgres down with `graph=None`; `/health` OK.
@@ -505,7 +505,7 @@ split stream/UI if the core PR grows past reviewability.
 - [x] Step 1: deps (`langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg-pool`) + `GRAPH_*` settings + `.env.example` + `saver_conninfo` (2026-07-19)
 - [x] Step 2: two-phase agentic APIs (`run_structure_agent`, `run_task_hours_recovery_agent`, `derive_task_hours`) + mocked tests (2026-07-19)
 - [x] Step 3: `EstimationState` + `merge_task_hours` + `fan_out_hours` / `route_after_gate2` (2026-07-19)
-- [ ] Step 4: agents + `build_graph(MemorySaver)` e2e
+- [x] Step 4: agents + `build_graph(MemorySaver)` e2e (2026-07-19)
 - [ ] Step 5: checkpointer + lifespan
 - [ ] Step 6: HTTP router
 - [ ] Step 7: CLI + exercises
