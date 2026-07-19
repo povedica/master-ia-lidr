@@ -197,7 +197,7 @@ Optional fields fall back to `AGENT_*` settings.
 | `AGENT_MAX_ITERATIONS` | `10` | Hard cap on Responses round-trips |
 | `AGENT_RETRIEVAL_MODE` | *(empty)* | Override retrieval mode for `search_budgets`; empty → `RAG_ESTIMATION_RETRIEVAL_MODE` |
 | `OPENAI_API_KEY` | *(required for live runs)* | Agent path only; not used by default test suite |
-| `OPENAI_TIMEOUT_SECONDS` | `30` | AsyncOpenAI client timeout |
+| `OPENAI_TIMEOUT_SECONDS` | `30` | AsyncOpenAI client timeout; raise to ~600 for `gpt-5` + `medium` deliverable runs |
 | `DATABASE_URL` | *(empty)* | Required for real retrieval (CLI without `--stub`, HTTP API) |
 | `RAG_ESTIMATION_RETRIEVAL_MODE` | `B` | Fallback mode when `AGENT_RETRIEVAL_MODE` empty |
 | `RETRIEVAL_RECALL_K` / `RETRIEVAL_TOP_K_FINAL` | `50` / `5` | Passed through to `RetrievalService.retrieve()` |
@@ -217,10 +217,10 @@ uv run python app/scripts/run_agent_s12.py \
   exercises/session-12/sample_transcript_simple.txt \
   --model gpt-5-mini
 
-# Deliverable trace file (live API cost)
-uv run python app/scripts/run_agent_s12.py \
+# Deliverable trace file (live API cost; longer timeout for gpt-5)
+OPENAI_TIMEOUT_SECONDS=600 uv run python app/scripts/run_agent_s12.py \
   exercises/session-12/sample_transcript_complex.txt \
-  --model gpt-5 --effort medium \
+  --model gpt-5 --effort medium --stub \
   --out /tmp/agent_trace_complex.txt
 ```
 

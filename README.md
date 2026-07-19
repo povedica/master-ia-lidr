@@ -850,10 +850,11 @@ In **`web/`**, fill the transcript (and optional one-line summary), then use **R
 uv run python app/scripts/run_agent_s12.py \
   exercises/session-12/sample_transcript_simple.txt --model gpt-5-mini --stub
 
-# Deliverable trace file (requires OPENAI_API_KEY; live API cost)
-uv run python app/scripts/run_agent_s12.py \
+# Deliverable trace file (requires OPENAI_API_KEY; live API cost).
+# gpt-5 + medium often needs a longer HTTP timeout than the default 30s:
+OPENAI_TIMEOUT_SECONDS=600 uv run python app/scripts/run_agent_s12.py \
   exercises/session-12/sample_transcript_complex.txt --model gpt-5 --effort medium \
-  --out /tmp/agent_trace_complex.txt
+  --stub --out /tmp/agent_trace_complex.txt
 
 # HTTP API (requires OPENAI_API_KEY and DATABASE_URL for real retrieval)
 curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/agent \

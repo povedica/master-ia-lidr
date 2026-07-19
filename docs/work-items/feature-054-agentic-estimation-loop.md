@@ -339,7 +339,7 @@ With real retrieval or stub, the agent must:
 - [x] **AC-07:** Each tool step records `reasoning_summary`, `tool`, `tool_args`, `observation`; `AgentTrace.render()` matches `STEP N` format from the exercise.
 - [x] **AC-08:** Malformed tool arguments return error observations; loop continues (unit-tested).
 - [x] **AC-09:** Terminal `responses.parse` produces validated `AgentEstimate` on successful runs (mocked in unit tests).
-- [ ] **AC-10:** On `sample_transcript_complex.txt` with `gpt-5` / `medium` effort (manual slow run): >1 component, >1 `search_budgets` call, ≥1 `calculate_estimate` call, finite termination, coherent estimate.
+- [x] **AC-10:** On `sample_transcript_complex.txt` with `gpt-5` / `medium` effort (manual slow run): >1 component, >1 `search_budgets` call, ≥1 `calculate_estimate` call, finite termination, coherent estimate.
 - [x] **AC-11:** `app/scripts/run_agent_s12.py` prints trace to stdout and supports `--out` for deliverable file.
 - [x] **AC-12:** Default `uv run pytest` passes with mocked OpenAI client (no API keys); agent integration tests marked `@pytest.mark.slow`.
 - [x] **AC-13:** `.env.example` documents `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`.
@@ -378,18 +378,19 @@ With real retrieval or stub, the agent must:
 
 ### Automated
 
-- **Verified:** `uv run pytest tests/test_agent_*.py tests/test_retrieval_adapter.py tests/exercises/test_session_12_assets.py` — 28 passed
-- **Verified:** `uv run pytest tests/test_rag_estimation_endpoint.py tests/test_rag_estimation_service.py` — 15 passed (no RAG regression)
-- **Not verified:** full `uv run pytest` suite (7 pre-existing failures in `test_config` / `test_worktree_tasks` unrelated to feature-054)
+- **Verified:** `uv run pytest tests/test_agent_*.py tests/test_retrieval_adapter.py tests/exercises/test_session_12_assets.py tests/test_rag_estimation_endpoint.py tests/test_rag_estimation_service.py` — 39 passed (2026-07-19)
+- **Verified:** `uv run pytest tests/test_agent_estimations_router.py` — 4 passed
+- **Not verified:** full `uv run pytest` suite (pre-existing failures in `test_config` / `test_worktree_tasks` unrelated to feature-054)
 
 ### Manual
 
-- Session 12 deliverable trace on `sample_transcript_complex.txt` saved locally (not committed)
+- **Verified (Step 10):** `gpt-5-mini` + `--stub` + `sample_transcript_simple.txt` — completed; multi-component `search_budgets` + `calculate_estimate` + `validate_estimate`; total 5589.0h; trace at `/tmp/agent_trace_simple.txt` (not committed)
+- **Verified (Step 11 / AC-10):** `OPENAI_TIMEOUT_SECONDS=600` + `gpt-5` + `medium` + `--stub` + `sample_transcript_complex.txt` — 4 components, 5× `search_budgets`, 2× `calculate_estimate`, `validate_estimate`, `stopped_reason=completed`, total 3651.3h; trace at `/tmp/agent_trace_complex.txt` (not committed)
 - Optional: email Lia with branch link + trace attachment (student process, outside repo)
 
 ### Not verified yet
 
-- Live `gpt-5` run cost/latency benchmarks
+- Live run without `--stub` (requires populated Postgres corpus)
 - Production load / rate limits on Responses API
 - Parity with official `origin/session_12` trace wording byte-for-byte
 
@@ -405,7 +406,7 @@ With real retrieval or stub, the agent must:
 
 **Residual risks**
 
-- Live API tuning of tool descriptions not done in-repo (manual step with real key)
+- Default `OPENAI_TIMEOUT_SECONDS=30` is too short for `gpt-5` + `medium` multi-turn loops; deliverable runs need `OPENAI_TIMEOUT_SECONDS=600` (or similar)
 - CLI real-retrieval path needs `DATABASE_URL` + populated corpus
 - Agent path bypasses rate-limit keys (`ESTIMATE_API_KEY`) — intentional for local dev; harden in feature-056 if needed
 
@@ -437,8 +438,8 @@ With real retrieval or stub, the agent must:
 - [x] **Step 7:** Implement `agent_loop.py` — `run_estimation_agent` with mocked tests for multi-turn flow.
 - [x] **Step 8:** Add settings + `.env.example` entries.
 - [x] **Step 9:** Add `app/scripts/run_agent_s12.py` CLI.
-- [ ] **Step 10:** Manual debug run (mini + simple + stub); fix tool descriptions if model mis-invokes tools.
-- [ ] **Step 11:** Manual deliverable run (gpt-5 + complex transcript); capture trace for submission.
+- [x] **Step 10:** Manual debug run (mini + simple + stub); fix tool descriptions if model mis-invokes tools.
+- [x] **Step 11:** Manual deliverable run (gpt-5 + complex transcript); capture trace for submission.
 - [x] **Step 12 (optional):** `POST /api/v1/estimate/agent` router + integration test.
 - [x] **Step 13:** README + session note; agent test suite + RAG regression green.
 
@@ -449,6 +450,7 @@ With real retrieval or stub, the agent must:
 - **`previous_response_id` chaining** avoids reasoning-item ordering bugs when resuming gpt-5 turns.
 - **Parallel function calls in one turn** share one reasoning summary — attach to first step only.
 - **Debug cheaply:** `gpt-5-mini` + `--stub` validates loop mechanics before spending on `gpt-5` + DB retrieval.
+- **Raise HTTP timeout for deliverable runs:** `gpt-5` + `medium` can exceed 30s on the first Responses turn; override `OPENAI_TIMEOUT_SECONDS` (e.g. 600) for AC-10.
 - **Do not conflate with S11 RAG:** `RagEstimationResult` targets citation grounding; `AgentEstimate` targets agent orchestration pedagogy.
 - **Official repo uses `structlog`;** `master-ia` keeps stdlib logging per feature-052 precedent.
 
@@ -481,7 +483,7 @@ With real retrieval or stub, the agent must:
 
 ## Pull Request
 
-- Draft: https://github.com/povedica/master-ia-lidr/pull/59 (label: `wip`)
+- https://github.com/povedica/master-ia-lidr/pull/59
 
 ## Repository commits (master-ia)
 
@@ -496,3 +498,4 @@ With real retrieval or stub, the agent must:
 | `7db8a28` | `feat(agentic): add POST /api/v1/estimate/agent endpoint` |
 | `5c5b9f6` | `feat(agentic): add Session 12 CLI runner and documentation` |
 | `9f2887b` | `docs(feature-054): add technical reference and sync all docs` |
+| `9743c9a` | `docs(feature-054): record documentation sync commit hash` |
