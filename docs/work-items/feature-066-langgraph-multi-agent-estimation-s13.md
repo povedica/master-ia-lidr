@@ -443,7 +443,7 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
 - [x] **Step 1:** Add deps (`langgraph`, checkpoint-postgres, `psycopg`) + settings
       stubs + `.env.example` entries.  
       *TDD:* `tests/estimation_graph/test_checkpointer_conninfo.py` RED → GREEN for DSN helper.
-- [ ] **Step 2:** Evolve `app/services/agentic/` with `run_structure_agent` +
+- [x] **Step 2:** Evolve `app/services/agentic/` with `run_structure_agent` +
       `run_task_hours_recovery_agent` + schemas/tools.  
       *TDD:* mocked Responses tests RED → GREEN.
 - [ ] **Step 3:** Port `state.py` + `merge_task_hours` + routing helpers in `build.py`
@@ -503,7 +503,7 @@ split stream/UI if the core PR grows past reviewability.
 ## Implementation progress
 
 - [x] Step 1: deps (`langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg-pool`) + `GRAPH_*` settings + `.env.example` + `saver_conninfo` (2026-07-19)
-- [ ] Step 2: two-phase agentic APIs
+- [x] Step 2: two-phase agentic APIs (`run_structure_agent`, `run_task_hours_recovery_agent`, `derive_task_hours`) + mocked tests (2026-07-19)
 - [ ] Step 3: state + reducer + routing helpers
 - [ ] Step 4: agents + `build_graph(MemorySaver)` e2e
 - [ ] Step 5: checkpointer + lifespan

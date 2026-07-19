@@ -9,6 +9,7 @@ from typing import Any
 
 from app.services.agentic.agent_schemas import (
     CalculateEstimateArgs,
+    DeriveTaskHoursArgs,
     SearchBudgetsArgs,
     ValidateEstimateArgs,
 )
@@ -150,13 +151,102 @@ VALIDATE_ESTIMATE_TOOL: dict[str, Any] = {
     "strict": True,
 }
 
+DERIVE_TASK_HOURS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "name": "derive_task_hours",
+    "description": (
+        "Deterministically derive the engineer-hours for ONE task from the "
+        "historical analogs you found with search_budgets. It computes a "
+        "distance-weighted consensus of the neighbours' hours (closer analogs "
+        "count more) plus a 0..1 reliability score — the SAME arithmetic the "
+        "standard pipeline uses. Pass the neighbours exactly as search_budgets "
+        "returned them (each with its estimated_hours AND its distance). Call this "
+        "once you have gathered analogs for the task. This does NOT call a model — "
+        "it is pure arithmetic, so its output is reproducible. If you found no "
+        "usable analog, do NOT call this with an empty list; report the task as "
+        "unresolved instead."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "module": {"type": "string", "description": "Module the task belongs to."},
+            "task": {"type": "string", "description": "Task name (echoed back)."},
+            "neighbors": {
+                "type": "array",
+                "description": "Historical analogs from search_budgets that anchor this task.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "estimated_hours": {
+                            "type": "integer",
+                            "description": "Recorded engineer-hours for the analog.",
+                        },
+                        "distance": {
+                            "type": "number",
+                            "description": "Cosine distance from search_budgets (lower = closer).",
+                        },
+                        "source_id": {
+                            "type": ["integer", "null"],
+                            "description": "DB id of the analog chunk (the search result 'id').",
+                        },
+                        "budget_id": {
+                            "type": ["string", "null"],
+                            "description": "Traceable parent budget id, if any.",
+                        },
+                    },
+                    "required": ["estimated_hours", "distance", "source_id", "budget_id"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["module", "task", "neighbors"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+# Task-focused copy of search_budgets for the Session 13 recovery loop.
+SEARCH_BUDGETS_HOURS_TOOL: dict[str, Any] = {
+    **SEARCH_BUDGETS_TOOL,
+    "description": (
+        "Search historical project tasks for work analogous to ONE task you are "
+        "trying to cost, and return the matching items with their recorded effort "
+        "in engineer-hours. Call this once per task you need to ground. Use a "
+        "focused, task-specific query — reformulate it (different wording, "
+        "synonyms, or drop/relax a filter) if the first search finds nothing. "
+        "Returns a list of historical items, each with an id, a text preview, its "
+        "sector, its recorded engineer-hours and its distance; pass those "
+        "(hours + distance) as the neighbors for derive_task_hours."
+    ),
+}
+
+VALIDATE_ESTIMATE_HOURS_TOOL: dict[str, Any] = {
+    **VALIDATE_ESTIMATE_TOOL,
+    "description": (
+        "Run sanity-check guardrails over the hours you recovered before finishing. "
+        "It flags tasks with no historical reference, tasks whose hours are far "
+        "outside the range of their references, a total that does not match the sum "
+        "of the tasks, and non-positive or implausibly large totals. Call this as "
+        "the LAST step, once you have derived hours for the tasks you could ground, "
+        "and address any issues it reports. Returns {ok, issues}."
+    ),
+}
+
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     SEARCH_BUDGETS_TOOL,
     CALCULATE_ESTIMATE_TOOL,
     VALIDATE_ESTIMATE_TOOL,
 ]
 
+STRUCTURE_TOOL_SCHEMAS: list[dict[str, Any]] = []
+HOURS_TOOL_SCHEMAS: list[dict[str, Any]] = [
+    SEARCH_BUDGETS_HOURS_TOOL,
+    DERIVE_TASK_HOURS_TOOL,
+    VALIDATE_ESTIMATE_HOURS_TOOL,
+]
+
 RetrievalBackend = Callable[[SearchBudgetsArgs], Awaitable[list[dict[str, Any]]]]
+ConsensusFn = Callable[[list[tuple[int, float]]], tuple[int, float, float]]
 
 
 async def search_budgets(
@@ -257,17 +347,51 @@ def validate_estimate(raw_args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def derive_task_hours(raw_args: dict[str, Any], *, consensus_fn: ConsensusFn) -> dict[str, Any]:
+    """Distance-weighted consensus over analogs. No LLM."""
+    args = DeriveTaskHoursArgs.model_validate(raw_args)
+    if not args.neighbors:
+        return {
+            "module": args.module,
+            "task": args.task,
+            "has_match": False,
+            "summary": f"no neighbours supplied for {args.task!r}; task left unresolved",
+        }
+    pairs = [(n.estimated_hours, n.distance) for n in args.neighbors]
+    hours, reliability, dispersion = consensus_fn(pairs)
+    logger.info(
+        "agent_tool_derive_task_hours",
+        extra={"task": args.task, "neighbors": len(pairs), "hours": hours},
+    )
+    return {
+        "module": args.module,
+        "task": args.task,
+        "estimated_hours": hours,
+        "reliability": reliability,
+        "dispersion": dispersion,
+        "has_match": True,
+        "summary": (
+            f"{args.task!r}: {hours}h (reliability {reliability}) from {len(pairs)} analogs"
+        ),
+    }
+
+
 async def dispatch_tool(
     name: str,
     raw_args: dict[str, Any],
     *,
     backend: RetrievalBackend,
+    consensus_fn: ConsensusFn | None = None,
 ) -> dict[str, Any]:
     """Route a tool call to its implementation."""
     if name == "search_budgets":
         return await search_budgets(raw_args, backend=backend)
     if name == "calculate_estimate":
         return calculate_estimate(raw_args)
+    if name == "derive_task_hours":
+        if consensus_fn is None:
+            raise ValueError("consensus_fn is required for derive_task_hours")
+        return derive_task_hours(raw_args, consensus_fn=consensus_fn)
     if name == "validate_estimate":
         return validate_estimate(raw_args)
     raise ValueError(f"Unknown tool: {name!r}")
