@@ -446,7 +446,7 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
 - [x] **Step 2:** Evolve `app/services/agentic/` with `run_structure_agent` +
       `run_task_hours_recovery_agent` + schemas/tools.  
       *TDD:* mocked Responses tests RED → GREEN.
-- [ ] **Step 3:** Port `state.py` + `merge_task_hours` + routing helpers in `build.py`
+- [x] **Step 3:** Port `state.py` + `merge_task_hours` + routing helpers in `build.py`
       (graph not fully wired yet).  
       *TDD:* reducer + routing unit tests.
 - [ ] **Step 4:** Port agents + gates; `build_graph` compiles with MemorySaver.  
@@ -504,7 +504,7 @@ split stream/UI if the core PR grows past reviewability.
 
 - [x] Step 1: deps (`langgraph`, `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg-pool`) + `GRAPH_*` settings + `.env.example` + `saver_conninfo` (2026-07-19)
 - [x] Step 2: two-phase agentic APIs (`run_structure_agent`, `run_task_hours_recovery_agent`, `derive_task_hours`) + mocked tests (2026-07-19)
-- [ ] Step 3: state + reducer + routing helpers
+- [x] Step 3: `EstimationState` + `merge_task_hours` + `fan_out_hours` / `route_after_gate2` (2026-07-19)
 - [ ] Step 4: agents + `build_graph(MemorySaver)` e2e
 - [ ] Step 5: checkpointer + lifespan
 - [ ] Step 6: HTTP router
