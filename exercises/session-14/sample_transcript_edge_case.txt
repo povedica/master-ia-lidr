@@ -1,0 +1,19 @@
+Client discovery call — experimental logistics R&D (edge case for Session 14 HITL)
+
+Client: We need a greenfield platform for quantum-assisted last-mile teleportation
+scheduling. There is no prior product in our portfolio and nothing like this in
+typical software budgets. The system should accept holographic pickup requests from
+warehouse drones, compute teleportation corridors across city districts, and write
+settlement events into a fictional interdimensional ledger.
+
+Constraints:
+- Domain is deliberately without historical precedent in our budget corpus.
+- Integrations include a proprietary "Chronos Bridge" API that no vendor documents.
+- Compliance requires audit trails for teleportation attempts that never completed.
+- Mobile operators want a tablet UI for corridor operators plus a citizen-facing
+  status app with speculative ETA confidence bands.
+
+Success looks like a first estimation we can challenge in human review because the
+historical search will return no analogous projects. Please treat every component
+as novel R&D unless you find a real precedent — we expect the estimator to pause
+for specialist review rather than invent hours.
