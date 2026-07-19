@@ -10,10 +10,9 @@ Living technical reference for the **LangGraph multi-agent estimation graph** in
 **Official reference:** `ai-engineering` branch `session_13_live`
 (`estimator/app/domain/graph/*`)
 
-**Draft status:** Step 7 (CLI + exercises) landed with this note. Step 5 (Postgres
-checkpointer + lifespan) and Step 6 (HTTP router) may land in parallel on the same
-branch — treat lifespan/HTTP sections as the target contract until those steps mark
-themselves done in the work item.
+**Status:** Steps 5–8 landed on the feature branch (checkpointer + lifespan, blocking
+HTTP verbs, CLI/exercises, and optional stream/progress/proposal + activity feed).
+Step 10 (React wizard) remains optional.
 
 ---
 
@@ -55,10 +54,10 @@ START → classifier_agent
 | Library | `build_graph(checkpointer)` | Done (MemorySaver e2e tested) |
 | CLI | `uv run python app/scripts/run_graph_s13.py [--memory] [--stub]` | Done (Step 7) |
 | Exercise kit | `exercises/session-13/` | Done (Step 7) |
-| FastAPI lifespan → `app.state.graph` | `app/main.py` | Step 5 (parallel track) |
-| HTTP API | `POST /api/v1/estimate/graph*` | *(pending Step 6)* |
-| Stream / progress / proposal-on-demand | optional Step 8 | Pending |
-| React wizard | optional child front feature | Pending |
+| FastAPI lifespan → `app.state.graph` | `app/main.py` | Done (Step 5) |
+| HTTP API | `POST/GET /api/v1/estimate/graph*` | Done (Step 6) |
+| Stream / progress / proposal-on-demand | see HTTP contract below | Done (Step 8) |
+| React wizard | optional child front feature | Pending (Step 10) |
 
 ---
 
@@ -72,6 +71,7 @@ app/services/estimation_graph/
 ├── structured.py      # complete_graph_structured (Instructor/LiteLLM)
 ├── schemas.py         # ComplexityClassification, ReliabilityReport, …
 ├── personas.py        # Optional persona prefixes behind GRAPH_PERSONAS_ENABLED
+├── activity.py        # Didactic activity feed for stream/progress (Step 8)
 └── agents/
     ├── classifier.py
     ├── structure.py   # wraps run_structure_agent
@@ -80,9 +80,12 @@ app/services/estimation_graph/
     ├── analysis.py
     └── proposal.py
 
+app/routers/estimate_graph.py
+app/schemas/graph_estimation.py
 app/scripts/run_graph_s13.py
 exercises/session-13/
 tests/estimation_graph/
+tests/routers/test_estimate_graph.py
 ```
 
 Package home is **`app/services/estimation_graph/`** (not a new `app/domain/` tree).
@@ -142,15 +145,22 @@ Target / implemented behaviour (official parity):
 
 ---
 
-## HTTP contract *(pending Step 6)*
+## HTTP contract
 
 | Verb | Path | Behaviour |
 | --- | --- | --- |
 | POST | `/api/v1/estimate/graph` | Start → pause at gate 1 or complete |
 | POST | `/api/v1/estimate/graph/{id}/resume` | Resume; 409 if nothing pending |
 | GET | `/api/v1/estimate/graph/{id}/state` | Snapshot; 404 unknown |
+| POST | `/api/v1/estimate/graph/stream` | 202 + background `astream`; poll progress |
+| POST | `/api/v1/estimate/graph/{id}/resume-stream` | 202 resume in background; 409 if idle |
+| GET | `/api/v1/estimate/graph/{id}/progress` | `running` \| `paused` \| `completed` + activity |
+| POST | `/api/v1/estimate/graph/{id}/proposal` | On-demand commercial proposal (no graph re-run) |
 
-Auth: reuse `ESTIMATE_API_KEY`. Rate limits aligned with estimate routes.
+Auth: reuse `ESTIMATE_API_KEY`. Rate limits aligned with estimate routes
+(≈10/min writes; higher for progress poll). Graph unavailable → **503**;
+node/LLM failures → **502**. Activity feed uses Redis when `REDIS_URL` is set,
+otherwise an in-process store (single worker / tests).
 
 ---
 
@@ -177,11 +187,12 @@ Structure / recovery Responses calls reuse `AGENT_MODEL`, `AGENT_REASONING_EFFOR
 ## Tests
 
 ```bash
-uv run pytest tests/estimation_graph tests/exercises/test_session_13_assets.py -q
+uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py -q
+uv run pytest tests/exercises/test_session_13_assets.py -q
 ```
 
 Default suite: MemorySaver + faked `complete_graph_structured` + faked
-`run_structure_agent` / `estimate_one` — no API keys, no Postgres.
+`run_structure_agent` / `estimate_one` / mocked graph router — no API keys, no Postgres.
 
 CLI helpers covered in `tests/estimation_graph/test_cli_helpers.py` (render, stub
 hours, auto-approve `run_to_completion`).

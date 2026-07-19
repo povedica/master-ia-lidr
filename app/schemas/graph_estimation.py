@@ -1,10 +1,12 @@
 """Public HTTP contract for the Session 13 multi-agent estimation graph.
 
-These mirror the official ``domain/schemas/graph_estimation.py`` models used by
-start / resume / state. Stream/progress/proposal models are deferred to Step 8.
+Mirrors official ``domain/schemas/graph_estimation.py``: start / resume / state
+plus the live stream / progress / proposal surface (Step 8).
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -57,3 +59,37 @@ class GraphRunState(BaseModel):
     proposal: str | None = None
     status: str | None = None  # "validated" | "needs_review"
     errors: list[str] = Field(default_factory=list)
+
+
+class ActivityEntry(BaseModel):
+    """One didactic line of what an agent just did (see ``activity.py``)."""
+
+    seq: int = 0
+    node: str
+    label: str
+    message: str
+    ts: str | None = None
+
+
+class GraphProgress(GraphRunState):
+    """Live progress of a background-streamed run: ``GraphRunState`` + activity.
+
+    ``state`` gains ``"running"`` — mid-leg between gates while the panel fills.
+    """
+
+    state: Literal["running", "paused", "completed"]  # type: ignore[assignment]
+    activity: list[ActivityEntry] = Field(default_factory=list)
+
+
+class GraphProposalResponse(BaseModel):
+    """Commercial proposal from ``POST …/graph/{id}/proposal``.
+
+    Generated on demand over the run's already-validated estimate (no graph re-run).
+    """
+
+    estimation_id: str
+    title: str
+    executive_summary: str
+    scope: list[str] = Field(default_factory=list)
+    total_engineer_days: int | None = None
+    body_markdown: str

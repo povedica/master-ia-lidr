@@ -870,7 +870,7 @@ Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones
 
 - Explicit graph under `app/services/estimation_graph/`: classifier → structure → human gate → per-task hours fan-out → recovery → analysis → human gate → optional proposal.
 - CLI auto-approves both gates. `--memory` uses `MemorySaver` (no Postgres); `--stub` uses canned per-task hours (no DB fan-out). LLM agents still need `OPENAI_API_KEY`.
-- HTTP `/api/v1/estimate/graph*` is Step 6. Postgres checkpointer + lifespan (`app.state.graph`) is Step 5 (may land in parallel on this branch).
+- HTTP: blocking `POST /api/v1/estimate/graph` (+ `/resume`, `/state`) and live `POST …/stream`, `…/resume-stream`, `GET …/progress`, `POST …/proposal` (auth: `ESTIMATE_API_KEY`). Postgres checkpointer + lifespan → `app.state.graph`.
 
 ```bash
 # Partial-offline smoke (no Postgres checkpoints; stub hours)

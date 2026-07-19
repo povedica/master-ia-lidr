@@ -251,6 +251,7 @@ structure / recovery Responses calls.
 | POST | `/api/v1/estimate/graph/{id}/resume` | Resume; 409 if nothing pending |
 | GET | `/api/v1/estimate/graph/{id}/state` | Snapshot; 404 unknown |
 | POST | `/api/v1/estimate/graph/stream` | 202 + background `astream` (optional slice) |
+| POST | `/api/v1/estimate/graph/{id}/resume-stream` | 202 resume in background; 409 if idle |
 | GET | `/api/v1/estimate/graph/{id}/progress` | `running` \| `paused` \| `completed` + activity |
 | POST | `/api/v1/estimate/graph/{id}/proposal` | Draft commercial proposal |
 
@@ -386,8 +387,10 @@ Client transcript
 - [x] **AC-11:** Settings already in `.env.example` (Step 1); README + technical
       note `docs/technical/estimation-graph-s13.md` drafted (Step 9); refine after
       Steps 5–6.
-- [ ] **AC-12 (optional stream slice):** `POST /graph/stream` returns 202;
-      `GET /progress` eventually shows `paused` or `completed` with activity lines.
+- [x] **AC-12 (optional stream slice):** `POST /graph/stream` returns 202;
+      `GET /progress` eventually shows `paused` or `completed` with activity lines
+      (`tests/routers/test_estimate_graph.py` + `tests/estimation_graph/test_activity.py`).
+      Also: `resume-stream` (202/409) and on-demand `POST …/proposal`.
 - [ ] **AC-13 (optional UI):** React screen can drive start → gate 1 → resume →
       gate 2 → complete (may be `front-feature-NNN` child).
 
@@ -404,7 +407,8 @@ Client transcript
 - `tests/estimation_graph/test_checkpointer_conninfo.py` — DSN stripping
 - `tests/estimation_graph/test_open_checkpointer.py` — pooled saver open/setup/close
 - `tests/estimation_graph/test_graph_lifespan.py` — resilient `app.state.graph` wiring
-- `tests/routers/test_estimate_graph.py` — auth, 409/404/503, response shape
+- `tests/routers/test_estimate_graph.py` — auth, 409/404/503, stream/progress/proposal
+- `tests/estimation_graph/test_activity.py` — `describe_node` + in-process activity log
 
 ### Integration tests
 
@@ -464,7 +468,7 @@ uv run python app/scripts/run_graph_s13.py --out exercises/session-13/example_ru
       (recovery retrieval DI still stub until Step 6/7).
 - [x] **Step 6:** HTTP router (start / resume / state) + auth/rate-limit + tests.
 - [x] **Step 7:** CLI `run_graph_s13.py` + `exercises/session-13/` assets + README.
-- [ ] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
+- [x] **Step 8:** Optional stream/progress/proposal endpoints + activity log.
 - [x] **Step 9:** Docs draft (`docs/technical/estimation-graph-s13.md`, README
       pointers, session note) — refine after Steps 5–6 finalize HTTP/lifespan.
 - [ ] **Step 10 (optional child):** React graph wizard (`/write-front-feature`).
@@ -524,9 +528,9 @@ split stream/UI if the core PR grows past reviewability.
       stream/progress/proposal deferred to Step 8)
 - [x] Step 7: CLI + exercises (2026-07-19) — `app/scripts/run_graph_s13.py`,
       `exercises/session-13/`, CLI helper tests
-- [ ] Step 8: optional stream/progress/proposal
-- [x] Step 9: docs draft + session note (2026-07-19) — finalize HTTP/lifespan
-      details after Steps 5–6
+- [x] Step 8: stream/progress/proposal + activity log (2026-07-19) —
+      `activity.py`, router stream/resume-stream/progress/proposal, AC-12 green
+- [x] Step 9: docs draft + session note (2026-07-19) — HTTP/stream contract synced
 - [ ] Step 10: optional React wizard (child)
 
 ---
