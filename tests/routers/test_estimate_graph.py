@@ -239,14 +239,23 @@ def test_graph_stream_returns_202_and_progress_shows_activity(
     activity_log: GraphActivityLog,
 ) -> None:
     paused = _snapshot(
-        values={"complexity": "high", "errors": []},
-        next_nodes=("human_gate_structure",),
-        interrupts=(_interrupt(),),
+        values={"status": "awaiting_human_review", "confidence": 0.4, "errors": []},
+        next_nodes=("human_review",),
+        interrupts=(_interrupt(gate="estimation_review"),),
     )
 
     async def _astream(_payload, _config, stream_mode="updates"):  # noqa: ARG001
-        yield {"classifier_agent": {"complexity": "high"}}
-        yield {"structure_agent": {"structure": {"modules": [{"tasks": [1]}]}}}
+        yield {
+            "supervisor": {
+                "last_route": "requirements_extractor",
+                "route_reason": "missing_requirements",
+            }
+        }
+        yield {
+            "requirements_extractor": {
+                "requirements": [{"id": "req-1", "text": "API"}],
+            }
+        }
 
     graph = MagicMock()
     graph.astream = _astream
@@ -271,9 +280,8 @@ def test_graph_stream_returns_202_and_progress_shows_activity(
     assert progress.status_code == 200
     body = progress.json()
     assert body["state"] == "paused"
-    assert body["complexity"] == "high"
-    assert [e["node"] for e in body["activity"]] == ["classifier", "structure"]
-    assert "Complejidad: high" in body["activity"][0]["message"]
+    assert [e["node"] for e in body["activity"]] == ["supervisor", "requirements"]
+    assert "requirements_extractor" in body["activity"][0]["message"]
 
 
 def test_graph_resume_stream_returns_409_when_nothing_pending(
@@ -301,18 +309,21 @@ def test_graph_resume_stream_returns_202(
     activity_log: GraphActivityLog,
 ) -> None:
     paused = _snapshot(
-        values={"complexity": "medium"},
-        next_nodes=("human_gate_structure",),
-        interrupts=(_interrupt(),),
+        values={"status": "awaiting_human_review", "confidence": 0.4},
+        next_nodes=("human_review",),
+        interrupts=(_interrupt(gate="estimation_review"),),
     )
     after = _snapshot(
-        values={"complexity": "medium", "estimate": {"total_engineer_days": 5}},
-        next_nodes=("human_gate_analysis",),
-        interrupts=(_interrupt(gate="final_review"),),
+        values={
+            "status": "completed",
+            "estimate": {"total_hours": 120.0},
+            "confidence": 0.4,
+        },
+        next_nodes=(),
     )
 
     async def _astream(_payload, _config, stream_mode="updates"):  # noqa: ARG001
-        yield {"recover_and_handover": {"estimate": {"total_engineer_days": 5}}}
+        yield {"estimate_generator": {"estimate": {"total_hours": 120.0}}}
 
     graph = MagicMock()
     graph.astream = _astream
@@ -321,13 +332,13 @@ def test_graph_resume_stream_returns_202(
 
     response = client.post(
         f"{GRAPH_PATH}/e1/resume-stream",
-        json={"decision": {"approved": True}},
+        json={"resolution": {"action": "approve"}},
         headers={"X-API-Key": EST_KEY},
     )
     assert response.status_code == 202
     assert response.json()["state"] == "running"
     assert activity_log.read("e1")
-    assert "jornadas" in activity_log.read("e1")[0]["message"]
+    assert "120.0h" in activity_log.read("e1")[0]["message"]
 
 
 def test_graph_proposal_returns_draft(

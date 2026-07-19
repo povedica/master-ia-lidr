@@ -1,51 +1,68 @@
-"""Activity feed helpers for Session 13 stream mode — network-free."""
+"""Activity feed helpers for supervisor/worker stream mode — network-free."""
 
 from __future__ import annotations
 
 from app.services.estimation_graph.activity import GraphActivityLog, describe_node
 
 
-def test_describe_classifier_reads_complexity() -> None:
-    lines = describe_node("classifier_agent", {"complexity": "high"})
+def test_describe_supervisor_reads_route() -> None:
+    lines = describe_node(
+        "supervisor",
+        {"last_route": "budget_searcher", "route_reason": "historical_search_pending"},
+    )
     assert lines == [
-        {"node": "classifier", "label": "Classifier", "message": "Complejidad: high"}
-    ]
-
-
-def test_describe_structure_counts_modules_and_tasks() -> None:
-    update = {"structure": {"modules": [{"tasks": [1, 2]}, {"tasks": [3]}]}}
-    (line,) = describe_node("structure_agent", update)
-    assert line["node"] == "structure"
-    assert line["message"] == "2 módulos · 3 tareas"
-
-
-def test_describe_hours_fanout_one_line_per_task() -> None:
-    update = [
-        {"task_hours": [{"task": "A", "has_match": True, "estimated_hours": 37}]},
-        {"task_hours": [{"task": "B", "has_match": False, "estimated_hours": None}]},
-    ]
-    lines = describe_node("estimate_task_hours", update)
-    assert [line["message"] for line in lines] == ["A: 37 h", "B: SIN ANÁLOGO"]
-    assert all(line["node"] == "hours" for line in lines)
-
-
-def test_describe_recover_reads_total_days() -> None:
-    update = {"estimate": {"total_engineer_days": 292}, "task_hours": []}
-    (line,) = describe_node("recover_and_handover", update)
-    assert line["node"] == "recover"
-    assert "292 jornadas" in line["message"]
-
-
-def test_describe_analysis_reads_confidence_and_ratio() -> None:
-    update = {
-        "analysis_report": {
-            "overall_confidence": "medium",
-            "grounded_task_ratio": 0.59,
+        {
+            "node": "supervisor",
+            "label": "Supervisor",
+            "message": "Ruta → budget_searcher (historical_search_pending)",
         }
+    ]
+
+
+def test_describe_requirements_counts() -> None:
+    update = {"requirements": [{"id": "req-1"}, {"id": "req-2"}]}
+    (line,) = describe_node("requirements_extractor", update)
+    assert line["node"] == "requirements"
+    assert line["message"] == "2 requisitos extraídos"
+
+
+def test_describe_budget_search_counts_no_match() -> None:
+    update = {
+        "budget_matches": [
+            {"no_match": True},
+            {"no_match": False, "reference_budget_id": "b1"},
+        ]
     }
-    (line,) = describe_node("analysis_agent", update)
-    assert line["node"] == "analysis"
-    assert "medium" in line["message"] and "59%" in line["message"]
+    (line,) = describe_node("budget_searcher", update)
+    assert line["node"] == "budget_search"
+    assert "2 filas" in line["message"]
+    assert "1 sin precedente" in line["message"]
+
+
+def test_describe_estimate_total_hours() -> None:
+    (line,) = describe_node("estimate_generator", {"estimate": {"total_hours": 184.0}})
+    assert line["node"] == "estimate"
+    assert "184.0h" in line["message"]
+
+
+def test_describe_validator_confidence_and_reasons() -> None:
+    update = {
+        "confidence": 0.35,
+        "validation": {"review_reasons": ["no relevant historical precedent"]},
+    }
+    (line,) = describe_node("coherence_validator", update)
+    assert line["node"] == "validator"
+    assert "0.35" in line["message"]
+    assert "1 señales HITL" in line["message"]
+
+
+def test_describe_human_review_action() -> None:
+    (line,) = describe_node(
+        "human_review",
+        {"human_resolution": {"action": "approve"}},
+    )
+    assert line["node"] == "human_review"
+    assert "approve" in line["message"]
 
 
 def test_describe_interrupt_and_unknown_never_raise() -> None:
@@ -55,16 +72,16 @@ def test_describe_interrupt_and_unknown_never_raise() -> None:
 
 def test_activity_log_in_process_fallback_appends_reads_and_resets() -> None:
     log = GraphActivityLog(redis_client=None)
-    log.append("run-1", node="classifier", label="Classifier", message="Complejidad: high")
+    log.append("run-1", node="supervisor", label="Supervisor", message="Ruta → END")
     log.append(
         "run-1",
-        node="structure",
-        label="Structure",
-        message="11 módulos · 123 tareas",
+        node="validator",
+        label="Validator",
+        message="Confianza 0.9",
     )
     entries = log.read("run-1")
     assert [e["seq"] for e in entries] == [0, 1]
-    assert entries[1]["node"] == "structure"
+    assert entries[1]["node"] == "validator"
     assert log.read("run-2") == []
     log.reset("run-1")
     assert log.read("run-1") == []

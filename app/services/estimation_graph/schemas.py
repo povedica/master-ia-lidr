@@ -14,6 +14,23 @@ from pydantic import BaseModel, Field
 Complexity = Literal["low", "medium", "high"]
 
 
+class ExtractedRequirement(BaseModel):
+    """One structured requirement emitted by ``requirements_extractor``."""
+
+    id: str = Field(min_length=1, description="Stable requirement identifier.")
+    text: str = Field(min_length=1, description="Requirement statement.")
+    category: str = Field(
+        default="general",
+        description="Coarse category (e.g. backend, frontend, integration).",
+    )
+
+
+class ExtractedRequirements(BaseModel):
+    """Structured extraction output for the requirements worker."""
+
+    requirements: list[ExtractedRequirement] = Field(default_factory=list)
+
+
 class ComplexityClassification(BaseModel):
     """Output of ``classifier_agent``: complexity + a reformulated brief."""
 

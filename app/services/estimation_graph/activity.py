@@ -1,4 +1,4 @@
-"""Live per-agent activity log for the Session 13 graph (didactic UI feed).
+"""Live per-agent activity log for the supervisor/worker graph (didactic UI feed).
 
 Streaming endpoints drive the graph with ``astream(..., stream_mode="updates")``
 and append a short, human-readable line per node here.
@@ -23,30 +23,26 @@ logger = logging.getLogger(__name__)
 _KEY_PREFIX = "graph:activity:"
 
 _NODE_KEYS: dict[str, str] = {
-    "classifier_agent": "classifier",
-    "structure_agent": "structure",
-    "human_gate_structure": "gate_structure",
-    "estimate_task_hours": "hours",
-    "recover_and_handover": "recover",
-    "analysis_agent": "analysis",
-    "human_gate_analysis": "gate_analysis",
-    "proposal_agent": "proposal",
+    "supervisor": "supervisor",
+    "requirements_extractor": "requirements",
+    "budget_searcher": "budget_search",
+    "estimate_generator": "estimate",
+    "coherence_validator": "validator",
+    "human_review": "human_review",
 }
 
 _NODE_LABELS: dict[str, str] = {
-    "classifier": "Classifier",
-    "structure": "Structure",
-    "gate_structure": "Gate 1",
-    "hours": "Hours",
-    "recover": "Recover",
-    "analysis": "Analysis",
-    "gate_analysis": "Gate 2",
-    "proposal": "Proposal",
+    "supervisor": "Supervisor",
+    "requirements": "Requirements",
+    "budget_search": "Budget search",
+    "estimate": "Estimate",
+    "validator": "Validator",
+    "human_review": "Human review",
 }
 
 
 def _as_updates(update) -> list[dict]:
-    """Normalise a node update to a list of dicts (fan-out yields a list)."""
+    """Normalise a node update to a list of dicts."""
     if isinstance(update, list):
         return [u for u in update if isinstance(u, dict)]
     if isinstance(update, dict):
@@ -55,11 +51,7 @@ def _as_updates(update) -> list[dict]:
 
 
 def describe_node(node_name: str, update) -> list[dict]:
-    """Map one ``astream`` chunk entry to didactic activity lines.
-
-    Returns a list of ``{node, label, message}`` (usually one; the hours fan-out
-    yields one per task). Best-effort and exception-free.
-    """
+    """Map one ``astream`` chunk entry to didactic activity lines."""
     try:
         if node_name == "__interrupt__":
             return [
@@ -74,93 +66,70 @@ def describe_node(node_name: str, update) -> list[dict]:
         label = _NODE_LABELS.get(key, key)
         updates = _as_updates(update)
 
-        if node_name == "classifier_agent":
-            complexity = _first(updates, "complexity") or "?"
+        if node_name == "supervisor":
+            reason = _first(updates, "route_reason") or "?"
+            target = _first(updates, "last_route") or "?"
             return [
                 {
                     "node": key,
                     "label": label,
-                    "message": f"Complejidad: {complexity}",
+                    "message": f"Ruta → {target} ({reason})",
                 }
             ]
 
-        if node_name == "structure_agent":
-            structure = _first(updates, "structure") or {}
-            modules = structure.get("modules") or []
-            tasks = sum(len(m.get("tasks") or []) for m in modules)
+        if node_name == "requirements_extractor":
+            requirements = _first(updates, "requirements") or []
             return [
                 {
                     "node": key,
                     "label": label,
-                    "message": f"{len(modules)} módulos · {tasks} tareas",
+                    "message": f"{len(requirements)} requisitos extraídos",
                 }
             ]
 
-        if node_name == "estimate_task_hours":
-            lines: list[dict] = []
-            for u in updates:
-                for est in u.get("task_hours") or []:
-                    task = est.get("task", "tarea")
-                    if est.get("has_match") and est.get("estimated_hours") is not None:
-                        msg = f"{task}: {est['estimated_hours']} h"
-                    else:
-                        msg = f"{task}: SIN ANÁLOGO"
-                    lines.append({"node": key, "label": label, "message": msg})
-            return lines or [
-                {"node": key, "label": label, "message": "estimando horas…"}
+        if node_name == "budget_searcher":
+            matches = _first(updates, "budget_matches") or []
+            no_match = sum(1 for row in matches if row.get("no_match"))
+            return [
+                {
+                    "node": key,
+                    "label": label,
+                    "message": f"{len(matches)} filas · {no_match} sin precedente",
+                }
             ]
 
-        if node_name == "recover_and_handover":
+        if node_name == "estimate_generator":
             estimate = _first(updates, "estimate") or {}
-            days = estimate.get("total_engineer_days")
-            tail = f" · {days} jornadas" if days is not None else ""
+            total = estimate.get("total_hours")
             return [
                 {
                     "node": key,
                     "label": label,
-                    "message": f"Estimación construida{tail}",
+                    "message": f"Total {total}h" if total is not None else "estimación generada",
                 }
             ]
 
-        if node_name == "analysis_agent":
-            report = _first(updates, "analysis_report") or {}
-            conf = report.get("overall_confidence", "?")
-            ratio = report.get("grounded_task_ratio")
-            tail = (
-                f" · fundamentadas {round(ratio * 100)}%"
-                if isinstance(ratio, (int, float))
-                else ""
-            )
+        if node_name == "coherence_validator":
+            confidence = _first(updates, "confidence")
+            validation = _first(updates, "validation") or {}
+            reasons = validation.get("review_reasons") or []
+            tail = f" · {len(reasons)} señales HITL" if reasons else ""
             return [
                 {
                     "node": key,
                     "label": label,
-                    "message": f"Confianza {conf}{tail}",
+                    "message": f"Confianza {confidence}{tail}",
                 }
             ]
 
-        if node_name == "proposal_agent":
-            proposal = _first(updates, "proposal") or ""
+        if node_name == "human_review":
+            resolution = _first(updates, "human_resolution") or {}
+            action = resolution.get("action") or "resumed"
             return [
                 {
                     "node": key,
                     "label": label,
-                    "message": f"Propuesta redactada ({len(proposal)} car.)",
-                }
-            ]
-
-        if node_name == "human_gate_structure":
-            return [
-                {"node": key, "label": label, "message": "Estructura aprobada"}
-            ]
-
-        if node_name == "human_gate_analysis":
-            status = _first(updates, "status") or "validado"
-            return [
-                {
-                    "node": key,
-                    "label": label,
-                    "message": f"Validado ({status})",
+                    "message": f"Resolución humana: {action}",
                 }
             ]
 

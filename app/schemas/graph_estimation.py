@@ -1,14 +1,15 @@
-"""Public HTTP contract for the Session 13 multi-agent estimation graph.
+"""Public HTTP contract for the supervisor/worker estimation graph.
 
-Mirrors official ``domain/schemas/graph_estimation.py``: start / resume / state
-plus the live stream / progress / proposal surface (Step 8).
+Start / resume / state plus the live stream / progress / proposal surface.
+Session 14 (feature-067) introduces typed human resolutions and business
+``status`` values ``awaiting_human_review|completed|rejected``.
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 
 class GraphEstimateRequest(BaseModel):
@@ -20,17 +21,51 @@ class GraphEstimateRequest(BaseModel):
     estimation_id: str | None = Field(default=None, max_length=128)
 
 
+class ApproveResolution(BaseModel):
+    """Human accepts the proposed estimate."""
+
+    action: Literal["approve"] = "approve"
+    comment: str | None = None
+
+
+class AdjustResolution(BaseModel):
+    """Human supplies an adjusted estimate to fold into shared state."""
+
+    action: Literal["adjust"] = "adjust"
+    adjusted_estimate: dict[str, Any]
+    comment: str | None = None
+
+
+class RejectResolution(BaseModel):
+    """Human rejects the run; graph finishes with status=rejected."""
+
+    action: Literal["reject"] = "reject"
+    comment: str | None = None
+
+
+HumanResolution = Annotated[
+    Union[ApproveResolution, AdjustResolution, RejectResolution],
+    Field(discriminator="action"),
+]
+
+_HUMAN_RESOLUTION_ADAPTER: TypeAdapter[ApproveResolution | AdjustResolution | RejectResolution] = (
+    TypeAdapter(HumanResolution)
+)
+
+
+def parse_human_resolution(payload: dict[str, Any]) -> ApproveResolution | AdjustResolution | RejectResolution:
+    """Validate a resume payload as a discriminated human resolution."""
+    return _HUMAN_RESOLUTION_ADAPTER.validate_python(payload)
+
+
 class GraphResumeRequest(BaseModel):
     """Payload for ``POST /api/v1/estimate/graph/{estimation_id}/resume``.
 
-    ``decision`` is the human's answer to whichever gate the run is paused at.
-    Shape depends on ``pending_gate.gate``:
-
-    * ``structure_review`` → ``{"approved": bool, "modules": [...]}``
-    * ``final_review`` → ``{"validated": bool, "estimate_overrides": {...},
-      "want_proposal": bool}``
+    Prefer the typed ``resolution`` field (feature-067). ``decision`` remains
+    temporarily for legacy S13 gate payloads until the HTTP migration step.
     """
 
+    resolution: ApproveResolution | AdjustResolution | RejectResolution | None = None
     decision: dict = Field(default_factory=dict)
 
 

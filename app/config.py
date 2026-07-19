@@ -493,6 +493,15 @@ class Settings(BaseSettings):
             '(e.g. {"low":"low","medium":"medium","high":"high"}).'
         ),
     )
+    graph_human_review_confidence_threshold: float = Field(
+        default=0.70,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Confidence below this value routes the supervisor/worker graph to "
+            "conditional human review (feature-067)."
+        ),
+    )
     task_hours_distance_threshold: float = Field(
         default=0.45,
         ge=0.0,
