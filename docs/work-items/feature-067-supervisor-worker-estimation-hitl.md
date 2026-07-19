@@ -834,7 +834,7 @@ explicitly.
 | `c32fc87` | Step 5: compile supervisor/workers topology, HITL interrupt, retire S13 agents |
 | `63ff9f2` | Step 6: HTTP contract for typed resume + new business statuses |
 | `038a73c` | Step 7: session-14 edge-case transcript + exercise README |
-| (docs) | Step 8: README, technical s14, architecture HTML, learning note, handoff |
+| `e0ff9e3` | Step 8: README, technical s14, architecture HTML, learning note, handoff |
 
 ## Pull Request
 
