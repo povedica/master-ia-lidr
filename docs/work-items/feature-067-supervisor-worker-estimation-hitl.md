@@ -580,54 +580,54 @@ document a temporary adapter instead of accepting arbitrary dictionaries.
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `build_graph(...)` compiles the supervisor/workers topology
+- [x] **AC-01:** `build_graph(...)` compiles the supervisor/workers topology
       without `create_supervisor`.
-- [ ] **AC-02:** Every forward transition chosen by the supervisor returns
+- [x] **AC-02:** Every forward transition chosen by the supervisor returns
       `Command(goto=..., update=...)`, and tests assert route reasons for all
       worker, review, and terminal branches.
-- [ ] **AC-03:** Shared typed state includes the required artifacts, execution
+- [x] **AC-03:** Shared typed state includes the required artifacts, execution
       status, human-resolution data, routing metadata, and at least one
       resume-safe accumulator reducer.
-- [ ] **AC-04:** `requirements_extractor` uses the model boundary only and returns
+- [x] **AC-04:** `requirements_extractor` uses the model boundary only and returns
       validated structured requirements as a partial update.
-- [ ] **AC-05:** `budget_searcher` can invoke only `search_budgets` and accumulates
+- [x] **AC-05:** `budget_searcher` can invoke only `search_budgets` and accumulates
       traceable matches, including an explicit no-match outcome.
-- [ ] **AC-06:** `estimate_generator` can invoke only `calculate_estimate` and
+- [x] **AC-06:** `estimate_generator` can invoke only `calculate_estimate` and
       preserves unbudgeted components without inventing references.
-- [ ] **AC-07:** `coherence_validator` can invoke only `validate_estimate` and
+- [x] **AC-07:** `coherence_validator` can invoke only `validate_estimate` and
       returns validation, numeric confidence, range/no-precedent signals, and
       review reasons.
-- [ ] **AC-08:** The supervisor and extractor have no business-tool access;
+- [x] **AC-08:** The supervisor and extractor have no business-tool access;
       least-privilege tests fail if a worker is wired to an undeclared tool.
-- [ ] **AC-09:** The graph completes normally without interruption when all
+- [x] **AC-09:** The graph completes normally without interruption when all
       review-policy conditions are false.
-- [ ] **AC-10:** Any configured low-confidence, out-of-range, or no-precedent
+- [x] **AC-10:** Any configured low-confidence, out-of-range, or no-precedent
       signal routes to `human_review` and returns
       `status="awaiting_human_review"`.
-- [ ] **AC-11:** A paused run persists under the existing Postgres
+- [x] **AC-11:** A paused run persists under the existing Postgres
       `AsyncPostgresSaver` thread/checkpoint identifier; the fast suite proves
       equivalent pause/resume semantics with `MemorySaver`.
-- [ ] **AC-12:** Resume supports typed approve, adjust, and reject decisions;
+- [x] **AC-12:** Resume supports typed approve, adjust, and reject decisions;
       invalid decisions return 422, non-paused runs return 409, and unknown runs
       return 404.
-- [ ] **AC-13:** Adjusted estimates are folded into shared state and revalidated
+- [x] **AC-13:** Adjusted estimates are folded into shared state and revalidated
       without an infinite review loop.
-- [ ] **AC-14:** `POST /api/v1/estimate/graph` preserves transcript input and
+- [x] **AC-14:** `POST /api/v1/estimate/graph` preserves transcript input and
       normal estimate output while extending paused responses with review data.
-- [ ] **AC-15:** State/progress/stream/resume-stream/proposal routes and unrelated
+- [x] **AC-15:** State/progress/stream/resume-stream/proposal routes and unrelated
       estimation/health routes pass regression tests or have a documented
       compatibility adapter.
-- [ ] **AC-16:** `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD` is typed, defaults to
+- [x] **AC-16:** `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD` is typed, defaults to
       `0.70`, and is documented in `.env.example` and README.
-- [ ] **AC-17:** Logs/traces show supervisor decisions, worker actions, review
+- [x] **AC-17:** Logs/traces show supervisor decisions, worker actions, review
       reasons, interrupt, resume action, and terminal status without sensitive
       payloads.
-- [ ] **AC-18:** `sample_transcript_edge_case.txt` produces a complete trace that
+- [x] **AC-18:** `sample_transcript_edge_case.txt` produces a complete trace that
       pauses and then resumes successfully; generated trace output is not
       committed.
-- [ ] **AC-19:** Default automated tests require no real API keys, external LLM
+- [x] **AC-19:** Default automated tests require no real API keys, external LLM
       calls, or Postgres service.
-- [ ] **AC-20:** README, technical docs, architecture HTML, canonical work item,
+- [x] **AC-20:** README, technical docs, architecture HTML, canonical work item,
       and Session learning note describe the shipped topology and API behavior.
 
 ## Test Plan
@@ -709,67 +709,67 @@ explicitly.
 
 ### Automated
 
-- Not run yet; this command creates the specification only.
-- During implementation, run narrow RED/GREEN tests per baby step, then the
-  feature-scoped suite and full default fast suite.
+- Verified 2026-07-19: `uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py tests/test_config.py::test_graph_settings_defaults tests/test_config.py::test_graph_settings_read_from_env tests/test_config.py::test_graph_human_review_confidence_threshold_bounds -q` → **103 passed**.
 
 ### Manual
 
-- Not run yet.
-- Required before closure: one edge-case execution that pauses, confirms the
-  checkpoint/thread identifier, resumes with a human decision, and reaches a
-  terminal state.
+- Verified 2026-07-19 offline smoke:
+  `uv run python app/scripts/run_graph_s13.py --memory --stub --transcript exercises/session-14/sample_transcript_edge_case.txt --out /tmp/supervisor_hitl_edge_case_trace.txt`
+  - Pause at `estimation_review` with `awaiting_human_review`
+  - Auto-resume approve → `status=completed`
+  - Supervisor decisions show all four workers + human_review
+  - Generated trace kept local (not committed)
 
 ### Not verified yet
 
 - Exact confidence calibration against production-like transcripts.
 - Live Postgres pause duration across process restart.
 - Live provider trace rendering.
-- Compatibility needs for legacy S13 structure/final-review decision payloads.
+- Compatibility needs for legacy S13 structure/final-review decision payloads
+  (deliberately rejected: resume now requires `action`).
 
 ## Documentation Plan
 
-- `.env.example`: add `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD=0.70`.
-- `README.md`: document supervisor/workers flow, conditional pause, response
+- [x] `.env.example`: add `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD=0.70`.
+- [x] `README.md`: document supervisor/workers flow, conditional pause, response
   statuses, and resume examples.
-- `docs/technical/estimation-graph-s13.md`: update or supersede with the new
-  supervisor topology and migration notes.
-- `docs/arquitectura-estimador-cag.html`: update graph topology, statuses,
-  checkpoint flow, and resume contract.
-- `exercises/session-14/README.md`: edge-case run and trace checklist.
-- `learnings/docs/sesiones/`: add the relevant supervisor/HITL session note.
-- API collection: update start and resume examples if that collection remains the
-  repository's maintained manual contract.
+- [x] `docs/technical/estimation-graph-s14.md`: new supervisor topology reference;
+  `estimation-graph-s13.md` marked historical/superseded.
+- [x] `docs/arquitectura-estimador-cag.html`: graph router node with S14 statuses,
+  HITL gate, and threshold env.
+- [x] `exercises/session-14/README.md`: edge-case run and trace checklist.
+- [x] `learnings/docs/sesiones/sesion-14-supervisor-worker-estimation-hitl.md`.
+- [ ] API collection: optional follow-up if Bruno/OpenCollection examples lag.
 
 ## Implementation Plan
 
-- [ ] **Step 1 — State and review policy:** extend typed state, add resume-safe
+- [x] **Step 1 — State and review policy:** extend typed state, add resume-safe
       reducers, typed resolution models, and confidence-threshold setting.
       **TDD:** reducer, policy, schema, and settings tests RED → GREEN.
-- [ ] **Step 2 — Supervisor:** implement explicit `Command` routing and terminal
+- [x] **Step 2 — Supervisor:** implement explicit `Command` routing and terminal
       decisions without business-tool access.
       **TDD:** supervisor route matrix RED → GREEN.
-- [ ] **Step 3 — Requirements and budget workers:** add model-only extraction and
+- [x] **Step 3 — Requirements and budget workers:** add model-only extraction and
       search-only historical evidence accumulation.
       **TDD:** worker partial-update and privilege tests RED → GREEN.
-- [ ] **Step 4 — Generation and validation workers:** adapt existing calculation
+- [x] **Step 4 — Generation and validation workers:** adapt existing calculation
       and validation tools, derive confidence/review signals.
       **TDD:** mapping, unbudgeted, range, and confidence tests RED → GREEN.
-- [ ] **Step 5 — Graph and conditional interrupt:** compile the new topology,
+- [x] **Step 5 — Graph and conditional interrupt:** compile the new topology,
       implement `human_review`, retire the S13 agent modules and their wired
       edges (see "Affected Session 13 surfaces"), and prove
       normal/pause/approve/adjust/reject paths with `MemorySaver`.
       **TDD:** graph integration tests RED → GREEN.
-- [ ] **Step 6 — HTTP contract:** adapt start/resume/state/progress schemas,
+- [x] **Step 6 — HTTP contract:** adapt start/resume/state/progress schemas,
       rewrite `describe_node` activity descriptions, and preserve authentication,
       errors, stream, proposal, and health behavior.
       **TDD:** router contract and regression tests RED → GREEN.
-- [ ] **Step 7 — Exercise and trace:** add the edge-case transcript, update the
+- [x] **Step 7 — Exercise and trace:** add the edge-case transcript, update the
       CLI (`--transcript` default, `GATE_DECISIONS`, `render_run`), and capture a
       local pause/resume trace.
       **TDD exception:** exercise asset and live trace are verified through CLI
       fixture tests plus a documented manual/slow smoke.
-- [ ] **Step 8 — Documentation and closure:** update README, `.env.example`,
+- [x] **Step 8 — Documentation and closure:** update README, `.env.example`,
       technical docs, architecture HTML, learning note, verification evidence, and
       handoff.
       **TDD exception:** documentation-only; verify links, commands, and focused
@@ -814,25 +814,71 @@ explicitly.
 ## Implementation progress
 
 - [x] Step 1: State and review policy
-- [ ] Step 2: Supervisor
-- [ ] Step 3: Requirements and budget workers
-- [ ] Step 4: Generation and validation workers
-- [ ] Step 5: Graph and conditional interrupt
-- [ ] Step 6: HTTP contract
-- [ ] Step 7: Exercise and trace
-- [ ] Step 8: Documentation and closure
+- [x] Step 2: Supervisor
+- [x] Step 3: Requirements and budget workers
+- [x] Step 4: Generation and validation workers
+- [x] Step 5: Graph and conditional interrupt
+- [x] Step 6: HTTP contract
+- [x] Step 7: Exercise and trace
+- [x] Step 8: Documentation and closure
 
 ## Repository commits (master-ia)
 
 | Commit | Summary |
 | --- | --- |
-| `53647a8` | Step 1: keyed budget-match reducer, review policy, typed HumanResolution, confidence threshold setting |
+| `4bc1312` | Add feature-067 canonical work item |
+| `53647a8` | Step 1: keyed budget-match reducer, review policy, typed HumanResolution, confidence threshold |
+| `08a7e7a` | Step 2: hand-written supervisor Command routing |
+| `4c65505` | Step 3: requirements extractor + budget searcher workers |
+| `2e08735` | Step 4: estimate generator + coherence validator |
+| `c32fc87` | Step 5: compile supervisor/workers topology, HITL interrupt, retire S13 agents |
+| `63ff9f2` | Step 6: HTTP contract for typed resume + new business statuses |
+| `038a73c` | Step 7: session-14 edge-case transcript + exercise README |
+| (docs) | Step 8: README, technical s14, architecture HTML, learning note, handoff |
 
 ## Pull Request
 
 - Draft WIP: https://github.com/povedica/master-ia-lidr/pull/61
 - Branch: `feature/067-supervisor-worker-estimation-hitl`
 - Label: `wip`
+
+## Handoff from feature-067
+
+### Shipped interfaces
+
+- Graph: `build_graph(checkpointer, **worker_injections)` supervisor/workers topology.
+- Workers: factories in `app/services/estimation_graph/agents/`.
+- Policy: `review_policy.py` + `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD`.
+- HTTP: `/api/v1/estimate/graph*` with `resolution={action: approve|adjust|reject}`.
+- CLI: `app/scripts/run_graph_s13.py --memory --stub` (Session 14 behaviour).
+- Exercise: `exercises/session-14/sample_transcript_edge_case.txt`.
+
+### Contract changes
+
+- Business `status`: `awaiting_human_review|completed|rejected` (was `validated|needs_review`).
+- Resume payload prefers typed `resolution`; legacy S13 gate dicts without `action` → 422.
+- `GraphRunState` exposes `requirements`, `budget_matches`, `validation`, `confidence`.
+
+### Verification evidence
+
+- Fast suite scoped above: 103 passed (no keys / no Postgres).
+- Offline CLI edge-case pause → approve → completed (local `/tmp` trace).
+
+### Not verified / residual risk
+
+- Live Postgres interrupt across process restart.
+- Live LLM extraction quality / confidence calibration.
+- Bruno/OpenCollection examples may still show S13 resume shapes.
+
+### Recommended first tests for next implementer
+
+```bash
+uv run pytest tests/estimation_graph tests/routers/test_estimate_graph.py -q
+uv run python app/scripts/run_graph_s13.py --memory --stub \
+  --transcript exercises/session-14/sample_transcript_edge_case.txt \
+  --out /tmp/supervisor_hitl_edge_case_trace.txt
+```
+
 
 ## How to start
 

@@ -1,9 +1,14 @@
-# Multi-agent estimation graph (Session 13 / feature-066)
+# Multi-agent estimation graph (Session 13 / feature-066) — historical
 
-Living technical reference for the **LangGraph multi-agent estimation graph** in
-`master-ia`. This path is **additive**: it does not replace the fixed RAG pipeline
-(`POST /api/v1/estimate/rag`), CAG v1/v2, or the Session 12 agent
-(`POST /api/v1/estimate/agent`).
+> **Superseded for the live `/api/v1/estimate/graph*` topology by Session 14.**  
+> Current supervisor/workers + conditional HITL reference:  
+> [estimation-graph-s14.md](./estimation-graph-s14.md)  
+> Work item: [feature-067](../work-items/feature-067-supervisor-worker-estimation-hitl.md)
+
+Historical technical reference for the **Session 13 LangGraph multi-agent
+estimation graph** shipped by feature-066. The HTTP path remains additive vs RAG /
+CAG / Session 12 agent, but the **internal S13 node chain below is no longer the
+compiled graph**.
 
 **Work item:** [feature-066-langgraph-multi-agent-estimation-s13.md](../work-items/feature-066-langgraph-multi-agent-estimation-s13.md)  
 **Session note:** [learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md](../../learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md)  

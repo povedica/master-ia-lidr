@@ -489,7 +489,7 @@ master-ia/
 │   ├── middleware/             # HTTP middleware (request ID, rate limits, LLM-call audit)
 │   ├── services/               # CAG, LLM chain, sessions, semantic cache, agentic, observability
 │   │   ├── agentic/            # Session 12: agent loop, tools, retrieval adapter (feature-054)
-│   │   └── estimation_graph/   # Session 13: LangGraph multi-agent estimation (feature-066)
+│   │   └── estimation_graph/   # Session 14: LangGraph supervisor/workers + HITL (feature-067)
 │   ├── guardrails/             # Input/output policy pipeline (+ ACB policy)
 │   ├── schemas/                # Pydantic request/response models
 │   ├── models/                 # SQLAlchemy ORM models (documents, chunks)
@@ -505,7 +505,8 @@ master-ia/
 ├── docs/
 │   ├── technical/README.md     # Extended architecture, flows, troubleshooting
 │   ├── technical/agentic-estimation-loop.md  # Session 12 agent reference (feature-054)
-│   ├── technical/estimation-graph-s13.md     # Session 13 LangGraph graph (feature-066)
+│   ├── technical/estimation-graph-s14.md     # Session 14 supervisor/workers graph (feature-067)
+│   ├── technical/estimation-graph-s13.md     # Session 13 topology (historical / superseded)
 │   ├── evals/                  # Session eval pyramid documentation
 │   └── work-items/             # Implementation specs and ADRs
 ├── api-collection/             # OpenCollection/Bruno manual requests
@@ -866,22 +867,22 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/estimate/agent \
 
 Exercise assets live under `exercises/session-12/`. See [learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md](learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md) and the full technical reference [docs/technical/agentic-estimation-loop.md](docs/technical/agentic-estimation-loop.md).
 
-**Multi-agent estimation graph (Session 13)** (feature-066, LangGraph):
+**Supervisor/worker estimation graph (Session 14)** (feature-067, LangGraph):
 
-- Explicit graph under `app/services/estimation_graph/`: classifier → structure → human gate → per-task hours fan-out → recovery → analysis → human gate → optional proposal.
-- CLI auto-approves both gates. `--memory` uses `MemorySaver` (no Postgres); `--stub` uses canned per-task hours (no DB fan-out). LLM agents still need `OPENAI_API_KEY`.
-- HTTP: blocking `POST /api/v1/estimate/graph` (+ `/resume`, `/state`) and live `POST …/stream`, `…/resume-stream`, `GET …/progress`, `POST …/proposal` (auth: `ESTIMATE_API_KEY`). Postgres checkpointer + lifespan → `app.state.graph`.
+- Explicit graph under `app/services/estimation_graph/`: hand-written supervisor routes four least-privilege workers (`requirements_extractor`, `budget_searcher`, `estimate_generator`, `coherence_validator`) and conditional `human_review`.
+- Review policy pauses when confidence is below `GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD` (default `0.70`), the estimate is out of historical range, or there is no precedent.
+- Business `status`: `awaiting_human_review` | `completed` | `rejected` (checkpointer lifecycle `state` remains `paused` | `completed`).
+- Resume accepts typed `{action: approve|adjust|reject}`. Adjust revalidates once, then finalizes.
+- CLI: `--memory` uses `MemorySaver`; `--stub` injects offline worker fakes. HTTP: `POST /api/v1/estimate/graph` (+ `/resume`, `/state`, stream/progress/proposal). Auth: `ESTIMATE_API_KEY`.
 
 ```bash
-# Partial-offline smoke (no Postgres checkpoints; stub hours)
-uv run python app/scripts/run_graph_s13.py --memory --stub
-
-# Write a local report (do not commit generated run files)
+# Offline edge-case smoke (pause at estimation_review, then auto-approve)
 uv run python app/scripts/run_graph_s13.py --memory --stub \
-  --out /tmp/example_run_complex.txt
+  --transcript exercises/session-14/sample_transcript_edge_case.txt \
+  --out /tmp/supervisor_hitl_edge_case_trace.txt
 ```
 
-Exercise assets: `exercises/session-13/`. See [learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md](learnings/docs/sesiones/sesion-13-langgraph-multi-agent-estimation.md) and [docs/technical/estimation-graph-s13.md](docs/technical/estimation-graph-s13.md).
+Exercise assets: `exercises/session-14/`. See [docs/technical/estimation-graph-s14.md](docs/technical/estimation-graph-s14.md) and [learnings/docs/sesiones/sesion-14-supervisor-worker-estimation-hitl.md](learnings/docs/sesiones/sesion-14-supervisor-worker-estimation-hitl.md). Session 13 topology notes remain in [docs/technical/estimation-graph-s13.md](docs/technical/estimation-graph-s13.md) (superseded).
 
 **RAGAS generation baseline** (offline, slow, dev dependency):
 

@@ -1622,6 +1622,13 @@
                         <span class="arch-node-title">v1 /estimate/agent</span>
                         <span class="arch-node-sub">S12 agent loop</span>
                       </button>
+                      <button type="button" class="arch-node" data-id="router-graph" data-layer="router"
+                        data-title="POST /api/v1/estimate/graph*"
+                        data-file="app/routers/estimate_graph.py"
+                        data-desc="Session 14 (feature-067): LangGraph supervisor/workers. Workers least-privilege (requirements → search_budgets → calculate_estimate → validate_estimate). HITL condicional con interrupt en estimation_review; status awaiting_human_review|completed|rejected. Checkpointer AsyncPostgresSaver; resume tipado approve/adjust/reject. Env: GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD. CLI: app/scripts/run_graph_s13.py --memory --stub.">
+                        <span class="arch-node-title">v1 /estimate/graph</span>
+                        <span class="arch-node-sub">S14 supervisor HITL</span>
+                      </button>
                       <button type="button" class="arch-node" data-id="router-rag-stages" data-layer="router"
                         data-title="POST /api/v1/estimate/rag/stages/*"
                         data-file="app/routers/rag_stages.py"
