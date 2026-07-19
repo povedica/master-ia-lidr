@@ -575,8 +575,7 @@ split stream/UI if the core PR grows past reviewability.
 | `bcb28a0` | `docs(estimation-graph): draft Session 13 technical and exercise docs` |
 | `bcee47e` | `feat(estimation-graph): expose start/resume/state HTTP API` |
 | `13c2189` | `feat(estimation-graph): add stream, progress, proposal, and activity feed` |
-
-(Finish-task docs/closure commit appended below when landed.)
+| `550808a` | `docs(feature-066): close Session 13 graph slice and record verification` |
 
 ---
 
