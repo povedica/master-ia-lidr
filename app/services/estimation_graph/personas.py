@@ -15,6 +15,9 @@ _PERSONAS: dict[str, str] = {
     "coherence_validator": (
         "You are a coherence reviewer. Surface risk signals honestly."
     ),
+    "proposal_agent": (
+        "You are a delivery lead drafting an honest commercial proposal."
+    ),
 }
 
 

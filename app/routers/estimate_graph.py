@@ -1,13 +1,13 @@
-"""``/api/v1/estimate/graph`` — multi-agent estimation flow (Session 13).
+"""``/api/v1/estimate/graph`` — supervisor/worker estimation flow (Session 14).
 
 Three blocking verbs over one ``thread_id`` (= ``estimation_id``):
 
-* ``POST /graph`` — START until the first human gate (or completion).
-* ``POST /graph/{estimation_id}/resume`` — RESUME with the human decision; 409 if
-  nothing is pending.
+* ``POST /graph`` — START until conditional human review (or completion).
+* ``POST /graph/{estimation_id}/resume`` — RESUME with typed human resolution;
+  404 if unknown, 409 if nothing is pending, 422 if the resolution is invalid.
 * ``GET /graph/{estimation_id}/state`` — read the current snapshot; 404 if unknown.
 
-Plus the live "watch the agents work" surface (Step 8):
+Plus the live "watch the agents work" surface:
 
 * ``POST /graph/stream`` — START in the background (202); poll ``/progress``.
 * ``POST /graph/{id}/resume-stream`` — RESUME in the background (202).
@@ -59,6 +59,11 @@ def _require_graph(request: Request, request_id: str):
     return graph
 
 
+def _is_unknown_snapshot(snapshot) -> bool:
+    """True when the checkpointer has no meaningful thread for this id."""
+    return not getattr(snapshot, "created_at", None) and not (snapshot.values or {})
+
+
 def _build_run_state(estimation_id: str, snapshot) -> GraphRunState:
     """Turn a LangGraph ``StateSnapshot`` into the public ``GraphRunState``."""
     values = snapshot.values or {}
@@ -78,13 +83,14 @@ def _build_run_state(estimation_id: str, snapshot) -> GraphRunState:
         estimation_id=estimation_id,
         state="paused" if paused else "completed",
         pending_gate=pending_gate,
-        complexity=values.get("complexity"),
-        structure=values.get("structure"),
-        task_hours=values.get("task_hours") or [],
+        requirements=values.get("requirements") or [],
+        budget_matches=values.get("budget_matches") or [],
         estimate=values.get("estimate"),
-        analysis_report=values.get("analysis_report"),
-        proposal=values.get("proposal"),
+        validation=values.get("validation"),
+        confidence=values.get("confidence"),
         status=values.get("status"),
+        human_resolution=values.get("human_resolution"),
+        proposal=values.get("proposal"),
         errors=values.get("errors") or [],
     )
 
@@ -154,7 +160,11 @@ async def estimate_graph(request: Request, payload: GraphEstimateRequest) -> Gra
             extra={"request_id": request_id, "estimation_id": estimation_id},
         )
         await graph.ainvoke(
-            {"transcript": payload.transcript, "estimation_id": estimation_id},
+            {
+                "transcript": payload.transcript,
+                "estimation_id": estimation_id,
+                "status": "running",
+            },
             config,
         )
         snapshot = await graph.aget_state(config)
@@ -194,21 +204,24 @@ async def resume_graph(
     config = {"configurable": {"thread_id": estimation_id}}
 
     snapshot = await graph.aget_state(config)
+    if _is_unknown_snapshot(snapshot):
+        raise HTTPException(status_code=404, detail="Unknown estimation_id.")
     if not snapshot.next:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "No pending human gate for this estimation_id "
-                "(already completed or unknown)."
-            ),
+            detail="No pending human review for this estimation_id.",
         )
 
     try:
         logger.info(
             "graph_estimate_resume",
-            extra={"request_id": request_id, "estimation_id": estimation_id},
+            extra={
+                "request_id": request_id,
+                "estimation_id": estimation_id,
+                "resume_action": payload.resolved_payload().get("action"),
+            },
         )
-        await graph.ainvoke(Command(resume=payload.decision), config)
+        await graph.ainvoke(Command(resume=payload.resolved_payload()), config)
         snapshot = await graph.aget_state(config)
     except HTTPException:
         raise
@@ -241,7 +254,7 @@ async def graph_state(request: Request, estimation_id: str) -> GraphRunState:
     graph = _require_graph(request, request_id)
     config = {"configurable": {"thread_id": estimation_id}}
     snapshot = await graph.aget_state(config)
-    if not snapshot.created_at and not snapshot.values:
+    if _is_unknown_snapshot(snapshot):
         raise HTTPException(status_code=404, detail="Unknown estimation_id.")
     return _build_run_state(estimation_id, snapshot)
 
@@ -270,7 +283,11 @@ async def estimate_graph_stream(
         _stream_graph,
         graph=graph,
         activity=activity,
-        payload={"transcript": payload.transcript, "estimation_id": estimation_id},
+        payload={
+            "transcript": payload.transcript,
+            "estimation_id": estimation_id,
+            "status": "running",
+        },
         config=config,
         estimation_id=estimation_id,
         request_id=request_id,
@@ -302,20 +319,19 @@ async def resume_graph_stream(
     config = {"configurable": {"thread_id": estimation_id}}
 
     snapshot = await graph.aget_state(config)
+    if _is_unknown_snapshot(snapshot):
+        raise HTTPException(status_code=404, detail="Unknown estimation_id.")
     if not snapshot.next:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "No pending human gate for this estimation_id "
-                "(already completed or unknown)."
-            ),
+            detail="No pending human review for this estimation_id.",
         )
 
     background.add_task(
         _stream_graph,
         graph=graph,
         activity=activity,
-        payload=Command(resume=payload.decision),
+        payload=Command(resume=payload.resolved_payload()),
         config=config,
         estimation_id=estimation_id,
         request_id=request_id,
@@ -396,9 +412,13 @@ async def graph_proposal(
             "proposal_agent",
             enabled=settings.graph_personas_enabled,
         )
+        # Prefer validation (feature-067); fall back to empty report.
+        reliability = (snapshot.values or {}).get("validation") or (
+            (snapshot.values or {}).get("analysis_report") or {}
+        )
         proposal = await build_proposal(
             estimate,
-            (snapshot.values or {}).get("analysis_report") or {},
+            reliability,
             persona=persona,
         )
     except Exception as exc:  # noqa: BLE001 — any LLM failure → 502

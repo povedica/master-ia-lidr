@@ -22,12 +22,25 @@ _PROPOSAL_SYSTEM_PROMPT = (
 
 
 def _proposal_input(estimate: dict, analysis_report: dict) -> str:
+    """Build proposal prompt input from estimate + validation/reliability dict."""
+    total_hours = estimate.get("total_hours")
+    total_days = estimate.get("total_engineer_days")
+    if total_days is None and isinstance(total_hours, (int, float)):
+        total_days = round(float(total_hours) / 8)
     lines = [
-        f"total_engineer_days: {estimate.get('total_engineer_days')}",
-        f"confidence: {estimate.get('confidence')}",
+        f"total_engineer_days: {total_days}",
+        f"total_hours: {total_hours}",
+        f"confidence: {estimate.get('confidence') or analysis_report.get('confidence')}",
         f"reliability_summary: {(analysis_report or {}).get('summary', '')}",
-        "modules:",
+        "components:",
     ]
+    components = estimate.get("components") or []
+    if components:
+        for component in components:
+            lines.append(
+                f"  - {component.get('name')}: {component.get('estimated_hours')}h"
+                f"{' (unbudgeted)' if component.get('unbudgeted') else ''}"
+            )
     for module in estimate.get("modules") or []:
         task_hours = [
             task.get("estimated_hours")
