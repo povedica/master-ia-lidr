@@ -265,3 +265,31 @@ def test_agent_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.agent_reasoning_effort == "high"
     assert settings.agent_max_iterations == 7
     assert settings.agent_retrieval_mode == "C"
+
+
+def test_graph_settings_defaults() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.graph_extraction_model == "gpt-4o-mini"
+    assert settings.graph_generation_model == "gpt-4o"
+    assert settings.graph_classifier_model == "gpt-4o-mini"
+    assert settings.graph_analysis_model == "gpt-4o"
+    assert settings.graph_proposal_model == "gpt-4o"
+    assert settings.graph_proposal_enabled is True
+    assert settings.graph_personas_enabled is True
+    assert '"medium":"medium"' in settings.graph_structure_effort_by_complexity
+
+
+def test_graph_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GRAPH_CLASSIFIER_MODEL", "gpt-4o-mini")
+    monkeypatch.setenv("GRAPH_PROPOSAL_ENABLED", "false")
+    monkeypatch.setenv("GRAPH_PERSONAS_ENABLED", "false")
+    monkeypatch.setenv(
+        "GRAPH_STRUCTURE_EFFORT_BY_COMPLEXITY",
+        '{"low":"minimal","medium":"low","high":"medium"}',
+    )
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.graph_classifier_model == "gpt-4o-mini"
+    assert settings.graph_proposal_enabled is False
+    assert settings.graph_personas_enabled is False
+    assert "minimal" in settings.graph_structure_effort_by_complexity
