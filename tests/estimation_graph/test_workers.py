@@ -8,6 +8,12 @@ from typing import Any
 import pytest
 
 from app.services.estimation_graph.agents.budget_searcher import build_budget_searcher
+from app.services.estimation_graph.agents.coherence_validator import (
+    build_coherence_validator,
+)
+from app.services.estimation_graph.agents.estimate_generator import (
+    build_estimate_generator,
+)
 from app.services.estimation_graph.agents.requirements_extractor import (
     build_requirements_extractor,
 )
@@ -119,3 +125,216 @@ async def test_budget_searcher_records_no_match_outcome() -> None:
 def test_budget_searcher_cannot_be_built_with_calc_or_validate() -> None:
     sig = inspect.signature(build_budget_searcher)
     assert list(sig.parameters) == ["search_budgets_fn", "backend"]
+
+
+@pytest.mark.asyncio
+async def test_estimate_generator_maps_matches_without_inventing_references() -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_calculate(raw_args: dict[str, Any]) -> dict[str, Any]:
+        captured["args"] = raw_args
+        return {
+            "components": [
+                {
+                    "name": "API",
+                    "reference_count": 1,
+                    "estimated_hours": 92.0,
+                    "unbudgeted": False,
+                },
+                {
+                    "name": "Quantum UI",
+                    "reference_count": 0,
+                    "estimated_hours": 0.0,
+                    "unbudgeted": True,
+                },
+            ],
+            "total_hours": 92.0,
+            "contingency_factor": 0.15,
+            "summary": "total=92.0h",
+        }
+
+    worker = build_estimate_generator(calculate_estimate_fn=fake_calculate)
+    update = await worker(
+        {
+            "requirements": [
+                {"id": "req-1", "text": "API", "category": "backend"},
+                {"id": "req-2", "text": "Quantum UI", "category": "frontend"},
+            ],
+            "budget_matches": [
+                {
+                    "requirement_id": "req-1",
+                    "reference_budget_id": "b1",
+                    "amount": 80.0,
+                    "distance": 0.1,
+                    "component": "API",
+                    "no_match": False,
+                },
+                {
+                    "requirement_id": "req-2",
+                    "reference_budget_id": None,
+                    "amount": 0.0,
+                    "distance": 1.0,
+                    "component": "Quantum UI",
+                    "no_match": True,
+                },
+            ],
+        }
+    )
+
+    components = captured["args"]["components"]
+    by_name = {row["name"]: row["reference_amounts"] for row in components}
+    assert by_name["API"] == [80.0]
+    assert by_name["Quantum UI"] == []
+    assert update["estimate"]["total_hours"] == 92.0
+    assert update["completed_workers"] == ["estimate_generator"]
+    assert update["agent_contributions"][0]["tool"] == "calculate_estimate"
+
+
+@pytest.mark.asyncio
+async def test_estimate_generator_preserves_unbudgeted_components() -> None:
+    def fake_calculate(raw_args: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "components": [
+                {
+                    "name": "Unknown",
+                    "reference_count": 0,
+                    "estimated_hours": 0.0,
+                    "unbudgeted": True,
+                }
+            ],
+            "total_hours": 0.0,
+            "contingency_factor": 0.15,
+            "summary": "total=0.0h",
+        }
+
+    worker = build_estimate_generator(calculate_estimate_fn=fake_calculate)
+    update = await worker(
+        {
+            "requirements": [{"id": "req-1", "text": "Unknown", "category": "r&d"}],
+            "budget_matches": [
+                {
+                    "requirement_id": "req-1",
+                    "reference_budget_id": None,
+                    "no_match": True,
+                    "amount": 0.0,
+                    "distance": 1.0,
+                    "component": "Unknown",
+                }
+            ],
+        }
+    )
+    assert update["estimate"]["components"][0]["unbudgeted"] is True
+
+
+def test_estimate_generator_signature_is_calc_only() -> None:
+    sig = inspect.signature(build_estimate_generator)
+    assert "calculate_estimate_fn" in sig.parameters
+    assert "search_budgets_fn" not in sig.parameters
+    assert "validate_estimate_fn" not in sig.parameters
+
+
+@pytest.mark.asyncio
+async def test_coherence_validator_derives_confidence_and_review_signals() -> None:
+    def fake_validate(raw_args: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "issues": ["'Quantum UI' has no historical reference (unbudgeted)."],
+            "summary": "1 issue(s) found",
+        }
+
+    worker = build_coherence_validator(validate_estimate_fn=fake_validate)
+    update = await worker(
+        {
+            "estimate": {
+                "components": [
+                    {
+                        "name": "API",
+                        "estimated_hours": 92.0,
+                        "unbudgeted": False,
+                        "reference_count": 1,
+                    },
+                    {
+                        "name": "Quantum UI",
+                        "estimated_hours": 0.0,
+                        "unbudgeted": True,
+                        "reference_count": 0,
+                    },
+                ],
+                "total_hours": 92.0,
+            },
+            "budget_matches": [
+                {
+                    "requirement_id": "req-1",
+                    "reference_budget_id": "b1",
+                    "amount": 80.0,
+                    "no_match": False,
+                    "component": "API",
+                    "distance": 0.1,
+                },
+                {
+                    "requirement_id": "req-2",
+                    "reference_budget_id": None,
+                    "amount": 0.0,
+                    "no_match": True,
+                    "component": "Quantum UI",
+                    "distance": 1.0,
+                },
+            ],
+        }
+    )
+
+    validation = update["validation"]
+    assert validation["ok"] is False
+    assert validation["no_precedent"] is True
+    assert 0.0 <= update["confidence"] <= 1.0
+    assert update["confidence"] < 0.70
+    assert "no relevant historical precedent" in validation["review_reasons"]
+    assert update["completed_workers"] == ["coherence_validator"]
+    assert update["agent_contributions"][0]["tool"] == "validate_estimate"
+    assert update.get("human_adjustment_validated") is not True
+
+
+@pytest.mark.asyncio
+async def test_coherence_validator_marks_adjustment_validated_after_adjust() -> None:
+    def fake_validate(raw_args: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": True, "issues": [], "summary": "ok"}
+
+    worker = build_coherence_validator(validate_estimate_fn=fake_validate)
+    update = await worker(
+        {
+            "estimate": {
+                "components": [
+                    {
+                        "name": "API",
+                        "estimated_hours": 90.0,
+                        "unbudgeted": False,
+                        "reference_count": 1,
+                    }
+                ],
+                "total_hours": 90.0,
+            },
+            "budget_matches": [
+                {
+                    "requirement_id": "req-1",
+                    "reference_budget_id": "b1",
+                    "amount": 80.0,
+                    "no_match": False,
+                    "component": "API",
+                    "distance": 0.1,
+                }
+            ],
+            "human_resolution": {
+                "action": "adjust",
+                "adjusted_estimate": {"total_hours": 90.0},
+            },
+        }
+    )
+    assert update["human_adjustment_validated"] is True
+    assert update["validation"]["ok"] is True
+
+
+def test_coherence_validator_signature_is_validate_only() -> None:
+    sig = inspect.signature(build_coherence_validator)
+    assert "validate_estimate_fn" in sig.parameters
+    assert "search_budgets_fn" not in sig.parameters
+    assert "calculate_estimate_fn" not in sig.parameters
