@@ -1,6 +1,6 @@
 # Parallel worktree manifest for feature-053 parity track (wave 2a).
 # Base: main with Phase 1 slices 055, 056, 057 merged.
-# Includes parity-critical 058; optional Session 12 agent 054 in parallel.
+# Includes parity-critical 058; Session 12 agent 054 (shipped on feature/054-agentic-estimation-loop, PR #59).
 defaults:
   worktrees_root: ../master-ia-worktrees
   base_branch: main

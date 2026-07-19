@@ -244,3 +244,24 @@ def test_retrieval_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> No
     assert settings.retrieval_rrf_k == 80
     assert settings.retrieval_rerank_enabled is True
     assert settings.retrieval_rerank_model == "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+
+def test_agent_settings_defaults() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.agent_model == "gpt-5-mini"
+    assert settings.agent_reasoning_effort == "medium"
+    assert settings.agent_max_iterations == 10
+    assert settings.agent_retrieval_mode == ""
+
+
+def test_agent_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_MODEL", "gpt-5")
+    monkeypatch.setenv("AGENT_REASONING_EFFORT", "high")
+    monkeypatch.setenv("AGENT_MAX_ITERATIONS", "7")
+    monkeypatch.setenv("AGENT_RETRIEVAL_MODE", "C")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+    assert settings.agent_model == "gpt-5"
+    assert settings.agent_reasoning_effort == "high"
+    assert settings.agent_max_iterations == 7
+    assert settings.agent_retrieval_mode == "C"

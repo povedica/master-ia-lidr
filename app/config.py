@@ -437,6 +437,26 @@ class Settings(BaseSettings):
         le=50,
         description="Nearest historical task neighbours per task for task-hours endpoint.",
     )
+    agent_model: str = Field(
+        default="gpt-5-mini",
+        description="Default OpenAI model for the Session 12 agentic estimation loop.",
+    )
+    agent_reasoning_effort: str = Field(
+        default="medium",
+        description="Reasoning effort for agent Responses API calls (minimal|low|medium|high).",
+    )
+    agent_max_iterations: int = Field(
+        default=10,
+        ge=1,
+        description="Hard cap on Responses API round-trips in the agent loop.",
+    )
+    agent_retrieval_mode: str = Field(
+        default="",
+        description=(
+            "Retrieval mode override for agent search_budgets (A|B|C|D). "
+            "Empty uses RAG_ESTIMATION_RETRIEVAL_MODE."
+        ),
+    )
     task_hours_distance_threshold: float = Field(
         default=0.45,
         ge=0.0,

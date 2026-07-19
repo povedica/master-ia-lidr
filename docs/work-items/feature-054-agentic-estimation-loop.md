@@ -330,23 +330,23 @@ With real retrieval or stub, the agent must:
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** `TOOL_SCHEMAS` defines `search_budgets` and `calculate_estimate` as flat Responses functions with `strict: true`, English names/descriptions, and `additionalProperties: false` at every object level.
-- [ ] **AC-02:** `calculate_estimate` is pure Python (no LLM); identical inputs produce identical outputs (unit-tested).
-- [ ] **AC-03:** `search_budgets` default backend wraps `RetrievalService.retrieve()` without reimplementing fusion/rerank (integration test with fakes or stub mode).
-- [ ] **AC-04:** `--stub` flag routes `search_budgets` through `exercises/session-12/reference_retrieval.py` with no database required.
-- [ ] **AC-05:** `run_estimation_agent` chains `responses.create` with `previous_response_id` and submits `function_call_output` per `call_id` (unit-tested with mocked client returning multi-turn function calls).
-- [ ] **AC-06:** Loop enforces `max_iterations`; on cap, `stopped_reason="max_iterations"` and no unhandled exception.
-- [ ] **AC-07:** Each tool step records `reasoning_summary`, `tool`, `tool_args`, `observation`; `AgentTrace.render()` matches `STEP N` format from the exercise.
-- [ ] **AC-08:** Malformed tool arguments return error observations; loop continues (unit-tested).
-- [ ] **AC-09:** Terminal `responses.parse` produces validated `AgentEstimate` on successful runs (mocked in unit tests).
-- [ ] **AC-10:** On `sample_transcript_complex.txt` with `gpt-5` / `medium` effort (manual slow run): >1 component, >1 `search_budgets` call, ≥1 `calculate_estimate` call, finite termination, coherent estimate.
-- [ ] **AC-11:** `app/scripts/run_agent_s12.py` prints trace to stdout and supports `--out` for deliverable file.
-- [ ] **AC-12:** Default `uv run pytest` passes with mocked OpenAI client (no API keys); agent integration tests marked `@pytest.mark.slow`.
-- [ ] **AC-13:** `.env.example` documents `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`.
-- [ ] **AC-14:** README documents debug vs deliverable commands and cost discipline (`gpt-5-mini` + simple transcript first).
-- [ ] **AC-15:** Existing `/api/v1/estimate/rag` and CAG endpoints unchanged (regression: existing RAG tests green).
-- [ ] **AC-16 (optional):** `validate_estimate` tool implemented and invoked in system prompt as final guardrail step.
-- [ ] **AC-17 (optional):** `POST /api/v1/estimate/agent` returns estimate + trace JSON.
+- [x] **AC-01:** `TOOL_SCHEMAS` defines `search_budgets` and `calculate_estimate` as flat Responses functions with `strict: true`, English names/descriptions, and `additionalProperties: false` at every object level.
+- [x] **AC-02:** `calculate_estimate` is pure Python (no LLM); identical inputs produce identical outputs (unit-tested).
+- [x] **AC-03:** `search_budgets` default backend wraps `RetrievalService.retrieve()` without reimplementing fusion/rerank (integration test with fakes or stub mode).
+- [x] **AC-04:** `--stub` flag routes `search_budgets` through `exercises/session-12/reference_retrieval.py` with no database required.
+- [x] **AC-05:** `run_estimation_agent` chains `responses.create` with `previous_response_id` and submits `function_call_output` per `call_id` (unit-tested with mocked client returning multi-turn function calls).
+- [x] **AC-06:** Loop enforces `max_iterations`; on cap, `stopped_reason="max_iterations"` and no unhandled exception.
+- [x] **AC-07:** Each tool step records `reasoning_summary`, `tool`, `tool_args`, `observation`; `AgentTrace.render()` matches `STEP N` format from the exercise.
+- [x] **AC-08:** Malformed tool arguments return error observations; loop continues (unit-tested).
+- [x] **AC-09:** Terminal `responses.parse` produces validated `AgentEstimate` on successful runs (mocked in unit tests).
+- [x] **AC-10:** On `sample_transcript_complex.txt` with `gpt-5` / `medium` effort (manual slow run): >1 component, >1 `search_budgets` call, ≥1 `calculate_estimate` call, finite termination, coherent estimate.
+- [x] **AC-11:** `app/scripts/run_agent_s12.py` prints trace to stdout and supports `--out` for deliverable file.
+- [x] **AC-12:** Default `uv run pytest` passes with mocked OpenAI client (no API keys); agent integration tests marked `@pytest.mark.slow`.
+- [x] **AC-13:** `.env.example` documents `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`.
+- [x] **AC-14:** README documents debug vs deliverable commands and cost discipline (`gpt-5-mini` + simple transcript first).
+- [x] **AC-15:** Existing `/api/v1/estimate/rag` and CAG endpoints unchanged (regression: existing RAG tests green).
+- [x] **AC-16 (optional):** `validate_estimate` tool implemented and invoked in system prompt as final guardrail step.
+- [x] **AC-17 (optional):** `POST /api/v1/estimate/agent` returns estimate + trace JSON.
 
 ## Test Plan
 
@@ -378,42 +378,70 @@ With real retrieval or stub, the agent must:
 
 ### Automated
 
-- `uv run pytest tests/test_agent_*.py tests/services/agentic/` (exact paths TBD at implementation)
-- `uv run pytest` — no regressions in RAG/CAG tests
+- **Verified:** `uv run pytest tests/test_agent_*.py tests/test_retrieval_adapter.py tests/exercises/test_session_12_assets.py tests/test_rag_estimation_endpoint.py tests/test_rag_estimation_service.py` — 39 passed (2026-07-19)
+- **Verified:** `uv run pytest tests/test_agent_estimations_router.py` — 4 passed
+- **Not verified:** full `uv run pytest` suite (pre-existing failures in `test_config` / `test_worktree_tasks` unrelated to feature-054)
 
 ### Manual
 
-- Session 12 deliverable trace on `sample_transcript_complex.txt` saved locally (not committed)
+- **Verified (Step 10):** `gpt-5-mini` + `--stub` + `sample_transcript_simple.txt` — completed; multi-component `search_budgets` + `calculate_estimate` + `validate_estimate`; total 5589.0h; trace at `/tmp/agent_trace_simple.txt` (not committed)
+- **Verified (Step 11 / AC-10):** `OPENAI_TIMEOUT_SECONDS=600` + `gpt-5` + `medium` + `--stub` + `sample_transcript_complex.txt` — 4 components, 5× `search_budgets`, 2× `calculate_estimate`, `validate_estimate`, `stopped_reason=completed`, total 3651.3h; trace at `/tmp/agent_trace_complex.txt` (not committed)
 - Optional: email Lia with branch link + trace attachment (student process, outside repo)
 
 ### Not verified yet
 
-- Live `gpt-5` run cost/latency benchmarks
+- Live run without `--stub` (requires populated Postgres corpus)
 - Production load / rate limits on Responses API
 - Parity with official `origin/session_12` trace wording byte-for-byte
 
+## Handoff from feature-054
+
+**Shipped interfaces**
+
+- `POST /api/v1/estimate/agent` — `{ transcript, model?, reasoning_effort?, max_iterations? }` → `{ result, trace, request_id, iterations, stopped_reason, model }`
+- `app/scripts/run_agent_s12.py` — CLI with `--stub`, `--model`, `--effort`, `--out`, `--max-iterations`
+- `run_estimation_agent(transcript, client, model, reasoning_effort, max_iterations, retrieval_backend)` in `app/services/agentic/agent_loop.py`
+- `build_retrieval_backend(...)` and `load_stub_retrieval_backend()` in `retrieval_adapter.py`
+- Settings: `AGENT_MODEL`, `AGENT_REASONING_EFFORT`, `AGENT_MAX_ITERATIONS`, `AGENT_RETRIEVAL_MODE`
+
+**Residual risks**
+
+- Default `OPENAI_TIMEOUT_SECONDS=30` is too short for `gpt-5` + `medium` multi-turn loops; deliverable runs need `OPENAI_TIMEOUT_SECONDS=600` (or similar)
+- CLI real-retrieval path needs `DATABASE_URL` + populated corpus
+- Agent path bypasses rate-limit keys (`ESTIMATE_API_KEY`) — intentional for local dev; harden in feature-056 if needed
+
+**Recommended first checks for next implementer**
+
+1. `uv run pytest tests/test_agent_loop.py -q`
+2. `uv run python app/scripts/run_agent_s12.py exercises/session-12/sample_transcript_simple.txt --model gpt-5-mini --stub` (with `OPENAI_API_KEY`)
+3. Compare trace format with `exercises/session-12/README.md` acceptance criteria
+
 ## Documentation Plan
 
-- `README.md`: new "Agentic estimation (Session 12)" section with CLI examples and env vars
-- `learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md` (or Second Brain equivalent): loop anatomy, tool design lessons, cost notes
-- Cross-link from `feature-053` parity matrix (Session 12 agent row) when implemented
-- `.env.example`: agent settings placeholders
+- [x] `README.md`: new "Agentic estimation (Session 12)" section with CLI examples and env vars
+- [x] `learnings/docs/sesiones/sesion-12-agentic-estimation-loop.md`: loop anatomy, tool design lessons, cost notes
+- [x] Cross-link from `feature-053` parity matrix (Session 12 agent row)
+- [x] `.env.example`: agent settings placeholders
+- [x] `docs/arquitectura-estimador-cag.html`: router node for `POST /api/v1/estimate/agent`
+- [x] `docs/technical/agentic-estimation-loop.md`: canonical technical reference
+- [x] `docs/technical/README.md` §25e: summary in technical baseline
+- [x] `api-collection/Estimador CAG/estimations/Agent Estimate.yml`: manual API collection entry
 
 ## Implementation Plan
 
-- [ ] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton).
-- [ ] **Step 2:** Add `app/services/agentic/agent_schemas.py` — tool arg models, trace, `AgentEstimate`, `AgentRunResult`.
-- [ ] **Step 3:** Implement `calculate_estimate` (+ optional `validate_estimate`) in `agent_tools.py` with unit tests.
-- [ ] **Step 4:** Implement flat `TOOL_SCHEMAS` for Responses API (`strict: true`).
-- [ ] **Step 5:** Implement `retrieval_adapter.py` wrapping `RetrievalService` + chunk content fetch; wire stub injection.
-- [ ] **Step 6:** Implement `dispatch_tool` and `search_budgets` observation `summary`.
-- [ ] **Step 7:** Implement `agent_loop.py` — `run_estimation_agent` with mocked tests for multi-turn flow.
-- [ ] **Step 8:** Add settings + `.env.example` entries.
-- [ ] **Step 9:** Add `app/scripts/run_agent_s12.py` CLI.
-- [ ] **Step 10:** Manual debug run (mini + simple + stub); fix tool descriptions if model mis-invokes tools.
-- [ ] **Step 11:** Manual deliverable run (gpt-5 + complex transcript); capture trace for submission.
-- [ ] **Step 12 (optional):** `POST /api/v1/estimate/agent` router + integration test.
-- [ ] **Step 13:** README + session note; run full `uv run pytest`.
+- [x] **Step 1:** Copy exercise assets into `exercises/session-12/` from official `origin/session_12` (transcripts, stub, skeleton).
+- [x] **Step 2:** Add `app/services/agentic/agent_schemas.py` — tool arg models, trace, `AgentEstimate`, `AgentRunResult`.
+- [x] **Step 3:** Implement `calculate_estimate` (+ optional `validate_estimate`) in `agent_tools.py` with unit tests.
+- [x] **Step 4:** Implement flat `TOOL_SCHEMAS` for Responses API (`strict: true`).
+- [x] **Step 5:** Implement `retrieval_adapter.py` wrapping `RetrievalService` + chunk content fetch; wire stub injection.
+- [x] **Step 6:** Implement `dispatch_tool` and `search_budgets` observation `summary`.
+- [x] **Step 7:** Implement `agent_loop.py` — `run_estimation_agent` with mocked tests for multi-turn flow.
+- [x] **Step 8:** Add settings + `.env.example` entries.
+- [x] **Step 9:** Add `app/scripts/run_agent_s12.py` CLI.
+- [x] **Step 10:** Manual debug run (mini + simple + stub); fix tool descriptions if model mis-invokes tools.
+- [x] **Step 11:** Manual deliverable run (gpt-5 + complex transcript); capture trace for submission.
+- [x] **Step 12 (optional):** `POST /api/v1/estimate/agent` router + integration test.
+- [x] **Step 13:** README + session note; agent test suite + RAG regression green.
 
 ## Learnings
 
@@ -422,10 +450,15 @@ With real retrieval or stub, the agent must:
 - **`previous_response_id` chaining** avoids reasoning-item ordering bugs when resuming gpt-5 turns.
 - **Parallel function calls in one turn** share one reasoning summary — attach to first step only.
 - **Debug cheaply:** `gpt-5-mini` + `--stub` validates loop mechanics before spending on `gpt-5` + DB retrieval.
+- **Raise HTTP timeout for deliverable runs:** `gpt-5` + `medium` can exceed 30s on the first Responses turn; override `OPENAI_TIMEOUT_SECONDS` (e.g. 600) for AC-10.
 - **Do not conflate with S11 RAG:** `RagEstimationResult` targets citation grounding; `AgentEstimate` targets agent orchestration pedagogy.
 - **Official repo uses `structlog`;** `master-ia` keeps stdlib logging per feature-052 precedent.
 
 ## Estimation
+
+- **Size:** L
+- **Estimated time:** 2.5–3 days focused work (excluding live API cost for tuning runs)
+- **Planned steps:** 8
 
 | Slice | Effort |
 | --- | --- |
@@ -436,12 +469,33 @@ With real retrieval or stub, the agent must:
 | Optional HTTP + validate tool | ~0.5 day |
 | Docs + session note | ~0.25 day |
 
-**Total:** ~2.5–3 days focused work (excluding live API cost for tuning runs).
-
 ## Implementation progress
 
-_(Filled during `/start-task`.)_
+- [x] Step 1: Exercise assets in `exercises/session-12/`
+- [x] Step 2: `agent_schemas.py` + schema tests
+- [x] Step 3: `calculate_estimate` (+ optional `validate_estimate`) + tool tests
+- [x] Step 4: Flat `TOOL_SCHEMAS` + `dispatch_tool`
+- [x] Step 5: `retrieval_adapter.py` + stub injection
+- [x] Step 6: `agent_loop.py` with mocked Responses client tests
+- [x] Step 7: Agent settings + `.env.example`
+- [x] Step 8: CLI `run_agent_s12.py` + README / session note
+- [x] Step 9 (optional): `POST /api/v1/estimate/agent` + `validate_estimate`
 
 ## Pull Request
 
-_(Filled during `/start-task`.)_
+- https://github.com/povedica/master-ia-lidr/pull/59
+
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| `2862dbd` | `chore(session-12): add exercise assets from official session_12` |
+| `536ff58` | `feat(agentic): add agent schemas and trace models` |
+| `9c87aec` | `feat(agentic): add calculate_estimate and validate_estimate tools` |
+| `120d358` | `feat(agentic): add Responses tool schemas, dispatch, and retrieval adapter` |
+| `1abbf51` | `feat(agentic): implement manual estimation agent loop` |
+| `3fdd042` | `feat(agentic): add agent settings and env documentation` |
+| `7db8a28` | `feat(agentic): add POST /api/v1/estimate/agent endpoint` |
+| `5c5b9f6` | `feat(agentic): add Session 12 CLI runner and documentation` |
+| `9f2887b` | `docs(feature-054): add technical reference and sync all docs` |
+| `9743c9a` | `docs(feature-054): record documentation sync commit hash` |

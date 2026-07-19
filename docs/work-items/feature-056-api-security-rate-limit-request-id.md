@@ -25,7 +25,7 @@ This is **child slice Step 2** of `docs/work-items/feature-053-official-master-p
 - **Open access when keys unset:** if `RETRIEVAL_API_KEY` / `ESTIMATE_API_KEY` are empty, routes stay open (local dev default). Official `.env.example` always sets demo keys.
 - **Rate limits opt-in:** `RATE_LIMIT_ENABLED=false` by default so the fast pytest suite and local dev are unchanged; enable explicitly in staging/prod.
 - **Stdlib logging only:** `RequestIdLogFilter` injects `request_id` on log records — no `structlog`.
-- **Scoped routes:** only `POST /api/v1/retrieval` and `POST /api/v1/estimate/rag` are secured. CAG v1/v2, sessions, embeddings ingest remain unchanged.
+- **Scoped routes:** only `POST /api/v1/retrieval` and `POST /api/v1/estimate/rag` are secured. CAG v1/v2, sessions, embeddings ingest, and **`POST /api/v1/estimate/agent`** (feature-054) remain unchanged.
 
 ### Parent roadmap
 
@@ -201,6 +201,7 @@ uv run pytest -q
 
 - `POST /api/v1/retrieval` — optional `require_retrieval_key` + `120/minute` when `RATE_LIMIT_ENABLED=true`
 - `POST /api/v1/estimate/rag` — optional `require_estimate_key` + `10/minute` when limits enabled
+- `POST /api/v1/estimate/agent` — **not** secured by feature-056 (documented follow-up if production hardening needed)
 - Global `request_id_middleware` + `RequestIdLogFilter`; `get_request_id(request)` in `app/deps.py`
 - Settings: `RETRIEVAL_API_KEY`, `ESTIMATE_API_KEY`, `RATE_LIMIT_ENABLED` (see `.env.example`)
 

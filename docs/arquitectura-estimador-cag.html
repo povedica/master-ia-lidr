@@ -1615,6 +1615,13 @@
                         <span class="arch-node-title">v1 /estimate/rag</span>
                         <span class="arch-node-sub">citas · idempotency</span>
                       </button>
+                      <button type="button" class="arch-node" data-id="router-agent" data-layer="router"
+                        data-title="POST /api/v1/estimate/agent"
+                        data-file="app/routers/agent_estimations.py"
+                        data-desc="Bucle agentic Session 12: Responses API directa (no LiteLLM). Tools search_budgets → calculate_estimate → validate_estimate. Traza reason→action→observation. CLI: app/scripts/run_agent_s12.py.">
+                        <span class="arch-node-title">v1 /estimate/agent</span>
+                        <span class="arch-node-sub">S12 agent loop</span>
+                      </button>
                       <button type="button" class="arch-node" data-id="router-rag-stages" data-layer="router"
                         data-title="POST /api/v1/estimate/rag/stages/*"
                         data-file="app/routers/rag_stages.py"
@@ -1690,6 +1697,27 @@
                           data-desc="Estado de sesión en RAM del proceso Python. No es Redis ni BD: se pierde al reiniciar y no escala horizontalmente.">
                           <span class="arch-node-title">SessionStore</span>
                           <span class="arch-node-sub">dict in-process</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-rag" data-layer="service"
+                          data-title="RagEstimationService"
+                          data-file="app/services/rag_estimation_service.py"
+                          data-desc="Pipeline fijo S11: reformulate → retrieve → assemble → complete_structured → verify/coherence/gate. POST /api/v1/estimate/rag.">
+                          <span class="arch-node-title">RagEstimationService</span>
+                          <span class="arch-node-sub">fixed RAG pipeline</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-agent-loop" data-layer="service"
+                          data-title="run_estimation_agent (Session 12)"
+                          data-file="app/services/agentic/agent_loop.py"
+                          data-desc="Bucle manual Responses API: reason→act→observe. Excepción deliberada — no LiteLLM/Instructor. Tools: search_budgets, calculate_estimate, validate_estimate. CLI run_agent_s12.py.">
+                          <span class="arch-node-title">Agent loop (S12)</span>
+                          <span class="arch-node-sub">agentic/</span>
+                        </button>
+                        <button type="button" class="arch-node" data-id="svc-agent-tools" data-layer="service"
+                          data-title="Agent tools"
+                          data-file="app/services/agentic/agent_tools.py"
+                          data-desc="TOOL_SCHEMAS flat strict:true + calculate_estimate determinista + validate_estimate guardrails + dispatch_tool.">
+                          <span class="arch-node-title">Agent tools</span>
+                          <span class="arch-node-sub">deterministic + schemas</span>
                         </button>
                         <button type="button" class="arch-node" data-id="cag-prompts" data-layer="service"
                           data-title="Prompts CAG (Jinja2 + few-shot)"
