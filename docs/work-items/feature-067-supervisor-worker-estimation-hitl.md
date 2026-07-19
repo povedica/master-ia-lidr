@@ -813,7 +813,7 @@ explicitly.
 
 ## Implementation progress
 
-- [ ] Step 1: State and review policy
+- [x] Step 1: State and review policy
 - [ ] Step 2: Supervisor
 - [ ] Step 3: Requirements and budget workers
 - [ ] Step 4: Generation and validation workers
@@ -822,9 +822,17 @@ explicitly.
 - [ ] Step 7: Exercise and trace
 - [ ] Step 8: Documentation and closure
 
+## Repository commits (master-ia)
+
+| Commit | Summary |
+| --- | --- |
+| (pending) | Step 1: keyed budget-match reducer, review policy, typed HumanResolution, confidence threshold setting |
+
 ## Pull Request
 
-To be created by `/start-task`.
+- Draft WIP: https://github.com/povedica/master-ia-lidr/pull/61
+- Branch: `feature/067-supervisor-worker-estimation-hitl`
+- Label: `wip`
 
 ## How to start
 

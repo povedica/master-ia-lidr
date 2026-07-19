@@ -1,6 +1,7 @@
 """Settings loading tests."""
 
 import pytest
+from pydantic import ValidationError
 
 import app.config as app_config
 from app.config import Settings, get_settings
@@ -277,6 +278,7 @@ def test_graph_settings_defaults() -> None:
     assert settings.graph_proposal_enabled is True
     assert settings.graph_personas_enabled is True
     assert '"medium":"medium"' in settings.graph_structure_effort_by_complexity
+    assert settings.graph_human_review_confidence_threshold == 0.70
 
 
 def test_graph_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -287,9 +289,22 @@ def test_graph_settings_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GRAPH_STRUCTURE_EFFORT_BY_COMPLEXITY",
         '{"low":"minimal","medium":"low","high":"medium"}',
     )
+    monkeypatch.setenv("GRAPH_HUMAN_REVIEW_CONFIDENCE_THRESHOLD", "0.55")
     get_settings.cache_clear()
     settings = Settings(_env_file=None)
     assert settings.graph_classifier_model == "gpt-4o-mini"
     assert settings.graph_proposal_enabled is False
     assert settings.graph_personas_enabled is False
     assert "minimal" in settings.graph_structure_effort_by_complexity
+    assert settings.graph_human_review_confidence_threshold == 0.55
+
+
+def test_graph_human_review_confidence_threshold_bounds() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, graph_human_review_confidence_threshold=-0.01)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, graph_human_review_confidence_threshold=1.01)
+    settings = Settings(_env_file=None, graph_human_review_confidence_threshold=0.0)
+    assert settings.graph_human_review_confidence_threshold == 0.0
+    settings = Settings(_env_file=None, graph_human_review_confidence_threshold=1.0)
+    assert settings.graph_human_review_confidence_threshold == 1.0
